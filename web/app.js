@@ -1060,11 +1060,24 @@ function paneHinzu(id) {
     letterSpacing: 0,
     cursorBlink: true,
     cursorStyle: 'block',
+    // Zeigt, welche Fläche den Fokus hat — bei vier nebeneinander sonst
+    // nicht erkennbar.
+    cursorInactiveStyle: 'outline',
     scrollback: 50000,
+    // Pflicht für Unicode-Erweiterung und Such-Markierungen.
     allowProposedApi: true,
     macOptionIsMeta: true,
+    // Ohne das lässt sich in tmux und vim auf macOS nichts mit der Maus
+    // auswählen — die Anwendung im Terminal verschluckt die Mausereignisse.
+    macOptionClickForcesSelection: true,
     rightClickSelectsWord: true,
     scrollSensitivity: 3,
+    // Rettet die dunkleren Skins: zu dunkle Vordergrundfarben werden
+    // aufgehellt, bis sie lesbar sind.
+    minimumContrastRatio: 4.5,
+    // Sonst zeichnet xterm fetten Text in der hellen Farbvariante und die
+    // Palette des Skins zerfällt.
+    drawBoldTextInBrightColors: false,
     theme: xtermFarben(),
   });
 
@@ -1080,14 +1093,20 @@ function paneHinzu(id) {
     if (api.fenster) Native.OpenURL?.(url); else window.open(url, '_blank', 'noopener');
   }));
 
-  // Zeichenbreiten nach Unicode 11 — sonst rutscht alles mit Emoji.
+  // Zeichenbreiten nach Unicode 11, inklusive zusammengesetzter Emoji —
+  // ohne das rutscht ab dem ersten Familien-Emoji die ganze Zeile.
   try {
-    term.loadAddon(new Unicode11Addon.Unicode11Addon());
+    term.loadAddon(new UnicodeGraphemesAddon.UnicodeGraphemesAddon());
     term.unicode.activeVersion = '11';
   } catch {}
 
-  // OSC 52: ein Programm im Terminal kann in die Zwischenablage schreiben.
-  try { term.loadAddon(new ClipboardAddon.ClipboardAddon()); } catch {}
+  // Serialisierung: sichert den Bildschirm für "Ausgabe kopieren" und für
+  // das Wiederherstellen beim Umbau der Flächen.
+  let serial = null;
+  try {
+    serial = new SerializeAddon.SerializeAddon();
+    term.loadAddon(serial);
+  } catch {}
 
   term.open(el.querySelector('.pterm'));
 
@@ -1142,7 +1161,7 @@ function paneHinzu(id) {
     if (t && t.length < 100000) navigator.clipboard.writeText(t).catch(() => {});
   });
 
-  const eintrag = { id, term, fit, suche, el };
+  const eintrag = { id, term, fit, suche, serial, el };
   panes.set(id, eintrag);
   state.panes.push(id);
 

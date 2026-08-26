@@ -34,9 +34,12 @@ import (
 	"plxr/internal/update"
 
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:web
@@ -229,11 +232,32 @@ func runWindow(info daemon.Info) {
 		MinWidth:    900,
 		MinHeight:   560,
 		AssetServer: &assetserver.Options{Assets: sub("web")},
+		// Ohne das zoomt Strg/Cmd +/- die gesamte Oberfläche. In einem Terminal
+		// soll sich die Schrift des Terminals ändern, nicht das ganze Fenster —
+		// plxr belegt die Kürzel selbst.
+		Windows: &windows.Options{
+			ZoomFactor:           1.0,
+			IsZoomControlEnabled: false,
+		},
 		// Der Rahmen bleibt vom System, aber der Hintergrund gehört dem Skin —
 		// sonst blitzt bei jedem Themewechsel Weiß durch.
 		BackgroundColour: &options.RGBA{R: 11, G: 9, B: 6, A: 1},
 		OnStartup:        app.startup,
 		Bind:             []any{app},
+		// Ohne ein natives Bearbeiten-Menü reicht WKWebView Cmd+C und Cmd+V
+		// gar nicht erst an die Seite durch — die Kürzel wären schlicht tot.
+		// Das Menü bleibt unsichtbar, solange die Titelleiste eingelassen ist;
+		// es geht allein darum, dass macOS die Kürzel kennt.
+		Menu: menu.NewMenuFromItems(
+			menu.SubMenu("plxr", menu.NewMenuFromItems(
+				menu.Text("Über plxr", nil, func(*menu.CallbackData) {}),
+				menu.Separator(),
+				menu.Text("plxr ausblenden", keys.CmdOrCtrl("h"), func(*menu.CallbackData) {}),
+				menu.Separator(),
+				menu.Text("plxr beenden", keys.CmdOrCtrl("q"), func(*menu.CallbackData) { os.Exit(0) }),
+			)),
+			menu.EditMenu(),
+		),
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
 			About: &mac.AboutInfo{

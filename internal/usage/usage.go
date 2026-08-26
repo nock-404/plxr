@@ -321,3 +321,126 @@ func lesen(pfad string) eintrag {
 	}
 	return e
 }
+
+// ---- Verbrauchstempo ----
+
+// Tempo beschreibt, wie schnell gerade Kontingent verbraucht wird.
+//
+// Claude-Abos rechnen in rollenden Fenstern — fünf Stunden und eine Woche.
+// Wer acht Agenten gleichzeitig fährt, reißt das Fünf-Stunden-Fenster, ohne
+// es kommen zu sehen. Die Zahlen dafür stehen in den Transkripten; hier
+// werden sie auf ein Tempo hochgerechnet.
+type Tempo struct {
+	// Fenster5h ist der Verbrauch der letzten fünf Stunden.
+	Fenster5h int64 `json:"fenster5h"`
+	// ProStunde ist das Tempo der letzten Stunde, hochgerechnet.
+	ProStunde int64 `json:"proStunde"`
+	// Aktive ist die Zahl der Sessions, die in der letzten Stunde etwas
+	// verbraucht haben — das erklärt das Tempo.
+	Aktive int `json:"aktive"`
+	// Trend ist "steigt", "faellt" oder "gleich", verglichen mit der Stunde davor.
+	Trend string `json:"trend"`
+}
+
+// TempoRechnen wertet nur die zuletzt geänderten Transkripte aus — alles
+// andere kann per Definition nichts zum aktuellen Tempo beitragen.
+func TempoRechnen(accs []accounts.Account) Tempo {
+	jetzt := time.Now()
+	grenze5h := jetzt.Add(-5 * time.Hour)
+	grenze1h := jetzt.Add(-time.Hour)
+	grenze2h := jetzt.Add(-2 * time.Hour)
+
+	var t Tempo
+	var vorstunde int64
+	aktive := map[string]bool{}
+	gesehen := map[string]bool{}
+
+	for _, a := range accs {
+		dirs, _ := os.ReadDir(a.ProjectsDir())
+		for _, d := range dirs {
+			if !d.IsDir() {
+				continue
+			}
+			pdir := filepath.Join(a.ProjectsDir(), d.Name())
+			files, _ := os.ReadDir(pdir)
+			for _, f := range files {
+				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") || gesehen[f.Name()] {
+					continue
+				}
+				info, err := f.Info()
+				// Wer seit über fünf Stunden nicht angefasst wurde, zählt nicht.
+				if err != nil || info.ModTime().Before(grenze5h) {
+					continue
+				}
+				gesehen[f.Name()] = true
+				pfad := filepath.Join(pdir, f.Name())
+				f5, f1, f2 := zeitfenster(pfad, grenze5h, grenze1h, grenze2h)
+				t.Fenster5h += f5
+				t.ProStunde += f1
+				vorstunde += f2
+				if f1 > 0 {
+					aktive[f.Name()] = true
+				}
+			}
+		}
+	}
+
+	t.Aktive = len(aktive)
+	switch {
+	case vorstunde == 0 && t.ProStunde > 0:
+		t.Trend = "steigt"
+	case t.ProStunde > vorstunde*6/5:
+		t.Trend = "steigt"
+	case t.ProStunde*6/5 < vorstunde:
+		t.Trend = "faellt"
+	default:
+		t.Trend = "gleich"
+	}
+	return t
+}
+
+// zeitfenster liest eine Datei von hinten und summiert drei Zeiträume.
+func zeitfenster(pfad string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
+	f, err := os.Open(pfad)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	// Nur das Ende lesen: ältere Einträge liegen per Definition außerhalb.
+	info, err := f.Stat()
+	if err != nil {
+		return
+	}
+	const fenster = 4 << 20
+	if von := info.Size() - fenster; von > 0 {
+		f.Seek(von, 0)
+	}
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 4<<20)
+	sc.Scan() // angeschnittene erste Zeile
+
+	for sc.Scan() {
+		roh := sc.Bytes()
+		if len(roh) == 0 || roh[0] != '{' {
+			continue
+		}
+		var z zeileRoh
+		if json.Unmarshal(roh, &z) != nil || z.Type != "assistant" {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, z.Timestamp)
+		if err != nil || ts.Before(g5) {
+			continue
+		}
+		u := z.Message.Usage
+		summe := int64(u.Input + u.Output + u.CacheNeu + u.CacheLesen)
+		f5 += summe
+		if ts.After(g1) {
+			f1 += summe
+		} else if ts.After(g2) {
+			f2 += summe
+		}
+	}
+	return
+}
