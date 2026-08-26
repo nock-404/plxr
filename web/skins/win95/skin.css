@@ -237,3 +237,29 @@ body {
 /* Auswahl im Startdialog. */
 .wahlknopf { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .wahlknopf[data-gewaehlt="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+
+/* Stil-Editor und Farbwahl. */
+.stilname { color: var(--dk); font-size: .92em; text-transform: none; }
+.stilzahl { color: var(--dk); }
+.stilzahl button { color: var(--dk); }
+.stilschalter { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+.stilschalter[data-an="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.farbtupfer { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.farbfeld { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.farbhex { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); color: #000; }
+
+/* Eingabefeld im Dialog. */
+.eingabefeld { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+
+/* Suche im Terminal. */
+.suche { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.suche input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; padding: 2px 4px; }
+
+/* Posteingang. */
+.postkarte { border-bottom: 1px solid #dfdfdf; }
+.postname { font-weight: bold; color: var(--accent); }
+.postort { color: var(--dim); font-size: .9em; }
+.postfrage { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  color: #000; font-family: 'Courier New', monospace; font-size: 11px; }
+.postantwort input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+.postschnell button { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }

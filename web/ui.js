@@ -140,7 +140,124 @@
     });
   }
 
+  /* ---------- Farbwahl ----------
+
+     Eigene statt <input type="color">: die native öffnet den Farbwähler des
+     Systems, und der bricht jeden Skin. Aufbau: Fläche für Sättigung und
+     Helligkeit, Regler für den Farbton, Feld für den Hex-Wert. */
+
+  function hsvNachHex(h, s, v) {
+    const f = (n) => {
+      const k = (n + h / 60) % 6;
+      const x = v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+      return Math.round(x * 255).toString(16).padStart(2, '0');
+    };
+    return '#' + f(5) + f(3) + f(1);
+  }
+
+  function hexNachHsv(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    return { h, s: max ? d / max : 0, v: max };
+  }
+
+  function farbwahl(feld, beiAenderung) {
+    const wurzel = document.createElement('div');
+    wurzel.className = 'farbwahl';
+    wurzel.innerHTML =
+      '<button type="button" class="farbtupfer"></button>' +
+      '<div class="farbfeld" hidden>' +
+      '  <div class="farbflaeche"><i class="farbpunkt"></i></div>' +
+      '  <div class="farbton"><i class="farbtonpunkt"></i></div>' +
+      '  <input class="farbhex" spellcheck="false" maxlength="7">' +
+      '</div>';
+    feld.after(wurzel);
+    feld.hidden = true;
+
+    const tupfer = $$('.farbtupfer', wurzel);
+    const kasten = $$('.farbfeld', wurzel);
+    const flaeche = $$('.farbflaeche', wurzel);
+    const punkt = $$('.farbpunkt', wurzel);
+    const ton = $$('.farbton', wurzel);
+    const tonPunkt = $$('.farbtonpunkt', wurzel);
+    const hex = $$('.farbhex', wurzel);
+
+    let hsv = hexNachHsv(feld.value) || { h: 40, s: 1, v: 1 };
+
+    const zeichnen = (melden) => {
+      const wert = hsvNachHex(hsv.h, hsv.s, hsv.v);
+      tupfer.style.background = wert;
+      flaeche.style.background =
+        `linear-gradient(to top, #000, transparent), ` +
+        `linear-gradient(to right, #fff, ${hsvNachHex(hsv.h, 1, 1)})`;
+      punkt.style.left = hsv.s * 100 + '%';
+      punkt.style.top = (1 - hsv.v) * 100 + '%';
+      tonPunkt.style.left = (hsv.h / 360) * 100 + '%';
+      if (document.activeElement !== hex) hex.value = wert;
+      feld.value = wert;
+      if (melden !== false) beiAenderung?.(wert);
+    };
+
+    const ziehen = (el, beiPunkt) => {
+      const los = (e) => {
+        const r = el.getBoundingClientRect();
+        beiPunkt(
+          Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+          Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
+        zeichnen();
+      };
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        los(e);
+        const bewegen = (ev) => los(ev);
+        const ende = () => {
+          document.removeEventListener('mousemove', bewegen);
+          document.removeEventListener('mouseup', ende);
+        };
+        document.addEventListener('mousemove', bewegen);
+        document.addEventListener('mouseup', ende);
+      });
+    };
+
+    ziehen(flaeche, (x, y) => { hsv.s = x; hsv.v = 1 - y; });
+    ziehen(ton, (x) => { hsv.h = x * 360; });
+
+    hex.addEventListener('input', () => {
+      const neu = hexNachHsv(hex.value);
+      if (neu) { hsv = neu; zeichnen(); }
+    });
+
+    tupfer.addEventListener('click', (e) => {
+      e.stopPropagation();
+      kasten.hidden = !kasten.hidden;
+      if (!kasten.hidden) zeichnen(false);
+    });
+    document.addEventListener('mousedown', (e) => {
+      if (!wurzel.contains(e.target)) kasten.hidden = true;
+    });
+
+    zeichnen(false);
+    return {
+      setzen(wert) {
+        const neu = hexNachHsv(wert);
+        if (neu) { hsv = neu; zeichnen(false); }
+      },
+    };
+  }
+
   window.plxrUI = {
+    farbwahl,
     auswahlAlle() { document.querySelectorAll('select').forEach(auswahl); },
     // Versalien wie im übrigen Markup: crt setzt text-transform, die anderen
     // Skins nicht — kleines "ja" neben großem "ABBRECHEN" fiel sofort auf.
@@ -148,5 +265,47 @@
       dialog(titel, text, [{ text: 'ABBRECHEN', wert: false }, { text: 'JA', wert: true, haupt: true }]),
     hinweis: (text, titel = 'Hinweis') =>
       dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
+
+    /* Nach einem Text fragen. Wie frage(), nur mit Eingabefeld — und hier
+       darf Enter bestätigen, weil nichts Zerstörerisches daran hängt. */
+    eingabe(text, titel = 'Eingabe', vorgabe = '') {
+      return new Promise((fertig) => {
+        if (offen) offen.remove();
+        const d = document.createElement('div');
+        offen = d;
+        d.className = 'hof';
+        d.innerHTML =
+          '<div class="karte"><b class="kartentitel"></b>' +
+          '<p class="fragetext"></p><input class="eingabefeld" spellcheck="false">' +
+          '<div class="kartenknoepfe">' +
+          '<button class="btn" data-w="0">ABBRECHEN</button>' +
+          '<button class="btn primary" data-w="1">OK</button></div></div>';
+        $$('.kartentitel', d).textContent = titel;
+        $$('.fragetext', d).textContent = text;
+        const feld = $$('.eingabefeld', d);
+        feld.value = vorgabe;
+
+        const schliessen = (wert) => {
+          d.remove();
+          offen = null;
+          document.removeEventListener('keydown', taste, true);
+          fertig(wert);
+        };
+        for (const b of d.querySelectorAll('[data-w]')) {
+          b.addEventListener('click', () => schliessen(b.dataset.w === '1' ? feld.value.trim() : null));
+        }
+        d.addEventListener('mousedown', (e) => { if (e.target === d) schliessen(null); });
+
+        function taste(e) {
+          if (e.key === 'Escape') { e.stopPropagation(); schliessen(null); }
+          if (e.key === 'Enter') { e.preventDefault(); schliessen(feld.value.trim()); }
+        }
+        document.addEventListener('keydown', taste, true);
+
+        document.body.appendChild(d);
+        feld.focus();
+        feld.select();
+      });
+    },
   };
 })();

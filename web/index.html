@@ -57,6 +57,9 @@
       <button class="railitem railhome" id="railHome">
         <span class="rdot">⊞</span><span class="rname">Übersicht</span>
       </button>
+      <button class="railitem railhome" id="railInbox">
+        <span class="rdot">◉</span><span class="rname">Posteingang</span><span class="rmeta" id="inboxCount"></span>
+      </button>
       <button class="railitem railhome" id="railPorts">
         <span class="rdot">⇄</span><span class="rname">Ports</span><span class="rmeta" id="portsCount"></span>
       </button>
@@ -93,6 +96,16 @@
           <span id="archInfo" class="meta"></span>
         </div>
         <div class="listbody" id="archList"></div>
+      </section>
+
+      <section id="viewInbox" class="liste" hidden>
+        <div class="listbar">
+          <span class="prompt">wartet&gt;</span>
+          <span id="inboxInfo" class="meta"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="inboxReload">NEU LESEN</button>
+        </div>
+        <div class="listbody" id="inboxBody"></div>
       </section>
 
       <section id="viewPorts" class="liste" hidden>
@@ -142,6 +155,16 @@
 
           <!-- Terminalflächen entstehen zur Laufzeit: ihre Zahl ändert sich. -->
           <div class="panes" id="panes"></div>
+
+          <!-- Suche im Scrollback der aktiven Fläche. -->
+          <div class="suche" id="suche" hidden>
+            <span class="prompt">suchen&gt;</span>
+            <input id="sucheFeld" spellcheck="false" placeholder="im Terminal suchen">
+            <span id="sucheStand" class="meta"></span>
+            <button class="btn tiny" id="sucheHoch" title="vorheriger Treffer (Shift+Enter)">↑</button>
+            <button class="btn tiny" id="sucheRunter" title="nächster Treffer (Enter)">↓</button>
+            <button class="btn tiny" id="sucheZu" title="schließen (Esc)">✕</button>
+          </div>
 
           <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
           <div id="rulesPane" class="ueber" hidden>
@@ -215,9 +238,12 @@
     </div>
 
     <div class="feld">
-      <span class="feldname">eigenes theme</span>
+      <span class="feldname">stil anpassen</span>
+      <div class="stil" id="stilEditor"></div>
       <span class="zeile2">
         <span id="themeHint" class="hinweis"></span>
+        <button type="button" class="btn" id="stilReset">ZURÜCKSETZEN</button>
+        <button type="button" class="btn" id="stilSpeichern">SPEICHERN</button>
         <button type="button" class="btn" id="themeImportBtn">IMPORTIEREN</button>
         <input type="file" id="themeFile" accept=".json,application/json" hidden>
       </span>
@@ -252,6 +278,11 @@
 
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/addon-fit.js"></script>
+<script src="/vendor/addon-search.js"></script>
+<script src="/vendor/addon-web-links.js"></script>
+<script src="/vendor/addon-unicode11.js"></script>
+<script src="/vendor/addon-clipboard.js"></script>
+<script src="/vendor/addon-webgl.js"></script>
 <script src="/ui.js"></script>
 <script src="/app.js"></script>
 </body>

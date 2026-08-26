@@ -10,6 +10,10 @@ export function Env() {
   return window['go']['main']['App']['Env']();
 }
 
+export function OpenURL(arg1) {
+  return window['go']['main']['App']['OpenURL'](arg1);
+}
+
 export function PickDirectory() {
   return window['go']['main']['App']['PickDirectory']();
 }

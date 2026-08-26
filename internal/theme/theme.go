@@ -34,14 +34,29 @@ type Theme struct {
 	// Schalter, die jeder Skin respektieren darf.
 	Scanlines *bool `json:"scanlines,omitempty"`
 	Glow      *bool `json:"glow,omitempty"`
+
+	// Schrift der Oberfläche und des Terminals, jeweils überschreibbar.
+	// Leer heißt: der Skin entscheidet.
+	Font     string `json:"font,omitempty"`
+	FontSize int    `json:"fontSize,omitempty"`
+	TermFont string `json:"termFont,omitempty"`
+	TermSize int    `json:"termSize,omitempty"`
+
+	// Eigen markiert ein Theme, das der Nutzer angelegt hat — nur solche
+	// dürfen überschrieben und gelöscht werden.
+	Eigen bool `json:"eigen,omitempty"`
 }
 
-// erlaubt begrenzt, welche Paletteneinträge ins CSS dürfen — ein importiertes
+// Erlaubt begrenzt, welche Paletteneinträge ins CSS dürfen — ein importiertes
 // Theme soll keine beliebigen Eigenschaften setzen können.
-var erlaubt = map[string]bool{
+//
+// term-bg und term-fg sind bewusst getrennt von bg und fg: ein heller Skin
+// braucht trotzdem ein dunkles, lesbares Terminal.
+var Erlaubt = map[string]bool{
 	"bg": true, "fg": true, "dim": true, "accent": true,
 	"working": true, "waiting": true, "blocked": true, "dead": true,
 	"panel": true, "line": true,
+	"term-bg": true, "term-fg": true,
 }
 
 func (t *Theme) valid(skins map[string]bool) error {
@@ -66,7 +81,7 @@ func (t *Theme) valid(skins map[string]bool) error {
 		return errors.New(`skin "` + t.Skin + `" gibt es nicht. Vorhanden: ` + strings.Join(known, ", "))
 	}
 	for k, v := range t.Palette {
-		if !erlaubt[k] {
+		if !Erlaubt[k] {
 			return errors.New(`unbekannter Paletteneintrag "` + k + `"`)
 		}
 		if strings.ContainsAny(v, "{};<>") {
@@ -103,6 +118,7 @@ func Skins(skinFS fs.FS) map[string]bool {
 func Load(builtin, skinFS fs.FS) []Theme {
 	skins := Skins(skinFS)
 	byName := map[string]Theme{}
+	eigen := false
 
 	add := func(b []byte) {
 		var t Theme
@@ -112,6 +128,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 		if t.valid(skins) != nil {
 			return
 		}
+		t.Eigen = eigen
 		byName[t.Name] = t
 	}
 
@@ -129,7 +146,9 @@ func Load(builtin, skinFS fs.FS) []Theme {
 	paths, _ := filepath.Glob(filepath.Join(UserDir(), "*.json"))
 	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil {
+			eigen = true
 			add(b)
+			eigen = false
 		}
 	}
 
@@ -163,4 +182,17 @@ func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 		return nil, err
 	}
 	return &t, nil
+}
+
+// Löschen entfernt ein eigenes Theme. Eingebaute bleiben unantastbar — sie
+// stecken in der Anwendung und wären nach dem nächsten Update wieder da.
+func Löschen(name string) error {
+	if strings.ContainsAny(name, `/\.`) {
+		return errors.New("unzulässiger Name")
+	}
+	p := filepath.Join(UserDir(), name+".json")
+	if _, err := os.Stat(p); err != nil {
+		return errors.New("kein eigenes Theme mit diesem Namen")
+	}
+	return os.Remove(p)
 }

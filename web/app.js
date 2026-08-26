@@ -131,6 +131,7 @@ const api = {
   beenden: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
   kontoWechseln: (id, ziel) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(ziel)}`, { method: 'POST' }),
   wiederaufnehmen: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
+  antwortSenden: (id, text) => req(`/api/sessions/${id}/antwort`, { method: 'POST', body: text }),
 
   // --- Gesamtzustand ---
   _tiles: null,
@@ -351,7 +352,8 @@ async function einstellungenOeffnen() {
   $('#settings').hidden = false;
   plxrUI.auswahlAlle();
   $('#themeHint').textContent =
-    'JSON mit skin und palette. Landet in ~/.plxr/themes und steht sofort zur Wahl.';
+    'Änderungen greifen sofort. Speichern legt ein eigenes Theme an.';
+  stilEditorBauen();
   try {
     const v = await api.fassung();
     $('#settingsVersion').textContent =
@@ -362,6 +364,157 @@ async function einstellungenOeffnen() {
   hookStandZeigen();
 }
 $('#settingsBtn').addEventListener('click', einstellungenOeffnen);
+
+/* ═════════════════════════ Stil anpassen ═════════════════════════
+
+   Ein Theme wählen reicht nicht — man will die Farbe verschieben, bis sie
+   stimmt. Änderungen greifen sofort, damit man sieht was man tut; gespeichert
+   wird erst auf Zuruf, als eigenes Theme neben den mitgelieferten. */
+
+const STILFARBEN = [
+  ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', 'Nebensächliches'],
+  ['accent', 'Hervorhebung'], ['panel', 'Flächen'], ['line', 'Linien'],
+  ['working', 'arbeitet'], ['waiting', 'wartet'],
+  ['blocked', 'braucht dich'], ['dead', 'beendet'],
+  ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
+];
+
+const stil = { aenderungen: {}, waehler: {}, fontSize: 0, termSize: 0 };
+
+function stilEditorBauen() {
+  const box = $('#stilEditor');
+  if (box.children.length) return;
+
+  for (const [schluessel, name] of STILFARBEN) {
+    const zeile = document.createElement('div');
+    zeile.className = 'stilzeile';
+    zeile.innerHTML = '<span class="stilname"></span><input class="farbwert" hidden>';
+    zeile.querySelector('.stilname').textContent = name;
+    const feld = zeile.querySelector('.farbwert');
+    feld.value = istFarbe(schluessel);
+    box.appendChild(zeile);
+    stil.waehler[schluessel] = plxrUI.farbwahl(feld, (wert) => {
+      stil.aenderungen[schluessel] = wert;
+      document.documentElement.style.setProperty('--' + schluessel, wert);
+      if (schluessel.startsWith('term-')) fuerAlleFlaechen((p) => { p.term.options.theme = xtermFarben(); });
+    });
+  }
+
+  box.appendChild(zahlZeile('Schriftgröße Oberfläche', 'fontSize', 11, 28, () => {
+    document.documentElement.style.setProperty('--size', stil.fontSize + 'px');
+  }));
+  box.appendChild(zahlZeile('Schriftgröße Terminal', 'termSize', 9, 24, () => {
+    fuerAlleFlaechen((p) => { p.term.options.fontSize = stil.termSize; paneNachmessen(p); });
+  }));
+  box.appendChild(schalterZeile('Zeilenraster', 'scan'));
+  box.appendChild(schalterZeile('Schimmer', 'glow'));
+}
+
+// Der Ist-Wert einer Farbe: erst die eigene Änderung, dann das, was gerade gilt.
+function istFarbe(schluessel) {
+  if (stil.aenderungen[schluessel]) return stil.aenderungen[schluessel];
+  const wert = cssVar(schluessel, '');
+  return /^#[0-9a-f]{6}$/i.test(wert) ? wert : rgbNachHex(wert) || '#888888';
+}
+
+function rgbNachHex(wert) {
+  const m = /rgba?\(([^)]+)\)/.exec(wert);
+  if (!m) return null;
+  const [r, g, b] = m[1].split(',').map((x) => parseInt(x.trim(), 10));
+  return '#' + [r, g, b].map((n) => (n || 0).toString(16).padStart(2, '0')).join('');
+}
+
+function zahlZeile(name, feld, min, max, anwenden) {
+  const zeile = document.createElement('div');
+  zeile.className = 'stilzeile';
+  zeile.innerHTML = '<span class="stilname"></span>' +
+    '<span class="stilzahl"><button type="button" data-r="-">−</button><span></span>' +
+    '<button type="button" data-r="+">+</button></span>';
+  zeile.querySelector('.stilname').textContent = name;
+  const anzeige = zeile.querySelector('.stilzahl span');
+
+  const jetzt = () => stil[feld] || (feld === 'fontSize'
+    ? parseFloat(getComputedStyle(document.body).fontSize)
+    : (paneListe()[0]?.term.options.fontSize || 13));
+
+  const zeigen = () => { anzeige.textContent = Math.round(jetzt()); };
+  for (const b of zeile.querySelectorAll('button')) {
+    b.addEventListener('click', () => {
+      const neu = Math.min(max, Math.max(min, Math.round(jetzt()) + (b.dataset.r === '+' ? 1 : -1)));
+      stil[feld] = neu;
+      anwenden();
+      zeigen();
+    });
+  }
+  zeigen();
+  return zeile;
+}
+
+function schalterZeile(name, welcher) {
+  const zeile = document.createElement('div');
+  zeile.className = 'stilzeile';
+  zeile.innerHTML = '<span class="stilname"></span><button type="button" class="stilschalter"></button>';
+  zeile.querySelector('.stilname').textContent = name;
+  const knopf = zeile.querySelector('.stilschalter');
+  const lesen = () => document.documentElement.dataset[welcher] !== 'off';
+  const zeigen = () => {
+    knopf.dataset.an = lesen() ? 'ja' : 'nein';
+    knopf.textContent = lesen() ? 'AN' : 'AUS';
+  };
+  knopf.addEventListener('click', () => {
+    document.documentElement.dataset[welcher] = lesen() ? 'off' : 'on';
+    stil.aenderungen['_' + welcher] = !lesen() ? false : true;
+    zeigen();
+  });
+  zeigen();
+  return zeile;
+}
+
+const fuerAlleFlaechen = (fn) => { for (const p of paneListe()) { try { fn(p); } catch {} } };
+
+$('#stilReset').addEventListener('click', () => {
+  stil.aenderungen = {};
+  stil.fontSize = 0;
+  stil.termSize = 0;
+  document.documentElement.style.cssText = '';
+  themeAnwenden(aktuellesTheme());
+  $('#stilEditor').innerHTML = '';
+  setTimeout(stilEditorBauen, 300);
+});
+
+$('#stilSpeichern').addEventListener('click', async () => {
+  const basis = aktuellesTheme();
+  const name = await plxrUI.eingabe(
+    'Unter welchem Namen? Kleinbuchstaben und Bindestriche.',
+    'Eigenes Theme speichern', (basis?.name || 'mein') + '-eigen');
+  if (!name) return;
+
+  const sauber = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const palette = { ...(basis?.palette || {}) };
+  for (const [k, v] of Object.entries(stil.aenderungen)) {
+    if (!k.startsWith('_')) palette[k] = v;
+  }
+
+  const theme = {
+    name: sauber,
+    label: name,
+    skin: basis?.skin || 'crt',
+    palette,
+    scanlines: document.documentElement.dataset.scan !== 'off',
+    glow: document.documentElement.dataset.glow !== 'off',
+  };
+  if (stil.fontSize) theme.fontSize = stil.fontSize;
+  if (stil.termSize) theme.termSize = stil.termSize;
+
+  try {
+    await api.themeImport(JSON.stringify(theme));
+    await themesLaden(sauber);
+    stil.aenderungen = {};
+    plxrUI.hinweis(`„${name}" steht jetzt in der Liste und liegt unter ~/.plxr/themes.`, 'Gespeichert');
+  } catch (e) {
+    plxrUI.hinweis(e.message || String(e), 'Nicht gespeichert');
+  }
+});
 $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = true; });
 
 async function hookStandZeigen() {
@@ -410,6 +563,7 @@ $('#themeFile').addEventListener('change', async (e) => {
 /* Eine Stelle bestimmt, was sichtbar ist. Vorher lag das über mehrere
    Funktionen verstreut und lief regelmäßig auseinander. */
 const ANSICHTEN = [
+  ['#railInbox', '#viewInbox'],
   ['#railPorts', '#viewPorts'],
   ['#railUsage', '#viewUsage'],
   ['#railArchive', '#viewArchive'],
@@ -441,6 +595,107 @@ async function zeigeArchiv() {
   await archivLaden();
 }
 $('#railArchive').addEventListener('click', zeigeArchiv);
+
+/* ═════════════════════════ Posteingang ═════════════════════════
+
+   Der Grund, warum es plxr gibt: acht Agenten laufen, drei warten auf eine
+   Antwort, und man weiß nicht welche. Hier stehen sie alle mit ihrer Frage —
+   antworten, weiter zur nächsten, ohne eine einzige Session zu öffnen. */
+
+const SCHNELLANTWORT = [
+  { text: '1', label: '1' },
+  { text: '2', label: '2' },
+  { text: 'y', label: 'y' },
+  { text: 'n', label: 'n' },
+  { text: '', label: 'Eingabe' },   // nur bestätigen
+  { text: '\u001b', label: 'Esc' },
+];
+
+async function zeigeInbox() {
+  nurZeigen('#viewInbox');
+  zeichneSchiene();
+  inboxZeichnen();
+}
+$('#railInbox').addEventListener('click', zeigeInbox);
+$('#inboxReload').addEventListener('click', () => inboxZeichnen());
+
+function wartende() {
+  return state.tiles.filter((t) => t.alive && t.status === 'permission');
+}
+
+function inboxZeichnen() {
+  const liste = wartende();
+  const box = $('#inboxBody');
+  $('#inboxInfo').textContent =
+    liste.length ? `${liste.length} ${liste.length === 1 ? 'Session wartet' : 'Sessions warten'} auf dich` : '';
+
+  if (!liste.length) {
+    leerZeigen(box, 'niemand wartet',
+      'Keine Session hängt gerade an einer Rückfrage. Sobald eine wartet, ' +
+      'steht sie hier mit ihrer Frage — antworten ohne sie zu öffnen.');
+    return;
+  }
+
+  // Vorhandene Karten aktualisieren statt neu bauen, sonst verliert das
+  // Antwortfeld bei jedem Tick den Fokus und das Getippte.
+  const gesehen = new Set();
+  for (const t of liste) {
+    gesehen.add(t.id);
+    let karte = box.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
+    if (!karte) {
+      karte = document.createElement('div');
+      karte.className = 'postkarte';
+      karte.dataset.id = t.id;
+      karte.innerHTML =
+        '<div class="postkopf"><span class="dot permission">◉</span>' +
+        '<b class="postname"></b><span class="postort"></span>' +
+        '<button class="btn tiny" data-t="oeffnen">ÖFFNEN</button></div>' +
+        '<pre class="postfrage"></pre>' +
+        '<div class="postantwort"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
+        '<span class="postschnell"></span></div>';
+
+      karte.querySelector('[data-t="oeffnen"]').addEventListener('click', () => sessionOeffnen(t.id));
+
+      const feld = karte.querySelector('.postantwort input');
+      feld.addEventListener('keydown', async (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        await antworten(t.id, feld.value);
+        feld.value = '';
+      });
+
+      const schnell = karte.querySelector('.postschnell');
+      for (const a of SCHNELLANTWORT) {
+        const b = document.createElement('button');
+        b.textContent = a.label;
+        b.title = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
+        b.addEventListener('click', () => antworten(t.id, a.text, a.text === '\u001b'));
+        schnell.appendChild(b);
+      }
+      box.appendChild(karte);
+    }
+
+    karte.querySelector('.postname').textContent = t.title || t.name;
+    karte.querySelector('.postort').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
+    const frage = karte.querySelector('.postfrage');
+    const neu = t.frage || t.activity || '(keine Frage erkannt)';
+    if (frage.textContent !== neu) frage.textContent = neu;
+  }
+  for (const el of [...box.querySelectorAll('.postkarte')]) {
+    if (!gesehen.has(el.dataset.id)) el.remove();
+  }
+}
+
+async function antworten(id, text, roh) {
+  try {
+    await api.antwortSenden(id, roh ? text : text);
+    // Kurz warten, dann neu lesen: die Session braucht einen Moment, bis sie
+    // den Status ändert.
+    setTimeout(() => { if (!$('#viewInbox').hidden) inboxZeichnen(); }, 900);
+  } catch (e) {
+    plxrUI.hinweis(e.message || String(e), 'Nicht gesendet');
+  }
+}
 
 async function zeigePorts() {
   paneAlleSchliessen();
@@ -596,6 +851,12 @@ function zeichneAlles(tiles) {
   const laufen = state.tiles.filter((t) => t.alive).length;
   const blockiert = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
   const verwaist = state.tiles.filter((t) => t.verwaist).length;
+  // Zähler an der Schiene, damit man auch aus einer Session heraus sieht,
+  // dass jemand wartet.
+  const wartet = blockiert;
+  $('#inboxCount').textContent = wartet || '';
+  $('#railInbox').dataset.status = wartet ? 'permission' : '';
+  if (!$('#viewInbox').hidden) inboxZeichnen();
   if (verbindungOk) {
     $('#counts').textContent =
       `${state.tiles.length} sessions · ${laufen} laufen` +
@@ -784,17 +1045,104 @@ function paneHinzu(id) {
   el.addEventListener('mousedown', () => paneAktiv(id));
   $('#panes').appendChild(el);
 
+  /* Der Terminal-Aufbau. Die Voreinstellungen von xterm.js reichen für ein
+     Spielzeug, nicht für tägliche Arbeit — deshalb hier jede Option bewusst.
+
+     allowProposedApi ist Pflicht für die Unicode-Erweiterung; ohne sie sind
+     Emoji und CJK-Zeichen einen Halbschritt zu schmal und der Cursor läuft
+     aus dem Ruder. macOptionIsMeta macht Alt+Taste zu einer Meta-Eingabe,
+     wie es Shells erwarten. rightClickSelectsWord entspricht dem, was man von
+     anderen Terminals kennt. */
   const term = new Terminal({
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 13, cursorBlink: true, scrollback: 10000,
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    fontSize: stil.termSize || 13,
+    lineHeight: 1.15,
+    letterSpacing: 0,
+    cursorBlink: true,
+    cursorStyle: 'block',
+    scrollback: 50000,
+    allowProposedApi: true,
+    macOptionIsMeta: true,
+    rightClickSelectsWord: true,
+    scrollSensitivity: 3,
     theme: xtermFarben(),
   });
+
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
+
+  // Suche im Scrollback.
+  const suche = new SearchAddon.SearchAddon();
+  term.loadAddon(suche);
+
+  // Anklickbare Adressen. Ohne das muss man jede URL von Hand abtippen.
+  term.loadAddon(new WebLinksAddon.WebLinksAddon((_, url) => {
+    if (api.fenster) Native.OpenURL?.(url); else window.open(url, '_blank', 'noopener');
+  }));
+
+  // Zeichenbreiten nach Unicode 11 — sonst rutscht alles mit Emoji.
+  try {
+    term.loadAddon(new Unicode11Addon.Unicode11Addon());
+    term.unicode.activeVersion = '11';
+  } catch {}
+
+  // OSC 52: ein Programm im Terminal kann in die Zwischenablage schreiben.
+  try { term.loadAddon(new ClipboardAddon.ClipboardAddon()); } catch {}
+
   term.open(el.querySelector('.pterm'));
+
+  /* WebGL erst nach open(). Bei Kontextverlust — etwa wenn das System die
+     Grafikkarte umschaltet — muss die Erweiterung weg, sonst bleibt die
+     Fläche schwarz. */
+  try {
+    const webgl = new WebglAddon.WebglAddon();
+    webgl.onContextLoss(() => { try { webgl.dispose(); } catch {} });
+    term.loadAddon(webgl);
+  } catch {}
+
   term.onData((d) => api.tippen(id, d));
 
-  const eintrag = { id, term, fit, el };
+  /* Tastenkürzel im Terminal.
+
+     Der Konflikt, den jedes Terminal lösen muss: Strg+C ist das Abbruch-
+     signal, nicht "Kopieren". Die verbreitete Lösung — iTerm2, Windows
+     Terminal, GNOME — ist Strg+Shift+C zum Kopieren, und auf macOS Cmd+C,
+     weil Cmd dort ohnehin frei ist. Beides ist hier belegt.
+
+     Rückgabe false heißt: xterm.js soll die Taste NICHT an die Session
+     schicken. */
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== 'keydown') return true;
+    const cmd = e.metaKey && !e.ctrlKey;
+    const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
+
+    // Kopieren, nur wenn wirklich etwas ausgewählt ist — sonst soll Strg+C
+    // sein Abbruchsignal senden dürfen.
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'c' && term.hasSelection()) {
+      navigator.clipboard.writeText(term.getSelection()).catch(() => {});
+      return false;
+    }
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'v') {
+      navigator.clipboard.readText().then((t) => t && api.tippen(id, t)).catch(() => {});
+      return false;
+    }
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'a') {
+      term.selectAll();
+      return false;
+    }
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'f') { sucheOeffnen(); return false; }
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'k') { term.clear(); return false; }
+    return true;
+  });
+
+  // Mit der Maus ausgewählter Text wandert sofort in die Zwischenablage —
+  // wie in jedem Terminal seit X11.
+  term.onSelectionChange(() => {
+    const t = term.getSelection();
+    if (t && t.length < 100000) navigator.clipboard.writeText(t).catch(() => {});
+  });
+
+  const eintrag = { id, term, fit, suche, el };
   panes.set(id, eintrag);
   state.panes.push(id);
 
@@ -890,6 +1238,99 @@ $('#sessKill').addEventListener('click', async () => {
   paneSchliessen(state.aktiv);
 });
 
+/* ═════════════════════════ Suche im Terminal ═════════════════════════ */
+
+const sucheStand = { treffer: 0, aktuell: 0 };
+
+function sucheOeffnen() {
+  if (!state.aktiv) return;
+  $('#suche').hidden = false;
+  $('#sucheFeld').focus();
+  $('#sucheFeld').select();
+}
+
+function sucheSchliessen() {
+  $('#suche').hidden = true;
+  const p = panes.get(state.aktiv);
+  try { p?.suche.clearDecorations(); } catch {}
+  p?.term.focus();
+}
+
+function suchen(rueckwaerts) {
+  const p = panes.get(state.aktiv);
+  if (!p) return;
+  const q = $('#sucheFeld').value;
+  if (!q) { $('#sucheStand').textContent = ''; return; }
+
+  const opt = {
+    decorations: {
+      // Farben aus dem Skin, damit die Treffer nicht wie ein Fremdkörper
+      // aussehen.
+      matchBackground: cssVar('dim', '#666'),
+      activeMatchBackground: cssVar('accent', '#fc0'),
+      matchOverviewRuler: cssVar('dim', '#666'),
+      activeMatchColorOverviewRuler: cssVar('accent', '#fc0'),
+    },
+  };
+  const gefunden = rueckwaerts ? p.suche.findPrevious(q, opt) : p.suche.findNext(q, opt);
+  $('#sucheStand').textContent = gefunden ? '' : 'nichts gefunden';
+}
+
+$('#sucheFeld').addEventListener('input', () => suchen(false));
+$('#sucheFeld').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); suchen(e.shiftKey); }
+  if (e.key === 'Escape') { e.preventDefault(); sucheSchliessen(); }
+});
+$('#sucheHoch').addEventListener('click', () => suchen(true));
+$('#sucheRunter').addEventListener('click', () => suchen(false));
+$('#sucheZu').addEventListener('click', sucheSchliessen);
+
+/* ═════════════════════════ Tastenkürzel ═════════════════════════
+
+   Bewusst nur, was sich überall durchgesetzt hat. Nicht abgefangen werden
+   Cmd+Q, Cmd+M, Cmd+H und die Bewegung zwischen Fenstern — die gehören dem
+   System, und ein Programm, das sie schluckt, fühlt sich falsch an. */
+
+const KUERZEL = [
+  ['t', () => $('#newBtn').click(),                     'neue Session'],
+  ['w', () => state.aktiv && paneSchliessen(state.aktiv), 'Fläche schließen'],
+  ['f', sucheOeffnen,                                    'suchen'],
+  ['d', () => $('#splitAdd').click(),                    'teilen'],
+  [',', einstellungenOeffnen,                            'Einstellungen'],
+  ['0', () => schriftAendern(0),                         'Schrift zurücksetzen'],
+  ['+', () => schriftAendern(1),                         'Schrift größer'],
+  ['=', () => schriftAendern(1),                         'Schrift größer'],
+  ['-', () => schriftAendern(-1),                        'Schrift kleiner'],
+];
+
+function schriftAendern(richtung) {
+  const jetzt = stil.termSize || paneListe()[0]?.term.options.fontSize || 13;
+  stil.termSize = richtung === 0 ? 13 : Math.min(28, Math.max(8, jetzt + richtung));
+  fuerAlleFlaechen((p) => { p.term.options.fontSize = stil.termSize; paneNachmessen(p); });
+}
+
+document.addEventListener('keydown', (e) => {
+  const cmd = e.metaKey && !e.ctrlKey && !e.altKey;
+  const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
+  if (!cmd && !strgUmschalt) return;
+
+  // Cmd+1..9 springt zur Session an dieser Stelle in der Schiene.
+  if (cmd && /^[1-9]$/.test(e.key)) {
+    const alle = [...$('#railList').querySelectorAll('.railitem[data-id]')];
+    const ziel = alle[parseInt(e.key, 10) - 1];
+    if (ziel) { e.preventDefault(); ziel.click(); }
+    return;
+  }
+
+  const treffer = KUERZEL.find(([taste]) => taste === e.key.toLowerCase());
+  if (!treffer) return;
+  // In einem Eingabefeld gelten die üblichen Bearbeitungskürzel weiter.
+  const imFeld = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
+  if (imFeld && !['f', ','].includes(e.key.toLowerCase())) return;
+  e.preventDefault();
+  treffer[1]();
+});
+
 $('#filesToggle').addEventListener('click', () => {
   const f = $('#files');
   f.hidden = !f.hidden;
@@ -934,6 +1375,7 @@ for (const d of DIALOGE) {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   for (const d of DIALOGE) if (!$(d).hidden) { $(d).hidden = true; return; }
+  if (!$('#suche').hidden) { sucheSchliessen(); return; }
   if (!$('#viewer').hidden) { viewerSchliessen(); return; }
   if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
   if (state.panes.length) zeigeRaster();

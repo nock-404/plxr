@@ -289,3 +289,36 @@ body {
 .wahlknopf { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
 .wahlknopf:hover { border-color: var(--accent); color: var(--accent); }
 .wahlknopf[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
+
+/* Stil-Editor und Farbwahl. */
+.stilname { color: var(--dim); font-size: .78em; text-transform: none; letter-spacing: .04em; }
+.stilzahl { color: var(--fg); font-size: .8em; }
+.stilzahl button { color: var(--dim); }
+.stilzahl button:hover { color: var(--accent); }
+.stilschalter { border: 1px solid var(--dim); color: var(--dim); font-size: .76em; letter-spacing: .1em; }
+.stilschalter[data-an="ja"] { border-color: var(--accent); color: var(--accent); }
+.farbtupfer { border: 1px solid var(--dim); }
+.farbtupfer:hover { border-color: var(--accent); }
+.farbfeld { background: var(--bg); border: 1px solid var(--accent); }
+.farbhex { background: transparent; border: 1px solid var(--dim); text-shadow: inherit; text-align: center; }
+
+/* Eingabefeld im Dialog. */
+.eingabefeld { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
+.eingabefeld:focus { border-color: var(--accent); }
+
+/* Suche im Terminal. */
+.suche { background: var(--bg); border: 1px solid var(--accent); }
+.suche input { background: transparent; border: 0; outline: none; border-bottom: 1px solid var(--dim); text-shadow: inherit; }
+.suche input:focus { border-color: var(--accent); }
+
+/* Posteingang. */
+.postkarte { border-bottom: 1px solid var(--line); }
+.postkarte:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.postname { color: var(--accent); }
+.postort { color: var(--dim); font-size: .8em; }
+.postfrage { background: var(--panel); border: 1px solid var(--line); color: var(--fg);
+  font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.45; }
+.postantwort input { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
+.postantwort input:focus { border-color: var(--accent); }
+.postschnell button { border: 1px solid var(--dim); color: var(--dim); font-size: .78em; letter-spacing: .08em; }
+.postschnell button:hover { border-color: var(--accent); color: var(--accent); }

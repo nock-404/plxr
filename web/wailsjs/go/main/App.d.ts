@@ -6,4 +6,6 @@ export function Daemon():Promise<main.DaemonInfo>;
 
 export function Env():Promise<main.Env>;
 
+export function OpenURL(arg1:string):Promise<void>;
+
 export function PickDirectory():Promise<string>;

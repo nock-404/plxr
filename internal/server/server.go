@@ -46,6 +46,18 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/sessions", s.listSessions)
 	mux.HandleFunc("POST /api/sessions", s.createSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.killSession)
+	mux.HandleFunc("POST /api/sessions/{id}/antwort", func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.Antworten(r.PathValue("id"), string(b)); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/shell", func(w http.ResponseWriter, r *http.Request) {
 		cmd := shell.Standard()
 		writeJSON(w, map[string]any{"cmd": cmd, "name": shell.Name(cmd)})

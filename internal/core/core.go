@@ -39,6 +39,53 @@ import (
 type Tile struct {
 	session.Session
 	Preview string `json:"preview"`
+	// Frage ist der Teil des Bildschirms, der die Rückfrage enthält — für den
+	// Posteingang, damit man antworten kann, ohne die Session zu öffnen.
+	Frage string `json:"frage,omitempty"`
+}
+
+// frageAus schneidet aus dem Bildschirm heraus, was nach einer Rückfrage
+// aussieht.
+//
+// Ein Agent, der wartet, hat die Frage üblicherweise als Letztes geschrieben,
+// oft mit nummerierten Antwortmöglichkeiten darunter. Wir nehmen ab der
+// letzten Leerzeile vor dem ersten Fragezeichen — das trifft die üblichen
+// Formen, ohne den halben Bildschirm mitzuschleppen.
+func frageAus(schirm string) string {
+	zeilen := strings.Split(strings.TrimRight(schirm, "\n"), "\n")
+	if len(zeilen) == 0 {
+		return ""
+	}
+	// Von hinten die letzte Zeile mit Fragezeichen oder Auswahlmarke suchen.
+	ende := len(zeilen)
+	start := -1
+	for i := len(zeilen) - 1; i >= 0 && i > len(zeilen)-18; i-- {
+		l := strings.TrimSpace(zeilen[i])
+		if l == "" {
+			if start >= 0 {
+				start = i + 1
+				break
+			}
+			continue
+		}
+		if start < 0 && (strings.Contains(l, "?") ||
+			strings.HasPrefix(l, "❯") || strings.HasPrefix(l, ">") ||
+			strings.Contains(l, "[y/N]") || strings.Contains(l, "(y/n)")) {
+			start = i
+		}
+	}
+	if start < 0 {
+		// Keine erkennbare Frage: die letzten Zeilen reichen als Anhaltspunkt.
+		start = len(zeilen) - 6
+		if start < 0 {
+			start = 0
+		}
+	}
+	teil := strings.Join(zeilen[start:ende], "\n")
+	if len(teil) > 900 {
+		teil = teil[len(teil)-900:]
+	}
+	return strings.TrimSpace(teil)
 }
 
 type Core struct {
@@ -142,6 +189,22 @@ func (c *Core) Kill(id string, purge bool) {
 		delete(c.hosts, id)
 		c.mu.Unlock()
 	}
+}
+
+// Antworten schickt Text an eine Session, ohne dass ein Terminal offen ist.
+//
+// Der Posteingang lebt davon: acht Agenten, drei warten — man will sie
+// abarbeiten, nicht jede einzeln öffnen.
+func (c *Core) Antworten(id, text string) error {
+	h := c.Host(id)
+	if h == nil {
+		return errors.New("Session läuft nicht")
+	}
+	if !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
+		text += "\r"
+	}
+	_, err := h.Write([]byte(text))
+	return err
 }
 
 func (c *Core) Host(id string) *ptyhost.Host {
@@ -527,7 +590,11 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 			}
 		}
 
-		out = append(out, Tile{Session: sess, Preview: screen})
+		t := Tile{Session: sess, Preview: screen}
+		if sess.Alive && sess.Status == session.StatusPermission {
+			t.Frage = frageAus(screen)
+		}
+		out = append(out, t)
 		c.checkEdge(sess)
 	}
 	return out

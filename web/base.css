@@ -251,7 +251,7 @@ html, body {
 
 .hof { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; }
 .karte { width: min(560px, 92vw); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
-.karte.breit { width: min(640px, 94vw); gap: 18px; }
+.karte.breit { width: min(780px, 94vw); gap: 18px; max-height: 88vh; overflow-y: auto; }
 .btn.icon { padding: 3px 9px; }
 .hinweis { flex: 1; min-width: 0; }
 .fusszeile { display: flex; align-items: center; gap: 10px; }
@@ -312,3 +312,53 @@ html, body {
    sieht sofort alle. */
 .wahl { display: flex; flex-wrap: wrap; gap: 6px; }
 .wahlknopf { cursor: pointer; font: inherit; color: inherit; padding: 4px 12px; border: 0; background: none; }
+
+/* --- Stil-Editor --- */
+/* Zwei Spalten mit genug Platz: bei drei schneidet jede Beschriftung ab. */
+.stil { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 6px 24px; }
+.stilzeile { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 2px 0; }
+.stilname { flex: 1; min-width: 0; }
+.stilzahl { flex: 0 0 auto; display: flex; align-items: center; gap: 4px; }
+.stilzahl button { width: 22px; cursor: pointer; font: inherit; color: inherit; background: none; border: 0; }
+.stilzahl span { min-width: 34px; text-align: center; }
+.stilschalter { cursor: pointer; font: inherit; color: inherit; background: none; border: 0; padding: 2px 10px; }
+
+/* --- Eigene Farbwahl --- */
+.farbwahl { position: relative; flex: 0 0 auto; }
+.farbtupfer { width: 26px; height: 18px; cursor: pointer; border: 0; padding: 0; }
+.farbfeld {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 210;
+  width: 200px; padding: 9px; display: flex; flex-direction: column; gap: 8px;
+}
+/* Bei den unteren Zeilen nach oben klappen, sonst steht er außerhalb der Karte. */
+.stil > .stilzeile:nth-last-child(-n+4) .farbfeld { top: auto; bottom: calc(100% + 6px); }
+.farbflaeche { position: relative; height: 110px; cursor: crosshair; }
+.farbpunkt, .farbtonpunkt { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5); pointer-events: none; }
+.farbton { position: relative; height: 12px; cursor: pointer;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.farbtonpunkt { top: 50%; }
+.farbhex { font: inherit; color: inherit; padding: 3px 6px; width: 100%; }
+
+/* Eingabefeld im Dialog. */
+.eingabefeld { font: inherit; color: inherit; padding: 5px 8px; width: 100%; }
+
+/* Suche im Terminal: schwebt über der Fläche, oben rechts. */
+.suche {
+  position: absolute; top: 10px; right: 18px; z-index: 6;
+  display: flex; align-items: center; gap: 6px; padding: 5px 8px;
+}
+.suche input { font: inherit; color: inherit; width: 220px; }
+.suche[hidden] { display: none !important; }
+
+/* --- Posteingang ---
+   Jede wartende Session als Karte: wer fragt, was er fragt, und das Feld für
+   die Antwort. Alles auf einem Schirm, damit man sie durcharbeiten kann. */
+.postkarte { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.postkopf { display: flex; align-items: center; gap: 10px; }
+.postname { flex: 0 0 auto; }
+.postort { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.postfrage { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; padding: 8px 10px; }
+.postantwort { display: flex; gap: 8px; align-items: center; }
+.postantwort input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 5px 8px; }
+.postschnell { display: flex; gap: 6px; flex-wrap: wrap; }
+.postschnell button { cursor: pointer; font: inherit; color: inherit; background: none; border: 0; padding: 2px 10px; }

@@ -31,6 +31,10 @@ NUR_LAYOUT = {
     'zeile2', 'griff', 'feld',
     'auswahl', 'auswahlText',       # Hülle ohne eigenes Aussehen
     'pfadListe',                    # erbt alles von .auswahlListe
+    'farbwert',                     # verstecktes Feld, hält nur den Wert
+    'stil', 'stilzeile',            # Raster im Editor
+    'farbwahl', 'farbflaeche', 'farbton', 'farbpunkt', 'farbtonpunkt',
+    'wahl',                         # Behälter der Startauswahl
 }
 
 def klassen_aus_js():

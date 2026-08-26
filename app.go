@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 
 	"plxr/internal/daemon"
 
@@ -57,6 +58,17 @@ func (a *App) Env() Env {
 		Platform:      info.Platform,
 		Arch:          info.Arch,
 		TitlebarInset: info.Platform == "darwin",
+	}
+}
+
+// OpenURL öffnet eine Adresse im Standardbrowser.
+//
+// Nötig, weil ein Klick auf eine URL im Terminal sonst versuchen würde, sie
+// IM Fenster zu öffnen — und damit die Anwendung durch eine fremde Seite
+// ersetzt.
+func (a *App) OpenURL(url string) {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		wr.BrowserOpenURL(a.ctx, url)
 	}
 }
 
