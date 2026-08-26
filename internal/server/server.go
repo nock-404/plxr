@@ -62,6 +62,16 @@ func (s *Server) Routes() *http.ServeMux {
 		q := r.URL.Query()
 		writeJSON(w, s.c.Rules(q.Get("session"), q.Get("dir")))
 	})
+	mux.HandleFunc("GET /api/hook", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.HookStand())
+	})
+	mux.HandleFunc("POST /api/hook", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.HookSetzen(r.URL.Query().Get("an") == "1"); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, s.c.HookStand())
+	})
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.VersionStand())
 	})
@@ -80,6 +90,9 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/ports", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Ports()) })
 	mux.HandleFunc("DELETE /api/ports/{pid}", s.killPort)
 	mux.HandleFunc("GET /api/files/{id}", s.listDir)
+	mux.HandleFunc("GET /api/paths", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Vorschlaege(r.URL.Query().Get("q")))
+	})
 	mux.HandleFunc("GET /api/file/{id}", s.readFile)
 	mux.HandleFunc("PUT /api/file/{id}", s.writeFile)
 	mux.HandleFunc("GET /ws/tiles", s.wsTiles)

@@ -7,12 +7,16 @@ import (
 	"syscall"
 )
 
-// killProcess beendet die gesamte Prozessgruppe. go-pty startet das Kind mit
-// eigener Session, deshalb ist die Gruppen-ID gleich der Prozess-ID; das
-// negative Vorzeichen adressiert die Gruppe.
-func killProcess(p *os.Process) {
+// nachStart hat unter Unix nichts zu tun: go-pty startet das Kind mit eigener
+// Session, damit ist die Prozessgruppe schon da.
+func nachStart(*os.Process) any { return nil }
+
+// killProcess beendet die gesamte Prozessgruppe. Die Gruppen-ID ist gleich der
+// Prozess-ID; das negative Vorzeichen adressiert die Gruppe. Ohne das
+// überlebt etwa der node-Enkel von `npm run dev` und hält seinen Port.
+func killProcess(p *os.Process, _ any) {
 	if err := syscall.Kill(-p.Pid, syscall.SIGTERM); err != nil {
-		// Keine eigene Gruppe (oder schon weg): dann eben nur den Prozess.
+		// Keine eigene Gruppe oder schon weg: dann eben nur den Prozess.
 		_ = p.Signal(syscall.SIGTERM)
 	}
 }

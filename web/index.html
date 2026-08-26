@@ -24,10 +24,7 @@
     </div>
 
     <div class="tools">
-      <select id="themeSel" title="Theme"></select>
-      <label class="btn" title="Theme-JSON importieren">
-        IMPORT<input type="file" id="themeFile" accept=".json,application/json" hidden>
-      </label>
+      <button class="btn icon" id="settingsBtn" title="Einstellungen">⚙</button>
       <button class="btn primary" id="newBtn">+ NEU</button>
     </div>
   </header>
@@ -126,7 +123,7 @@
           <button class="btn" id="rulesToggle" title="Welche CLAUDE.md, Skills und Agenten hier wirken">REGELN</button>
           <button class="btn" id="splitAdd" title="Weitere Session daneben legen">TEILEN</button>
           <select id="sessAccount" title="Konto wechseln"></select>
-          <button class="btn" id="sessKill">STOP</button>
+          <button class="btn" id="sessKill">BEENDEN</button>
         </div>
 
         <div class="sesssplit">
@@ -147,7 +144,7 @@
               <span class="uebername">Regeln</span>
               <span id="rulesMeta" class="meta"></span>
               <span class="spacer"></span>
-              <button class="btn" id="rulesClose">ZURÜCK ZUM TERMINAL</button>
+              <button class="btn" id="rulesClose">ZURÜCK</button>
             </div>
             <div id="rulesBody" class="ruleslist"></div>
           </div>
@@ -193,6 +190,41 @@
       <button type="submit" class="btn primary">STARTEN</button>
     </div>
   </form>
+</div>
+
+<!-- Einstellungen -->
+<div id="settings" class="hof" hidden>
+  <div class="karte breit">
+    <b class="kartentitel">einstellungen</b>
+
+    <div class="feld">
+      <span class="feldname">aussehen</span>
+      <select id="themeSel" title="Theme"></select>
+    </div>
+
+    <div class="feld">
+      <span class="feldname">eigenes theme</span>
+      <span class="zeile2">
+        <span id="themeHint" class="hinweis"></span>
+        <button type="button" class="btn" id="themeImportBtn">IMPORTIEREN</button>
+        <input type="file" id="themeFile" accept=".json,application/json" hidden>
+      </span>
+    </div>
+
+    <div class="feld">
+      <span class="feldname">claude code</span>
+      <span class="zeile2">
+        <span id="hookHint" class="hinweis"></span>
+        <button type="button" class="btn" id="hookBtn"></button>
+      </span>
+    </div>
+
+    <div class="fusszeile">
+      <span id="settingsVersion" class="hinweis"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="settingsClose">FERTIG</button>
+    </div>
+  </div>
 </div>
 
 <!-- Session für die geteilte Fläche wählen -->

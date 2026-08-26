@@ -4,7 +4,7 @@ Leitstand für Coding-CLI-Sessions. Startet `claude`, `codex`, `opencode`,
 `aider` und Verwandte in Pseudo-Terminals, die einem Hintergrundprozess gehören
 statt einem Terminalfenster, und zeigt alle gleichzeitig in einem Fenster.
 
-![Skins](docs/skins.png)
+![plxr](docs/crt.jpg)
 
 ## Wozu
 
@@ -62,6 +62,20 @@ go run . --serve
 Der Kern kompiliert für macOS, Windows und Linux. Die Fensterschicht baut auf
 jedem System selbst, weil Wails gegen dessen Webview linkt.
 
+## Was drin ist
+
+- **Übersicht** — alle Sessions als Kacheln mit lebender Vorschau, Schiene
+  links nach Projekt gruppiert, bleibt auch in einer Session stehen
+- **Session** — bis zu vier Terminalflächen nebeneinander, Dateibaum mit
+  Editor, die aufgelöste CLAUDE.md-Kette
+- **Archiv** — abgelegte Unterhaltungen über alle Konten hinweg, mit
+  Volltextsuche über den kompletten Verlauf
+- **Ports** — was lauscht, und der Weg, es zu beenden
+- **Verbrauch** — Token nach Tag, Projekt und Modell, aus den Transkripten
+  gerechnet statt über eine API
+- **Einstellungen** — Zahnrad oben rechts: Aussehen, eigene Themes, Anbindung
+  an Claude Code, Fassung
+
 ## Konten
 
 Wer mehrere Claude-Zugänge über `CLAUDE_CONFIG_DIR` fährt, sieht sie unter
@@ -87,7 +101,13 @@ Ein neues CLI kommt als JSON dazu, ohne Neubau.
 
 Ein Theme wählt einen Skin — eine ganze visuelle Sprache, nicht nur Farben —
 und darf dessen Palette überschreiben. Mitgeliefert: `crt`, `win95`, `pixel`,
-`sketch`. Eigene Themes landen in `~/.plxr/themes/*.json`.
+`sketch`.
+
+| | |
+|---|---|
+| ![Pixel](docs/pixel.jpg) | ![Skizze](docs/sketch.jpg) |
+
+Eigene Themes landen in `~/.plxr/themes/*.json`:
 
 ```json
 {
@@ -97,6 +117,10 @@ und darf dessen Palette überschreiben. Mitgeliefert: `crt`, `win95`, `pixel`,
   "palette": { "bg": "#0b0906", "fg": "#ffb000", "accent": "#ffcf5c" }
 }
 ```
+
+Ein Skin gestaltet die Klassen aus `web/base.css`. `./klassen.py` prüft, dass
+kein Skin eine Klasse vergisst, die ein anderer gestaltet — und dass keine
+Klasse erzeugt wird, die gar kein Stylesheet kennt.
 
 ## Lizenz
 

@@ -3,6 +3,9 @@
    Nichts hier ist rund, nichts hat einen weichen Schatten. */
 
 :root {
+  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
+     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  --term-bg: #000000; --term-fg: #c0c0c0;
   --bg: #008080;        /* der Teal-Schreibtisch */
   --panel: #c0c0c0;     /* Fensterfläche */
   --fg: #000000;
@@ -28,7 +31,7 @@ body {
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
 /* Bevel nach innen: vertieft. Für alles, was Eingabe aufnimmt. */
-.filter input, .listbar input, .karte input, .viewerbody, .tbody, .files, .pterm {
+.filter input, .listbar input, .karte input, .viewerbody, .tbody, .files {
   background: #fff; color: #000;
   border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
   box-shadow: inset 1px 1px 0 var(--dk);
@@ -140,7 +143,11 @@ body {
 .frow.noise { color: var(--sh); }
 .fchev, .ficon { color: var(--accent); }
 
-.pterm { margin: 0; background: #000; }
+.pterm {
+  margin: 0; background: var(--term-bg);
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--dk);
+}
 .panelabel { background: var(--panel); color: var(--dk); font-weight: bold; font-size: .9em; border: 1px solid var(--sh); }
 .paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .pane[data-aktiv="ja"] .panelabel { background: var(--accent); color: #fff; }
@@ -164,7 +171,7 @@ body {
 .karte { padding: 14px 16px; gap: 12px; }
 .kartentitel { font-weight: bold; font-size: 1.1em; color: var(--dk); }
 .karte label { color: var(--dk); }
-.frage p { color: var(--dk); }
+.feldname { color: var(--dk); }
 .splitzeile { color: var(--dk); }
 .splitzeile:hover { background: var(--accent); color: #fff; }
 
@@ -192,3 +199,14 @@ body {
   border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
+
+/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
+   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
+   dass kein Skin sie wieder verliert. */
+.fragetext { color: var(--dk); }
+.boot { color: var(--dim); }
+.hinweis { color: var(--dim); font-size: .92em; text-transform: none; }
+.fusszeile { border-top: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); padding-top: 14px; }
+.btn.icon { font-size: 1.1em; line-height: 1; padding: 3px 9px; }
+.leer { color: var(--dim); }
+.leer b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }

@@ -5,6 +5,9 @@
 @font-face { font-family: 'VT323'; src: url('/vendor/vt323.woff2') format('woff2'); font-display: swap; }
 
 :root {
+  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
+     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  --term-bg: #0b0906; --term-fg: #ffb000;
   --bg: #0b0906; --fg: #ffb000; --dim: #8a5f12; --accent: #ffcf5c;
   --panel: #14100a; --line: #3a2a10;
   --working: #ffcf5c; --waiting: #8a5f12; --blocked: #ff6b3d; --dead: #4a3a1c;
@@ -63,7 +66,6 @@ body {
   text-transform: uppercase; border-bottom: 1px solid var(--line);
 }
 :root[data-offline="ja"] #counts { color: var(--blocked); }
-.boot { color: var(--dim); }
 
 .updatebar {
   border-bottom: 1px solid var(--accent);
@@ -218,12 +220,12 @@ body {
 .karte { background: var(--bg); border: 1px solid var(--accent); }
 .kartentitel { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
 .karte label { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .76em; }
+.feldname { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .76em; }
 .karte input {
   background: transparent; border: 1px solid var(--dim); outline: none;
   text-shadow: inherit; text-transform: none; letter-spacing: 0;
 }
 .karte input:focus { border-color: var(--accent); }
-.frage p { color: var(--fg); font-size: .92em; }
 .splitzeile { color: var(--fg); }
 .splitzeile:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
@@ -247,3 +249,15 @@ body {
 *::-webkit-scrollbar-track { background: var(--bg); border-left: 1px solid var(--line); }
 *::-webkit-scrollbar-thumb { background: var(--dim); border: 2px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
+   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
+   dass kein Skin sie wieder verliert. */
+.fragetext { color: var(--fg); font-size: .92em; }
+.boot { color: var(--dim); }
+.hinweis { color: var(--dim); font-size: .8em; text-transform: none; letter-spacing: 0; line-height: 1.4; }
+.fusszeile { border-top: 1px solid var(--line); padding-top: 14px; }
+.btn.icon { font-size: 1.1em; line-height: 1; }
+.leer { color: var(--dim); font-size: .88em; }
+.leer b { color: var(--accent); font-weight: normal; display: block; margin-bottom: 6px;
+          letter-spacing: .18em; text-transform: uppercase; font-size: .82em; }

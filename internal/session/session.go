@@ -28,6 +28,9 @@ type Session struct {
 	StartedAt int64    `json:"started_at"`
 	Alive     bool     `json:"alive"`
 	ExitCode  int      `json:"exit_code"`
+	// EndedAt ist, wann der Prozess endete. Danach wird die Session noch kurz
+	// angezeigt und dann verworfen.
+	EndedAt int64 `json:"ended_at,omitempty"`
 
 	Account         string `json:"account,omitempty"`     // Claude-Konto, unter dem sie läuft
 	Agent           string `json:"agent,omitempty"`       // erkanntes CLI, z.B. "claude"

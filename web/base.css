@@ -72,13 +72,28 @@ html, body {
   overflow-y: auto; overflow-x: hidden;
 }
 .railitem {
-  display: flex; align-items: flex-start; gap: 8px;
+  display: flex; gap: 8px;
   width: 100%; text-align: left; cursor: pointer;
   padding: 7px 10px; font: inherit; color: inherit;
   background: none; border: 0;
+  /* Einzeilige Einträge (Übersicht, Ports, …): Symbol auf Textmitte. */
+  align-items: center;
 }
+/* Sessions sind zweizeilig — dort gehört das Symbol auf die Höhe der ersten
+   Zeile, nicht in die Mitte beider. */
+.railitem:has(.rsub) { align-items: flex-start; }
+.railitem:has(.rsub) .rdot { margin-top: .18em; }
+
 .railgroup { padding: 9px 10px 3px; }
-.rdot { flex: 0 0 auto; margin-top: 2px; }
+.rdot {
+  flex: 0 0 auto;
+  /* Feste Breite, sonst rutschen die Beschriftungen je nach Symbol
+     unterschiedlich weit nach rechts. */
+  width: 1.1em; text-align: center;
+  /* Symbole aus verschiedenen Blöcken haben verschiedene Grundlinien;
+     eine gemeinsame Zeilenhöhe fängt das ab. */
+  line-height: 1;
+}
 .rtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .rname, .rsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rmeta { flex: 0 0 auto; }
@@ -165,8 +180,8 @@ html, body {
 .filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .filetree { flex: 1; overflow: auto; padding: 4px 0 12px; }
 .frow { display: flex; align-items: center; gap: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
-.fchev { flex: 0 0 auto; width: 10px; }
-.ficon { flex: 0 0 auto; }
+.fchev { flex: 0 0 auto; width: 10px; text-align: center; line-height: 1; }
+.ficon { flex: 0 0 auto; width: 1em; text-align: center; line-height: 1; }
 .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 /* Mehrere Terminalflächen nebeneinander. */
@@ -201,6 +216,10 @@ html, body {
 
 .hof { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; }
 .karte { width: min(560px, 92vw); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.karte.breit { width: min(640px, 94vw); gap: 18px; }
+.btn.icon { padding: 3px 9px; }
+.hinweis { flex: 1; min-width: 0; }
+.fusszeile { display: flex; align-items: center; gap: 10px; }
 .kartentitel { font-weight: normal; }
 .karte label { display: flex; flex-direction: column; gap: 5px; }
 .karte input { font: inherit; color: inherit; padding: 5px 8px; }
@@ -210,8 +229,8 @@ html, body {
 .splitliste { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
 .splitzeile { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; text-align: left; font: inherit; color: inherit; background: none; border: 0; }
 
-/* Rückfrage und Hinweis aus ui.js */
-.frage p { margin: 0; white-space: pre-wrap; line-height: 1.45; }
+/* Rückfragetext aus ui.js */
+.fragetext { margin: 0; white-space: pre-wrap; line-height: 1.45; }
 
 /* ---------- Eigene Auswahlliste ---------- */
 
@@ -233,3 +252,17 @@ html, body {
 *::-webkit-scrollbar { width: 12px; height: 12px; }
 *::-webkit-scrollbar-corner { background: transparent; }
 *::-webkit-scrollbar-button { display: none; }
+
+/* Pfadvorschläge hängen am Rumpf und werden zur Laufzeit positioniert —
+   sonst schneidet sie ein Vorfahre mit overflow ab. */
+.pfadListe { position: fixed; right: auto; max-width: 90vw; z-index: 150; }
+.pfadListe .auswahlZeile { direction: ltr; }
+
+/* Leerzustände: erklären, warum eine Liste leer ist. */
+.leer { padding: 28px 20px; max-width: 460px; line-height: 1.55; }
+.leer b { display: block; }
+
+/* Feld im Einstellungsfenster. Bewusst kein <label>: darin läge ein zweites
+   für den Dateidialog, und ein Klick auf die Überschrift würde ihn öffnen. */
+.feld { display: flex; flex-direction: column; gap: 5px; }
+.feldname { display: block; }

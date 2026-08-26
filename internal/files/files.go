@@ -202,3 +202,55 @@ func Write(root, path, text string, erwarteterStand int64) (*Content, error) {
 	}
 	return Read(root, real)
 }
+
+// Vorschlaege liefert Unterverzeichnisse zu einem angetippten Pfad.
+//
+// Anders als der Rest dieses Pakets NICHT an eine Session gefesselt: hier geht
+// es darum, ein Verzeichnis zu finden, in dem noch gar keine Session läuft.
+// Gelesen werden ausschließlich Verzeichnisnamen — keine Dateiinhalte.
+func Vorschlaege(eingabe string, max int) []string {
+	if eingabe == "" {
+		eingabe = "~/"
+	}
+	if strings.HasPrefix(eingabe, "~") {
+		home, _ := os.UserHomeDir()
+		eingabe = home + eingabe[1:]
+	}
+
+	// Endet die Eingabe auf einem Trenner, ist sie selbst das Verzeichnis;
+	// sonst ist der letzte Teil ein angefangener Name.
+	dir, rumpf := eingabe, ""
+	if !strings.HasSuffix(eingabe, string(filepath.Separator)) {
+		dir, rumpf = filepath.Split(eingabe)
+	}
+	if dir == "" {
+		dir = "."
+	}
+
+	eintraege, err := os.ReadDir(dir)
+	if err != nil {
+		return []string{}
+	}
+
+	klein := strings.ToLower(rumpf)
+	out := []string{}
+	for _, e := range eintraege {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		// Versteckte nur zeigen, wenn ausdrücklich danach getippt wird.
+		if strings.HasPrefix(name, ".") && !strings.HasPrefix(rumpf, ".") {
+			continue
+		}
+		if klein != "" && !strings.HasPrefix(strings.ToLower(name), klein) {
+			continue
+		}
+		out = append(out, filepath.Join(dir, name))
+		if len(out) >= max {
+			break
+		}
+	}
+	sort.Strings(out)
+	return out
+}

@@ -41,6 +41,10 @@ type Host struct {
 	tailLen   int
 	tailCache []string
 
+	// plattform hält, was nur ein bestimmtes System braucht — unter Windows
+	// etwa das Job Object, über das die ganze Prozessgruppe endet.
+	plattform any
+
 	Done chan struct{}
 }
 
@@ -83,6 +87,7 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	}
 	if c.Process != nil {
 		h.PID = c.Process.Pid
+		h.plattform = nachStart(c.Process)
 	}
 	go h.pump()
 	return h, nil
@@ -211,10 +216,15 @@ func (h *Host) tailLines() []string {
 	raw := h.buf
 	if len(raw) > tailWindow {
 		raw = raw[len(raw)-tailWindow:]
-		// Nicht mitten in einer Escape-Sequenz anfangen: bis zum ersten
-		// Zeilenumbruch vorspulen, dann ist der Rest sauber interpretierbar.
+		// Nicht mitten in einer Escape-Sequenz anfangen, sonst fehlt deren
+		// Einleitung und die Reste landen sichtbar im Text. Ein Zeilenumbruch
+		// allein reicht dafür nicht: Voll-Bildschirm-Oberflächen wie Claude
+		// Code schreiben ganze Frames ohne einen einzigen. Deshalb hinter dem
+		// letzten ESC einsteigen, das noch vor dem Fenster begann.
 		if i := bytes.IndexByte(raw, '\n'); i >= 0 && i < 4096 {
 			raw = raw[i+1:]
+		} else if i := bytes.IndexByte(raw, 0x1b); i >= 0 && i < 4096 {
+			raw = raw[i:]
 		}
 	}
 	src := string(raw)
@@ -276,5 +286,5 @@ func (h *Host) Kill() {
 	if h.cmd.Process == nil {
 		return
 	}
-	killProcess(h.cmd.Process)
+	killProcess(h.cmd.Process, h.plattform)
 }

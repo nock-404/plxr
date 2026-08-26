@@ -22,6 +22,7 @@ import (
 	"plxr/internal/archive"
 	"plxr/internal/files"
 	"plxr/internal/fleet"
+	"plxr/internal/hook"
 	"plxr/internal/notify"
 	"plxr/internal/ports"
 	"plxr/internal/ptyhost"
@@ -109,9 +110,22 @@ func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Se
 			x.Status = session.StatusDead
 			x.ExitCode = h.Exit()
 			x.Activity = ""
+			x.EndedAt = time.Now().UnixMilli()
 		})
 	}()
 	return sess, nil
+}
+
+// totNachlauf ist, wie lange eine beendete Session noch angezeigt wird.
+const totNachlauf = 90 * time.Second
+
+// aufraeumen entfernt eine beendete Session samt ihrem PTY-Eintrag.
+func (c *Core) aufraeumen(id string) {
+	c.reg.Delete(id)
+	c.mu.Lock()
+	delete(c.hosts, id)
+	delete(c.lastStatus, id)
+	c.mu.Unlock()
 }
 
 func (c *Core) Kill(id string, purge bool) {
@@ -228,6 +242,32 @@ func (c *Core) SwitchAccount(sessionID, zielKonto string) (*session.Session, err
 
 func (c *Core) Verbrauch(tage int) usage.Bericht { return usage.Rechnen(c.Accounts(), tage) }
 
+// ---- Anbindung an Claude Code ----
+
+// HookStand sagt, ob plxr dort einträgt und welches Verzeichnis gemeint ist.
+func (c *Core) HookStand() map[string]any {
+	acc, _ := accounts.ByName(c.Accounts(), "")
+	return map[string]any{
+		"eingerichtet": hook.Eingerichtet(acc.Dir),
+		"dir":          acc.Dir,
+	}
+}
+
+// HookSetzen trägt plxr ein oder aus — in allen gefundenen Konten, denn wer
+// mehrere Zugänge fährt, will den Zustand aus allen sehen.
+func (c *Core) HookSetzen(an bool) error {
+	konten := c.Accounts()
+	if len(konten) == 0 {
+		return errors.New("kein Claude-Code-Verzeichnis gefunden")
+	}
+	for _, a := range konten {
+		if _, err := hook.Einrichten(a.Dir, !an); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ---- Fassung ----
 
 // Version wird beim Start aus main gesetzt.
@@ -313,6 +353,12 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 	return files.Read(root, path)
 }
 
+// Vorschlaege hilft beim Eintippen eines Pfades. Bewusst ohne Sessionbezug:
+// gesucht wird ein Verzeichnis, in dem noch keine Session läuft.
+func (c *Core) Vorschlaege(eingabe string) []string {
+	return files.Vorschlaege(eingabe, 40)
+}
+
 func (c *Core) WriteFile(sessionID, path, text string, stand int64) (*files.Content, error) {
 	root, err := c.root(sessionID)
 	if err != nil {
@@ -339,6 +385,14 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 	out := []Tile{}
 	for _, sess := range c.reg.List() {
 		if pathFilter != "" && !strings.HasPrefix(sess.Cwd, pathFilter) {
+			continue
+		}
+		// Beendete Sessions kurz stehen lassen, damit man den Exit-Code noch
+		// sieht, dann wegräumen. Fortsetzen lässt sich eine tote Session
+		// ohnehin nicht — sie würde nur das Raster zumüllen.
+		if !sess.Alive && sess.EndedAt > 0 &&
+			time.Since(time.UnixMilli(sess.EndedAt)) > totNachlauf {
+			c.aufraeumen(sess.ID)
 			continue
 		}
 

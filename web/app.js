@@ -90,9 +90,12 @@ const api = {
   portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
   verbrauch: (tage) => req('/api/usage?tage=' + tage),
   fassung: () => req('/api/version'),
+  hookStand: () => req('/api/hook'),
+  hookSetzen: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   aktualisieren: () => req('/api/update', { method: 'POST' }),
 
   ordner: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
+  pfade: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
   datei: (id, pfad) => req(`/api/file/${id}?path=${encodeURIComponent(pfad)}`),
   dateiSchreiben: (id, pfad, text, mod) =>
     req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: pfad, text, mod }) }),
@@ -248,7 +251,10 @@ const cssVar = (n, ersatz) =>
   getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim() || ersatz;
 
 function xtermFarben() {
-  const bg = cssVar('bg', '#000'), fg = cssVar('fg', '#ccc');
+  // Eigene Variablen mit Rückfall auf die Oberflächenpalette: ein heller Skin
+  // will ein dunkles Terminal, sonst steht Bernstein auf Papier.
+  const bg = cssVar('term-bg', cssVar('bg', '#000'));
+  const fg = cssVar('term-fg', cssVar('fg', '#ccc'));
   const akz = cssVar('accent', fg), dim = cssVar('dim', fg);
   const rot = cssVar('blocked', '#f55'), gruen = cssVar('working', '#5f5');
   const tot = cssVar('dead', dim);
@@ -299,6 +305,57 @@ async function themesLaden(vorwahl) {
 
 $('#themeSel').addEventListener('change', () => themeAnwenden(aktuellesTheme()));
 
+/* ═════════════════════════ Einstellungen ═════════════════════════ */
+
+/* Aussehen und Einrichtung gehören nicht in die Kopfleiste: das stellt man
+   einmal ein und sieht es danach nie wieder. */
+
+async function einstellungenOeffnen() {
+  $('#settings').hidden = false;
+  plxrUI.auswahlAlle();
+  $('#themeHint').textContent =
+    'JSON mit skin und palette. Landet in ~/.plxr/themes und steht sofort zur Wahl.';
+  try {
+    const v = await api.fassung();
+    $('#settingsVersion').textContent =
+      `plxr ${v.aktuell}` + (v.verfuegbar ? ` · ${v.neueste} verfügbar` : ' · aktuell');
+  } catch {
+    $('#settingsVersion').textContent = '';
+  }
+  hookStandZeigen();
+}
+$('#settingsBtn').addEventListener('click', einstellungenOeffnen);
+$('#settingsClose').addEventListener('click', () => { $('#settings').hidden = true; });
+
+async function hookStandZeigen() {
+  try {
+    const st = await api.hookStand();
+    $('#hookHint').textContent = st.eingerichtet
+      ? 'Sessions melden ihren Zustand — Status und Modell stehen fest statt geraten.'
+      : 'Ohne Anbindung wird der Status aus der Bildschirmausgabe geschätzt.';
+    $('#hookBtn').textContent = st.eingerichtet ? 'LÖSEN' : 'EINRICHTEN';
+    $('#hookBtn').dataset.an = st.eingerichtet ? 'ja' : 'nein';
+  } catch {
+    $('#hookHint').textContent = 'Zustand unbekannt.';
+    $('#hookBtn').textContent = 'EINRICHTEN';
+  }
+}
+
+$('#hookBtn').addEventListener('click', async () => {
+  const an = $('#hookBtn').dataset.an === 'ja';
+  try {
+    await api.hookSetzen(!an);
+    await hookStandZeigen();
+    plxrUI.hinweis(
+      an ? 'plxr ist aus den Claude-Code-Einstellungen entfernt.'
+         : 'Eingetragen. Neue Sessions melden ihren Zustand ab sofort.\nVorhandene Hooks blieben unangetastet.',
+      'Claude Code');
+  } catch (e) {
+    plxrUI.hinweis(e.message || String(e), 'Nicht geändert');
+  }
+});
+
+$('#themeImportBtn').addEventListener('click', () => $('#themeFile').click());
 $('#themeFile').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (!f) return;
@@ -513,14 +570,116 @@ function zeichneAlles(tiles) {
   if (state.panes.length) kopfleisteAktualisieren();
 }
 
-let filterTimer;
-$('#pathFilter').addEventListener('input', (e) => {
-  clearTimeout(filterTimer);
-  filterTimer = setTimeout(() => {
-    state.filter = e.target.value.trim();
-    localStorage.setItem('plxr.filter', state.filter);
-    api.filterSetzen();
-  }, 250);
+/* ═════════════════════════ Pfadvervollständigung ═════════════════════════ */
+
+/* Einen Pfad blind eintippen ist zumutbar-Grenze. Deshalb schlägt jedes
+   Pfadfeld echte Unterverzeichnisse vor: Pfeiltasten wählen, Tab ergänzt,
+   Eingabetaste übernimmt. */
+
+function pfadHilfe(feld, beiWahl) {
+  // Die Liste hängt am Rumpf, nicht am Feld: sonst schneidet sie jeder
+  // Vorfahre mit overflow ab, und die Statuszeile legt sich darüber.
+  const liste = document.createElement('div');
+  liste.className = 'auswahlListe pfadListe';
+  liste.hidden = true;
+  document.body.appendChild(liste);
+
+  const stellen = () => {
+    const r = feld.getBoundingClientRect();
+    liste.style.left = r.left + 'px';
+    liste.style.top = r.bottom + 4 + 'px';
+    liste.style.minWidth = Math.max(r.width, 380) + 'px';
+    // Passt sie nicht mehr nach unten, klappt sie nach oben.
+    const platz = window.innerHeight - r.bottom;
+    if (platz < 240) {
+      liste.style.top = 'auto';
+      liste.style.bottom = window.innerHeight - r.top + 4 + 'px';
+    } else {
+      liste.style.bottom = 'auto';
+    }
+  };
+
+  let treffer = [];
+  let gewaehlt = -1;
+  let timer;
+
+  const zu = () => { liste.hidden = true; gewaehlt = -1; };
+
+  const zeichnen = () => {
+    liste.innerHTML = '';
+    if (!treffer.length) { zu(); return; }
+    treffer.forEach((pfad, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'auswahlZeile';
+      b.textContent = pfad;
+      if (i === gewaehlt) b.dataset.gewaehlt = 'ja';
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); waehlen(pfad); });
+      liste.appendChild(b);
+    });
+    stellen();
+    liste.hidden = false;
+  };
+
+  const waehlen = (pfad) => {
+    // Trenner anhängen: der nächste Tastendruck sucht dann schon darin.
+    feld.value = pfad.endsWith('/') ? pfad : pfad + '/';
+    zu();
+    beiWahl?.(feld.value);
+    laden();
+  };
+
+  const laden = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      treffer = await api.pfade(feld.value);
+      gewaehlt = -1;
+      zeichnen();
+    }, 120);
+  };
+
+  feld.addEventListener('input', laden);
+  feld.addEventListener('focus', laden);
+  feld.addEventListener('blur', () => setTimeout(zu, 120));
+
+  feld.addEventListener('keydown', (e) => {
+    if (liste.hidden || !treffer.length) {
+      if (e.key === 'Tab' || e.key === 'ArrowDown') { laden(); }
+      return;
+    }
+    if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
+      e.preventDefault();
+      gewaehlt = (gewaehlt + 1) % treffer.length;
+      zeichnen();
+      liste.children[gewaehlt]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
+      e.preventDefault();
+      gewaehlt = (gewaehlt - 1 + treffer.length) % treffer.length;
+      zeichnen();
+      liste.children[gewaehlt]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && gewaehlt >= 0) {
+      e.preventDefault();
+      waehlen(treffer[gewaehlt]);
+    } else if (e.key === 'Escape') {
+      zu();
+    }
+  });
+}
+
+/* Der Filter greift erst auf Bestätigung. Beim Tippen zu filtern heißt: nach
+   jedem Zeichen verschwinden alle Kacheln, weil "/Volumes/…/pro" noch kein
+   Verzeichnis ist. */
+function filterUebernehmen() {
+  const wert = $('#pathFilter').value.trim().replace(/\/$/, '');
+  if (wert === state.filter) return;
+  state.filter = wert;
+  localStorage.setItem('plxr.filter', state.filter);
+  api.filterSetzen();
+}
+$('#pathFilter').addEventListener('change', filterUebernehmen);
+$('#pathFilter').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.target.blur(); filterUebernehmen(); }
+  if (e.key === 'Escape') { e.target.value = state.filter; e.target.blur(); }
 });
 
 /* ═════════════════════════ Terminalflächen ═════════════════════════ */
@@ -542,6 +701,13 @@ function paneHinzu(id) {
   }
   const t = state.tiles.find((x) => x.id === id);
   if (!t) return;
+  if (!t.alive) {
+    // Ein totes PTY hat keinen Datenstrom mehr — die Fläche bliebe leer.
+    plxrUI.hinweis(
+      `${t.name} ist beendet (Code ${t.exit_code}).\nIm Archiv lässt sich die Unterhaltung fortsetzen.`,
+      'Nicht mehr aktiv');
+    return;
+  }
 
   nurZeigen(null);
   $('#viewSession').hidden = false;
@@ -688,9 +854,16 @@ $('#splitAdd').addEventListener('click', () => {
 });
 $('#splitCancel').addEventListener('click', () => { $('#splitPick').hidden = true; });
 
+/* Jeder Dialog schließt mit Escape und mit einem Klick daneben. Ein Fenster,
+   aus dem nur ein bestimmter Knopf herausführt, ist eine Falle. */
+const DIALOGE = ['#settings', '#splitPick', '#dialog'];
+for (const d of DIALOGE) {
+  $(d).addEventListener('mousedown', (e) => { if (e.target === $(d)) $(d).hidden = true; });
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  for (const d of ['#splitPick', '#dialog']) if (!$(d).hidden) { $(d).hidden = true; return; }
+  for (const d of DIALOGE) if (!$(d).hidden) { $(d).hidden = true; return; }
   if (!$('#viewer').hidden) { viewerSchliessen(); return; }
   if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
   if (state.panes.length) zeigeRaster();
@@ -771,6 +944,10 @@ async function dateibaumLaden(t) {
 
 async function ebeneZeichnen(box, dir, tiefe, sid) {
   const eintraege = await api.ordner(sid, dir);
+  if (tiefe === 0 && (!eintraege || !eintraege.length)) {
+    leerZeigen(box, 'leerer ordner', 'Hier liegt nichts, was angezeigt werden könnte.');
+    return;
+  }
   for (const e of eintraege || []) {
     if (e.noise && !baum.rauschen) continue;
 
@@ -908,6 +1085,12 @@ $('#rulesToggle').addEventListener('click', async () => {
     `${liste.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
   const box = $('#rulesBody');
   box.innerHTML = '';
+  if (!liste.length) {
+    leerZeigen(box, 'keine regeln',
+      'In diesem Verzeichnis und darüber liegt keine CLAUDE.md, kein Skill und ' +
+      'kein Agent. Der Assistent arbeitet hier ohne zusätzliche Anweisungen.');
+    return;
+  }
   for (const e of liste) {
     const zeile = document.createElement('div');
     zeile.className = 'rrow';
@@ -923,6 +1106,18 @@ $('#rulesToggle').addEventListener('click', async () => {
   }
 });
 $('#rulesClose').addEventListener('click', () => { $('#rulesPane').hidden = true; });
+
+/* Eine leere Liste ohne Erklärung ist ein Fehlerzustand, der wie ein Fehler
+   aussieht. Jede Liste sagt, warum sie leer ist. */
+function leerZeigen(box, titel, text) {
+  box.innerHTML = '';
+  const d = document.createElement('div');
+  d.className = 'leer';
+  d.innerHTML = '<b></b><span></span>';
+  d.querySelector('b').textContent = titel;
+  d.querySelector('span').textContent = text;
+  box.appendChild(d);
+}
 
 /* ═════════════════════════ Archiv ═════════════════════════ */
 
@@ -984,8 +1179,14 @@ function archivZeichnen() {
   box.innerHTML = '';
 
   if (archiv.treffer) {
-    $('#archInfo').textContent =
-      `${archiv.treffer.length} Sessions enthalten „${$('#archSearch').value.trim()}"`;
+    const wonach = $('#archSearch').value.trim();
+    $('#archInfo').textContent = `${archiv.treffer.length} Sessions enthalten „${wonach}"`;
+    if (!archiv.treffer.length) {
+      leerZeigen(box, 'nichts gefunden',
+        `Kein Transkript enthält „${wonach}". Gesucht wird in dem, was du und der ` +
+        'Assistent geschrieben habt — nicht in Werkzeugausgaben.');
+      return;
+    }
     for (const t of archiv.treffer) {
       const zeile = document.createElement('div');
       zeile.className = 'zeile hoch';
@@ -993,7 +1194,7 @@ function archivZeichnen() {
         '<span class="zdatum"></span>' +
         '<span class="zhaupt"><b class="ztitel"></b><span class="zauszug"></span></span>' +
         '<span class="zproj"></span><span class="zwert"></span>' +
-        '<span class="ztat"><button class="btn">fortsetzen</button></span>';
+        '<span class="ztat"><button class="btn">FORTSETZEN</button></span>';
       zeile.querySelector('.zdatum').textContent = datumKurz(t.mod);
       zeile.querySelector('.ztitel').textContent = t.title || '(ohne Titel)';
       zeile.querySelector('.zauszug').textContent = t.auszug;
@@ -1020,14 +1221,28 @@ function archivZeichnen() {
   $('#archInfo').textContent =
     q ? `${liste.length} von ${archiv.alle.length}` : `${archiv.alle.length} Transkripte`;
 
+  if (!liste.length) {
+    if (archiv.alle.length) {
+      leerZeigen(box, 'kein treffer im titel',
+        'Eingabetaste durchsucht stattdessen den vollen Text aller Transkripte.');
+    } else if (state.filter) {
+      leerZeigen(box, 'nichts unter diesem pfad',
+        `Unter ${state.filter} liegt kein Transkript. Filter oben leeren zeigt alle.`);
+    } else {
+      leerZeigen(box, 'noch kein archiv',
+        'Hier erscheinen abgelegte Claude-Code-Unterhaltungen, sobald welche existieren.');
+    }
+    return;
+  }
+
   for (const e of liste.slice(0, 400)) {
     const zeile = document.createElement('div');
     zeile.className = 'zeile';
     zeile.innerHTML =
       '<span class="zdatum"></span><span class="ztitel"></span><span class="zproj"></span>' +
       '<span class="zklein"></span><span class="zwert"></span>' +
-      '<span class="ztat"><button class="btn" data-t="auf">fortsetzen</button>' +
-      '<button class="btn" data-t="weg">löschen</button></span>';
+      '<span class="ztat"><button class="btn" data-t="auf">FORTSETZEN</button>' +
+      '<button class="btn" data-t="weg">LÖSCHEN</button></span>';
     zeile.querySelector('.zdatum').textContent = datumKurz(e.mod);
     zeile.querySelector('.ztitel').textContent = e.title || '(ohne Titel)';
     zeile.querySelector('.zproj').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
@@ -1068,6 +1283,12 @@ async function portsLaden() {
   $('#portsInfo').textContent = `${liste.length} lauschende Ports`;
   const box = $('#portsList');
   box.innerHTML = '';
+  if (!liste.length) {
+    leerZeigen(box, 'kein port belegt',
+      'Kein Prozess lauscht gerade auf einem TCP-Port. Hier tauchen vergessene ' +
+      'Dev-Server auf, die den nächsten Start blockieren.');
+    return;
+  }
   for (const p of liste) {
     const zeile = document.createElement('div');
     zeile.className = 'zeile';
@@ -1075,8 +1296,8 @@ async function portsLaden() {
     zeile.innerHTML =
       '<span class="zdatum"></span><span class="ztitel"></span><span class="zproj"></span>' +
       '<span class="zwert"></span>' +
-      '<span class="ztat"><button class="btn" data-h="0">beenden</button>' +
-      '<button class="btn" data-h="1">hart</button></span>';
+      '<span class="ztat"><button class="btn" data-h="0">BEENDEN</button>' +
+      '<button class="btn" data-h="1">HART</button></span>';
     zeile.querySelector('.zdatum').textContent = p.port;
     zeile.querySelector('.ztitel').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
     zeile.querySelector('.zproj').textContent = p.addr;
@@ -1156,6 +1377,13 @@ async function verbrauchLaden() {
     }
     box.appendChild(d);
   };
+
+  if (!b.nachTag.length) {
+    leerZeigen(box, 'kein verbrauch',
+      'In diesem Zeitraum wurde nichts gezählt. Gerechnet wird aus den ' +
+      'Transkripten — ohne abgelegte Unterhaltungen bleibt die Rechnung leer.');
+    return;
+  }
 
   block('nach Tag', b.nachTag, 30);
   block('nach Projekt', b.nachProjekt, 12);
@@ -1271,6 +1499,9 @@ api.env().then((e) => {
 })();
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-DE'); }, 1000);
+
+pfadHilfe($('#pathFilter'), filterUebernehmen);
+pfadHilfe($('#newCwd'));
 
 state.filter = localStorage.getItem('plxr.filter') || '';
 $('#pathFilter').value = state.filter;

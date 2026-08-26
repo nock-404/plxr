@@ -22,6 +22,7 @@ schritt() {
 
 schritt "javascript" node --check web/app.js
 schritt "javascript ui" node --check web/ui.js
+schritt "klassen" python3 klassen.py
 schritt "go vet" go vet ./...
 schritt "bau" go build -o /dev/null .
 for t in darwin/arm64 darwin/amd64 windows/amd64 linux/amd64 linux/arm64; do

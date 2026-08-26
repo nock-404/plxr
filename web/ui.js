@@ -91,27 +91,42 @@
       if (offen) offen.remove();
       const d = document.createElement('div');
       offen = d;
-      d.className = 'frageHof';
-      d.innerHTML = '<div class="frage"><b class="frageTitel"></b><p class="frageText"></p><div class="frageKnoepfe"></div></div>';
-      $$('.frageTitel', d).textContent = titel;
-      $$('.frageText', d).textContent = text;
+      // Bewusst dieselben Klassen wie die übrigen Dialoge: sonst gestaltet
+      // sie kein Skin und die Rückfrage steht nackt auf der Seite.
+      d.className = 'hof';
+      d.innerHTML =
+        '<div class="karte"><b class="kartentitel"></b>' +
+        '<p class="fragetext"></p><div class="kartenknoepfe"></div></div>';
+      $$('.kartentitel', d).textContent = titel;
+      $$('.fragetext', d).textContent = text;
 
-      const box = $$('.frageKnoepfe', d);
+      const schliessen = (wert) => {
+        d.remove();
+        offen = null;
+        document.removeEventListener('keydown', taste);
+        fertig(wert);
+      };
+
+      const box = $$('.kartenknoepfe', d);
       for (const k of knoepfe) {
         const b = document.createElement('button');
         b.className = 'btn' + (k.haupt ? ' primary' : '');
         b.textContent = k.text;
-        b.addEventListener('click', () => { d.remove(); offen = null; fertig(k.wert); });
+        b.addEventListener('click', () => schliessen(k.wert));
         box.appendChild(b);
       }
+
+      // Klick neben die Karte bricht ab — wie bei jedem anderen Dialog auch.
+      d.addEventListener('mousedown', (e) => { if (e.target === d) schliessen(false); });
+
+      function taste(e) {
+        if (e.key === 'Escape') schliessen(false);
+        if (e.key === 'Enter') schliessen(knoepfe[knoepfe.length - 1].wert);
+      }
+      document.addEventListener('keydown', taste);
+
       document.body.appendChild(d);
       box.lastElementChild?.focus();
-
-      const taste = (e) => {
-        if (e.key === 'Escape') { d.remove(); offen = null; document.removeEventListener('keydown', taste); fertig(false); }
-        if (e.key === 'Enter') { d.remove(); offen = null; document.removeEventListener('keydown', taste); fertig(knoepfe[knoepfe.length - 1].wert); }
-      };
-      document.addEventListener('keydown', taste);
     });
   }
 

@@ -131,3 +131,34 @@ func istUnserer(eintrag any) bool {
 	}
 	return false
 }
+
+// Eingerichtet sagt, ob plxr in den Einstellungen von Claude Code steht.
+func Eingerichtet(configDir string) bool {
+	if configDir == "" {
+		home, _ := os.UserHomeDir()
+		configDir = filepath.Join(home, ".claude")
+	}
+	b, err := os.ReadFile(filepath.Join(configDir, "settings.json"))
+	if err != nil {
+		return false
+	}
+	var einst map[string]any
+	if json.Unmarshal(b, &einst) != nil {
+		return false
+	}
+	hooks, _ := einst["hooks"].(map[string]any)
+	for _, ev := range Ereignisse {
+		liste, _ := hooks[ev].([]any)
+		gefunden := false
+		for _, e := range liste {
+			if istUnserer(e) {
+				gefunden = true
+				break
+			}
+		}
+		if !gefunden {
+			return false
+		}
+	}
+	return true
+}

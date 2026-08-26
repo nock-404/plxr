@@ -7,6 +7,10 @@ const maxCol = 1000
 
 // renderPlain baut aus dem rohen PTY-Strom lesbaren Text.
 //
+// Wichtig für Aufrufer: der Anfang muss auf einer Sequenzgrenze liegen. Wer
+// mitten in einer Escape-Folge einsteigt, verliert deren Einleitung — und die
+// Reste ("0q", "1u4;2m") landen sichtbar im Text.
+//
 // Ein Regex-Filter reicht dafür nicht: Claude Code setzt jedes Wort einzeln mit
 // CSI<n>G auf eine absolute Spalte, statt Leerzeichen zu schicken. Wer die
 // Sequenzen nur wegwirft, bekommt "Quicksafetycheck" statt "Quick safety check".
@@ -44,6 +48,11 @@ func renderPlain(raw string) []string {
 		if c == 0x1b {
 			if i+1 >= len(rs) {
 				break
+			}
+			// Ein zweites ESC hebt die begonnene Sequenz auf. Kommt vor, wenn
+			// zwei Ausgaben ineinanderlaufen.
+			if rs[i+1] == 0x1b {
+				continue
 			}
 			switch rs[i+1] {
 			case '[': // CSI
@@ -92,6 +101,17 @@ func renderPlain(raw string) []string {
 					j++
 				}
 				if j < len(rs) && rs[j] == 0x1b && j+1 < len(rs) && rs[j+1] == '\\' {
+					j++
+				}
+				i = j
+
+			case 'P', 'X', '^', '_': // DCS, SOS, PM, APC — bis ST
+				j := i + 2
+				for j < len(rs) {
+					if rs[j] == 0x1b && j+1 < len(rs) && rs[j+1] == '\\' {
+						j++
+						break
+					}
 					j++
 				}
 				i = j
