@@ -1502,6 +1502,16 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('resize', () => { for (const p of paneListe()) paneNachmessen(p); });
 
+/* Ein verborgener Tab bekommt weder requestAnimationFrame noch Rückmeldung vom
+   ResizeObserver — beide hängen am Zeichenschritt, den Chrome dort anhält. Wer
+   die Oberfläche im Hintergrundtab öffnet, hätte danach Terminals in
+   Vorgabegröße in einer viel größeren Fläche. Beim Sichtbarwerden nachmessen,
+   denn eine Größenänderung, die den Beobachter weckt, gibt es dann nicht. */
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  for (const p of paneListe()) paneNachmessen(p);
+});
+
 /* ═════════════════════════ Konten ═════════════════════════ */
 
 let kontenCache = null;

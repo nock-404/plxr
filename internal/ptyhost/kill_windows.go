@@ -75,3 +75,7 @@ func killProcess(p *os.Process, plattform any) {
 	}
 	_ = p.Kill()
 }
+
+// killProcessHart gibt es unter Windows nur der Vollständigkeit halber:
+// TerminateJobObject ist ohnehin hart, ein zweiter Anlauf ändert nichts.
+func killProcessHart(p *os.Process, plattform any) { killProcess(p, plattform) }

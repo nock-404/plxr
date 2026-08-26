@@ -57,8 +57,8 @@ func Speichern(wurzel string, v Vorlage) error {
 	if strings.TrimSpace(v.Name) == "" {
 		return errors.New("die Vorlage braucht einen Namen")
 	}
-	if strings.ContainsAny(v.Name, `/\.`) {
-		return errors.New("der Name darf keine Pfadzeichen enthalten")
+	if !NameOk(v.Name) {
+		return errors.New("der Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten")
 	}
 	if len(v.Sessions) == 0 {
 		return errors.New("die Vorlage enthält keine Session")
@@ -71,8 +71,24 @@ func Speichern(wurzel string, v Vorlage) error {
 }
 
 func Löschen(wurzel, name string) error {
-	if strings.ContainsAny(name, `/\.`) {
+	if !NameOk(name) {
 		return errors.New("unzulässiger Name")
 	}
 	return os.Remove(filepath.Join(Dir(wurzel), name+".json"))
+}
+
+// NameOk sagt, ob ein Name als Dateiname taugen soll. Pfadzeichen abzuweisen
+// reicht nicht: Anführungszeichen und Klammern kommen zwar nirgendwo hin, wo
+// sie schaden, ergeben aber Dateien, die man von Hand kaum wieder loswird.
+func NameOk(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }

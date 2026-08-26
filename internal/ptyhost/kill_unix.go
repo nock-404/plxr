@@ -20,3 +20,11 @@ func killProcess(p *os.Process, _ any) {
 		_ = p.Signal(syscall.SIGTERM)
 	}
 }
+
+// killProcessHart lässt nicht mit sich reden. Auch hier zuerst die Gruppe:
+// sonst überlebt, was die Session gestartet hat.
+func killProcessHart(p *os.Process, _ any) {
+	if err := syscall.Kill(-p.Pid, syscall.SIGKILL); err != nil {
+		_ = p.Signal(syscall.SIGKILL)
+	}
+}

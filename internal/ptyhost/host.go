@@ -327,9 +327,31 @@ func (h *Host) Resize(rows, cols uint16) error {
 
 // Kill beendet den Prozess. Auf Unix die ganze Gruppe, damit von der Session
 // gestartete Kindprozesse nicht verwaist weiterlaufen.
+//
+// Erst freundlich, dann bestimmt: eine interaktive Login-Shell — und Claude
+// Code selbst — ignoriert SIGTERM, weil ein Terminal das Signal sonst bei
+// jedem Versehen beenden würde. Ohne Nachfassen bliebe "beenden" wirkungslos,
+// und der Nutzer bekäme 204 zurück, während die Session weiterläuft. Deshalb
+// nach einer Schonfrist SIGKILL.
 func (h *Host) Kill() {
 	if h.cmd.Process == nil {
 		return
 	}
 	killProcess(h.cmd.Process, h.plattform)
+
+	go func() {
+		frist := time.Now().Add(KillFrist)
+		for time.Now().Before(frist) {
+			if !h.Alive() {
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		if h.Alive() {
+			killProcessHart(h.cmd.Process, h.plattform)
+		}
+	}()
 }
+
+// KillFrist ist die Zeit zwischen freundlichem und hartem Beenden.
+var KillFrist = 2 * time.Second
