@@ -59,6 +59,13 @@ func main() {
 
 	browser := flag.Bool("browser", false, "statt des Fensters den Browser öffnen")
 	zeigeVersion := flag.Bool("version", false, "Fassung ausgeben")
+	// Wer Hilfe sucht, tippt --help, nicht "help". Ohne das zeigt das
+	// Flag-Paket nur die zwei Schalter und verschweigt jeden Unterbefehl.
+	flag.Usage = func() {
+		cli.Hilfe()
+		fmt.Fprintln(os.Stderr, "\nSchalter:")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if *zeigeVersion {
