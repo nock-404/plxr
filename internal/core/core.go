@@ -294,15 +294,91 @@ var Version = "dev"
 
 func (c *Core) VersionStand() update.Stand { return update.Prüfen(Version) }
 
-func (c *Core) Update() (string, error) {
+// UpdateStand ist der Fortschritt einer laufenden Aktualisierung. Die
+// Oberfläche fragt ihn ab, statt auf einen Aufruf zu warten, der Minuten
+// dauern kann.
+type UpdateStand struct {
+	Läuft   bool   `json:"laeuft"`
+	Prozent int    `json:"prozent"`
+	Phase   string `json:"phase"`
+	Ort     string `json:"ort,omitempty"`
+	Fehler  string `json:"fehler,omitempty"`
+	Fertig  bool   `json:"fertig"`
+}
+
+var updateStand UpdateStand
+var updateSperre sync.Mutex
+
+func (c *Core) UpdateFortschritt() UpdateStand {
+	updateSperre.Lock()
+	defer updateSperre.Unlock()
+	return updateStand
+}
+
+func setzeStand(fn func(*UpdateStand)) {
+	updateSperre.Lock()
+	fn(&updateStand)
+	updateSperre.Unlock()
+}
+
+// Update startet die Aktualisierung und kehrt sofort zurück. Der Fortschritt
+// läuft über UpdateFortschritt — ein Aufruf, der bis zum Ende blockiert,
+// lässt die Oberfläche minutenlang tot aussehen.
+func (c *Core) Update() error {
+	updateSperre.Lock()
+	if updateStand.Läuft {
+		updateSperre.Unlock()
+		return errors.New("läuft bereits")
+	}
 	st := update.Prüfen(Version)
 	if st.Fehler != "" {
-		return "", errors.New(st.Fehler)
+		updateSperre.Unlock()
+		return errors.New(st.Fehler)
 	}
 	if !st.Verfügbar {
-		return "", errors.New("es gibt nichts Neueres")
+		updateSperre.Unlock()
+		return errors.New("es gibt nichts Neueres")
 	}
-	return update.Anwenden(st.AssetURL, nil)
+	updateStand = UpdateStand{Läuft: true, Phase: "lädt"}
+	updateSperre.Unlock()
+
+	go func() {
+		ort, err := update.Anwenden(st.AssetURL, func(gelesen, gesamt int64) {
+			if gesamt <= 0 {
+				return
+			}
+			setzeStand(func(u *UpdateStand) {
+				u.Prozent = int(gelesen * 100 / gesamt)
+				if u.Prozent >= 100 {
+					u.Phase = "tauscht aus"
+				}
+			})
+		})
+		setzeStand(func(u *UpdateStand) {
+			u.Läuft = false
+			u.Fertig = true
+			if err != nil {
+				u.Fehler = err.Error()
+				u.Phase = "fehlgeschlagen"
+				return
+			}
+			u.Ort, u.Phase, u.Prozent = ort, "fertig", 100
+		})
+	}()
+	return nil
+}
+
+// NeuStarten startet die getauschte App und beendet diese.
+//
+// Der Daemon läuft weiter — er ist ein eigener Prozess, und die Sessions
+// gehören ihm. Nur das Fenster kommt neu, mit der neuen Fassung. Genau
+// deshalb bleibt beim Update alles beim Alten.
+func (c *Core) NeuStarten() error {
+	st := c.UpdateFortschritt()
+	if st.Ort == "" {
+		return errors.New("nichts eingesetzt")
+	}
+	return update.NeuStarten(st.Ort)
 }
 
 // ---- Regeln und Ports ----

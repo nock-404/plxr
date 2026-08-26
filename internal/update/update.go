@@ -180,6 +180,11 @@ func Anwenden(assetURL string, fortschritt func(gelesen, gesamt int64)) (string,
 		return "", errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
 	}
 	os.RemoveAll(beiseite)
+
+	// Signieren, damit das System die App über Fassungen hinweg wiedererkennt
+	// und nicht bei jedem Update erneut nach Berechtigungen fragt. Schlägt das
+	// fehl, ist die App trotzdem lauffähig — es fragt dann eben wieder.
+	_ = nachbereiten(ziel)
 	return ziel, nil
 }
 

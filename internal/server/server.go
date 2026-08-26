@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -84,12 +85,23 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.VersionStand())
 	})
 	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, r *http.Request) {
-		ort, err := s.c.Update()
-		if err != nil {
+		if err := s.c.Update(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, map[string]string{"ort": ort})
+		writeJSON(w, s.c.UpdateFortschritt())
+	})
+	mux.HandleFunc("GET /api/update", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.UpdateFortschritt())
+	})
+	mux.HandleFunc("POST /api/restart", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.NeuStarten(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		// Kurz warten, damit die Antwort noch rausgeht, dann Platz machen.
+		go func() { time.Sleep(700 * time.Millisecond); os.Exit(0) }()
 	})
 	mux.HandleFunc("GET /api/usage", func(w http.ResponseWriter, r *http.Request) {
 		tage, _ := strconv.Atoi(r.URL.Query().Get("tage"))

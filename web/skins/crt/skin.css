@@ -280,3 +280,7 @@ body {
 .emptybox { color: var(--dim); }
 .zhaupt .ztitel { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
+
+/* Ladebalken beim Update. */
+.balken { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+.balken i { background: var(--accent); }

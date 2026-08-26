@@ -106,6 +106,8 @@ const api = {
   portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
   verbrauch: (tage) => req('/api/usage?tage=' + tage),
   fassung: () => req('/api/version'),
+  updateStand: () => req('/api/update'),
+  neuStarten: () => req('/api/restart', { method: 'POST' }),
   hookStand: () => req('/api/hook'),
   hookSetzen: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   aktualisieren: () => req('/api/update', { method: 'POST' }),
@@ -1482,20 +1484,62 @@ $('#updateHide').addEventListener('click', () => {
 $('#updateNotes').addEventListener('click', () => {
   plxrUI.hinweis(fassungsStand?.notizen || 'keine Anmerkungen zu dieser Fassung', 'Was ist neu');
 });
+/* Der Ablauf, den man erwartet: Hinweis, Klick, Ladebalken, Neustart. Die
+   Sessions merken davon nichts — sie gehören dem Daemon, und der läuft
+   weiter. Nur das Fenster kommt neu. */
 $('#updateGo').addEventListener('click', async () => {
   const ja = await plxrUI.frage(
-    'plxr wird danach neu gestartet. Laufende Sessions bleiben im Daemon.', 'Jetzt installieren?');
+    'Der Daemon läuft weiter, alle Sessions bleiben. Nur das Fenster startet neu.',
+    'Fassung ' + (fassungsStand?.neueste || '') + ' installieren?');
   if (!ja) return;
-  $('#updateText').textContent = 'lädt und tauscht aus …';
+
   $('#updateGo').disabled = true;
+  $('#updateNotes').hidden = true;
+  $('#updateHide').hidden = true;
+  $('#updateBalken').hidden = false;
+
   try {
-    const r = await api.aktualisieren();
-    $('#updateText').textContent = `eingesetzt in ${r.ort} — plxr neu starten`;
+    await api.aktualisieren();
   } catch (e) {
-    $('#updateText').textContent = 'fehlgeschlagen: ' + (e.message || e);
-    $('#updateGo').disabled = false;
+    updateFehler(e.message || String(e));
+    return;
   }
+  updateVerfolgen();
 });
+
+function updateFehler(text) {
+  $('#updateText').textContent = 'fehlgeschlagen: ' + text;
+  $('#updateBalken').hidden = true;
+  $('#updateGo').disabled = false;
+  $('#updateNotes').hidden = false;
+  $('#updateHide').hidden = false;
+}
+
+function updateVerfolgen() {
+  const tick = setInterval(async () => {
+    let st;
+    try {
+      st = await api.updateStand();
+    } catch {
+      return; // Verbindung kurz weg — beim nächsten Versuch wieder da
+    }
+    $('#updateFuellung').style.width = st.prozent + '%';
+    $('#updateText').textContent =
+      st.phase === 'lädt' ? `lädt … ${st.prozent}%` : st.phase;
+
+    if (!st.fertig) return;
+    clearInterval(tick);
+
+    if (st.fehler) { updateFehler(st.fehler); return; }
+
+    $('#updateText').textContent = 'fertig — startet neu';
+    $('#updateFuellung').style.width = '100%';
+    // Kurz stehen lassen, damit man sieht, dass es geklappt hat.
+    setTimeout(() => api.neuStarten().catch(() => {
+      $('#updateText').textContent = 'eingesetzt — plxr von Hand neu starten';
+    }), 900);
+  }, 400);
+}
 
 /* ═════════════════════════ Neue Session ═════════════════════════ */
 
@@ -1578,6 +1622,10 @@ connect()
   .then(() => {
     api.aufZustand(zeichneAlles);
     fassungPruefen();
+    // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
+    api.updateStand().then((st) => {
+      if (st.laeuft) { $('#updateBar').hidden = false; $('#updateBalken').hidden = false; updateVerfolgen(); }
+    }).catch(() => {});
     setInterval(fassungPruefen, 60 * 60 * 1000);
   })
   .catch(() => neuVerbinden());

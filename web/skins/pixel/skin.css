@@ -217,3 +217,7 @@ body {
 .emptybox { color: var(--dim); }
 .zhaupt .ztitel { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
+
+/* Ladebalken beim Update. */
+.balken { background: var(--bg); }
+.balken i { background: var(--accent); }
