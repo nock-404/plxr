@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"strings"
+	"time"
 
 	"plxr/internal/daemon"
 
@@ -59,6 +60,18 @@ func (a *App) Env() Env {
 		Arch:          info.Arch,
 		TitlebarInset: info.Platform == "darwin",
 	}
+}
+
+// Beenden schließt dieses Fenster.
+//
+// Nach einem Update startet die neue Fassung, und die alte muss weichen —
+// aber nur das Fenster. Der Daemon läuft weiter, deshalb überstehen die
+// Sessions den Wechsel.
+func (a *App) Beenden() {
+	go func() {
+		time.Sleep(400 * time.Millisecond)
+		wr.Quit(a.ctx)
+	}()
 }
 
 // OpenURL öffnet eine Adresse im Standardbrowser.

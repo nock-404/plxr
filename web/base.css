@@ -234,11 +234,27 @@ html, body {
 .ueber { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; }
 .ueberbar { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding: 6px 12px; }
 .uebername { flex: 0 0 auto; }
+/* Der Editor liegt zweilagig: unten eine Ebene, die nur die Fundstellen
+   einfärbt, oben das Textfeld mit durchsichtigem Grund. Anders geht es nicht —
+   ein Textfeld kann einzelne Stellen nicht selbst hervorheben, und seine
+   Auswahl ist unsichtbar, solange der Fokus im Suchfeld steht. */
+.viewerwrap { position: relative; flex: 1; min-height: 0; display: flex; }
 .viewerbody {
   flex: 1; margin: 0; overflow: auto; padding: 10px 14px;
   white-space: pre; resize: none; border: 0; outline: none;
   font: inherit; tab-size: 2;
+  position: relative; z-index: 0;
 }
+/* Die Ebene liegt oben und färbt nur die Fundstellen durchscheinend ein. Unten
+   liegen hieße gegen jeden Skin-Hintergrund anzukommen — die setzen dort alle
+   ihren eigenen. */
+.viewermarks {
+  position: absolute; inset: 0; overflow: hidden; z-index: 1;
+  white-space: pre; color: transparent; pointer-events: none;
+  font: inherit; tab-size: 2;
+}
+.viewermarks mark { color: transparent; background: color-mix(in srgb, var(--accent) 26%, transparent); }
+.viewermarks mark.jetzt { background: color-mix(in srgb, var(--accent) 62%, transparent); }
 .dirty { flex: 0 0 auto; }
 .ruleslist { flex: 1; overflow: auto; padding: 8px 0 20px; }
 .rrow { display: flex; gap: 12px; align-items: baseline; padding: 6px 16px; }
@@ -349,6 +365,9 @@ html, body {
 }
 .suche input { font: inherit; color: inherit; width: 220px; }
 .suche[hidden] { display: none !important; }
+/* Im Editor sitzt dieselbe Leiste in der Spalte statt über dem Inhalt —
+   schwebend würde sie die erste Zeile der Datei verdecken. */
+.editorsuche { position: static; margin: 0 12px 6px; flex: 0 0 auto; }
 
 /* --- Posteingang ---
    Jede wartende Session als Karte: wer fragt, was er fragt, und das Feld für

@@ -21,6 +21,7 @@ const state = {
 
 /* ═════════════════════════ Transport ═════════════════════════ */
 
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const WAILS = !!(window.go && window.go.main && window.go.main.App);
 const Native = WAILS ? window.go.main.App : null;
 
@@ -100,6 +101,7 @@ const api = {
 
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
+  themeLoeschen: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   konten: () => req('/api/accounts'),
   vorlagen: () => req('/api/vorlagen'),
   vorlageStarten: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
@@ -138,7 +140,8 @@ const api = {
   beenden: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
   kontoWechseln: (id, ziel) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(ziel)}`, { method: 'POST' }),
   wiederaufnehmen: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
-  antwortSenden: (id, text) => req(`/api/sessions/${id}/antwort`, { method: 'POST', body: text }),
+  antwortSenden: (id, text, roh) =>
+    req(`/api/sessions/${id}/antwort${roh ? '?roh=1' : ''}`, { method: 'POST', body: text }),
 
   // --- Gesamtzustand ---
   _tiles: null,
@@ -290,6 +293,7 @@ function themeAnwenden(t) {
     // sofort, ohne auf den Daemon zu warten.
     localStorage.setItem('plxr.themeCache', JSON.stringify(t));
   } catch {}
+  loeschKnopfZeigen();
 }
 
 const cssVar = (n, ersatz) =>
@@ -316,6 +320,12 @@ function xtermFarben() {
 /* Findet sich das Theme nicht in der geladenen Liste — etwa weil der Daemon
    gerade weg war —, wird der Skin aus dem Namen abgeleitet statt gar nichts
    zu tun. Ein Wechsel darf nie stumm bleiben. */
+/* Löschen gibt es nur für eigene Themes: die eingebauten stecken in der
+   Anwendung und wären nach dem nächsten Update ohnehin wieder da. */
+function loeschKnopfZeigen() {
+  $('#themeLoeschen').hidden = !aktuellesTheme()?.eigen;
+}
+
 function aktuellesTheme() {
   const wert = $('#themeSel').value;
   if (!wert) return null;
@@ -348,7 +358,21 @@ async function themesLaden(vorwahl) {
   themeAnwenden(aktuellesTheme());
 }
 
-$('#themeSel').addEventListener('change', () => themeAnwenden(aktuellesTheme()));
+$('#themeSel').addEventListener('change', () => {
+  themeAnwenden(aktuellesTheme());
+});
+
+$('#themeLoeschen').addEventListener('click', async () => {
+  const t = aktuellesTheme();
+  if (!t?.eigen) return;
+  if (!(await plxrUI.frage(t.label, 'Eigenes Theme löschen?'))) return;
+  try {
+    await api.themeLoeschen(t.name);
+    await themesLaden();
+  } catch (e) {
+    plxrUI.hinweis(e.message || String(e), 'Nicht gelöscht');
+  }
+});
 
 /* ═════════════════════════ Einstellungen ═════════════════════════ */
 
@@ -361,6 +385,7 @@ async function einstellungenOeffnen() {
   $('#themeHint').textContent =
     'Änderungen greifen sofort. Speichern legt ein eigenes Theme an.';
   stilEditorBauen();
+  loeschKnopfZeigen();
   try {
     const v = await api.fassung();
     $('#settingsVersion').textContent =
@@ -390,7 +415,12 @@ const stil = { aenderungen: {}, waehler: {}, fontSize: 0, termSize: 0 };
 
 function stilEditorBauen() {
   const box = $('#stilEditor');
-  if (box.children.length) return;
+  // Schon gebaut: nur die Werte auffrischen. Sonst zeigen die Tupfer nach
+  // einem Themewechsel weiter die alten Farben.
+  if (box.children.length) {
+    for (const [schluessel] of STILFARBEN) stil.waehler[schluessel]?.setzen(istFarbe(schluessel));
+    return;
+  }
 
   for (const [schluessel, name] of STILFARBEN) {
     const zeile = document.createElement('div');
@@ -470,7 +500,6 @@ function schalterZeile(name, welcher) {
   };
   knopf.addEventListener('click', () => {
     document.documentElement.dataset[welcher] = lesen() ? 'off' : 'on';
-    stil.aenderungen['_' + welcher] = !lesen() ? false : true;
     zeigen();
   });
   zeigen();
@@ -695,7 +724,7 @@ function inboxZeichnen() {
 
 async function antworten(id, text, roh) {
   try {
-    await api.antwortSenden(id, roh ? text : text);
+    await api.antwortSenden(id, text, roh);
     // Kurz warten, dann neu lesen: die Session braucht einen Moment, bis sie
     // den Status ändert.
     setTimeout(() => { if (!$('#viewInbox').hidden) inboxZeichnen(); }, 900);
@@ -1143,13 +1172,22 @@ function paneHinzu(id) {
     const cmd = e.metaKey && !e.ctrlKey;
     const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
 
-    // Kopieren, nur wenn wirklich etwas ausgewählt ist — sonst soll Strg+C
-    // sein Abbruchsignal senden dürfen.
-    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'c' && term.hasSelection()) {
+    /* Kopieren und Einfügen.
+
+       Auf macOS erledigt das native Bearbeiten-Menü ⌘C und ⌘V — und zwar
+       zuerst, weil NSMenu Vorrang vor allem anderen hat. Wer hier zusätzlich
+       selbst einfügt, fügt zweimal ein. Also übernimmt der eigene Handler
+       dort nur Strg+Shift, und ⌘C/⌘V bleiben dem System überlassen.
+
+       Auf Windows und Linux gibt es kein solches Menü; dort ist Strg+Shift
+       der einzige Weg. */
+    const eigenesKopieren = MAC ? strgUmschalt : (cmd || strgUmschalt);
+
+    if (eigenesKopieren && e.key.toLowerCase() === 'c' && term.hasSelection()) {
       navigator.clipboard.writeText(term.getSelection()).catch(() => {});
       return false;
     }
-    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'v') {
+    if (eigenesKopieren && e.key.toLowerCase() === 'v') {
       navigator.clipboard.readText().then((t) => t && api.tippen(id, t)).catch(() => {});
       return false;
     }
@@ -1162,12 +1200,11 @@ function paneHinzu(id) {
     return true;
   });
 
-  // Mit der Maus ausgewählter Text wandert sofort in die Zwischenablage —
-  // wie in jedem Terminal seit X11.
-  term.onSelectionChange(() => {
-    const t = term.getSelection();
-    if (t && t.length < 100000) navigator.clipboard.writeText(t).catch(() => {});
-  });
+  /* Absichtlich KEIN Kopieren bei jeder Auswahländerung.
+
+     Unter X11 gibt es dafür einen zweiten Puffer, die Primary Selection.
+     macOS und Windows haben den nicht — dort würde jedes Ziehen mit der Maus
+     überschreiben, was der Nutzer vorher kopiert hatte. ⌘C reicht. */
 
   const eintrag = { id, term, fit, suche, serial, el };
   panes.set(id, eintrag);
@@ -1211,6 +1248,9 @@ function paneNachmessen(p) {
 }
 
 function paneAktiv(id) {
+  // Beim Markieren von Text feuert mousedown ständig — ohne diese Sperre
+  // baut sich der Dateibaum bei jedem Zug neu auf.
+  if (state.aktiv === id && panes.has(id)) return;
   state.aktiv = id;
   for (const p of paneListe()) p.el.dataset.aktiv = p.id === id ? 'ja' : 'nein';
   kopfleisteAktualisieren();
@@ -1267,8 +1307,6 @@ $('#sessKill').addEventListener('click', async () => {
 
 /* ═════════════════════════ Suche im Terminal ═════════════════════════ */
 
-const sucheStand = { treffer: 0, aktuell: 0 };
-
 function sucheOeffnen() {
   if (!state.aktiv) return;
   $('#suche').hidden = false;
@@ -1283,11 +1321,33 @@ function sucheSchliessen() {
   p?.term.focus();
 }
 
-function suchen(rueckwaerts) {
+/* Beim Tippen soll vom Anfang gesucht werden, nicht vom letzten Treffer aus.
+   Sonst landet man bei „err" drei Treffer weiter als erwartet. */
+function suchen(rueckwaerts, vonVorn) {
   const p = panes.get(state.aktiv);
   if (!p) return;
   const q = $('#sucheFeld').value;
-  if (!q) { $('#sucheStand').textContent = ''; return; }
+  if (!q) { $('#sucheStand').textContent = ''; try { p.suche.clearDecorations(); } catch {} return; }
+
+  // Zähler anmelden, sobald es die Fläche zum ersten Mal betrifft.
+  if (!p.zaehlerAn) {
+    p.zaehlerAn = true;
+    try {
+      p.suche.onDidChangeResults((r) => {
+        $('#sucheStand').textContent = !r || !r.resultCount
+          ? 'nichts gefunden'
+          : `${r.resultIndex + 1} von ${r.resultCount}`;
+      });
+    } catch {}
+  }
+  /* Bei neuem Suchwort von vorn: clearDecorations nimmt nur die Markierungen
+     weg — den Startpunkt für den nächsten Treffer bildet die Auswahl im
+     Terminal, und die muss deshalb mit weg. Sonst zählt eine frische Suche
+     mitten im Text weiter. */
+  if (vonVorn) {
+    try { p.suche.clearDecorations(); } catch {}
+    try { p.term.clearSelection(); } catch {}
+  }
 
   const opt = {
     decorations: {
@@ -1300,10 +1360,12 @@ function suchen(rueckwaerts) {
     },
   };
   const gefunden = rueckwaerts ? p.suche.findPrevious(q, opt) : p.suche.findNext(q, opt);
-  $('#sucheStand').textContent = gefunden ? '' : 'nichts gefunden';
+  // Der Zähler kommt über onDidChangeResults; nur wenn der ausbleibt, hier
+  // wenigstens sagen, dass nichts da ist.
+  if (!gefunden) $('#sucheStand').textContent = 'nichts gefunden';
 }
 
-$('#sucheFeld').addEventListener('input', () => suchen(false));
+$('#sucheFeld').addEventListener('input', () => suchen(false, true));
 $('#sucheFeld').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); suchen(e.shiftKey); }
   if (e.key === 'Escape') { e.preventDefault(); sucheSchliessen(); }
@@ -1321,7 +1383,7 @@ $('#sucheZu').addEventListener('click', sucheSchliessen);
 const KUERZEL = [
   ['t', () => $('#newBtn').click(),                     'neue Session'],
   ['w', () => state.aktiv && paneSchliessen(state.aktiv), 'Fläche schließen'],
-  ['f', sucheOeffnen,                                    'suchen'],
+  ['f', () => ($('#viewer').hidden ? sucheOeffnen() : editorSucheOeffnen()), 'suchen'],
   ['d', () => $('#splitAdd').click(),                    'teilen'],
   [',', einstellungenOeffnen,                            'Einstellungen'],
   ['0', () => schriftAendern(0),                         'Schrift zurücksetzen'],
@@ -1351,9 +1413,19 @@ document.addEventListener('keydown', (e) => {
 
   const treffer = KUERZEL.find(([taste]) => taste === e.key.toLowerCase());
   if (!treffer) return;
-  // In einem Eingabefeld gelten die üblichen Bearbeitungskürzel weiter.
-  const imFeld = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
-  if (imFeld && !['f', ','].includes(e.key.toLowerCase())) return;
+
+  /* In einem Eingabefeld gelten die üblichen Bearbeitungskürzel weiter.
+     Aber Achtung: xterm.js hält den Fokus auf einer versteckten textarea in
+     .xterm — ohne diese Ausnahme gilt JEDES fokussierte Terminal als
+     Eingabefeld, und ⌘T, ⌘W, ⌘D und die Schriftgröße sind tot. */
+  const el = document.activeElement;
+  const imTerminal = !!el?.closest?.('.xterm');
+  const imFeld = !imTerminal && /^(INPUT|TEXTAREA)$/.test(el?.tagName || '');
+  // ⌘F darf ins Textfeld des Editors durch: dort ist es die Dateisuche.
+  const imEditor = el?.id === 'viewerBody';
+  if (imFeld && e.key !== ',' && !(imEditor && e.key.toLowerCase() === 'f')) return;
+  // ⌘F wird im Terminal schon vom xterm-Handler behandelt — sonst feuert es doppelt.
+  if (imTerminal && e.key.toLowerCase() === 'f') return;
   e.preventDefault();
   treffer[1]();
 });
@@ -1599,6 +1671,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function viewerSchliessen() {
+  $('#esuche').hidden = true;
   if (!$('#viewerDirty').hidden) {
     const weg = await plxrUI.frage(
       'Die Änderungen an ' + $('#viewerName').textContent + ' gehen verloren.', 'Ohne Speichern schließen?');
@@ -1608,6 +1681,179 @@ async function viewerSchliessen() {
   $('#viewer').hidden = true;
 }
 $('#viewerClose').addEventListener('click', viewerSchliessen);
+
+/* ── Suche im Datei-Editor ──
+   Ein <textarea> bringt keine Suche mit, und im Fenster gibt es keine
+   Browserleiste, die einspringt. Also eine eigene — dieselbe Leiste wie im
+   Terminal, damit sie in jedem Skin ohne Zutun richtig aussieht. */
+const esuche = { treffer: [], index: -1, quelle: null };
+
+function editorSucheOeffnen() {
+  const feld = $('#esucheFeld');
+  const body = $('#viewerBody');
+  const markiert = body.value.slice(body.selectionStart, body.selectionEnd);
+  if (markiert && !markiert.includes('\n')) feld.value = markiert;
+  $('#esuche').hidden = false;
+  feld.focus();
+  feld.select();
+  editorTrefferSammeln();
+}
+
+function editorSucheSchliessen() {
+  $('#esuche').hidden = true;
+  $('#viewerMarks').textContent = '';
+  esuche.treffer = [];
+  esuche.index = -1;
+  esuche.quelle = null;
+  $('#viewerBody').focus();
+}
+
+// Alle Fundstellen auf einmal, sonst kann der Zähler nicht stimmen.
+function editorTrefferSammeln() {
+  const text = $('#viewerBody').value;
+  const q = $('#esucheFeld').value;
+  esuche.quelle = text;
+  esuche.treffer = [];
+  esuche.index = -1;
+  if (q) {
+    const heu = text.toLowerCase();
+    const nadel = q.toLowerCase();
+    for (let i = heu.indexOf(nadel); i !== -1; i = heu.indexOf(nadel, i + nadel.length)) {
+      esuche.treffer.push(i);
+    }
+  }
+  editorStandZeigen();
+}
+
+function editorStandZeigen() {
+  const stand = $('#esucheStand');
+  if (!$('#esucheFeld').value) { stand.textContent = ''; return; }
+  if (!esuche.treffer.length) { stand.textContent = 'nichts gefunden'; return; }
+  stand.textContent = `${Math.max(esuche.index, 0) + 1} von ${esuche.treffer.length}`;
+}
+
+function editorSpringen(rueckwaerts) {
+  const body = $('#viewerBody');
+  // Wer beim offenen Suchfeld weitertippt, ändert den Text unter den Treffern.
+  if (body.value !== esuche.quelle) editorTrefferSammeln();
+  const q = $('#esucheFeld').value;
+  if (!q || !esuche.treffer.length) { editorStandZeigen(); return; }
+
+  if (esuche.index === -1) {
+    // Der erste Sprung geht von der Stelle aus, an der der Cursor steht.
+    const ab = body.selectionStart;
+    const i = esuche.treffer.findIndex((p) => p >= ab);
+    esuche.index = rueckwaerts
+      ? (i <= 0 ? esuche.treffer.length - 1 : i - 1)
+      : (i === -1 ? 0 : i);
+  } else {
+    const n = esuche.treffer.length;
+    esuche.index = rueckwaerts ? (esuche.index - 1 + n) % n : (esuche.index + 1) % n;
+  }
+
+  const pos = esuche.treffer[esuche.index];
+  body.setSelectionRange(pos, pos + q.length);
+  editorScrollen(pos);
+  editorStandZeigen();
+  markierungenZeichnen();
+}
+
+/* Ein Textfeld scrollt nur zur Auswahl, wenn es den Fokus hat — und den soll
+   das Suchfeld behalten. Also selbst rechnen: bei wrap="off" ist jede
+   Textzeile genau eine sichtbare Zeile, das geht exakt auf. */
+function editorScrollen(pos) {
+  const body = $('#viewerBody');
+  const st = getComputedStyle(body);
+  let zh = parseFloat(st.lineHeight);
+  if (!Number.isFinite(zh)) zh = parseFloat(st.fontSize) * 1.4;
+
+  const davor = body.value.slice(0, pos);
+  const zeile = davor.length - davor.replaceAll('\n', '').length;
+  body.scrollTop = Math.max(0, zeile * zh - body.clientHeight / 2);
+
+  const spalte = pos - (davor.lastIndexOf('\n') + 1);
+  body.scrollLeft = Math.max(0, spalte * zeichenbreite(st) - body.clientWidth / 2);
+}
+
+let breiteMerker = null;
+function zeichenbreite(st) {
+  const schrift = `${st.fontSize} ${st.fontFamily}`;
+  if (breiteMerker?.schrift === schrift) return breiteMerker.breite;
+  const c = document.createElement('canvas').getContext('2d');
+  c.font = schrift;
+  const breite = c.measureText('0').width || parseFloat(st.fontSize) * 0.6;
+  breiteMerker = { schrift, breite };
+  return breite;
+}
+
+/* Die Markierungsebene übernimmt Schrift und Ränder zur Laufzeit vom Textfeld:
+   jeder Skin setzt dort andere Werte, und schon ein Pixel Abweichung verschiebt
+   jede Hervorhebung gegen den Text darunter. */
+function markGeometrie() {
+  const st = getComputedStyle($('#viewerBody'));
+  const lage = $('#viewerMarks').style;
+  for (const eig of ['font', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
+                     'letterSpacing', 'wordSpacing', 'tabSize', 'padding', 'margin',
+                     'borderWidth', 'textIndent']) {
+    lage[eig] = st[eig];
+  }
+}
+
+const HTML_ZEICHEN = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+const htmlSicher = (t) => t.replace(/[&<>]/g, (z) => HTML_ZEICHEN[z]);
+
+// Über einer gewissen Größe kostet das Neuzeichnen mehr, als die Hervorhebung
+// nützt — dann bleibt es beim Zähler und beim Springen.
+const MARK_GRENZE = 2 << 20;
+
+function markierungenZeichnen() {
+  const body = $('#viewerBody');
+  const lage = $('#viewerMarks');
+  const q = $('#esucheFeld').value;
+  if ($('#esuche').hidden || !q || !esuche.treffer.length || body.value.length > MARK_GRENZE) {
+    lage.textContent = '';
+    return;
+  }
+  markGeometrie();
+  const text = body.value;
+  const teile = [];
+  let ab = 0;
+  esuche.treffer.forEach((p, i) => {
+    teile.push(htmlSicher(text.slice(ab, p)));
+    teile.push(i === esuche.index ? '<mark class="jetzt">' : '<mark>');
+    teile.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
+    ab = p + q.length;
+  });
+  teile.push(htmlSicher(text.slice(ab)));
+  /* Ein Leerzeichen zum Schluss: endet die Datei mit einem Zeilenumbruch, hält
+     das Textfeld dafür noch eine leere Zeile vor, ein <div> nicht. Ohne den
+     Ausgleich rollen beide Lagen unterschiedlich weit, und am Dateiende säße
+     jede Hervorhebung eine Zeile zu hoch. */
+  teile.push(' ');
+  lage.innerHTML = teile.join('');
+  markMitscrollen();
+}
+
+// Beide Lagen müssen denselben Ausschnitt zeigen.
+function markMitscrollen() {
+  const body = $('#viewerBody');
+  const lage = $('#viewerMarks');
+  lage.scrollTop = body.scrollTop;
+  lage.scrollLeft = body.scrollLeft;
+}
+
+$('#viewerBody').addEventListener('scroll', markMitscrollen);
+$('#viewerBody').addEventListener('input', () => {
+  if (!$('#esuche').hidden) { editorTrefferSammeln(); markierungenZeichnen(); }
+});
+$('#esucheFeld').addEventListener('input', () => { editorTrefferSammeln(); editorSpringen(false); });
+$('#esucheFeld').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); editorSpringen(e.shiftKey); }
+  else if (e.key === 'Escape') { e.preventDefault(); editorSucheSchliessen(); }
+});
+$('#esucheHoch').addEventListener('click', () => editorSpringen(true));
+$('#esucheRunter').addEventListener('click', () => editorSpringen(false));
+$('#esucheZu').addEventListener('click', editorSucheSchliessen);
 
 /* ═════════════════════════ Regeln ═════════════════════════ */
 
@@ -2106,9 +2352,16 @@ function updateVerfolgen() {
     $('#updateText').textContent = 'fertig — startet neu';
     $('#updateFuellung').style.width = '100%';
     // Kurz stehen lassen, damit man sieht, dass es geklappt hat.
-    setTimeout(() => api.neuStarten().catch(() => {
-      $('#updateText').textContent = 'eingesetzt — plxr von Hand neu starten';
-    }), 900);
+    setTimeout(async () => {
+      try {
+        await api.neuStarten();
+        // Die neue Fassung läuft jetzt. Dieses Fenster verabschiedet sich —
+        // der Daemon bleibt, deshalb merken die Sessions davon nichts.
+        if (WAILS) Native.Beenden?.();
+      } catch {
+        $('#updateText').textContent = 'eingesetzt — plxr von Hand neu starten';
+      }
+    }, 900);
   }, 400);
 }
 

@@ -226,12 +226,14 @@ func (c *Core) Kill(id string, purge bool) {
 //
 // Der Posteingang lebt davon: acht Agenten, drei warten — man will sie
 // abarbeiten, nicht jede einzeln öffnen.
-func (c *Core) Antworten(id, text string) error {
+func (c *Core) Antworten(id, text string, roh bool) error {
 	h := c.Host(id)
 	if h == nil {
 		return errors.New("Session läuft nicht")
 	}
-	if !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
+	// Ein Zeilenumbruch schickt die Antwort ab. Bei einer Steuertaste wie
+	// Escape wäre er falsch — die soll für sich allein ankommen.
+	if !roh && !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
 		text += "\r"
 	}
 	_, err := h.Write([]byte(text))
@@ -248,7 +250,10 @@ func (c *Core) Host(id string) *ptyhost.Host {
 
 func (c *Core) Themes() []theme.Theme                        { return theme.Load(c.themes, c.skins) }
 func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Import(raw, c.skins) }
-func (c *Core) Agents() []agent.Profile                      { return agent.Load(c.agents).All() }
+
+// ThemeLöschen entfernt ein eigenes Theme. Wer drei ausprobiert hat, will sie
+// wieder loswerden — die eingebauten bleiben unantastbar.
+func (c *Core) ThemeLöschen(name string) error { return theme.Löschen(name) }
 
 // ---- Vorlagen ----
 

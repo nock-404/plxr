@@ -17,7 +17,8 @@
 
 body {
   font-family: 'Caveat', 'Bradley Hand', cursive;
-  font-size: 21px;
+  /* Über --size im Stil-Editor verstellbar. */
+  font-size: var(--size, 21px);
   background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px, var(--bg);
 }
 .fx {
@@ -261,3 +262,9 @@ body {
 /* Verbrauchstempo. */
 .tempo { color: var(--dim); }
 .tempo[data-warnung="ja"] { color: var(--blocked); }
+
+/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+.wahlknopf:hover { background: #efe9d8; }
+.stilschalter:hover { background: #efe9d8; }
+.paneclose:hover { color: var(--blocked); }
+.farbtupfer:hover { border-color: var(--accent); }

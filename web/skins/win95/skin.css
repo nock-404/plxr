@@ -18,7 +18,8 @@
 
 body {
   font-family: Tahoma, 'Segoe UI', 'MS Sans Serif', Geneva, sans-serif;
-  font-size: 12px;
+  /* Über --size im Stil-Editor verstellbar. */
+  font-size: var(--size, 12px);
   -webkit-font-smoothing: none;
 }
 .app { background: var(--bg); }
@@ -267,3 +268,10 @@ body {
 /* Verbrauchstempo. */
 .tempo { color: var(--dk); }
 .tempo[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }
+
+/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+.wahlknopf:hover { background: #d4d0c8; }
+.stilschalter:hover { background: #d4d0c8; }
+.paneclose:hover { color: var(--blocked); }
+.farbtupfer:hover { border-color: var(--accent); }
+.btn:hover { background: #d4d0c8; }

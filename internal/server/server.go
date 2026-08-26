@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +51,7 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := s.c.Antworten(r.PathValue("id"), string(b)); err != nil {
+		if err := s.c.Antworten(r.PathValue("id"), string(b), r.URL.Query().Get("roh") == "1"); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -62,9 +61,15 @@ func (s *Server) Routes() *http.ServeMux {
 		cmd := shell.Standard()
 		writeJSON(w, map[string]any{"cmd": cmd, "name": shell.Name(cmd)})
 	})
-	mux.HandleFunc("GET /api/agents", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Agents()) })
 	mux.HandleFunc("GET /api/themes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Themes()) })
 	mux.HandleFunc("POST /api/themes", s.importTheme)
+	mux.HandleFunc("DELETE /api/themes/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.ThemeLöschen(r.PathValue("name")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Vorlagen())
 	})
@@ -148,14 +153,16 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/update", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.UpdateFortschritt())
 	})
+	// Startet die neue Fassung. Der Daemon beendet sich dabei ausdrücklich
+	// NICHT: ihm gehören die PTYs, und ein Exit hier würde beim Update jede
+	// laufende Session töten — genau das Gegenteil dessen, was im Dialog
+	// steht. Das Fenster verabschiedet sich selbst über die Wails-Bindung.
 	mux.HandleFunc("POST /api/restart", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.NeuStarten(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
-		// Kurz warten, damit die Antwort noch rausgeht, dann Platz machen.
-		go func() { time.Sleep(700 * time.Millisecond); os.Exit(0) }()
 	})
 	mux.HandleFunc("GET /api/usage", func(w http.ResponseWriter, r *http.Request) {
 		tage, _ := strconv.Atoi(r.URL.Query().Get("tage"))

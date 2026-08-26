@@ -16,7 +16,8 @@
 
 body {
   font-family: 'PressStart', ui-monospace, monospace;
-  font-size: 10px; line-height: 1.6;
+  /* Über --size im Stil-Editor verstellbar. */
+  font-size: var(--size, 10px); line-height: 1.6;
   image-rendering: pixelated;
   background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px, var(--bg);
 }
@@ -259,3 +260,9 @@ body {
 /* Verbrauchstempo. */
 .tempo { color: var(--dim); }
 .tempo[data-warnung="ja"] { color: var(--blocked); }
+
+/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+.wahlknopf:hover { background: var(--line); color: var(--accent); }
+.stilschalter:hover { background: var(--line); color: var(--accent); }
+.paneclose:hover { color: var(--blocked); }
+.farbtupfer:hover { box-shadow: 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent), -3px 0 0 0 var(--accent), 3px 0 0 0 var(--accent); }

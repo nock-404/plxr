@@ -55,7 +55,7 @@
 
     <!-- Die Schiene bleibt immer stehen, auch in einer Session. Sonst
          verliert man beim Hineinschauen den Rest der Herde aus dem Blick. -->
-    <nav class="rail" id="rail">
+    <nav class="rail">
       <button class="railitem railhome" id="railHome">
         <span class="rdot">⊞</span><span class="rname">Übersicht</span>
       </button>
@@ -189,7 +189,18 @@
               <button class="btn" id="viewerSave" hidden>SPEICHERN</button>
               <button class="btn" id="viewerClose">ZURÜCK</button>
             </div>
-            <textarea id="viewerBody" class="viewerbody" spellcheck="false" wrap="off"></textarea>
+            <div class="suche editorsuche" id="esuche" hidden>
+              <span class="prompt">suchen&gt;</span>
+              <input id="esucheFeld" spellcheck="false" placeholder="in der Datei suchen">
+              <span id="esucheStand" class="meta"></span>
+              <button class="btn tiny" id="esucheHoch" title="vorheriger Treffer (Shift+Enter)">↑</button>
+              <button class="btn tiny" id="esucheRunter" title="nächster Treffer (Enter)">↓</button>
+              <button class="btn tiny" id="esucheZu" title="schließen (Esc)">✕</button>
+            </div>
+            <div class="viewerwrap">
+              <div id="viewerMarks" class="viewermarks" aria-hidden="true"></div>
+              <textarea id="viewerBody" class="viewerbody" spellcheck="false" wrap="off"></textarea>
+            </div>
           </div>
         </div>
       </section>
@@ -245,6 +256,7 @@
       <div class="stil" id="stilEditor"></div>
       <span class="zeile2">
         <span id="themeHint" class="hinweis"></span>
+        <button type="button" class="btn" id="themeLoeschen" hidden>LÖSCHEN</button>
         <button type="button" class="btn" id="stilReset">ZURÜCKSETZEN</button>
         <button type="button" class="btn" id="stilSpeichern">SPEICHERN</button>
         <button type="button" class="btn" id="themeImportBtn">IMPORTIEREN</button>
