@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 )
 
 // Registry hält die Sessions im Speicher und spiegelt sie nach ~/.plxr/sessions/.
@@ -38,8 +39,24 @@ func (r *Registry) load() error {
 			continue
 		}
 		// Beim Start lebt nichts mehr, was wir nicht selbst gestartet haben.
-		// Ein toter Eintrag lässt sich nicht fortsetzen — der Prozess ist weg,
-		// das Terminal auch. Also wegräumen statt als leere Kachel anzeigen.
+		//
+		// Stand die Session beim letzten Mal noch auf "läuft", ist der Daemon
+		// gestorben und hat sie mitgerissen. Das kommentarlos wegzuräumen wäre
+		// das Schlechteste: der Mensch merkt nur, dass Arbeit fehlt. Also
+		// bleibt der Eintrag als verwaist stehen — bei Claude-Sessions mit der
+		// Kennung, über die sich die Unterhaltung fortsetzen lässt.
+		if s.Alive {
+			s.Alive = false
+			s.Status = StatusDead
+			s.Verwaist = true
+			s.ExitCode = -1
+			if s.EndedAt == 0 {
+				s.EndedAt = time.Now().UnixMilli()
+			}
+			r.m[s.ID] = &s
+			r.persist(&s)
+			continue
+		}
 		os.Remove(p)
 	}
 	return nil

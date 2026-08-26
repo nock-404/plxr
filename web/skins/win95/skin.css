@@ -210,3 +210,13 @@ body {
 .btn.icon { font-size: 1.1em; line-height: 1; padding: 3px 9px; }
 .leer { color: var(--dim); }
 .leer b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }
+
+/* --- Vom Absturz betroffen ---
+   Der Daemon endete, während die Session lief. Kein normales Ende: der
+   Eintrag bleibt stehen und lässt sich mit einem Klick wieder aufnehmen. */
+.dot.verwaist { color: #800000; animation: verwaistblink 1.4s steps(2) infinite; }
+.railitem[data-status="verwaist"] { color: #800000; }
+.railitem[data-status="verwaist"] .rsub { color: #800000; opacity: .8; }
+.tile[data-status="verwaist"] { border-color: #800000; background: #c0c0c0; opacity: 1; }
+.tile[data-status="verwaist"] .tfoot .act { color: #800000; opacity: 1; }
+@keyframes verwaistblink { 50% { opacity: .3 } }

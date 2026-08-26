@@ -111,6 +111,7 @@ const api = {
     req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: konto }) }),
   beenden: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
   kontoWechseln: (id, ziel) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(ziel)}`, { method: 'POST' }),
+  wiederaufnehmen: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
 
   // --- Gesamtzustand ---
   _tiles: null,
@@ -429,6 +430,11 @@ const WORT = {
   dead: 'beendet', unknown: 'läuft',
 };
 
+/* Verwaist ist kein Status vom Daemon, sondern ein Vermerk: die Session lief
+   noch, als der Daemon endete. Für die Anzeige zählt er trotzdem wie einer. */
+const zustand = (t) => (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
+const ZEICHEN_VERWAIST = '⚠';
+
 /* Die Schiene ist der Grund, warum die Session kein Vollbild-Overlay ist: wer
    in einer Session steckt, soll trotzdem sehen, wenn woanders jemand hängt. */
 function zeichneSchiene() {
@@ -475,15 +481,16 @@ function zeichneSchiene() {
       }
       kopf.after(el);
 
-      const st = t.status || 'unknown';
+      const st = zustand(t);
       el.dataset.status = st;
       el.classList.toggle('active', state.panes.includes(t.id));
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
-      punkt.textContent = ZEICHEN[st] || '·';
+      punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
-      el.querySelector('.rsub').textContent =
-        [t.alive ? WORT[st] : 'beendet', t.agent].filter(Boolean).join(' · ');
+      el.querySelector('.rsub').textContent = t.verwaist
+        ? 'abgestürzt · wiederaufnehmen'
+        : [t.alive ? WORT[st] : 'beendet', t.agent].filter(Boolean).join(' · ');
       el.title = `${t.name} — ${t.cwd}`;
     }
   }
@@ -526,16 +533,17 @@ function zeichneRaster() {
       el.addEventListener('click', () => sessionOeffnen(t.id));
       raster.appendChild(el);
     }
-    const st = t.status || 'unknown';
+    const st = zustand(t);
     el.dataset.status = st;
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
-    punkt.textContent = ZEICHEN[st] || '·';
+    punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
     el.querySelector('.tbody').textContent = t.preview || '';
-    el.querySelector('.act').textContent =
-      t.alive ? (t.activity || t.last_message || '') : `beendet (${t.exit_code})`;
+    el.querySelector('.act').textContent = t.verwaist
+      ? 'Daemon abgestürzt — Klick nimmt die Unterhaltung wieder auf'
+      : (t.alive ? (t.activity || t.last_message || '') : `beendet (${t.exit_code})`);
     el.querySelector('.agent').textContent = t.agent_label || t.agent || '';
     el.querySelector('.ctx').textContent =
       [t.model?.replace('claude-', ''), t.effort, ctxKurz(t.context), seit(t.since)]
@@ -551,10 +559,12 @@ function zeichneAlles(tiles) {
 
   const laufen = state.tiles.filter((t) => t.alive).length;
   const blockiert = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
+  const verwaist = state.tiles.filter((t) => t.verwaist).length;
   if (verbindungOk) {
     $('#counts').textContent =
       `${state.tiles.length} sessions · ${laufen} laufen` +
-      (blockiert ? ` · ${blockiert} wartet auf dich` : '');
+      (blockiert ? ` · ${blockiert} wartet auf dich` : '') +
+      (verwaist ? ` · ${verwaist} vom Absturz betroffen` : '');
   }
 
   zeichneRaster();
@@ -701,6 +711,21 @@ function paneHinzu(id) {
   }
   const t = state.tiles.find((x) => x.id === id);
   if (!t) return;
+  if (t.verwaist) {
+    // Der Daemon endete, während die Session lief. Bei Claude Code steht die
+    // Unterhaltung im Transkript — von dort geht es weiter.
+    plxrUI.frage(`${t.name} lief noch, als der Daemon endete.\n${t.cwd}`, 'Wiederaufnehmen?')
+      .then(async (ja) => {
+        if (!ja) return;
+        try {
+          const neu = await api.wiederaufnehmen(t.id);
+          setTimeout(() => sessionOeffnen(neu.id), 700);
+        } catch (e) {
+          plxrUI.hinweis(e.message || String(e), 'Nicht wiederaufgenommen');
+        }
+      });
+    return;
+  }
   if (!t.alive) {
     // Ein totes PTY hat keinen Datenstrom mehr — die Fläche bliebe leer.
     plxrUI.hinweis(

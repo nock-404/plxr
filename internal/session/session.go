@@ -31,6 +31,10 @@ type Session struct {
 	// EndedAt ist, wann der Prozess endete. Danach wird die Session noch kurz
 	// angezeigt und dann verworfen.
 	EndedAt int64 `json:"ended_at,omitempty"`
+	// Verwaist heißt: der Daemon ist gestorben und hat die Session mitgerissen.
+	// Anders als ein normales Ende ist das nichts, was jemand wollte — deshalb
+	// bleibt der Eintrag stehen, bis er gesehen wurde.
+	Verwaist bool `json:"verwaist,omitempty"`
 
 	Account         string `json:"account,omitempty"`     // Claude-Konto, unter dem sie läuft
 	Agent           string `json:"agent,omitempty"`       // erkanntes CLI, z.B. "claude"

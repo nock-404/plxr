@@ -221,6 +221,25 @@ func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error
 	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, ziel)
 }
 
+// Wiederaufnehmen startet eine verwaiste Session neu.
+//
+// Der Prozess ist weg, aber bei Claude Code steht die Unterhaltung im
+// Transkript — mit --resume geht es dort weiter, wo der Absturz war.
+func (c *Core) Wiederaufnehmen(sessionID string) (*session.Session, error) {
+	s, ok := c.reg.Get(sessionID)
+	if !ok {
+		return nil, errors.New("Session gibt es nicht")
+	}
+	cwd, konto, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
+	c.aufraeumen(sessionID)
+
+	if claudeID != "" {
+		return c.Create(cwd, []string{"claude", "--resume", claudeID}, s.Name, konto)
+	}
+	// Kein Transkript: dann eben das Kommando erneut, im selben Verzeichnis.
+	return c.Create(cwd, cmd, s.Name, konto)
+}
+
 // SwitchAccount hängt eine laufende Session auf ein anderes Konto um: Prozess
 // beenden, Transkript spiegeln, unter dem neuen Konto fortsetzen. Das ist der
 // Weg, wenn ein Kontingent aufgebraucht ist.
@@ -388,9 +407,10 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 			continue
 		}
 		// Beendete Sessions kurz stehen lassen, damit man den Exit-Code noch
-		// sieht, dann wegräumen. Fortsetzen lässt sich eine tote Session
-		// ohnehin nicht — sie würde nur das Raster zumüllen.
-		if !sess.Alive && sess.EndedAt > 0 &&
+		// sieht, dann wegräumen. Verwaiste bleiben: sie stehen für Arbeit, die
+		// niemand beenden wollte, und verschwinden erst, wenn jemand sie
+		// wegklickt oder fortsetzt.
+		if !sess.Alive && !sess.Verwaist && sess.EndedAt > 0 &&
 			time.Since(time.UnixMilli(sess.EndedAt)) > totNachlauf {
 			c.aufraeumen(sess.ID)
 			continue

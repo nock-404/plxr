@@ -58,6 +58,14 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("DELETE /api/archive/{id}", s.archiveDelete)
 	mux.HandleFunc("POST /api/archive/{id}/resume", s.archiveResume)
 	mux.HandleFunc("POST /api/sessions/{id}/account", s.switchAccount)
+	mux.HandleFunc("POST /api/sessions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
+		sess, err := s.c.Wiederaufnehmen(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, sess)
+	})
 	mux.HandleFunc("GET /api/rules", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		writeJSON(w, s.c.Rules(q.Get("session"), q.Get("dir")))

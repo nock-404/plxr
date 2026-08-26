@@ -47,14 +47,36 @@ html, body {
 
 /* ---------- Kopf ---------- */
 
+/* --- Platz für die Fensterknöpfe ---
+   macOS legt die Ampel bei eingelassener Titelleiste ÜBER den Inhalt. Ohne
+   freien Platz links sitzt sie auf dem Schriftzug. Go sagt der Oberfläche über
+   Env(), auf welchem System sie läuft; Windows und Linux haben eine eigene
+   Leiste und brauchen den Rand nicht. */
+:root[data-titlebar-inset="yes"] .bar { padding-left: 88px; }
+
+/* --- Fenster ziehen ---
+   Die Kopfzeile ist der Griff des Fensters. Ohne diese Regeln lässt sich das
+   Fenster überhaupt nicht bewegen — auf macOS gibt es bei eingelassener
+   Titelleiste keine andere Fläche dafür. Die Bedienelemente darin müssen
+   ausgenommen sein, sonst zieht ein Klick auf ein Eingabefeld das Fenster. */
+.bar, .statusrow { --wails-draggable: drag; }
+.bar input, .bar button, .bar select, .bar label, .bar .btn, .bar .auswahl,
+.statusrow button, .statusrow input { --wails-draggable: no-drag; }
+.sessbar { --wails-draggable: drag; }
+.sessbar button, .sessbar select, .sessbar .auswahl { --wails-draggable: no-drag; }
+
 .bar { display: flex; align-items: center; gap: 18px; flex: 0 0 auto; padding: 10px 16px; }
 .brand { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .mark { display: inline-block; width: 26px; height: 26px; flex: 0 0 auto; }
 .mark svg { width: 100%; height: 100%; display: block; }
 
-.filter { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+/* Das Pfadfeld nimmt nicht die ganze Breite: rechts davon bleibt freie Fläche,
+   an der sich das Fenster greifen lässt. Ein Eingabefeld über zwei Bildschirm-
+   drittel wäre ohnehin unsinnig. */
+.filter { flex: 0 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; width: 520px; max-width: 45vw; }
 .filter input { flex: 1; min-width: 0; font: inherit; color: inherit; }
 
+.griff { flex: 1; min-width: 20px; align-self: stretch; }
 .tools { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .btn { cursor: pointer; font: inherit; white-space: nowrap; }
 
@@ -266,3 +288,6 @@ html, body {
    für den Dateidialog, und ein Klick auf die Überschrift würde ihn öffnen. */
 .feld { display: flex; flex-direction: column; gap: 5px; }
 .feldname { display: block; }
+
+/* Eine verwaiste Session ist kein normaler Zustand — sie muss auffallen. */
+.tile[data-status="verwaist"] { cursor: pointer; }
