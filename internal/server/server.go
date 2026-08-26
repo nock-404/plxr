@@ -69,6 +69,9 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/archive", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Archive(r.URL.Query().Get("path")))
 	})
+	mux.HandleFunc("GET /api/search/terminals", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.SucheTerminals(r.URL.Query().Get("q")))
+	})
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		writeJSON(w, s.c.Suche(q.Get("q"), q.Get("nur") == "eigene"))

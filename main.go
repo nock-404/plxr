@@ -208,6 +208,9 @@ func runDaemon() {
 
 	core.Version = version
 	ptyhost.Fassung = version
+	// Der Mitschnitt liegt neben dem übrigen Zustand. Damit überlebt der
+	// Scrollback jeden Neustart — bei tmux ist er weg.
+	ptyhost.MitschnittDir = filepath.Join(daemon.Root(), "mitschnitt")
 	c := core.New(reg, sub("web/themes"), sub("web/agents"), sub("web/skins"))
 	srv := server.New(c, sub("web"))
 
@@ -216,6 +219,9 @@ func runDaemon() {
 		log.Fatal(err)
 	}
 	defer daemon.Forget()
+
+	// Einmal beim Start aufräumen; häufiger lohnt nicht.
+	go c.MitschnitteAufraeumen()
 
 	log.Printf("plxr daemon auf %s (PID %d)", info.URL(), info.PID)
 	log.Fatal(http.Serve(ln, daemon.Guard(info.Token, srv.Routes())))

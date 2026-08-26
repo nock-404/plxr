@@ -167,6 +167,35 @@ func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Se
 // totNachlauf ist, wie lange eine beendete Session noch angezeigt wird.
 const totNachlauf = 90 * time.Second
 
+// MitschnitteAufraeumen wirft weg, was zu alt oder zu viel ist.
+//
+// Ohne Grenze wächst das Verzeichnis endlos. 30 Tage decken die Frage
+// "wo war das nochmal" ab; wer weiter zurück muss, hat ohnehin das Transkript.
+func (c *Core) MitschnitteAufraeumen() {
+	dir := ptyhost.MitschnittDir
+	if dir == "" {
+		return
+	}
+	eintraege, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	grenze := time.Now().AddDate(0, 0, -30)
+	lebt := map[string]bool{}
+	for _, s := range c.reg.List() {
+		lebt[s.ID+".log"] = true
+	}
+	for _, e := range eintraege {
+		if lebt[e.Name()] {
+			continue
+		}
+		info, err := e.Info()
+		if err == nil && info.ModTime().Before(grenze) {
+			os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+}
+
 // aufraeumen entfernt eine beendete Session samt ihrem PTY-Eintrag.
 func (c *Core) aufraeumen(id string) {
 	c.reg.Delete(id)
@@ -239,6 +268,16 @@ func (c *Core) archiveFind(id, konto string) (archive.Entry, bool) {
 // Suche durchsucht alle Transkripte im Volltext.
 func (c *Core) Suche(frage string, nurEigene bool) []search.Treffer {
 	return search.Suche(c.Accounts(), frage, nurEigene)
+}
+
+// SucheTerminals durchsucht, was je in einem Terminal stand — auch in
+// Sessions, die es längst nicht mehr gibt.
+func (c *Core) SucheTerminals(frage string) []search.MitschnittTreffer {
+	namen := map[string]search.MitschnittTreffer{}
+	for _, s := range c.reg.List() {
+		namen[s.ID] = search.MitschnittTreffer{Name: s.Label(), Cwd: s.Cwd}
+	}
+	return search.SucheMitschnitte(ptyhost.MitschnittDir, frage, namen)
 }
 
 func (c *Core) ArchiveDelete(id, konto string) error {

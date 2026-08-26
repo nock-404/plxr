@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"plxr/internal/shell"
 	"strings"
 	"sync"
@@ -46,6 +47,11 @@ type Host struct {
 	// Zwischenspeicher für die gerenderte Vorschau, siehe tailLines.
 	tailLen   int
 	tailCache []string
+
+	// mitschnitt ist die Datei, in die der ganze Strom läuft — auch das, was
+	// vorne aus dem Ringpuffer fällt.
+	mitschnitt  *os.File
+	geschrieben int64
 
 	// plattform hält, was nur ein bestimmtes System braucht — unter Windows
 	// etwa das Job Object, über das die ganze Prozessgruppe endet.
@@ -96,9 +102,32 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 		h.PID = c.Process.Pid
 		h.plattform = nachStart(c.Process)
 	}
+	// Mitschnitt öffnen. Scheitert das, läuft alles weiter — nur ohne
+	// Aufzeichnung. Ein Terminal, das wegen eines vollen Datenträgers nicht
+	// startet, wäre die schlechtere Wahl.
+	if MitschnittDir != "" {
+		if err := os.MkdirAll(MitschnittDir, 0o755); err == nil {
+			f, err := os.OpenFile(filepath.Join(MitschnittDir, id+".log"),
+				os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+			if err == nil {
+				h.mitschnitt = f
+			}
+		}
+	}
+
 	go h.pump()
 	return h, nil
 }
+
+// MitschnittDir ist das Verzeichnis für die Mitschnitte. Leer heißt: keine.
+var MitschnittDir string
+
+// MaxMitschnitt begrenzt eine einzelne Aufzeichnung.
+//
+// Ein Dev-Server, der wochenlang läuft, schreibt sonst Gigabyte. Bei
+// Überschreitung wird nicht mehr angehängt — der Anfang bleibt erhalten, denn
+// dort steht üblicherweise, was die Session eigentlich tut.
+const MaxMitschnitt = 64 << 20
 
 // erbtNicht sind Variablen, die eine Claude-Code-Session an ihre Kindprozesse
 // weitergibt. Wird plxr aus einer solchen Session heraus gestartet, landen sie
@@ -147,6 +176,11 @@ func (h *Host) pump() {
 			copy(chunk, b[:n])
 			h.mu.Lock()
 			h.last = time.Now()
+			if h.mitschnitt != nil && h.geschrieben < MaxMitschnitt {
+				if n, err := h.mitschnitt.Write(chunk); err == nil {
+					h.geschrieben += int64(n)
+				}
+			}
 			h.buf = append(h.buf, chunk...)
 			if len(h.buf) > MaxBuf {
 				h.buf = h.buf[len(h.buf)-MaxBuf:]
@@ -178,6 +212,10 @@ func (h *Host) pump() {
 	for c := range h.subs {
 		close(c)
 		delete(h.subs, c)
+	}
+	if h.mitschnitt != nil {
+		h.mitschnitt.Close()
+		h.mitschnitt = nil
 	}
 	h.mu.Unlock()
 	h.pty.Close()

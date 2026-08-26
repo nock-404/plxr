@@ -126,6 +126,7 @@ const api = {
     req(`/api/archive/${id}/resume?account=${encodeURIComponent(konto || '')}&target=${encodeURIComponent(ziel || '')}`,
         { method: 'POST' }),
   suche: (q) => req('/api/search?q=' + encodeURIComponent(q)),
+  sucheTerminals: (q) => req('/api/search/terminals?q=' + encodeURIComponent(q)),
 
   starten: (cwd, cmd, konto) =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: konto }) }),
@@ -1657,13 +1658,14 @@ function leerZeigen(box, titel, text) {
    über Dutzende Projektordner verstreut, und der eingebaute Picker zeigt
    standardmäßig nur das aktuelle Verzeichnis. */
 
-const archiv = { alle: [], suche: '', treffer: null };
+const archiv = { alle: [], suche: '', treffer: null, terminals: null };
 
 async function archivLaden() {
   $('#archInfo').textContent = 'lädt …';
   await kontenFuellen('#archAccount');
   archiv.alle = await api.archiv(state.filter);
   archiv.treffer = null;
+  archiv.terminals = null;
   $('#archiveCount').textContent = archiv.alle.length;
   archivZeichnen();
 }
@@ -1671,10 +1673,28 @@ async function archivLaden() {
 $('#archSearch').addEventListener('input', (e) => {
   archiv.suche = e.target.value.toLowerCase();
   archiv.treffer = null;
+  archiv.terminals = null;
   archivZeichnen();
 });
 $('#archSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') volltext(); });
 $('#archFullText').addEventListener('click', volltext);
+$('#archTerminals').addEventListener('click', terminalSuche);
+
+/* Die zweite Suchart: nicht was der Assistent geschrieben hat, sondern was im
+   Terminal stand. Fehlermeldungen, Ausgaben von Testläufen, Stapelspuren —
+   alles, was tmux beim Neustart verliert. */
+async function terminalSuche() {
+  const q = $('#archSearch').value.trim();
+  if (q.length < 2) return;
+  $('#archInfo').textContent = 'durchsuche alle Terminalmitschnitte …';
+  try {
+    archiv.terminals = await api.sucheTerminals(q);
+    archiv.treffer = null;
+    archivZeichnen();
+  } catch (e) {
+    $('#archInfo').textContent = 'Suche fehlgeschlagen: ' + (e.message || e);
+  }
+}
 
 /* Die Titelsuche findet nur, was im Titel steht. Die eigentliche Frage ist
    aber meist "wo hab ich das mal gemacht" — dafür muss durch alle Nachrichten
@@ -1709,6 +1729,39 @@ async function fortsetzen(id, konto) {
 function archivZeichnen() {
   const box = $('#archList');
   box.innerHTML = '';
+
+  if (archiv.terminals) {
+    const wonach = $('#archSearch').value.trim();
+    $('#archInfo').textContent =
+      `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
+    if (!archiv.terminals.length) {
+      leerZeigen(box, 'nichts im terminal',
+        `„${wonach}" kam in keiner Terminalausgabe vor. Aufgezeichnet wird ab ` +
+        'dem Start dieser Fassung — Älteres steht nicht zur Verfügung.');
+      return;
+    }
+    for (const t of archiv.terminals) {
+      const zeile = document.createElement('div');
+      zeile.className = 'zeile hoch';
+      zeile.innerHTML =
+        '<span class="zdatum"></span>' +
+        '<span class="zhaupt"><b class="ztitel"></b><span class="zauszug"></span></span>' +
+        '<span class="zproj"></span><span class="zwert"></span>';
+      zeile.querySelector('.zdatum').textContent = datumKurz(t.mod);
+      zeile.querySelector('.ztitel').textContent = t.name;
+      zeile.querySelector('.zauszug').textContent = t.auszug;
+      zeile.querySelector('.zproj').textContent = t.cwd ? t.cwd.split('/').pop() : '';
+      zeile.querySelector('.zwert').textContent = t.anzahl + '×';
+      zeile.title = t.cwd || '';
+      // Läuft die Session noch, führt ein Klick hinein.
+      if (state.tiles.some((x) => x.id === t.sessionId && x.alive)) {
+        zeile.style.cursor = 'pointer';
+        zeile.addEventListener('click', () => sessionOeffnen(t.sessionId));
+      }
+      box.appendChild(zeile);
+    }
+    return;
+  }
 
   if (archiv.treffer) {
     const wonach = $('#archSearch').value.trim();
