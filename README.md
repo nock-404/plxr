@@ -1,23 +1,72 @@
 # plxr
 
-Leitstand für Coding-CLI-Sessions. Startet `claude`, `codex`, `opencode`,
-`aider` und Verwandte in Pseudo-Terminals, die einem Hintergrundprozess gehören
-statt einem Terminalfenster, und zeigt alle gleichzeitig in einem Fenster.
+Ein Terminal für macOS, Windows und Linux — gebaut für den Fall, dass mehrere
+Coding-Agenten gleichzeitig laufen.
 
 ![plxr](docs/crt.jpg)
 
-## Wozu
+## Warum
 
-Sessions liegen über viele Projektverzeichnisse verstreut, laufen in Fenstern,
-die man zumacht, und man weiß nicht mehr, welche gerade auf eine Antwort
-wartet. plxr zeigt sie als Kachelraster mit lebender Vorschau und markiert, wer
-hängt.
+Terminals gibt es viele, und die meisten rendern schnell. Keines hilft
+jemandem, der acht Agenten parallel fährt: Welcher wartet auf eine Antwort?
+Was hat der in `MTA360` eigentlich gemacht? Wo war nochmal diese
+Fehlermeldung? Und wieso ist beim Zuklappen des Laptops alles weg?
+
+plxr beantwortet das, weil ein Hintergrundprozess die Terminals besitzt und
+ihren Zustand kennt.
 
 ## Installieren
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/mg-pr/plxr/main/install.sh | sh
 ```
+
+macOS und Linux. Für Windows das Archiv von der Releases-Seite laden.
+
+## Was es kann
+
+**Als Terminal**
+
+- echte Login-Shell, mit `TERM`, `COLORTERM` und `LANG` wie es sein soll
+- bis zu vier Flächen nebeneinander, jede mit eigener Session
+- Suche im Scrollback, anklickbare Adressen, Kopieren und Einfügen
+- xterm 6 mit WebGL, Unicode-11-Breiten, 50.000 Zeilen Verlauf
+- Tastenkürzel: `⌘T` neu, `⌘W` schließen, `⌘F` suchen, `⌘D` teilen,
+  `⌘1`–`⌘9` springen, `⌘+`/`⌘-`/`⌘0` Schrift, `⌘,` Einstellungen
+
+**Als Leitstand**
+
+- **Posteingang** — alle Sessions, die auf eine Antwort warten, mit ihrer
+  Frage. Antworten geht direkt, ohne eine einzige zu öffnen.
+- **Übersicht** — Kacheln mit lebender Vorschau, Schiene nach Projekt
+- **Zustand je Agent** — arbeitet, wartet, braucht dich. Bei Claude Code exakt
+  über einen Hook, bei allen anderen aus Bildschirm und Ruhezeit.
+- **Verbrauchstempo** — wie schnell gerade Kontingent verbraucht wird, bevor
+  das Fenster reißt
+- **Vorlagen** — die Arbeitsumgebung von heute morgen auf einen Klick
+
+**Zum Wiederfinden**
+
+- **Terminalsuche** — durchsucht, was je in einem Terminal stand, auch in
+  Sessions, die es nicht mehr gibt. tmux verliert das beim Neustart.
+- **Archiv** — alle Claude-Code-Unterhaltungen über mehrere Konten, mit
+  Volltextsuche über den kompletten Verlauf
+- **Dateien** — Baum je Session mit Editor, dazu die aufgelöste
+  CLAUDE.md-Kette: was wirkt hier eigentlich alles
+
+**Drumherum**
+
+- **Sessions überleben das Fenster.** Zuklappen, neu öffnen, alles läuft.
+- **Konten wechseln** — Transkript ins Zielkonto kopieren und mit `--resume`
+  fortsetzen, wenn ein Kontingent aufgebraucht ist
+- **Ports** — was lauscht, und der Weg es zu beenden
+- **Vier Skins**, komplett anpassbar: alle Farben live, eigener Farbwähler,
+  Schriftgrößen, als eigenes Theme speicherbar
+- **Selbstaktualisierung** aus GitHub Releases, mit Ladebalken und Neustart
+
+Nichts in der Oberfläche ist ein Systemwidget: keine Auswahlmenüs des
+Betriebssystems, keine Systemdialoge, keine Systemscrollbalken. Jeder Pixel
+gehört dem Skin.
 
 ## Kommandozeile
 
@@ -28,86 +77,22 @@ plxr new [pfad] [-- kommando …]
 plxr attach <was>       Terminal an eine Session hängen (Strg-Q zweimal löst)
 plxr kill <was>         Session beenden
 plxr ports              belegte Ports
+plxr setup-hook         Claude Code seinen Zustand melden lassen
 plxr update             auf die neueste Fassung bringen
 ```
 
 `<was>` ist der Anfang der Session-ID oder ein Teil des Namens.
 
-## Bauen
-
-```sh
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-wails build -skipbindings
-```
-
-Für die Entwicklung der Oberfläche im normalen Browser:
-
-```sh
-go run . --serve
-```
-
-## Aufbau
-
-| Paket | Aufgabe |
-|---|---|
-| `internal/core` | die Anwendung ohne Oberfläche — kennt keinen Transport |
-| `internal/ptyhost` | Prozesse im PTY, Scrollback, Vorschau-Renderer |
-| `internal/session` | Datenmodell und Registry unter `~/.plxr/sessions` |
-| `internal/agent` | erkennt das laufende CLI und leitet den Status ab |
-| `internal/fleet` | liest den Zustand, den ein Claude-Code-Hook schreibt |
-| `internal/theme` | Themes und Skins, eingebaut plus importierbar |
-| `internal/server` | HTTP/WebSocket — nur für den Browsermodus |
-| `app.go` | Wails-Bindungen: Fenster ruft Go, Go schiebt Ereignisse |
-
-Der Kern kompiliert für macOS, Windows und Linux. Die Fensterschicht baut auf
-jedem System selbst, weil Wails gegen dessen Webview linkt.
-
-## Was drin ist
-
-- **Übersicht** — alle Sessions als Kacheln mit lebender Vorschau, Schiene
-  links nach Projekt gruppiert, bleibt auch in einer Session stehen
-- **Session** — bis zu vier Terminalflächen nebeneinander, Dateibaum mit
-  Editor, die aufgelöste CLAUDE.md-Kette
-- **Archiv** — abgelegte Unterhaltungen über alle Konten hinweg, mit
-  Volltextsuche über den kompletten Verlauf
-- **Ports** — was lauscht, und der Weg, es zu beenden
-- **Verbrauch** — Token nach Tag, Projekt und Modell, aus den Transkripten
-  gerechnet statt über eine API
-- **Einstellungen** — Zahnrad oben rechts: Aussehen, eigene Themes, Anbindung
-  an Claude Code, Fassung
-
-## Konten
-
-Wer mehrere Claude-Zugänge über `CLAUDE_CONFIG_DIR` fährt, sieht sie unter
-`~/.claude`, `~/.claude2`, … automatisch. In einer laufenden Session lässt sich
-das Konto wechseln: plxr kopiert das Transkript ins Zielkonto und startet die
-Session dort mit `--resume` neu. Nötig, weil Claude Code Transkripte nur unter
-dem eigenen Konfigurationsverzeichnis sucht.
-
-## Status
-
-Sessions melden ihren Zustand auf zwei Wegen:
-
-- **Claude Code** meldet ihn selbst. `plxr setup-hook` trägt plxr in die
-  Ereignisse von Claude Code ein; danach stehen Status, Tätigkeit, Modell und
-  Kontextgröße fest statt geraten. Vorhandene Hooks bleiben unangetastet,
-  `plxr unsetup-hook` nimmt es zurück.
-- **Alle anderen** über den Bildschirminhalt: Profile unter `web/agents/*.json`
-  erkennen Rückfragen und Spinner, dazu zählt, wie lange nichts mehr kam.
-
-Ein neues CLI kommt als JSON dazu, ohne Neubau.
-
 ## Skins
 
-Ein Theme wählt einen Skin — eine ganze visuelle Sprache, nicht nur Farben —
-und darf dessen Palette überschreiben. Mitgeliefert: `crt`, `win95`, `pixel`,
-`sketch`.
+Ein Theme wählt einen Skin — eine ganze visuelle Sprache, nicht nur Farben.
 
 | | |
 |---|---|
 | ![Pixel](docs/pixel.jpg) | ![Skizze](docs/sketch.jpg) |
 
-Eigene Themes landen in `~/.plxr/themes/*.json`:
+Alles davon lässt sich im Zahnrad anpassen und als eigenes Theme sichern.
+Eigene Themes liegen in `~/.plxr/themes/*.json`:
 
 ```json
 {
@@ -118,9 +103,48 @@ Eigene Themes landen in `~/.plxr/themes/*.json`:
 }
 ```
 
-Ein Skin gestaltet die Klassen aus `web/base.css`. `./klassen.py` prüft, dass
-kein Skin eine Klasse vergisst, die ein anderer gestaltet — und dass keine
-Klasse erzeugt wird, die gar kein Stylesheet kennt.
+## Bauen
+
+```sh
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+wails build
+```
+
+Für die Entwicklung der Oberfläche im Browser: `go run . --browser`.
+`./check.sh` prüft vor jedem Commit JavaScript, Klassenabgleich, `go vet` und
+den Querbau für fünf Plattformen.
+
+## Aufbau
+
+| Paket | Aufgabe |
+|---|---|
+| `internal/core` | die Anwendung ohne Oberfläche — kennt keinen Transport |
+| `internal/daemon` | der Prozess, dem die Terminals gehören |
+| `internal/ptyhost` | Prozesse im PTY, Scrollback, Mitschnitt, Vorschau |
+| `internal/shell` | welche Shell, mit welchen Argumenten und welcher Umgebung |
+| `internal/session` | Datenmodell und Registry unter `~/.plxr/sessions` |
+| `internal/agent` | erkennt das laufende CLI und leitet den Status ab |
+| `internal/hook` | schreibt den Zustand, den Claude Code meldet |
+| `internal/archive` | die abgelegten Transkripte, über Konten hinweg gefaltet |
+| `internal/search` | Volltextsuche über Transkripte und Terminalmitschnitte |
+| `internal/usage` | Tokenverbrauch und Tempo |
+| `internal/rules` | welche CLAUDE.md, Skills und Agenten hier wirken |
+| `internal/vorlage` | mehrere Sessions auf einen Schlag |
+| `internal/files` | Dateibaum und Editor, an die Session gefesselt |
+| `internal/ports` | belegte Ports |
+| `internal/update` | Selbstaktualisierung aus GitHub Releases |
+| `internal/server` | HTTP und WebSocket zwischen Daemon und Oberfläche |
+
+Der Kern kompiliert für macOS, Windows und Linux. Die Fensterschicht baut auf
+jedem System selbst, weil Wails gegen dessen Webview linkt.
+
+## Konten
+
+Wer mehrere Claude-Zugänge über `CLAUDE_CONFIG_DIR` fährt, sieht sie unter
+`~/.claude`, `~/.claude2`, … automatisch. In einer laufenden Session lässt sich
+das Konto wechseln: plxr kopiert das Transkript ins Zielkonto und startet die
+Session dort mit `--resume` neu — nötig, weil Claude Code Transkripte nur unter
+dem eigenen Konfigurationsverzeichnis sucht.
 
 ## Lizenz
 
@@ -129,5 +153,4 @@ Apache 2.0. Frei und kostenlos, auch gewerblich.
 ## Mitmachen
 
 Fehler und Vorschläge gern als Issue. Vor einem Pull Request `./check.sh`
-laufen lassen — das prüft JavaScript, `go vet`, den Bau und den Querbau für
-macOS, Windows und Linux.
+laufen lassen.
