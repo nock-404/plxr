@@ -198,42 +198,101 @@ func installOrt() (string, error) {
 	return exe, nil
 }
 
+// laden holt das Archiv und nimmt einen Abbruch nicht als Ende hin.
+//
+// Ein Download über mehrere Megabyte reißt gelegentlich ab — das ist keine
+// Ausnahme, sondern der Normalfall bei schlechter Leitung. Wer dann aufgibt,
+// hat einen Updater, der auf gutem WLAN funktioniert und sonst nicht.
+// Wiederaufgenommen wird über Range: schon geladene Bytes bleiben liegen.
 func laden(url, nach string, fortschritt func(int64, int64)) error {
-	res, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return fmt.Errorf("Download antwortet mit %d", res.StatusCode)
-	}
-	f, err := os.Create(nach)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+	const versuche = 4
+	var letzter error
 
-	gesamt := res.ContentLength
-	var gelesen int64
-	buf := make([]byte, 256*1024)
-	for {
-		n, err := res.Body.Read(buf)
-		if n > 0 {
-			if _, werr := f.Write(buf[:n]); werr != nil {
-				return werr
-			}
-			gelesen += int64(n)
-			if fortschritt != nil {
-				fortschritt(gelesen, gesamt)
-			}
+	for versuch := 0; versuch < versuche; versuch++ {
+		if versuch > 0 {
+			// Kurz warten, aber nicht ewig: zwei Sekunden, dann vier, dann acht.
+			time.Sleep(time.Duration(1<<versuch) * time.Second)
 		}
-		if err == io.EOF {
-			return nil
+
+		// Wie weit sind wir schon?
+		var bereits int64
+		if fi, err := os.Stat(nach); err == nil {
+			bereits = fi.Size()
 		}
+
+		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return err
 		}
+		if bereits > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", bereits))
+		}
+
+		res, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
+		if err != nil {
+			letzter = err
+			continue
+		}
+
+		// 206 heißt: Fortsetzung angenommen. 200 heißt: von vorn — dann muss
+		// die halbe Datei weg, sonst hängen zwei Anfänge aneinander.
+		anhaengen := res.StatusCode == http.StatusPartialContent
+		if res.StatusCode != http.StatusOK && !anhaengen {
+			res.Body.Close()
+			letzter = fmt.Errorf("Download antwortet mit %d", res.StatusCode)
+			continue
+		}
+		if !anhaengen {
+			bereits = 0
+			os.Remove(nach)
+		}
+
+		flags := os.O_CREATE | os.O_WRONLY
+		if anhaengen {
+			flags |= os.O_APPEND
+		} else {
+			flags |= os.O_TRUNC
+		}
+		f, err := os.OpenFile(nach, flags, 0o644)
+		if err != nil {
+			res.Body.Close()
+			return err
+		}
+
+		gesamt := res.ContentLength + bereits
+		gelesen := bereits
+		buf := make([]byte, 256*1024)
+		var lesefehler error
+		for {
+			n, err := res.Body.Read(buf)
+			if n > 0 {
+				if _, werr := f.Write(buf[:n]); werr != nil {
+					f.Close()
+					res.Body.Close()
+					return werr
+				}
+				gelesen += int64(n)
+				if fortschritt != nil {
+					fortschritt(gelesen, gesamt)
+				}
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				lesefehler = err
+				break
+			}
+		}
+		f.Close()
+		res.Body.Close()
+
+		if lesefehler == nil {
+			return nil
+		}
+		letzter = lesefehler
 	}
+	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", versuche, letzter)
 }
 
 func entpacken(archiv, nach string) error {
