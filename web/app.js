@@ -285,6 +285,12 @@ function themeAnwenden(t) {
       if (PALETTE.includes(k)) wurzel.style.setProperty('--' + k, v);
     }
     for (const p of paneListe()) p.term.options.theme = xtermFarben();
+
+    /* Ein anderes Theme bringt eine andere Palette mit — eigene Farbänderungen
+       gelten dann nicht mehr. Sie stehen zu lassen hieße: der Stil-Editor zeigt
+       die Farben des alten Themes an, und Speichern schriebe sie ins neue. */
+    stil.aenderungen = {};
+    if (!$('#settings').hidden) stilEditorBauen();
   });
 
   try {
@@ -293,7 +299,7 @@ function themeAnwenden(t) {
     // sofort, ohne auf den Daemon zu warten.
     localStorage.setItem('plxr.themeCache', JSON.stringify(t));
   } catch {}
-  loeschKnopfZeigen();
+  loeschKnopfZeigen(t);
 }
 
 const cssVar = (n, ersatz) =>
@@ -322,8 +328,8 @@ function xtermFarben() {
    zu tun. Ein Wechsel darf nie stumm bleiben. */
 /* Löschen gibt es nur für eigene Themes: die eingebauten stecken in der
    Anwendung und wären nach dem nächsten Update ohnehin wieder da. */
-function loeschKnopfZeigen() {
-  $('#themeLoeschen').hidden = !aktuellesTheme()?.eigen;
+function loeschKnopfZeigen(t) {
+  $('#themeLoeschen').hidden = !(t || aktuellesTheme())?.eigen;
 }
 
 function aktuellesTheme() {
@@ -624,11 +630,25 @@ function zeigeRaster() {
 }
 $('#railHome').addEventListener('click', zeigeRaster);
 
+/* Antwortet der Daemon nicht, soll die Ansicht das sagen. Eine unbehandelte
+   Ausnahme lässt stattdessen „liest …" stehen — das sieht aus wie ein Hänger,
+   und man weiß nicht, ob man warten soll. */
+async function ansichtLaden(box, info, laden) {
+  try {
+    await laden();
+  } catch (e) {
+    if (info) $(info).textContent = '';
+    leerZeigen($(box), 'nicht erreichbar',
+      `Der Daemon antwortet gerade nicht (${e.message || e}). ` +
+      'Er wird im Hintergrund neu gestartet — diese Ansicht noch einmal öffnen.');
+  }
+}
+
 async function zeigeArchiv() {
   paneAlleSchliessen();
   nurZeigen('#viewArchive');
   zeichneSchiene();
-  await archivLaden();
+  await ansichtLaden('#archList', '#archInfo', archivLaden);
 }
 $('#railArchive').addEventListener('click', zeigeArchiv);
 
@@ -737,7 +757,7 @@ async function zeigePorts() {
   paneAlleSchliessen();
   nurZeigen('#viewPorts');
   zeichneSchiene();
-  await portsLaden();
+  await ansichtLaden('#portsList', '#portsInfo', portsLaden);
 }
 $('#railPorts').addEventListener('click', zeigePorts);
 
@@ -745,7 +765,7 @@ async function zeigeVerbrauch() {
   paneAlleSchliessen();
   nurZeigen('#viewUsage');
   zeichneSchiene();
-  await verbrauchLaden();
+  await ansichtLaden('#usageBody', '#usageInfo', verbrauchLaden);
 }
 $('#railUsage').addEventListener('click', zeigeVerbrauch);
 
