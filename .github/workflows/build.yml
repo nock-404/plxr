@@ -1,9 +1,9 @@
 name: build
 
 # Wails bindet die Webview des jeweiligen Systems ein (WebKit, WebView2,
-# WebKitGTK) und braucht dafür deren native Bibliotheken. Cross-Compiling
-# von einer Maschine aus geht deshalb nicht — jede Plattform baut auf ihrem
-# eigenen Runner. Der Go-Kern selbst wäre portabel, die Fensterschicht nicht.
+# WebKitGTK) und braucht dafür deren native Bibliotheken. Cross-Compiling von
+# einer Maschine aus geht deshalb nicht — jede Plattform baut auf ihrem eigenen
+# Läufer. Der Go-Kern allein wäre portabel, die Fensterschicht nicht.
 
 on:
   push:
@@ -13,7 +13,26 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # Der Kern ohne Fensterschicht muss überall durchkompilieren. Läuft in
+  # Sekunden und fängt plattformabhängige Fehler, bevor die langsamen Builds
+  # überhaupt starten.
+  kern:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.27' }
+      - name: Querbau
+        run: |
+          for t in darwin/arm64 darwin/amd64 windows/amd64 linux/amd64 linux/arm64; do
+            echo "--- $t"
+            GOOS=${t%/*} GOARCH=${t#*/} go build ./internal/...
+          done
+      - name: go vet
+        run: go vet ./...
+
+  bauen:
+    needs: kern
     strategy:
       fail-fast: false
       matrix:
@@ -24,6 +43,9 @@ jobs:
           - os: macos-latest
             name: plxr-macos-amd64
             flags: -platform darwin/amd64
+            # Intel-Macs sind Beiwerk: schlägt der Bau fehl, soll das die
+            # Veröffentlichung der übrigen Plattformen nicht aufhalten.
+            optional: true
           - os: windows-latest
             name: plxr-windows-amd64
             flags: -platform windows/amd64
@@ -32,6 +54,7 @@ jobs:
             flags: -platform linux/amd64
 
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional == true }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,9 +63,10 @@ jobs:
           go-version: '1.27'
           cache: true
 
-      # WebKitGTK und die Header, gegen die Wails unter Linux linkt.
+      # Ubuntu 24.04 liefert WebKitGTK nur noch als 4.1. Wails linkt ohne
+      # weiteres Zutun gegen 4.0 und bricht dann ab — deshalb der Bau-Tag.
       - name: Linux-Abhängigkeiten
-        if: matrix.os == 'ubuntu-latest'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
@@ -50,58 +74,69 @@ jobs:
       - name: Wails installieren
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Kern prüfen
-        run: go vet ./...
+      # Nur ein Tag ergibt eine echte Fassung. Auf einem Zweig bliebe sonst
+      # der Zweigname als Versionsnummer stehen, und der Updater verglich
+      # später "main" mit "0.2.0".
+      - name: Fassung bestimmen
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "PLXR_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "PLXR_VERSION=dev" >> "$GITHUB_ENV"
+          fi
 
       - name: Bauen
-        run: wails build -clean ${{ matrix.flags }} -ldflags "-X main.version=${GITHUB_REF_NAME#v}"
         shell: bash
+        run: |
+          TAGS=""
+          [ "$RUNNER_OS" = "Linux" ] && TAGS="-tags webkit2_41"
+          wails build -clean ${{ matrix.flags }} $TAGS -ldflags "-X main.version=$PLXR_VERSION"
 
-      # Der Updater erwartet genau diese Namen: plxr-<os>-<arch>.zip
+      # Der Updater und install.sh erwarten genau diese Namen.
       - name: Packen
         shell: bash
         run: |
           cd build/bin
           if [ "$RUNNER_OS" = "Windows" ]; then
-            7z a "../../${{ matrix.name }}.zip" ./*
+            7z a "../../${{ matrix.name }}.zip" ./* >/dev/null
           else
+            # -y erhält Symlinks; ein App-Bündel enthält welche.
             zip -qry "../../${{ matrix.name }}.zip" ./*
           fi
+          cd ../..
+          ls -la "${{ matrix.name }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}.zip
+          if-no-files-found: error
 
   # Auf einen Tag hin eine Veröffentlichung anlegen. Erst dann findet
   # `plxr update` etwas.
-  release:
+  veroeffentlichen:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: bauen
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
-        with:
-          path: artefakte
-      - name: Veröffentlichen
-        uses: softprops/action-gh-release@v2
+        with: { path: artefakte }
+      - name: Was wurde gebaut
+        run: find artefakte -name '*.zip' -exec ls -la {} \;
+      - uses: softprops/action-gh-release@v2
         with:
           files: artefakte/**/*.zip
           generate_release_notes: true
+          body: |
+            ## Installieren
 
-  # Der Kern ohne Fensterschicht muss überall durchkompilieren. Läuft schnell
-  # und fängt plattformabhängige Fehler, bevor die langsamen Builds starten.
-  core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.27'
-      - run: |
-          for t in darwin/arm64 darwin/amd64 windows/amd64 linux/amd64 linux/arm64; do
-            echo "--- $t"
-            GOOS=${t%/*} GOARCH=${t#*/} go build ./internal/...
-          done
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/mg-pr/plxr/main/install.sh | sh
+            ```
+
+            Oder das passende Archiv unten herunterladen und entpacken.
+            Auf macOS danach einmal `xattr -dr com.apple.quarantine plxr.app`,
+            weil die Bündel nicht bei Apple notariell beglaubigt sind.
