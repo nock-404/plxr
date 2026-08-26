@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Ereignisse sind die Hook-Punkte, an denen plxr mitschreibt.
@@ -106,30 +107,39 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
 }
 
 // istUnserer erkennt einen von plxr angelegten Eintrag.
+/* istUnserer erkennt einen Eintrag am Dateinamen des Befehls — und zwar am
+   Anfang, nicht auf's Zeichen genau. Eingetragen wird der Pfad des gerade
+   laufenden Binärs; das heißt unter Windows "plxr.exe" und beim Entwickeln
+   auch mal anders. Auf Gleichheit zu prüfen hieße: plxr erkennt den eigenen
+   Eintrag nicht wieder, meldet weiter "nicht eingerichtet" und legt bei jedem
+   Klick einen weiteren daneben. */
 func istUnserer(eintrag any) bool {
 	m, _ := eintrag.(map[string]any)
 	if m == nil {
 		return false
 	}
-	hs, _ := m["hooks"].([]any)
-	for _, h := range hs {
+	for _, h := range m["hooks"].([]any) {
 		hm, _ := h.(map[string]any)
 		if hm == nil {
 			continue
 		}
-		if filepath.Base(fmt.Sprint(hm["command"])) == "plxr" {
+		if unserBefehl(fmt.Sprint(hm["command"])) {
 			return true
-		}
-		args, _ := hm["args"].([]any)
-		for _, a := range args {
-			if fmt.Sprint(a) == "hook" {
-				if c := fmt.Sprint(hm["command"]); filepath.Base(c) == "plxr" {
-					return true
-				}
-			}
 		}
 	}
 	return false
+}
+
+func unserBefehl(befehl string) bool {
+	// Auch am Backslash trennen: die Einstellungsdatei kann von einem anderen
+	// System stammen, etwa aus einem mitgenommenen Profil, und filepath.Base
+	// kennt unter Unix nur den Schrägstrich.
+	name := befehl
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	name = strings.TrimSuffix(strings.ToLower(name), ".exe")
+	return name == "plxr" || strings.HasPrefix(name, "plxr-")
 }
 
 // Eingerichtet sagt, ob plxr in den Einstellungen von Claude Code steht.

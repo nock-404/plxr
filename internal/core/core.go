@@ -422,11 +422,23 @@ func (c *Core) Verbrauch(tage int) usage.Bericht { return usage.Rechnen(c.Accoun
 // ---- Anbindung an Claude Code ----
 
 // HookStand sagt, ob plxr dort einträgt und welches Verzeichnis gemeint ist.
+// HookStand meldet, ob alle Konten angebunden sind — nicht nur das erste.
+// HookSetzen trägt in alle ein; nur das erste zu prüfen hieße "eingerichtet"
+// anzuzeigen, während zwei Konten stumm bleiben.
 func (c *Core) HookStand() map[string]any {
-	acc, _ := accounts.ByName(c.Accounts(), "")
+	konten := c.Accounts()
+	acc, _ := accounts.ByName(konten, "")
+	fehlen := []string{}
+	for _, a := range konten {
+		if !hook.Eingerichtet(a.Dir) {
+			fehlen = append(fehlen, a.Label)
+		}
+	}
 	return map[string]any{
-		"eingerichtet": hook.Eingerichtet(acc.Dir),
+		"eingerichtet": len(konten) > 0 && len(fehlen) == 0,
 		"dir":          acc.Dir,
+		"konten":       len(konten),
+		"fehlen":       fehlen,
 	}
 }
 

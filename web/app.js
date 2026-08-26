@@ -562,9 +562,12 @@ $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = tr
 async function hookStandZeigen() {
   try {
     const st = await api.hookStand();
+    const mehrere = (st.konten || 1) > 1 ? ` (${st.konten} Konten)` : '';
     $('#hookHint').textContent = st.eingerichtet
-      ? 'Sessions melden ihren Zustand — Status und Modell stehen fest statt geraten.'
-      : 'Ohne Anbindung wird der Status aus der Bildschirmausgabe geschätzt.';
+      ? `Sessions melden ihren Zustand${mehrere} — Status und Modell stehen fest statt geraten.`
+      : st.fehlen?.length
+        ? `Ohne Anbindung wird der Status geschätzt. Es fehlt: ${st.fehlen.join(', ')}.`
+        : 'Ohne Anbindung wird der Status aus der Bildschirmausgabe geschätzt.';
     $('#hookBtn').textContent = st.eingerichtet ? 'LÖSEN' : 'EINRICHTEN';
     $('#hookBtn').dataset.an = st.eingerichtet ? 'ja' : 'nein';
   } catch {
