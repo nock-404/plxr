@@ -101,6 +101,11 @@ const api = {
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
   konten: () => req('/api/accounts'),
+  vorlagen: () => req('/api/vorlagen'),
+  vorlageStarten: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
+  vorlageSpeichern: (name, label) =>
+    req('/api/vorlagen', { method: 'POST', body: JSON.stringify({ Name: name, Label: label }) }),
+  vorlageLoeschen: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   regeln: (session) => req('/api/rules?session=' + encodeURIComponent(session || '')),
   ports: () => req('/api/ports'),
   portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
@@ -1389,7 +1394,7 @@ $('#splitCancel').addEventListener('click', () => { $('#splitPick').hidden = tru
 
 /* Jeder Dialog schließt mit Escape und mit einem Klick daneben. Ein Fenster,
    aus dem nur ein bestimmter Knopf herausführt, ist eine Falle. */
-const DIALOGE = ['#settings', '#splitPick', '#dialog'];
+const DIALOGE = ['#settings', '#splitPick', '#vorlagen', '#dialog'];
 for (const d of DIALOGE) {
   $(d).addEventListener('mousedown', (e) => { if (e.target === $(d)) $(d).hidden = true; });
 }
@@ -2150,6 +2155,78 @@ function gewaehltesKommando() {
   if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
   return STARTBAR.find((w) => w.id === id).cmd;
 }
+
+/* ═════════════════════════ Vorlagen ═════════════════════════
+
+   Morgens drei Sessions in drei Verzeichnissen mit drei Konten — jeden Tag
+   dieselbe Handbewegung. Eine Vorlage macht daraus einen Klick, und sie
+   entsteht aus dem, was gerade offen ist. */
+
+$('#vorlagenBtn').addEventListener('click', vorlagenOeffnen);
+$('#vorlagenCancel').addEventListener('click', () => { $('#vorlagen').hidden = true; });
+
+async function vorlagenOeffnen() {
+  $('#vorlagen').hidden = false;
+  const box = $('#vorlagenListe');
+  box.innerHTML = '';
+  let liste = [];
+  try { liste = await api.vorlagen(); } catch {}
+
+  if (!liste.length) {
+    const d = document.createElement('div');
+    d.className = 'leer';
+    d.innerHTML = '<b>noch keine vorlage</b><span>„Lage speichern" macht aus den ' +
+      'gerade offenen Sessions eine Vorlage.</span>';
+    box.appendChild(d);
+    return;
+  }
+
+  for (const v of liste) {
+    const zeile = document.createElement('div');
+    zeile.className = 'splitzeile';
+    zeile.innerHTML = '<span class="rname"></span><span class="spacer"></span>' +
+      '<span class="meta"></span><button class="btn tiny" data-t="weg">✕</button>';
+    zeile.querySelector('.rname').textContent = v.label;
+    zeile.querySelector('.meta').textContent =
+      `${v.sessions.length} ${v.sessions.length === 1 ? 'Session' : 'Sessions'}`;
+    zeile.title = v.sessions.map((e) => e.cwd).join('\n');
+
+    zeile.addEventListener('click', async (ev) => {
+      if (ev.target.dataset.t === 'weg') return;
+      $('#vorlagen').hidden = true;
+      try {
+        const r = await api.vorlageStarten(v.name);
+        if (r.teilweise) plxrUI.hinweis(r.teilweise, 'Nicht alles ließ sich starten');
+      } catch (e) {
+        plxrUI.hinweis(e.message || String(e), 'Nicht gestartet');
+      }
+    });
+
+    zeile.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
+      ev.stopPropagation();
+      if (!(await plxrUI.frage(v.label, 'Vorlage löschen?'))) return;
+      try { await api.vorlageLoeschen(v.name); vorlagenOeffnen(); }
+      catch (e) { plxrUI.hinweis(e.message || String(e), 'Nicht gelöscht'); }
+    });
+    box.appendChild(zeile);
+  }
+}
+
+$('#vorlagenSpeichern').addEventListener('click', async () => {
+  const offen = state.tiles.filter((t) => t.alive).length;
+  if (!offen) { plxrUI.hinweis('Es läuft keine Session, die sich sichern ließe.', 'Nichts zu speichern'); return; }
+  const label = await plxrUI.eingabe(
+    `${offen} laufende ${offen === 1 ? 'Session wird' : 'Sessions werden'} gesichert: ` +
+    'Verzeichnis, Kommando und Konto.', 'Wie soll die Vorlage heißen?', 'Arbeitstag');
+  if (!label) return;
+  const name = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  try {
+    await api.vorlageSpeichern(name, label);
+    vorlagenOeffnen();
+  } catch (e) {
+    plxrUI.hinweis(e.message || String(e), 'Nicht gespeichert');
+  }
+});
 
 $('#newBtn').addEventListener('click', async () => {
   $('#newCwd').value = state.filter || localStorage.getItem('plxr.lastCwd') || '';

@@ -29,6 +29,7 @@
 
     <div class="tools">
       <button class="btn icon" id="settingsBtn" title="Einstellungen">⚙</button>
+      <button class="btn" id="vorlagenBtn" title="Gespeicherte Arbeitsumgebungen">VORLAGEN</button>
       <button class="btn primary" id="newBtn">+ NEU</button>
     </div>
   </header>
@@ -263,6 +264,20 @@
       <span id="settingsVersion" class="hinweis"></span>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="settingsClose">FERTIG</button>
+    </div>
+  </div>
+</div>
+
+<!-- Vorlagen: mehrere Sessions auf einen Schlag -->
+<div id="vorlagen" class="hof" hidden>
+  <div class="karte">
+    <b class="kartentitel">vorlagen</b>
+    <p class="hinweis">Eine Vorlage öffnet mehrere Sessions auf einmal — dieselben
+      Verzeichnisse, dieselben Konten, dieselben Kommandos wie beim Speichern.</p>
+    <div id="vorlagenListe" class="splitliste"></div>
+    <div class="kartenknoepfe">
+      <button type="button" class="btn" id="vorlagenCancel">SCHLIESSEN</button>
+      <button type="button" class="btn primary" id="vorlagenSpeichern">LAGE SPEICHERN</button>
     </div>
   </div>
 </div>

@@ -21,6 +21,7 @@ import (
 	"plxr/internal/accounts"
 	"plxr/internal/agent"
 	"plxr/internal/archive"
+	"plxr/internal/daemon"
 	"plxr/internal/files"
 	"plxr/internal/fleet"
 	"plxr/internal/hook"
@@ -33,6 +34,7 @@ import (
 	"plxr/internal/theme"
 	"plxr/internal/update"
 	"plxr/internal/usage"
+	"plxr/internal/vorlage"
 )
 
 // Tile ist eine Session plus dem, was die Oberfläche sonst noch anzeigt.
@@ -247,6 +249,54 @@ func (c *Core) Host(id string) *ptyhost.Host {
 func (c *Core) Themes() []theme.Theme                        { return theme.Load(c.themes, c.skins) }
 func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Import(raw, c.skins) }
 func (c *Core) Agents() []agent.Profile                      { return agent.Load(c.agents).All() }
+
+// ---- Vorlagen ----
+
+func (c *Core) Vorlagen() []vorlage.Vorlage { return vorlage.Laden(daemon.Root()) }
+
+// VorlageStarten öffnet alle Sessions einer Vorlage. Fehler bei einzelnen
+// werden gesammelt statt abgebrochen — sieben von acht Sessions sind besser
+// als keine, nur weil ein Verzeichnis verschwunden ist.
+func (c *Core) VorlageStarten(name string) ([]string, error) {
+	for _, v := range c.Vorlagen() {
+		if v.Name != name {
+			continue
+		}
+		var ids []string
+		var fehler []string
+		for _, e := range v.Sessions {
+			s, err := c.Create(e.Cwd, e.Cmd, e.Name, e.Account)
+			if err != nil {
+				fehler = append(fehler, e.Cwd+": "+err.Error())
+				continue
+			}
+			ids = append(ids, s.ID)
+		}
+		if len(fehler) > 0 {
+			return ids, errors.New(strings.Join(fehler, "; "))
+		}
+		return ids, nil
+	}
+	return nil, errors.New("keine Vorlage mit diesem Namen")
+}
+
+// VorlageAusLage macht aus dem, was gerade offen ist, eine Vorlage.
+func (c *Core) VorlageAusLage(name, label string) error {
+	var eintraege []vorlage.Eintrag
+	for _, s := range c.reg.List() {
+		if !s.Alive {
+			continue
+		}
+		eintraege = append(eintraege, vorlage.Eintrag{
+			Cwd: s.Cwd, Cmd: s.Cmd, Name: s.Name, Account: s.Account,
+		})
+	}
+	return vorlage.Speichern(daemon.Root(), vorlage.Vorlage{
+		Name: name, Label: label, Sessions: eintraege,
+	})
+}
+
+func (c *Core) VorlageLöschen(name string) error { return vorlage.Löschen(daemon.Root(), name) }
 
 // ---- Konten und Archiv ----
 

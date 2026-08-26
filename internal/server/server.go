@@ -65,6 +65,40 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/agents", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Agents()) })
 	mux.HandleFunc("GET /api/themes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Themes()) })
 	mux.HandleFunc("POST /api/themes", s.importTheme)
+	mux.HandleFunc("GET /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Vorlagen())
+	})
+	mux.HandleFunc("POST /api/vorlagen/{name}/start", func(w http.ResponseWriter, r *http.Request) {
+		ids, err := s.c.VorlageStarten(r.PathValue("name"))
+		if err != nil && len(ids) == 0 {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		antwort := map[string]any{"ids": ids}
+		if err != nil {
+			antwort["teilweise"] = err.Error()
+		}
+		writeJSON(w, antwort)
+	})
+	mux.HandleFunc("POST /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
+		var req struct{ Name, Label string }
+		if json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req) != nil {
+			http.Error(w, "kaputtes JSON", http.StatusBadRequest)
+			return
+		}
+		if err := s.c.VorlageAusLage(req.Name, req.Label); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, s.c.Vorlagen())
+	})
+	mux.HandleFunc("DELETE /api/vorlagen/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.VorlageLöschen(r.PathValue("name")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/accounts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Accounts()) })
 	mux.HandleFunc("GET /api/archive", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Archive(r.URL.Query().Get("path")))
