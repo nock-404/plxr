@@ -861,7 +861,8 @@ function zeichneAlles(tiles) {
   if (!$('#viewInbox').hidden) inboxZeichnen();
   if (verbindungOk) {
     $('#counts').textContent =
-      `${state.tiles.length} sessions · ${laufen} laufen` +
+      `${state.tiles.length} ${state.tiles.length === 1 ? 'Session' : 'Sessions'} · ` +
+      `${laufen} ${laufen === 1 ? 'läuft' : 'laufen'}` +
       (blockiert ? ` · ${blockiert} wartet auf dich` : '') +
       (verwaist ? ` · ${verwaist} vom Absturz betroffen` : '');
   }
@@ -1614,8 +1615,9 @@ $('#rulesToggle').addEventListener('click', async () => {
   $('#rulesPane').hidden = false;
   $('#rulesMeta').textContent = 'lädt …';
   const liste = await api.regeln(state.aktiv);
-  $('#rulesMeta').textContent =
-    `${liste.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
+  $('#rulesMeta').textContent = liste.length === 1
+    ? 'Eine Datei wirkt hier · Ist-Zustand, nicht der von damals'
+    : `${liste.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
   const box = $('#rulesBody');
   box.innerHTML = '';
   if (!liste.length) {
@@ -1732,8 +1734,9 @@ function archivZeichnen() {
 
   if (archiv.terminals) {
     const wonach = $('#archSearch').value.trim();
-    $('#archInfo').textContent =
-      `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
+    $('#archInfo').textContent = archiv.terminals.length === 1
+      ? `Ein Terminal enthält „${wonach}"`
+      : `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
     if (!archiv.terminals.length) {
       leerZeigen(box, 'nichts im terminal',
         `„${wonach}" kam in keiner Terminalausgabe vor. Aufgezeichnet wird ab ` +
@@ -1765,7 +1768,9 @@ function archivZeichnen() {
 
   if (archiv.treffer) {
     const wonach = $('#archSearch').value.trim();
-    $('#archInfo').textContent = `${archiv.treffer.length} Sessions enthalten „${wonach}"`;
+    $('#archInfo').textContent = archiv.treffer.length === 1
+      ? `Eine Session enthält „${wonach}"`
+      : `${archiv.treffer.length} Sessions enthalten „${wonach}"`;
     if (!archiv.treffer.length) {
       leerZeigen(box, 'nichts gefunden',
         `Kein Transkript enthält „${wonach}". Gesucht wird in dem, was du und der ` +
@@ -1803,8 +1808,9 @@ function archivZeichnen() {
         (e.cwd || '').toLowerCase().includes(q))
     : archiv.alle;
 
-  $('#archInfo').textContent =
-    q ? `${liste.length} von ${archiv.alle.length}` : `${archiv.alle.length} Transkripte`;
+  $('#archInfo').textContent = q
+    ? `${liste.length} von ${archiv.alle.length}`
+    : `${archiv.alle.length} ${archiv.alle.length === 1 ? 'Transkript' : 'Transkripte'}`;
 
   if (!liste.length) {
     if (archiv.alle.length) {
@@ -1865,7 +1871,9 @@ async function portsLaden() {
   $('#portsInfo').textContent = 'liest …';
   const liste = await api.ports();
   $('#portsCount').textContent = liste.length;
-  $('#portsInfo').textContent = `${liste.length} lauschende Ports`;
+  $('#portsInfo').textContent = liste.length === 1
+    ? 'Ein lauschender Port'
+    : `${liste.length} lauschende Ports`;
   const box = $('#portsList');
   box.innerHTML = '';
   if (!liste.length) {
@@ -1920,7 +1928,8 @@ $('#usageRange').addEventListener('change', verbrauchLaden);
 async function verbrauchLaden() {
   $('#usageInfo').textContent = 'rechnet …';
   const b = await api.verbrauch($('#usageRange').value);
-  $('#usageInfo').textContent = `${b.dateien} Transkripte · ${b.dauer}`;
+  $('#usageInfo').textContent =
+    `${b.dateien} ${b.dateien === 1 ? 'Transkript' : 'Transkripte'} · ${b.dauer}`;
 
   const box = $('#usageBody');
   box.innerHTML = '';
