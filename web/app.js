@@ -21,9 +21,21 @@ const state = {
 
 /* ═════════════════════════ Transport ═════════════════════════ */
 
-const IM_FENSTER = !!window.runtime;
 const WAILS = !!(window.go && window.go.main && window.go.main.App);
 const Native = WAILS ? window.go.main.App : null;
+
+/* Im Fenster, aber ohne gebundene Methoden: dann findet die Oberfläche den
+   Daemon nicht und bliebe stumm weiß. Lieber laut sein — das passiert, wenn
+   jemand ohne Bindungen baut. */
+if (window.runtime && !WAILS) {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.innerHTML =
+      '<pre style="padding:40px;font:14px ui-monospace;color:#ff6b3d;background:#0b0906;height:100%">' +
+      'plxr: Wails-Laufzeit da, aber window.go.main.App fehlt.\n\n' +
+      'Die App wurde ohne Bindungen gebaut — mit "wails build" ohne\n' +
+      '-skipbindings neu bauen.</pre>';
+  });
+}
 
 let BASE = '';
 let TOKEN = '';
@@ -75,6 +87,10 @@ const b64 = (s) => {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 };
+
+/* Wer hängt gerade an welcher Session. Nötig, um nach einem Daemon-Neustart
+   dieselben Verbindungen wieder aufzubauen. */
+const anhaenger = new Map();
 
 const api = {
   fenster: WAILS,
@@ -138,8 +154,23 @@ const api = {
     const ws = new WebSocket(wsURL(`/ws/session/${id}`));
     ws.binaryType = 'arraybuffer';
     ws.onmessage = (e) => aufDaten(typeof e.data === 'string' ? e.data : new Uint8Array(e.data));
-    ws.onclose = () => { this._verb.delete(id); aufEnde(); };
+    // Der Grund für den Unterschied: ein geschlossener Socket heißt nicht, dass
+    // der Prozess endete. Stirbt der Daemon, verlieren wir nur die Leitung —
+    // "Prozess beendet" wäre schlicht gelogen.
+    ws.onclose = () => {
+      this._verb.delete(id);
+      aufEnde(verbindungOk ? 'prozess' : 'leitung');
+    };
     this._verb.set(id, ws);
+  },
+
+  // Nach einem Daemon-Neustart hängen alle offenen Flächen an toten Sockets.
+  // Wer das nicht nachzieht, hat eine Oberfläche, die aussieht als liefe sie.
+  neuAnhaengen() {
+    for (const [id, eintrag] of anhaenger) {
+      this.anhaengen(id, eintrag.aufDaten, eintrag.aufEnde);
+      eintrag.beiNeu?.();
+    }
   },
   abhaengen(id) {
     if (id === undefined) { for (const k of [...this._verb.keys()]) this.abhaengen(k); return; }
@@ -181,6 +212,8 @@ function neuVerbinden() {
       await themesLaden($('#themeSel').value);
       api.aufZustand(zeichneAlles);
       zeigeVerbindung(true);
+      // Erst jetzt die Terminals: vorher wäre die Adresse noch die alte.
+      api.neuAnhaengen();
       neuTimer = null;
     } catch {
       wartezeit = Math.min(wartezeit * 1.6, 5000);
@@ -767,7 +800,14 @@ function paneHinzu(id) {
   eintrag.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(nachziehen, 60); });
   eintrag.ro.observe(el.querySelector('.pterm'));
 
-  api.anhaengen(id, (daten) => term.write(daten), () => term.write('\r\n[plxr] Prozess beendet.\r\n'));
+  const aufDaten = (daten) => term.write(daten);
+  const aufEnde = (grund) => {
+    term.write(grund === 'leitung'
+      ? '\r\n[plxr] Verbindung zum Daemon verloren — wird neu aufgebaut …\r\n'
+      : '\r\n[plxr] Prozess beendet.\r\n');
+  };
+  anhaenger.set(id, { aufDaten, aufEnde, beiNeu: () => term.write('\r\n[plxr] wieder verbunden.\r\n') });
+  api.anhaengen(id, aufDaten, aufEnde);
   requestAnimationFrame(() => { nachziehen(); term.focus(); });
 
   paneAktiv(id);
@@ -804,6 +844,7 @@ function paneSchliessen(id) {
   const p = panes.get(id);
   if (!p) return;
   api.abhaengen(id);
+  anhaenger.delete(id);
   p.ro?.disconnect();
   p.term.dispose();
   p.el.remove();
@@ -820,6 +861,7 @@ function paneAlleSchliessen() {
     const p = panes.get(id);
     if (!p) continue;
     api.abhaengen(id);
+    anhaenger.delete(id);
     p.ro?.disconnect();
     p.term.dispose();
     p.el.remove();

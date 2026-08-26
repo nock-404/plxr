@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/term"
@@ -157,17 +158,39 @@ func Attach(c *Client, was string) error {
 	}
 	defer conn.Close()
 
+	// gorilla/websocket verträgt genau einen Schreiber. Hier schreiben drei
+	// Goroutinen: Größenmeldung, Tastatureingabe und der Aufbau. Ohne diesen
+	// Riegel reicht es, das Fenster zu ziehen während man tippt — und der
+	// Panic reißt den Prozess mit, bevor das Terminal wiederhergestellt ist.
+	var schreibSperre sync.Mutex
+	schreiben := func(v any) error {
+		schreibSperre.Lock()
+		defer schreibSperre.Unlock()
+		return conn.WriteJSON(v)
+	}
+
 	fd := int(os.Stdin.Fd())
 	var alt *term.State
 	if term.IsTerminal(fd) {
 		if alt, err = term.MakeRaw(fd); err != nil {
 			return err
 		}
+		// Zweifach abgesichert: das defer für den geordneten Weg, das recover
+		// für den ungeordneten. Eine Shell, die im Rohmodus zurückbleibt, ist
+		// für den Nutzer schlimmer als jeder Fehler darin — sie zeigt nichts
+		// mehr an, was er tippt.
 		defer term.Restore(fd, alt)
+		defer func() {
+			if r := recover(); r != nil {
+				term.Restore(fd, alt)
+				fmt.Fprintf(os.Stderr, "\r\nplxr: abgebrochen (%v)\r\n", r)
+				os.Exit(1)
+			}
+		}()
 	}
 
 	melden := func(rows, cols int) {
-		conn.WriteJSON(map[string]any{"type": "resize", "rows": rows, "cols": cols})
+		_ = schreiben(map[string]any{"type": "resize", "rows": rows, "cols": cols})
 	}
 	if w, h, err := term.GetSize(fd); err == nil {
 		melden(h, w)
@@ -208,7 +231,7 @@ func Attach(c *Client, was string) error {
 				continue
 			}
 			letztes = time.Time{}
-			if conn.WriteJSON(map[string]any{"type": "in", "data": string(buf[:n])}) != nil {
+			if schreiben(map[string]any{"type": "in", "data": string(buf[:n])}) != nil {
 				return
 			}
 		}

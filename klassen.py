@@ -17,13 +17,20 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
 # Klassen, die absichtlich nur die Anordnung betreffen und in keinem Skin
 # auftauchen müssen.
+# Klassen, die wirklich nur Anordnung sind — sie tragen keine Farbe, keinen
+# Rahmen, keine Schrift und müssen deshalb in keinem Skin auftauchen.
+#
+# Die Liste war schon einmal zu großzügig: .emptybox, .zhaupt und
+# .auswahlPfeil standen darin, wurden aber sehr wohl von einzelnen Skins
+# eingefärbt — und die Lücken in den anderen fielen dadurch nicht auf.
+# Im Zweifel gehört eine Klasse NICHT hierher.
 NUR_LAYOUT = {
-    'app', 'body', 'content', 'spacer', 'rtext', 'auswahl', 'auswahlText',
-    'auswahlPfeil', 'pfadListe', 'hidden', 'xterm', 'xterm-screen',
-    'zeile2', 'splitliste', 'panes', 'sesssplit', 'tools', 'brand',
-    'listbody', 'ruleslist', 'filetree', 'grid', 'liste', 'session', 'rail',
-    'ubox', 'usum', 'urow', 'ublock', 'emptybox', 'zhaupt', 'ztat', 'rmain',
-    'karte', 'hof',
+    'app', 'body', 'content', 'spacer', 'hidden',
+    'xterm', 'xterm-screen',        # gehört xterm.js
+    'panes', 'sesssplit', 'tools', 'brand', 'rtext',
+    'zeile2', 'griff', 'feld',
+    'auswahl', 'auswahlText',       # Hülle ohne eigenes Aussehen
+    'pfadListe',                    # erbt alles von .auswahlListe
 }
 
 def klassen_aus_js():
@@ -50,9 +57,28 @@ def klassen_aus_html():
     return treffer
 
 def klassen_aus_css(pfad):
+    """Klassen, die dieses Blatt wirklich gestaltet.
+
+    Gezählt wird die LETZTE Klasse jedes Selektors — sie ist die, deren
+    Aussehen die Regel bestimmt. `.tfoot .act` gestaltet .act, nicht .tfoot;
+    wer nur nach Namen sucht, hält .act für abgedeckt, obwohl kein Skin es
+    einfärbt.
+    """
     s = open(pfad).read()
     s = re.sub(r'/\*.*?\*/', '', s, flags=re.S)
-    return set(re.findall(r'\.([A-Za-z][\w-]*)', s))
+    out = set()
+    for block in re.findall(r'([^{}]+)\{[^{}]*\}', s):
+        for sel in block.split(','):
+            sel = sel.strip()
+            if not sel or sel.startswith('@'):
+                continue
+            # Letzter Teil des Selektors, ohne Zustände und Attribute.
+            letzter = re.split(r'[\s>+~]+', sel)[-1]
+            letzter = re.sub(r'::?[a-z-]+(\([^)]*\))?', '', letzter)
+            letzter = re.sub(r'\[[^\]]*\]', '', letzter)
+            for k in re.findall(r'\.([A-Za-z][\w-]*)', letzter):
+                out.add(k)
+    return out
 
 def main():
     erzeugt = (klassen_aus_js() | klassen_aus_html()) - NUR_LAYOUT
@@ -71,13 +97,16 @@ def main():
         for k in nirgends:
             print(f'      .{k}')
 
-    # 2. Was kennt ein Skin, ein anderer nicht?
+    # 2. Was gestaltet ein Skin, ein anderer nicht?
+    #
+    # base.css wird hier NICHT abgezogen: dort steht nur Anordnung. Eine
+    # Klasse kann in base positioniert und trotzdem in jedem Skin eingefärbt
+    # werden müssen — genau so sind .act, .emptybox und .zhaupt in win95
+    # unbemerkt farblos geblieben.
     gestaltet = erzeugt & alle_css
     for name, k in skins.items():
-        # Nur melden, was mindestens ein anderer Skin gestaltet — sonst
-        # beschwert sich das Skript über reine Anordnungsklassen.
         andere = set().union(*[v for n, v in skins.items() if n != name]) if len(skins) > 1 else set()
-        fehlt = sorted((gestaltet & andere) - k - base)
+        fehlt = sorted((gestaltet & andere) - k)
         if fehlt:
             fehler = 1
             print(f'  {name}: {len(fehlt)} Klassen, die andere Skins gestalten:')

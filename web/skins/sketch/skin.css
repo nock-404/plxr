@@ -171,7 +171,6 @@ body {
 .hof { background: rgba(246,243,233,.82); }
 .karte { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
 .kartentitel { font-size: 1.5em; color: var(--fg); }
-.karte label { color: var(--dim); font-size: .85em; }
 .feldname { color: var(--dim); font-size: .85em; }
 .splitzeile { color: var(--fg); }
 .splitzeile:hover { background: #efe9d8; }
@@ -213,3 +212,13 @@ body {
 .tile[data-status="verwaist"] { border-color: var(--blocked); background: var(--panel); opacity: 1; }
 .tile[data-status="verwaist"] .tfoot .act { color: var(--blocked); opacity: 1; }
 @keyframes verwaistblink { 50% { opacity: .3 } }
+
+/* ---------- Nachgezogen: Flächen und Kleinteile ----------
+   Diese Klassen gestalteten bisher nur einzelne Skins. Der Abgleich in
+   klassen.py sorgt dafür, dass keiner sie wieder verliert. */
+.grid, .listbody, .ruleslist, .filetree { background: transparent; }
+.rdot { opacity: .9; }
+.auswahlPfeil { color: var(--dim); font-size: .8em; }
+.emptybox { color: var(--dim); }
+.zhaupt .ztitel { color: var(--accent); }
+.tfoot .act { color: var(--fg); opacity: .85; }

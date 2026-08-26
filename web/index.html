@@ -177,18 +177,21 @@
 <div id="dialog" class="hof" hidden>
   <form id="newForm" class="karte">
     <b class="kartentitel">neue session</b>
-    <label>verzeichnis
+    <div class="feld">
+      <span class="feldname">verzeichnis</span>
       <span class="zeile2">
         <input id="newCwd" spellcheck="false" required>
         <button type="button" class="btn" id="pickDir" hidden>…</button>
       </span>
-    </label>
-    <label>kommando
+    </div>
+    <div class="feld">
+      <span class="feldname">kommando</span>
       <input id="newCmd" spellcheck="false" value="claude">
-    </label>
-    <label>konto
+    </div>
+    <div class="feld">
+      <span class="feldname">konto</span>
       <select id="newAccount"></select>
-    </label>
+    </div>
     <div class="kartenknoepfe">
       <button type="button" class="btn" id="newCancel">ABBRECHEN</button>
       <button type="submit" class="btn primary">STARTEN</button>

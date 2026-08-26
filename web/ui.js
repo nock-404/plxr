@@ -75,7 +75,11 @@
 
     knopf.addEventListener('click', (e) => { e.stopPropagation(); liste.hidden ? auf() : zu(); });
     document.addEventListener('click', (e) => { if (!wurzel.contains(e.target)) zu(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') zu(); });
+    document.addEventListener('keydown', (e) => {
+      // Nur wenn diese Liste offen ist — sonst schließt ein Escape irgendwo
+      // im Fenster auch noch den Dialog darunter.
+      if (e.key === 'Escape' && !liste.hidden) { e.stopPropagation(); zu(); }
+    }, true);
     // Änderungen von außen (etwa beim Laden) müssen sichtbar werden.
     sel.addEventListener('change', zeichnen);
     new MutationObserver(zeichnen).observe(sel, { childList: true, subtree: true });
@@ -103,7 +107,7 @@
       const schliessen = (wert) => {
         d.remove();
         offen = null;
-        document.removeEventListener('keydown', taste);
+        document.removeEventListener('keydown', taste, true);
         fertig(wert);
       };
 
@@ -120,21 +124,29 @@
       d.addEventListener('mousedown', (e) => { if (e.target === d) schliessen(false); });
 
       function taste(e) {
-        if (e.key === 'Escape') schliessen(false);
-        if (e.key === 'Enter') schliessen(knoepfe[knoepfe.length - 1].wert);
+        if (e.key === 'Escape') { e.stopPropagation(); schliessen(false); }
+        // Enter bricht ab, nicht bestätigt. Bei "Transkript löschen?" wäre die
+        // Eingabetaste sonst die zerstörerische Antwort — und genau die drückt
+        // man aus Gewohnheit.
+        if (e.key === 'Enter') { e.preventDefault(); schliessen(false); }
       }
-      document.addEventListener('keydown', taste);
-
+      // Vor dem Handler der Anwendung, damit Escape nicht zusätzlich das
+      // darunterliegende Fenster schließt.
+      document.addEventListener('keydown', taste, true);
       document.body.appendChild(d);
-      box.lastElementChild?.focus();
+      // Der abbrechende Knopf bekommt den Fokus: wer blind bestätigt, soll
+      // nichts kaputtmachen.
+      box.firstElementChild?.focus();
     });
   }
 
   window.plxrUI = {
     auswahlAlle() { document.querySelectorAll('select').forEach(auswahl); },
+    // Versalien wie im übrigen Markup: crt setzt text-transform, die anderen
+    // Skins nicht — kleines "ja" neben großem "ABBRECHEN" fiel sofort auf.
     frage: (text, titel = 'Sicher?') =>
-      dialog(titel, text, [{ text: 'abbrechen', wert: false }, { text: 'ja', wert: true, haupt: true }]),
+      dialog(titel, text, [{ text: 'ABBRECHEN', wert: false }, { text: 'JA', wert: true, haupt: true }]),
     hinweis: (text, titel = 'Hinweis') =>
-      dialog(titel, text, [{ text: 'ok', wert: true, haupt: true }]),
+      dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
   };
 })();

@@ -9,20 +9,33 @@
 
      --bg --fg --dim --accent --panel --line
      --working --waiting --blocked --dead
+     --term-bg --term-fg     Farben des Terminals, getrennt von der Oberfläche
 
-   Und diese Klassen darf er gestalten:
+   Und diese Klassen gestaltet er. Die Liste stammt aus dem Ist-Stand; wer sie
+   ändert, lässt `./klassen.py` laufen — das meldet, was ein Skin vergisst.
 
-     Kopf      .bar .brand .mark .wordmark .filter .prompt .tools .btn
-     Zustand   .statusrow .updatebar .boot
-     Schiene   .rail .railitem .railgroup .rdot .rname .rsub .rmeta
-     Raster    .grid .tile .thead .dot .tname .tproj .tbody .tfoot .agent
-     Listen    .liste .listbar .listbody .zeile .meta
-     Session   .sessbar .sesstitle .sesssplit .files .filetree .frow
-               .panes .pane .panelabel .paneclose
-     Überlagen .ueber .ueberbar .uebername .viewerbody .ruleslist .rrow
-     Dialoge   .hof .karte .kartentitel .kartenknoepfe
-     Auswahl   .auswahl .auswahlKnopf .auswahlListe .auswahlZeile .auswahlGruppe
-     Effekte   .fx
+     Kopf       .bar .mark .wordmark .filter .prompt .btn .icon .primary .tiny
+     Zustand    .statusrow .updatebar .boot
+     Schiene    .rail .railitem .railhome .railgroup .rdot .rname .rsub
+                .rmeta .active
+     Raster     .grid .tile .thead .dot .tname .tproj .tbody .tfoot .act .ctx
+                .agent .empty .emptybox .emptyhead .emptyagents
+     Listen     .liste .listbar .listbody .zeile .zdatum .ztitel .zhaupt
+                .zauszug .zproj .zklein .zwert .ztat .meta .leer
+     Verbrauch  .ublock .uhead .urow .ukey .ubar .ufill .uval .usum .ubox
+                .ubig
+     Session    .sessbar .sesstitle .files .filesbar .filesroot .filetree
+                .frow .fchev .ficon .fname .noise .pane .panelabel .paneclose
+                .pterm
+     Überlagen  .ueber .ueberbar .uebername .viewerbody .dirty .ruleslist
+                .rrow .rart .rmain .rtitle .rdesc .rpath
+     Dialoge    .hof .karte .kartentitel .kartenknoepfe .feldname .hinweis
+                .fusszeile .fragetext .splitzeile .splitliste
+     Auswahl    .auswahlKnopf .auswahlListe .auswahlZeile .auswahlGruppe
+                .auswahlPfeil
+     Effekte    .fx
+     Sonstige   .breit .hoch .on .session
+
 */
 
 * { box-sizing: border-box; }
@@ -60,7 +73,7 @@ html, body {
    Titelleiste keine andere Fläche dafür. Die Bedienelemente darin müssen
    ausgenommen sein, sonst zieht ein Klick auf ein Eingabefeld das Fenster. */
 .bar, .statusrow { --wails-draggable: drag; }
-.bar input, .bar button, .bar select, .bar label, .bar .btn, .bar .auswahl,
+.bar input, .bar button, .bar .btn,
 .statusrow button, .statusrow input { --wails-draggable: no-drag; }
 .sessbar { --wails-draggable: drag; }
 .sessbar button, .sessbar select, .sessbar .auswahl { --wails-draggable: no-drag; }
@@ -243,7 +256,6 @@ html, body {
 .hinweis { flex: 1; min-width: 0; }
 .fusszeile { display: flex; align-items: center; gap: 10px; }
 .kartentitel { font-weight: normal; }
-.karte label { display: flex; flex-direction: column; gap: 5px; }
 .karte input { font: inherit; color: inherit; padding: 5px 8px; }
 .kartenknoepfe { display: flex; gap: 10px; justify-content: flex-end; }
 .zeile2 { display: flex; gap: 8px; align-items: stretch; }
