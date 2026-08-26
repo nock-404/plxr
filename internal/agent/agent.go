@@ -153,8 +153,20 @@ const (
 // entscheidet, wie lange nichts mehr kam.
 func (p *Profile) Classify(screen string, idle time.Duration) string {
 	tail := lastLines(screen, 12)
+
+	/* Eine Rückfrage blockiert nur, solange sie das Letzte auf dem Schirm ist:
+	   steht Ausgabe darunter, wurde sie beantwortet. Über zwölf Zeilen zu
+	   suchen ließ eine erledigte Frage ewig als "braucht dich" stehen — der
+	   Posteingang zeigte Sessions, die längst weiterliefen. Drei Zeilen reichen
+	   auch für mehrzeilige Dialogfelder: deren Auswahl steht immer unten. */
+	unten := letzteZeilen(screen, 3)
+	amPrompt := wartetAmPrompt(screen)
 	for _, re := range p.blockedRe {
-		if re.MatchString(tail) {
+		// Entweder die Rückfrage steht ganz unten — dann ist sie offen —,
+		// oder der Schirm endet auf einem Prompt, der auf Eingabe wartet.
+		// Der zweite Fall fängt "Frage / Auswahlliste / Eingabe>" ab, wo der
+		// Fragetext ein paar Zeilen über dem Cursor steht.
+		if re.MatchString(unten) || (amPrompt && re.MatchString(tail)) {
 			return Permission
 		}
 	}
@@ -167,6 +179,42 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 		return p.IdleStatus
 	}
 	return Working
+}
+
+// wartetAmPrompt sagt, ob der Schirm auf einer Eingabeaufforderung endet:
+// eine kurze Zeile, die auf ein Prompt-Zeichen ausläuft und hinter der nichts
+// mehr steht. Genau dort sitzt dann der Cursor.
+func wartetAmPrompt(screen string) bool {
+	letzte := letzteZeilen(screen, 1)
+	if letzte == "" || len(letzte) > 120 {
+		return false
+	}
+	ohne := strings.TrimRight(letzte, " \t")
+	if ohne == "" {
+		return false
+	}
+	// Absichtlich ohne '$', '#' und '%': das sind Shell-Prompts. Eine Shell,
+	// die dort steht, wartet zwar auf Eingabe, aber das ist ihr Normalzustand
+	// und keine Rückfrage — sonst meldete der Posteingang jede stille Shell.
+	switch ohne[len(ohne)-1] {
+	case '>', ':', '?':
+		return true
+	}
+	return false
+}
+
+// letzteZeilen liefert die letzten n Zeilen mit Inhalt. Leerzeilen am Ende
+// fallen weg — sonst schöbe ein Zeilenumbruch die Rückfrage aus dem Fenster,
+// obwohl sie noch offen ist.
+func letzteZeilen(s string, n int) string {
+	zeilen := strings.Split(s, "\n")
+	for len(zeilen) > 0 && strings.TrimSpace(zeilen[len(zeilen)-1]) == "" {
+		zeilen = zeilen[:len(zeilen)-1]
+	}
+	if len(zeilen) > n {
+		zeilen = zeilen[len(zeilen)-n:]
+	}
+	return strings.Join(zeilen, "\n")
 }
 
 func lastLines(s string, n int) string {
