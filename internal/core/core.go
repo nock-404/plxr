@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"plxr/internal/shell"
 	"strings"
 	"sync"
 	"time"
@@ -78,7 +79,7 @@ func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Se
 		return nil, errors.New("Verzeichnis gibt es nicht: " + cwd)
 	}
 	if len(cmd) == 0 {
-		cmd = []string{"claude"}
+		cmd = shell.Standard()
 	}
 
 	acc, _ := accounts.ByName(c.Accounts(), konto)

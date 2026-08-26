@@ -284,3 +284,8 @@ body {
 /* Ladebalken beim Update. */
 .balken { background: color-mix(in srgb, var(--fg) 14%, transparent); }
 .balken i { background: var(--accent); }
+
+/* Auswahl im Startdialog. */
+.wahlknopf { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
+.wahlknopf:hover { border-color: var(--accent); color: var(--accent); }
+.wahlknopf[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }

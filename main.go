@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"plxr/internal/ptyhost"
 	"runtime"
 	"strings"
 
@@ -203,6 +204,7 @@ func runDaemon() {
 	}
 
 	core.Version = version
+	ptyhost.Fassung = version
 	c := core.New(reg, sub("web/themes"), sub("web/agents"), sub("web/skins"))
 	srv := server.New(c, sub("web"))
 

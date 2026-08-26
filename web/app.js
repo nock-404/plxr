@@ -114,6 +114,7 @@ const api = {
 
   ordner: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
   pfade: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
+  shell: () => req('/api/shell'),
   datei: (id, pfad) => req(`/api/file/${id}?path=${encodeURIComponent(pfad)}`),
   dateiSchreiben: (id, pfad, text, mod) =>
     req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: pfad, text, mod }) }),
@@ -1543,9 +1544,51 @@ function updateVerfolgen() {
 
 /* ═════════════════════════ Neue Session ═════════════════════════ */
 
+/* Was gestartet wird. Die Shell steht vorn: plxr ist ein Terminal, in dem
+   auch Agenten laufen — nicht umgekehrt. */
+const STARTBAR = [
+  { id: 'shell', label: 'Shell', cmd: null },  // cmd kommt vom Daemon
+  { id: 'claude', label: 'Claude Code', cmd: ['claude'] },
+  { id: 'codex', label: 'Codex', cmd: ['codex'] },
+  { id: 'opencode', label: 'opencode', cmd: ['opencode'] },
+  { id: 'eigenes', label: 'Eigenes …', cmd: null },
+];
+let shellCmd = null;
+
+async function wahlFuellen() {
+  const box = $('#newWahl');
+  if (box.children.length) return;
+  try { shellCmd = (await api.shell()).cmd; } catch { shellCmd = ['/bin/sh', '-l']; }
+  const zuletzt = localStorage.getItem('plxr.startart') || 'shell';
+  for (const w of STARTBAR) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'wahlknopf';
+    b.dataset.id = w.id;
+    b.textContent = w.id === 'shell' ? `Shell (${shellCmd[0].split('/').pop()})` : w.label;
+    b.addEventListener('click', () => wahlSetzen(w.id));
+    box.appendChild(b);
+  }
+  wahlSetzen(zuletzt);
+}
+
+function wahlSetzen(id) {
+  for (const b of $('#newWahl').children) b.dataset.gewaehlt = b.dataset.id === id ? 'ja' : 'nein';
+  $('#newCmdFeld').hidden = id !== 'eigenes';
+  localStorage.setItem('plxr.startart', id);
+  if (id === 'eigenes') $('#newCmd').focus();
+}
+
+function gewaehltesKommando() {
+  const id = [...$('#newWahl').children].find((b) => b.dataset.gewaehlt === 'ja')?.dataset.id || 'shell';
+  if (id === 'shell') return shellCmd || [];
+  if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
+  return STARTBAR.find((w) => w.id === id).cmd;
+}
+
 $('#newBtn').addEventListener('click', async () => {
   $('#newCwd').value = state.filter || localStorage.getItem('plxr.lastCwd') || '';
-  await kontenFuellen('#newAccount');
+  await Promise.all([kontenFuellen('#newAccount'), wahlFuellen()]);
   $('#dialog').hidden = false;
   $('#newCwd').focus();
 });
@@ -1563,7 +1606,7 @@ if (api.fenster) {
 $('#newForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const cwd = $('#newCwd').value.trim();
-  const cmd = $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
+  const cmd = gewaehltesKommando();
   try {
     const s = await api.starten(cwd, cmd, $('#newAccount').value);
     localStorage.setItem('plxr.lastCwd', cwd);

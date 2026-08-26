@@ -226,3 +226,7 @@ body {
 /* Ladebalken beim Update. */
 .balken { background: #e8e2d2; }
 .balken i { background: var(--accent); }
+
+/* Auswahl im Startdialog. */
+.wahlknopf { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
+.wahlknopf[data-gewaehlt="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }

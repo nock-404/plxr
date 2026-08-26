@@ -307,3 +307,8 @@ html, body {
 /* Ladebalken im Update-Hinweis. */
 .balken { flex: 0 0 auto; width: 220px; height: 8px; position: relative; overflow: hidden; }
 .balken i { position: absolute; inset: 0 auto 0 0; width: 0; transition: width .25s; }
+
+/* Auswahl, was gestartet wird. Knöpfe statt Liste: es sind wenige, und man
+   sieht sofort alle. */
+.wahl { display: flex; flex-wrap: wrap; gap: 6px; }
+.wahlknopf { cursor: pointer; font: inherit; color: inherit; padding: 4px 12px; border: 0; background: none; }

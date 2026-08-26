@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
+	"plxr/internal/shell"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,11 @@ import (
 
 // Scrollback pro Session. Ältere Ausgabe fällt hinten raus.
 const MaxBuf = 2 << 20
+
+// Fassung wird beim Start gesetzt und landet in TERM_PROGRAM_VERSION.
+var Fassung = "dev"
+
+// erbtNicht wird unten ergänzt: TERM und Verwandte setzen wir selbst.
 
 type Host struct {
 	ID  string
@@ -53,7 +59,7 @@ type Host struct {
 // Claude-Kontos (CLAUDE_CONFIG_DIR).
 func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	if len(argv) == 0 {
-		argv = []string{"claude"}
+		argv = shell.Standard()
 	}
 
 	p, err := pty.New()
@@ -63,7 +69,8 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 
 	c := p.Command(argv[0], argv[1:]...)
 	c.Dir = cwd
-	c.Env = append(sauberesEnv(), "TERM=xterm-256color", "PLXR=1")
+	c.Env = append(sauberesEnv(), shell.Umgebung(Fassung)...)
+	c.Env = append(c.Env, "PLXR=1")
 	c.Env = append(c.Env, env...)
 
 	// Größe VOR dem Start setzen: ConPTY legt sich sonst auf 80x25 fest, und

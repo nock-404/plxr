@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"plxr/internal/core"
+	"plxr/internal/shell"
 
 	"github.com/gorilla/websocket"
 )
@@ -45,6 +46,10 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/sessions", s.listSessions)
 	mux.HandleFunc("POST /api/sessions", s.createSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.killSession)
+	mux.HandleFunc("GET /api/shell", func(w http.ResponseWriter, r *http.Request) {
+		cmd := shell.Standard()
+		writeJSON(w, map[string]any{"cmd": cmd, "name": shell.Name(cmd)})
+	})
 	mux.HandleFunc("GET /api/agents", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Agents()) })
 	mux.HandleFunc("GET /api/themes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Themes()) })
 	mux.HandleFunc("POST /api/themes", s.importTheme)
