@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"sort"
 	"strings"
 )
@@ -78,10 +79,7 @@ func (t *Theme) valid(skins map[string]bool) error {
 	return nil
 }
 
-func UserDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".plxr", "themes")
-}
+func UserDir() string { return filepath.Join(daemon.Root(), "themes") }
 
 // Skins listet die installierten Skins, also die Verzeichnisse unter web/skins.
 func Skins(skinFS fs.FS) map[string]bool {

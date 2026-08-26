@@ -1,15 +1,15 @@
 /* Skin: Win95 — grauer Kunststoff, harte Kanten, Bevel nach außen.
-   Der Trick ist der doppelte Rahmen: außen hell/dunkel, innen umgekehrt.
+   Der Trick ist der doppelte Rahmen: außen hell gegen dunkel, innen umgekehrt.
    Nichts hier ist rund, nichts hat einen weichen Schatten. */
 
 :root {
-  --bg: #008080;          /* der Teal-Schreibtisch */
-  --panel: #c0c0c0;       /* Fensterfläche */
+  --bg: #008080;        /* der Teal-Schreibtisch */
+  --panel: #c0c0c0;     /* Fensterfläche */
   --fg: #000000;
-  --dim: #808080;
-  --accent: #000080;      /* Titelleisten-Navy */
+  --dim: #5a5a5a;
+  --accent: #000080;    /* Titelleisten-Navy */
   --line: #808080;
-  --working: #008000; --waiting: #808080; --blocked: #800000; --dead: #a0a0a0;
+  --working: #007000; --waiting: #5a5a5a; --blocked: #800000; --dead: #9a9a9a;
   --hi: #ffffff; --sh: #808080; --dk: #000000;
 }
 
@@ -18,42 +18,64 @@ body {
   font-size: 12px;
   -webkit-font-smoothing: none;
 }
-
-/* Bevel nach außen (Knöpfe, Kacheln) und nach innen (Eingabefelder). */
-.bar, .statusrow, .tile, .btn, select, .dialog, .ovbar {
-  border-style: solid; border-width: 2px;
-  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
-  background: var(--panel);
-}
-.bar, .statusrow, .ovbar { border-width: 0 0 2px 0; border-color: var(--hi); box-shadow: inset 0 -1px 0 var(--sh); }
-.tile, .btn, select, .dialog { box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh); }
-
 .app { background: var(--bg); }
 .fx { display: none; }
 
-.bar { gap: 14px; }
+/* Bevel nach außen: erhaben. Für Knöpfe, Kacheln, Karten. */
+.btn, .auswahlKnopf, .tile, .karte, .auswahlListe {
+  background: var(--panel); color: var(--dk);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
+}
+/* Bevel nach innen: vertieft. Für alles, was Eingabe aufnimmt. */
+.filter input, .listbar input, .karte input, .viewerbody, .tbody, .files, .pterm {
+  background: #fff; color: #000;
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--dk);
+}
+
+/* ---------- Kopf ---------- */
+
+.bar, .statusrow, .sessbar, .listbar, .ueberbar, .updatebar, .filesbar {
+  background: var(--panel);
+  border-bottom: 2px solid var(--hi);
+  box-shadow: inset 0 -1px 0 var(--sh);
+}
 .mark { color: var(--accent); }
 .wordmark { font-size: 1.3em; font-weight: bold; color: var(--dk); }
-.tag { color: var(--dim); font-size: .85em; }
-
 .prompt { color: var(--dk); }
-.filter input, .dialog input {
-  background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
-  box-shadow: inset 1px 1px 0 var(--dk); padding: 3px 5px; outline: none;
-}
-.btn { padding: 3px 12px; }
+.filter input, .listbar input, .karte input { padding: 3px 5px; outline: none; }
+
+.btn { padding: 3px 12px; cursor: pointer; }
 .btn:active { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; padding: 4px 11px 2px 13px; }
 .btn.primary { font-weight: bold; }
-select { padding: 2px 4px; }
+.btn.tiny { padding: 1px 6px; }
+.btn.tiny.on, .btn:disabled { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+.btn:disabled { color: var(--sh); text-shadow: 1px 1px 0 var(--hi); }
 
-.statusrow { font-size: .9em; color: var(--dk); }
+.statusrow, .meta { color: var(--dk); font-size: .9em; }
+:root[data-offline="ja"] #counts { color: var(--blocked); font-weight: bold; }
+.updatebar { border-bottom: 2px solid var(--accent); }
 
-.grid { background: var(--bg); }
+/* ---------- Schiene ---------- */
+
+.rail { background: var(--panel); border-right: 2px solid var(--hi); box-shadow: inset -1px 0 0 var(--sh); }
+.railitem { color: var(--dk); }
+.railitem:hover { background: #d4d0c8; }
+.railitem.active { background: var(--accent); color: #fff; }
+.railitem.active .rsub { color: #cfd8ff; }
+.railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.railgroup { color: var(--dk); font-weight: bold; font-size: .95em; background: #d4d0c8; }
+.rsub { color: var(--dim); font-size: .9em; }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+.rmeta { color: var(--sh); }
+
+/* ---------- Kacheln: jede ist ein kleines Fenster ---------- */
+
 .tile { min-height: 240px; }
 .tile:hover { outline: 1px dotted var(--dk); outline-offset: -4px; }
 .tile[data-status="dead"] { opacity: .65; }
 
-/* Titelleiste je Kachel — der eigentliche Win95-Moment. */
 .thead {
   margin: 2px; padding: 3px 5px;
   background: linear-gradient(90deg, var(--accent), #1084d0);
@@ -64,13 +86,7 @@ select { padding: 2px 4px; }
 .tile[data-status="permission"] .thead { background: linear-gradient(90deg, #800000, #c04040); }
 .tile[data-status="dead"] .thead { background: linear-gradient(90deg, #808080, #b0b0b0); }
 
-.tbody {
-  margin: 0 4px; padding: 6px 7px;
-  background: #fff; color: #000;
-  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
-  font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.25;
-  max-height: 175px;
-}
+.tbody { margin: 0 4px; padding: 6px 7px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.25; max-height: 175px; }
 .tfoot { color: var(--dk); font-size: .9em; padding: 5px 7px; }
 .tfoot .agent { border: 1px solid var(--sh); background: var(--panel); padding: 0 4px; }
 
@@ -81,21 +97,89 @@ select { padding: 2px 4px; }
 .dot.unknown { color: var(--dim); }
 @keyframes w95blink { 50% { opacity: .2 } }
 
-.overlay { background: var(--bg); }
-.ovbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; }
-.ovtitle { font-weight: bold; }
-.ovmeta { color: #cfd8ff; font-size: .9em; }
-.term { background: #000; margin: 4px; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
-
-.dialog { padding: 14px 16px; gap: 12px; }
-.dialog h2 { font-weight: bold; font-size: 1.1em; }
-.dialog label { color: var(--dk); font-size: 1em; }
-
 .empty { color: #fff; }
-.empty pre { font-family: 'Courier New', monospace; }
+.emptyhead { font-weight: bold; }
+.emptyagents { color: #cfe8e8; }
 
+/* ---------- Listen ---------- */
 
-/* Scrollbalken: Bevel wie alles andere, plus das gepunktete Gleisraster. */
+.listbody { background: #fff; }
+.zeile { border-bottom: 1px solid #dfdfdf; }
+.zeile:hover { background: #d4d0c8; }
+.zeile:nth-child(even) { background: #f4f4f4; }
+.zeile:nth-child(even):hover { background: #d4d0c8; }
+.zdatum, .zproj, .zwert, .zklein { color: var(--dim); }
+.ztitel { color: #000; }
+.zauszug { color: var(--dim); font-size: .92em; }
+.zeile .btn { padding: 1px 8px; font-size: .95em; }
+.zeile[data-eigen="ja"] .ztitel { color: var(--working); font-weight: bold; }
+
+.ublock { background: #fff; border-bottom: 1px solid #dfdfdf; }
+.uhead { color: var(--dk); font-weight: bold; }
+.ukey { color: #000; }
+.ubar { background: #fff; border: 1px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.ufill { background: var(--accent); }
+.uval { color: var(--dim); }
+.usum { background: var(--panel); border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.ubox b { color: var(--accent); font-weight: bold; }
+.ubox span { color: var(--dim); font-size: .9em; }
+
+/* ---------- Session ---------- */
+
+.sessbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; border: 0; box-shadow: none; }
+.sesstitle { font-weight: bold; }
+.sessbar .meta { color: #cfd8ff; }
+.sessbar .btn { color: var(--dk); }
+
+.files { margin: 3px; }
+.filesbar { background: var(--panel); border-bottom: 1px solid var(--sh); box-shadow: none; }
+.filesroot { color: var(--dk); font-size: .9em; }
+.filetree { font-family: Tahoma, sans-serif; }
+.frow { color: #000; font-size: .95em; }
+.frow:hover { background: #d4d0c8; }
+.frow.noise { color: var(--sh); }
+.fchev, .ficon { color: var(--accent); }
+
+.pterm { margin: 0; background: #000; }
+.panelabel { background: var(--panel); color: var(--dk); font-weight: bold; font-size: .9em; border: 1px solid var(--sh); }
+.paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.pane[data-aktiv="ja"] .panelabel { background: var(--accent); color: #fff; }
+
+.ueber { background: var(--panel); }
+.uebername { font-weight: bold; color: var(--dk); }
+.viewerbody { font-family: 'Courier New', monospace; font-size: 12px; margin: 4px; caret-color: #000; }
+.dirty { color: var(--blocked); font-weight: bold; font-size: .9em; }
+
+.ruleslist { background: #fff; }
+.rrow { border-bottom: 1px solid #dfdfdf; }
+.rrow:hover { background: #d4d0c8; }
+.rart { color: var(--dim); font-weight: bold; font-size: .9em; }
+.rtitle { color: var(--accent); }
+.rdesc { color: #333; font-size: .95em; }
+.rpath { color: var(--sh); font-size: .9em; }
+
+/* ---------- Dialoge ---------- */
+
+.hof { background: rgba(0,0,0,.35); }
+.karte { padding: 14px 16px; gap: 12px; }
+.kartentitel { font-weight: bold; font-size: 1.1em; color: var(--dk); }
+.karte label { color: var(--dk); }
+.frage p { color: var(--dk); }
+.splitzeile { color: var(--dk); }
+.splitzeile:hover { background: var(--accent); color: #fff; }
+
+/* ---------- Auswahlliste ---------- */
+
+.auswahlKnopf { padding: 2px 8px; }
+.auswahlPfeil { color: var(--dk); font-size: .8em; }
+.auswahlListe { padding: 2px; }
+.auswahlZeile { color: var(--dk); }
+.auswahlZeile:hover { background: var(--accent); color: #fff; }
+.auswahlZeile[data-gewaehlt] { font-weight: bold; }
+.auswahlGruppe { color: var(--dim); font-weight: bold; font-size: .9em; }
+
+/* ---------- Scrollbalken: mit Gleisraster wie damals ---------- */
+
 *::-webkit-scrollbar { width: 16px; height: 16px; }
 *::-webkit-scrollbar-track {
   background-color: #dfdfdf;
@@ -108,31 +192,3 @@ select { padding: 2px 4px; }
   border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
-
-/* --- Schiene, Dateibaum, Betrachter --- */
-.rail { background: var(--panel); border-right: 2px solid; border-color: var(--hi); box-shadow: inset -1px 0 0 var(--sh); }
-.railitem { color: var(--dk); }
-.railitem:hover { background: #d4d0c8; }
-.railitem.active { background: var(--accent); color: #fff; }
-.railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
-.railitem[data-status="permission"] .rdot { color: var(--blocked); }
-.rmeta { color: var(--sh); }
-
-.sessbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; border: 0; }
-.ovtitle { font-weight: bold; }
-.ovmeta { color: #cfd8ff; font-size: .9em; }
-.btn.tiny { padding: 1px 6px; }
-.btn.tiny.on { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
-
-.files { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); margin: 3px; }
-.filesbar { background: var(--panel); border-bottom: 1px solid var(--sh); }
-.filesroot { color: var(--dk); font-size: .85em; }
-.frow { color: #000; font-size: .95em; }
-.frow:hover { background: #d4d0c8; }
-.frow.noise { color: var(--sh); }
-.filetree { font-family: Tahoma, sans-serif; }
-
-.viewer { background: #fff; }
-.viewerbar { background: var(--panel); border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
-.viewername { font-weight: bold; color: var(--dk); }
-.viewerbody { font-family: 'Courier New', monospace; font-size: 12px; color: #000; }

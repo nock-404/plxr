@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"runtime"
 	"sort"
 	"strings"
@@ -80,8 +81,7 @@ type speicher struct {
 }
 
 func ladeSpeicher() *speicher {
-	home, _ := os.UserHomeDir()
-	p := filepath.Join(home, ".plxr", "usage-cache.json")
+	p := filepath.Join(daemon.Root(), "usage-cache.json")
 	s := &speicher{Datei: map[string]eintrag{}, pfad: p}
 	if b, err := os.ReadFile(p); err == nil {
 		json.Unmarshal(b, s)

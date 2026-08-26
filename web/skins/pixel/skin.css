@@ -1,11 +1,13 @@
-/* Skin: Pixel — 8-Bit-Konsolenmenü. Rahmen sind gestufte Schatten statt Linien,
-   damit sie wie gesetzte Blöcke aussehen und nicht wie CSS-Borders. */
+/* Skin: Pixel — 8-Bit-Konsolenmenü.
+   Rahmen sind gestufte Schatten statt Linien, damit sie wie gesetzte Blöcke
+   aussehen und nicht wie CSS-Borders. Nichts wird weich, nichts verläuft. */
+
 @font-face { font-family: 'PressStart'; src: url('/vendor/pressstart.woff2') format('woff2'); font-display: swap; }
 
 :root {
-  --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #7c7f9e;
+  --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #8b8fb0;
   --accent: #ffd23f; --line: #3a3f6b;
-  --working: #6ee7a0; --waiting: #7c7f9e; --blocked: #ff5c6c; --dead: #4a4d70;
+  --working: #6ee7a0; --waiting: #8b8fb0; --blocked: #ff5c6c; --dead: #4a4d70;
   --px: 4px;
 }
 
@@ -13,46 +15,70 @@ body {
   font-family: 'PressStart', ui-monospace, monospace;
   font-size: 10px; line-height: 1.6;
   image-rendering: pixelated;
-  background:
-    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px,
-    var(--bg);
+  background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px, var(--bg);
 }
 .fx { display: none; }
 
-/* Gestufter Blockrahmen — zwei Ringe, harte Kante. */
-.tile, .btn, select, .dialog, .filter input, .dialog input, .term {
+/* Gestufter Blockrahmen: vier harte Schatten statt eines Rahmens. */
+.tile, .btn, .auswahlKnopf, .auswahlListe, .karte, .filter input,
+.listbar input, .karte input, .pterm {
   box-shadow:
-    0 calc(-1 * var(--px)) 0 0 var(--line),
-    0 var(--px) 0 0 var(--line),
-    calc(-1 * var(--px)) 0 0 0 var(--line),
-    var(--px) 0 0 0 var(--line);
+    0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
   border: 0;
 }
+
+/* ---------- Kopf ---------- */
 
 .bar { border-bottom: var(--px) solid var(--line); padding: 14px 20px; gap: 20px; }
 .mark { color: var(--accent); }
 .wordmark { font-size: 1.6em; color: var(--accent); letter-spacing: .05em; }
-.tag { color: var(--dim); font-size: .8em; }
-
 .prompt { color: var(--accent); }
-.filter input, .dialog input {
+
+.filter input, .listbar input, .karte input {
   background: var(--bg); color: var(--fg); outline: none; padding: 7px 9px; margin: var(--px);
 }
-.filter input:focus, .dialog input:focus { box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent), -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent); }
-.filter input::placeholder { color: var(--dead); }
+.filter input:focus, .listbar input:focus, .karte input:focus {
+  box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent),
+              -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent);
+}
+.filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
 
-.btn, select { background: var(--panel); color: var(--fg); padding: 8px 12px; margin: var(--px); }
-.btn:hover, select:hover { background: var(--line); color: var(--accent); }
+.btn, .auswahlKnopf { background: var(--panel); color: var(--fg); padding: 8px 12px; margin: var(--px); cursor: pointer; }
+.btn:hover, .auswahlKnopf:hover { background: var(--line); color: var(--accent); }
 .btn:active { transform: translateY(2px); }
 .btn.primary { background: var(--accent); color: var(--bg); }
-select option { background: var(--panel); color: var(--fg); }
+.btn.tiny { padding: 4px 7px; font-size: .8em; margin: 0; }
+.btn.tiny.on { background: var(--accent); color: var(--bg); }
+.btn:disabled { opacity: .35; }
 
 .statusrow { color: var(--dim); font-size: .8em; padding: 10px 20px; border-bottom: var(--px) solid var(--line); }
+.meta { color: var(--dim); font-size: .78em; }
+:root[data-offline="ja"] #counts { color: var(--blocked); }
+.updatebar { border-bottom: var(--px) solid var(--accent); background: var(--panel); padding: 12px 20px; }
+
+/* ---------- Schiene ---------- */
+
+.rail { border-right: var(--px) solid var(--line); background: var(--panel); }
+.railitem { color: var(--dim); font-size: .8em; padding: 10px; }
+.railitem:hover { background: var(--line); color: var(--fg); }
+.railitem.active { background: var(--accent); color: var(--bg); }
+.railitem.active .rsub { color: var(--bg); opacity: .75; }
+.railhome { border-bottom: var(--px) solid var(--line); }
+.railgroup { color: var(--accent); font-size: .72em; padding: 12px 10px 4px; }
+.rsub { color: var(--dim); font-size: .78em; }
+.railitem[data-status="permission"] { color: var(--blocked); }
+.rmeta { color: var(--dead); }
+
+/* ---------- Kacheln ---------- */
 
 .grid { gap: 22px; padding: 22px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
 .tile { background: var(--panel); margin: var(--px); min-height: 250px; }
-.tile:hover { box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent), -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent); }
-.tile[data-status="permission"] { box-shadow: 0 -4px 0 0 var(--blocked), 0 4px 0 0 var(--blocked), -4px 0 0 0 var(--blocked), 4px 0 0 0 var(--blocked); }
+.tile:hover, .tile[data-status="permission"] {
+  box-shadow: 0 -4px 0 0 var(--akzent, var(--accent)), 0 4px 0 0 var(--akzent, var(--accent)),
+              -4px 0 0 0 var(--akzent, var(--accent)), 4px 0 0 0 var(--akzent, var(--accent));
+}
+.tile[data-status="permission"] { --akzent: var(--blocked); }
 .tile[data-status="dead"] { opacity: .45; }
 
 .thead { padding: 10px 12px; border-bottom: var(--px) solid var(--line); }
@@ -68,47 +94,45 @@ select option { background: var(--panel); color: var(--fg); }
 .tfoot .act { color: var(--fg); }
 .tfoot .agent { background: var(--line); color: var(--fg); padding: 2px 5px; }
 
-.dot.working { color: var(--working); animation: pxstep .8s steps(2) infinite; }
+.dot.working { color: var(--working); animation: pxstufe .8s steps(2) infinite; }
 .dot.waiting { color: var(--dim); }
-.dot.permission { color: var(--blocked); animation: pxstep .4s steps(2) infinite; }
+.dot.permission { color: var(--blocked); animation: pxstufe .4s steps(2) infinite; }
 .dot.dead { color: var(--dead); }
 .dot.unknown { color: var(--dim); }
-@keyframes pxstep { 50% { opacity: .25 } }
-
-.overlay { background: var(--bg); }
-.ovbar { border-bottom: var(--px) solid var(--line); padding: 12px 18px; }
-.ovtitle { color: var(--accent); }
-.ovmeta { color: var(--dim); font-size: .8em; }
-.term { background: var(--bg); margin: 10px; }
-
-.dialog { background: var(--panel); padding: 26px 28px; gap: 18px; }
-.dialog h2 { color: var(--accent); font-size: 1.2em; }
-.dialog label { color: var(--dim); font-size: .8em; gap: 8px; }
+@keyframes pxstufe { 50% { opacity: .25 } }
 
 .empty { color: var(--dim); }
-.empty pre { font-family: ui-monospace, monospace; font-size: 12px; }
+.emptyhead { color: var(--accent); font-size: 1.1em; }
+.emptybox p { font-size: .9em; line-height: 1.9; }
+.emptybox b { color: var(--accent); }
+.emptyagents { color: var(--dead); font-size: .8em; }
 
+/* ---------- Listen ---------- */
 
-/* Scrollbalken: gesetzter Block, keine Zwischentöne. */
-*::-webkit-scrollbar { width: 14px; height: 14px; }
-*::-webkit-scrollbar-track { background: var(--bg); }
-*::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid var(--bg); }
-*::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+.listbar { border-bottom: var(--px) solid var(--line); padding: 12px 16px; }
+.zeile { border-bottom: 2px solid var(--line); padding: 10px 16px; }
+.zeile:hover { background: var(--panel); }
+.zdatum, .zproj, .zwert, .zklein { color: var(--dim); font-size: .78em; }
+.ztitel { color: var(--fg); font-size: .85em; }
+.zhaupt .ztitel { color: var(--accent); }
+.zauszug { color: var(--dim); font-family: ui-monospace, monospace; font-size: 11px; }
+.zeile .btn { padding: 4px 8px; font-size: .72em; margin: 0; }
+.zeile[data-eigen="ja"] .ztitel { color: var(--working); }
 
-/* --- Schiene, Dateibaum, Betrachter --- */
-.rail { border-right: var(--px) solid var(--line); background: var(--panel); }
-.railitem { color: var(--dim); font-size: .8em; padding: 10px; }
-.railitem:hover { background: var(--line); color: var(--fg); }
-.railitem.active { background: var(--accent); color: var(--bg); }
-.railhome { border-bottom: var(--px) solid var(--line); }
-.railitem[data-status="permission"] { color: var(--blocked); }
-.rmeta { color: var(--dead); }
+.ublock { border-bottom: 2px solid var(--line); }
+.uhead { color: var(--accent); font-size: .75em; }
+.ukey { color: var(--fg); font-size: .78em; }
+.ubar { background: var(--panel); height: 12px; }
+.ufill { background: var(--accent); }
+.uval { color: var(--dim); font-size: .75em; }
+.usum { border-bottom: var(--px) solid var(--line); }
+.ubox b { color: var(--accent); }
+.ubox span { color: var(--dim); font-size: .7em; }
+
+/* ---------- Session ---------- */
 
 .sessbar { border-bottom: var(--px) solid var(--line); padding: 12px 16px; }
-.ovtitle { color: var(--accent); }
-.ovmeta { color: var(--dim); font-size: .75em; }
-.btn.tiny { padding: 4px 7px; font-size: .8em; margin: 0; }
-.btn.tiny.on { background: var(--accent); color: var(--bg); }
+.sesstitle { color: var(--accent); }
 
 .files { border-right: var(--px) solid var(--line); background: var(--panel); }
 .filesbar { border-bottom: var(--px) solid var(--line); padding: 8px; }
@@ -118,7 +142,45 @@ select option { background: var(--panel); color: var(--fg); }
 .frow.noise { color: var(--dead); }
 .fchev, .ficon { color: var(--accent); }
 
-.viewer { background: var(--bg); }
-.viewerbar { border-bottom: var(--px) solid var(--line); padding: 10px 14px; }
-.viewername { color: var(--accent); font-size: .9em; }
-.viewerbody { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; color: var(--fg); }
+.pterm { background: var(--bg); margin: var(--px); }
+.panelabel { background: var(--panel); color: var(--dim); font-size: .7em; padding: 2px 6px; }
+.paneclose { background: var(--panel); color: var(--dead); font-size: .7em; }
+.pane[data-aktiv="ja"] .panelabel { background: var(--accent); color: var(--bg); }
+
+.ueber { background: var(--bg); }
+.ueberbar { border-bottom: var(--px) solid var(--line); padding: 10px 14px; }
+.uebername { color: var(--accent); font-size: .9em; }
+.viewerbody { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; color: var(--fg); background: var(--bg); caret-color: var(--accent); }
+.dirty { color: var(--blocked); font-size: .72em; }
+
+.rrow { border-bottom: 2px solid var(--line); }
+.rrow:hover { background: var(--panel); }
+.rart { color: var(--dead); font-size: .68em; }
+.rtitle { color: var(--accent); font-size: .85em; }
+.rdesc { color: var(--dim); font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.45; margin-top: 4px; }
+.rpath { color: var(--dead); font-size: .68em; }
+
+/* ---------- Dialoge ---------- */
+
+.hof { background: rgba(15,15,27,.86); }
+.karte { background: var(--panel); padding: 26px 28px; gap: 18px; }
+.kartentitel { color: var(--accent); font-size: 1.1em; }
+.karte label { color: var(--dim); font-size: .8em; gap: 8px; }
+.frage p { color: var(--fg); font-size: .85em; line-height: 1.7; }
+.splitzeile { color: var(--fg); font-size: .8em; padding: 8px; }
+.splitzeile:hover { background: var(--line); color: var(--accent); }
+
+/* ---------- Auswahlliste ---------- */
+
+.auswahlListe { background: var(--panel); padding: var(--px); }
+.auswahlZeile { color: var(--fg); font-size: .8em; padding: 7px 10px; }
+.auswahlZeile:hover { background: var(--line); color: var(--accent); }
+.auswahlZeile[data-gewaehlt] { color: var(--accent); }
+.auswahlGruppe { color: var(--dead); font-size: .68em; padding: 8px 10px 3px; }
+
+/* ---------- Scrollbalken ---------- */
+
+*::-webkit-scrollbar { width: 14px; height: 14px; }
+*::-webkit-scrollbar-track { background: var(--bg); }
+*::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover { background: var(--accent); }

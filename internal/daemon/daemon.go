@@ -38,7 +38,16 @@ type Info struct {
 
 func (i Info) URL() string { return fmt.Sprintf("http://127.0.0.1:%d", i.Port) }
 
+// Root ist das Verzeichnis, in dem plxr seinen Zustand ablegt.
+//
+// Über PLXR_HOME umlenkbar. Das ist kein Luxus: ohne die Möglichkeit teilen
+// sich ein Entwicklungsstand und eine Installation denselben Daemon und
+// dieselbe Datei mit Port und Token — der eine beendet dem anderen die
+// Sitzung, und man sucht Fehler in Dateien, die gar nicht ausgeliefert werden.
 func Root() string {
+	if d := os.Getenv("PLXR_HOME"); d != "" {
+		return d
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".plxr")
 }

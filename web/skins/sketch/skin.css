@@ -1,6 +1,8 @@
-/* Skin: Sketch — Notizbuch. Die "gezeichneten" Rahmen entstehen aus asymmetrischen
-   Eckradien plus einem zweiten, leicht versetzten Rahmen. Das reicht, damit keine
-   Kante wie eine Kante aussieht, ohne eine Zeichenbibliothek zu laden. */
+/* Skin: Sketch — Notizbuch.
+   Die "gezeichneten" Rahmen entstehen aus asymmetrischen Eckradien plus einer
+   zweiten, leicht versetzten Linie. Das reicht, damit keine Kante wie eine
+   Kante aussieht, ohne eine Zeichenbibliothek zu laden. */
+
 @font-face { font-family: 'Caveat'; src: url('/vendor/caveat.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: 'SpaceMono'; src: url('/vendor/spacemono.woff2') format('woff2'); font-display: swap; }
 
@@ -13,49 +15,68 @@
 body {
   font-family: 'Caveat', 'Bradley Hand', cursive;
   font-size: 21px;
-  background:
-    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px,
-    var(--bg);
+  background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px, var(--bg);
 }
 .fx {
   background: radial-gradient(circle at 20% 10%, rgba(0,0,0,.03), transparent 60%),
               radial-gradient(circle at 80% 90%, rgba(0,0,0,.03), transparent 60%);
 }
 
-/* Ein „handgezogener" Rahmen: unregelmäßige Radien, zweite Linie leicht versetzt. */
-.tile, .btn, select, .dialog, .filter input, .dialog input {
+/* Ein handgezogener Rahmen: unregelmäßige Radien, zweite Linie leicht versetzt. */
+.tile, .btn, .auswahlKnopf, .auswahlListe, .karte,
+.filter input, .listbar input, .karte input {
   border: 2px solid var(--fg);
   border-radius: 14px 6px 12px 5px / 5px 12px 6px 14px;
   background: var(--panel);
   position: relative;
 }
-.tile::after, .btn::after, .dialog::after {
+.tile::after, .btn::after, .karte::after {
   content: ''; position: absolute; inset: 2px;
   border: 1px solid var(--fg); opacity: .22;
   border-radius: 6px 13px 5px 11px / 12px 5px 13px 6px;
   pointer-events: none;
 }
 
+/* ---------- Kopf ---------- */
+
 .bar { border-bottom: 2px solid var(--fg); gap: 16px; }
 .mark { color: var(--accent); transform: rotate(-3deg); }
 .wordmark { font-size: 1.7em; color: var(--fg); }
-.tag { color: var(--dim); font-size: .85em; }
-
 .prompt { color: var(--dim); }
-.filter input, .dialog input { padding: 3px 10px; outline: none; background: transparent; }
-.filter input:focus, .dialog input:focus { border-color: var(--accent); }
-.filter input::placeholder { color: var(--dead); }
+.filter input, .listbar input, .karte input { padding: 3px 10px; outline: none; background: transparent; }
+.filter input:focus, .listbar input:focus, .karte input:focus { border-color: var(--accent); }
+.filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
 
-.btn, select { padding: 3px 14px; color: var(--fg); }
-.btn:hover, select:hover { background: #efe9d8; transform: rotate(-.6deg); }
+.btn, .auswahlKnopf { padding: 3px 14px; color: var(--fg); cursor: pointer; }
+.btn:hover, .auswahlKnopf:hover { background: #efe9d8; transform: rotate(-.6deg); }
 .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn.primary::after { border-color: #fff; }
+.btn.tiny { padding: 0 8px; font-size: .85em; }
+.btn.tiny.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn:disabled { opacity: .4; }
 
 .statusrow { color: var(--dim); font-size: .82em; border-bottom: 1px dashed var(--line); }
+.meta { color: var(--dim); font-size: .82em; }
+:root[data-offline="ja"] #counts { color: var(--blocked); }
+.updatebar { border-bottom: 2px solid var(--accent); background: #eaf2f8; }
+
+/* ---------- Schiene ---------- */
+
+.rail { border-right: 2px solid var(--fg); background: color-mix(in srgb, var(--panel) 60%, transparent); }
+.railitem { color: var(--fg); }
+.railitem:hover { background: #efe9d8; }
+.railitem.active { background: var(--accent); color: #fff; }
+.railitem.active .rsub { color: #d8e8f4; }
+.railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
+.railgroup { color: var(--dim); font-size: .78em; border-bottom: 1px dashed var(--line); }
+.rsub { color: var(--dim); font-size: .78em; }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+.rmeta { color: var(--dim); }
+
+/* ---------- Kacheln: hingelegte Zettel ---------- */
 
 .grid { gap: 20px; padding: 20px; }
 .tile { min-height: 245px; box-shadow: 3px 4px 0 rgba(0,0,0,.08); }
-/* Leichte Schieflage, damit es nach hingelegten Zetteln aussieht. */
 .tile:nth-child(3n)   { transform: rotate(.5deg); }
 .tile:nth-child(3n+1) { transform: rotate(-.6deg); }
 .tile:hover { transform: rotate(0) translateY(-3px); box-shadow: 5px 7px 0 rgba(0,0,0,.12); }
@@ -75,50 +96,44 @@ body {
 .tfoot .act { color: var(--fg); }
 .tfoot .agent { border: 1px solid var(--dim); border-radius: 8px 4px 7px 3px / 3px 7px 4px 8px; padding: 0 7px; font-size: .95em; }
 
-.dot.working { color: var(--working); animation: wiggle 1.4s ease-in-out infinite; }
+.dot.working { color: var(--working); animation: wackeln 1.4s ease-in-out infinite; }
 .dot.waiting { color: var(--dim); }
-.dot.permission { color: var(--blocked); animation: wiggle .5s ease-in-out infinite; }
+.dot.permission { color: var(--blocked); animation: wackeln .5s ease-in-out infinite; }
 .dot.dead { color: var(--dead); }
 .dot.unknown { color: var(--dim); }
-@keyframes wiggle { 50% { transform: rotate(12deg) scale(1.15) } }
-
-.overlay { background: var(--bg); }
-.ovbar { border-bottom: 2px solid var(--fg); }
-.ovtitle { font-size: 1.15em; }
-.ovmeta { color: var(--dim); font-size: .82em; }
-.term { background: #2b2b2b; margin: 8px; border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
-
-.dialog { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
-.dialog h2 { font-size: 1.5em; color: var(--fg); }
-.dialog label { color: var(--dim); font-size: .85em; }
+@keyframes wackeln { 50% { transform: rotate(12deg) scale(1.15) } }
 
 .empty { color: var(--dim); }
-.empty pre { font-family: 'SpaceMono', monospace; font-size: 12px; }
+.emptyhead { color: var(--accent); font-size: 1.3em; }
+.emptybox b { color: var(--fg); }
+.emptyagents { color: var(--dead); font-size: .9em; }
 
+/* ---------- Listen ---------- */
 
-/* Scrollbalken: Bleistiftstrich am Rand. */
-*::-webkit-scrollbar { width: 11px; height: 11px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb {
-  background: var(--dim); border: 3px solid var(--bg);
-  border-radius: 9px 4px 8px 5px / 5px 8px 4px 9px;
-}
-*::-webkit-scrollbar-thumb:hover { background: var(--fg); }
+.listbar { border-bottom: 2px solid var(--fg); }
+.zeile { border-bottom: 1px dashed var(--line); }
+.zeile:hover { background: #efe9d8; }
+.zdatum, .zproj, .zwert, .zklein { color: var(--dim); font-size: .85em; }
+.ztitel { color: var(--fg); }
+.zhaupt .ztitel { color: var(--accent); }
+.zauszug { color: var(--dim); font-family: 'SpaceMono', monospace; font-size: 11px; }
+.zeile .btn { padding: 0 10px; font-size: .85em; }
+.zeile[data-eigen="ja"] .ztitel { color: var(--working); }
 
-/* --- Schiene, Dateibaum, Betrachter --- */
-.rail { border-right: 2px solid var(--fg); background: color-mix(in srgb, var(--panel) 60%, transparent); }
-.railitem { color: var(--fg); }
-.railitem:hover { background: #efe9d8; }
-.railitem.active { background: var(--accent); color: #fff; }
-.railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
-.railitem[data-status="permission"] .rdot { color: var(--blocked); }
-.rmeta { color: var(--dim); }
+.ublock { border-bottom: 1px dashed var(--line); }
+.uhead { color: var(--dim); font-size: .85em; }
+.ukey { color: var(--fg); font-size: .9em; }
+.ubar { background: #e8e2d2; border-radius: 5px; height: 11px; }
+.ufill { background: var(--accent); opacity: .7; border-radius: 5px; }
+.uval { color: var(--dim); font-size: .85em; }
+.usum { border-bottom: 2px solid var(--fg); }
+.ubox b { color: var(--accent); }
+.ubox span { color: var(--dim); font-size: .8em; }
+
+/* ---------- Session ---------- */
 
 .sessbar { border-bottom: 2px solid var(--fg); }
-.ovtitle { font-size: 1.15em; }
-.ovmeta { color: var(--dim); font-size: .82em; }
-.btn.tiny { padding: 0 8px; font-size: .85em; }
-.btn.tiny.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.sesstitle { font-size: 1.15em; }
 
 .files { border-right: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
 .filesbar { border-bottom: 1px dashed var(--line); }
@@ -128,7 +143,49 @@ body {
 .frow.noise { color: var(--dead); }
 .fchev, .ficon { color: var(--dim); }
 
-.viewer { background: var(--panel); }
-.viewerbar { border-bottom: 1px dashed var(--line); }
-.viewername { font-size: 1.1em; }
-.viewerbody { font-family: 'SpaceMono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; color: #3a3a3a; }
+/* Das Terminal bleibt dunkel: Bernstein auf Papier liest sich nicht. */
+.pterm { background: #2b2b2b; border: 2px solid var(--fg); border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
+.panelabel { background: var(--bg); color: var(--dim); font-size: .8em; }
+.paneclose { background: var(--bg); color: var(--dim); }
+.pane[data-aktiv="ja"] .pterm { border-color: var(--accent); }
+.pane[data-aktiv="ja"] .panelabel { color: var(--accent); }
+
+.ueber { background: var(--panel); }
+.ueberbar { border-bottom: 1px dashed var(--line); }
+.uebername { font-size: 1.1em; color: var(--accent); }
+.viewerbody { font-family: 'SpaceMono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; color: #3a3a3a; background: var(--panel); caret-color: var(--accent); }
+.dirty { color: var(--blocked); font-size: .85em; }
+
+.rrow { border-bottom: 1px dashed var(--line); }
+.rrow:hover { background: #efe9d8; }
+.rart { color: var(--dim); font-size: .8em; }
+.rtitle { color: var(--accent); }
+.rdesc { color: #555; font-family: 'SpaceMono', monospace; font-size: 11px; line-height: 1.45; margin-top: 3px; }
+.rpath { color: var(--dead); font-size: .78em; }
+
+/* ---------- Dialoge ---------- */
+
+.hof { background: rgba(246,243,233,.82); }
+.karte { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
+.kartentitel { font-size: 1.5em; color: var(--fg); }
+.karte label { color: var(--dim); font-size: .85em; }
+.frage p { color: var(--fg); }
+.splitzeile { color: var(--fg); }
+.splitzeile:hover { background: #efe9d8; }
+
+/* ---------- Auswahlliste ---------- */
+
+.auswahlZeile { color: var(--fg); }
+.auswahlZeile:hover { background: #efe9d8; color: var(--accent); }
+.auswahlZeile[data-gewaehlt] { color: var(--accent); }
+.auswahlGruppe { color: var(--dim); font-size: .8em; }
+
+/* ---------- Scrollbalken: Bleistiftstrich am Rand ---------- */
+
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--dim); border: 3px solid var(--bg);
+  border-radius: 9px 4px 8px 5px / 5px 8px 4px 9px;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--fg); }

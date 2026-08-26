@@ -197,11 +197,7 @@ func selbstUpdate() error {
 
 // runDaemon ist der Prozess, dem die Terminals gehören.
 func runDaemon() {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatal(err)
-	}
-	reg, err := session.NewRegistry(filepath.Join(home, ".plxr", "sessions"))
+	reg, err := session.NewRegistry(filepath.Join(daemon.Root(), "sessions"))
 	if err != nil {
 		log.Fatal(err)
 	}

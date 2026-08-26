@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"time"
 )
 
@@ -38,7 +39,7 @@ type State struct {
 func Dirs() []string {
 	home, _ := os.UserHomeDir()
 	return []string{
-		filepath.Join(home, ".plxr", "state"),
+		filepath.Join(daemon.Root(), "state"),
 		filepath.Join(home, ".claude-fleet", "sessions"),
 	}
 }

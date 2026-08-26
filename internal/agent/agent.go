@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"regexp"
 	"sort"
 	"strings"
@@ -75,10 +76,7 @@ type Set struct {
 	fallback Profile
 }
 
-func UserDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".plxr", "agents")
-}
+func UserDir() string { return filepath.Join(daemon.Root(), "agents") }
 
 func Load(builtin fs.FS) *Set {
 	byName := map[string]Profile{}

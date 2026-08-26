@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"sort"
 	"strings"
 )
@@ -33,10 +34,7 @@ func (a Account) Env() []string {
 
 func (a Account) ProjectsDir() string { return filepath.Join(a.Dir, "projects") }
 
-func configPath() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".plxr", "accounts.json")
-}
+func configPath() string { return filepath.Join(daemon.Root(), "accounts.json") }
 
 // Discover findet Konten: erst die eigene Liste, sonst ~/.claude und die
 // durchnummerierten Geschwister daneben.

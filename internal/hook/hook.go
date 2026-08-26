@@ -18,16 +18,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"plxr/internal/daemon"
 	"regexp"
 	"strings"
 	"time"
 )
 
 // StateDir ist, wo die Zustandsdateien liegen.
-func StateDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".plxr", "state")
-}
+func StateDir() string { return filepath.Join(daemon.Root(), "state") }
 
 // Vorgang ist der Teil der Hook-Nachricht, den wir brauchen.
 type Vorgang struct {

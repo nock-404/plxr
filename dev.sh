@@ -1,21 +1,41 @@
 #!/bin/bash
-# Neu bauen UND den Daemon beenden.
+# Entwicklungsstand bauen und starten — neben einer Installation, nicht statt ihr.
 #
-# Der Daemon liefert die Oberfläche aus seinen eingebackenen Dateien. Läuft er
-# nach einem Rebuild weiter, serviert er weiter den alten Stand — der Fehler,
-# den man dann sucht, existiert im Quelltext längst nicht mehr.
+# Zwei Dinge sind hier wichtig:
+#
+# 1. PLXR_HOME zeigt woanders hin. Sonst teilen sich Entwicklungsstand und
+#    Installation dieselbe daemon.json und damit denselben Daemon; der eine
+#    beendet dem anderen die Sitzung.
+# 2. Die App wird direkt gestartet statt über `open`. LaunchServices reicht die
+#    Umgebung der Shell nicht durch — PLXR_HOME käme nie an.
 set -e
 cd "$(dirname "$0")"
 export PATH="/opt/homebrew/bin:$HOME/go/bin:$PATH"
+export PLXR_HOME="$HOME/.plxr-dev"
+
 node --check web/app.js
+node --check web/ui.js
 wails build "$@" | grep -E 'Built|rror' || true
 ./sign.sh build/bin/plxr.app
 
-# Nur den Daemon beenden, nicht das Fenster: der Daemon liefert die Oberfläche
-# aus seinen eingebackenen Dateien und muss nach einem Rebuild neu starten.
-# Das Fenster merkt den Abriss selbst und holt sich einen neuen.
-pkill -f 'plxr daemon' 2>/dev/null || true
-rm -f "$HOME/.plxr/daemon.json"
+# Den eigenen Stand immer komplett neu starten — Fenster wie Daemon. Ein
+# weiterlaufendes Fenster kennt PLXR_HOME nicht und zieht sich seinen Daemon
+# wieder nach ~/.plxr; dann sucht man den Fehler an der falschen Stelle.
+# Was unter ~/.plxr läuft, bleibt unangetastet.
+pkill -f "$PWD/build/bin/plxr.app" 2>/dev/null || true
+rm -f "$PLXR_HOME/daemon.json"
+sleep 1
 
-# Läuft noch kein Fenster, eines öffnen.
-pgrep -f 'MacOS/plxr$' >/dev/null 2>&1 || open build/bin/plxr.app
+nohup ./build/bin/plxr.app/Contents/MacOS/plxr >/dev/null 2>&1 &
+disown
+sleep 3
+
+if [ -f "$PLXR_HOME/daemon.json" ]; then
+	python3 - "$PLXR_HOME/daemon.json" <<'EOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(f"  Entwicklungsstand auf http://127.0.0.1:{d['port']}/?token={d['token']}")
+EOF
+else
+	echo "  WARNUNG: kein Daemon unter $PLXR_HOME" >&2
+fi
