@@ -1,0 +1,235 @@
+/* plxr — Grundgerüst.
+
+   Hier steht ausschließlich Anordnung: Flex, Grid, Größen, Überlauf,
+   Sichtbarkeit. Keine Farbe, kein Rahmen, keine Schrift — das alles kommt aus
+   dem Skin, damit ein neuer Skin die Oberfläche komplett umkleiden kann, ohne
+   dass jemand das Markup anfasst.
+
+   Vertrag zwischen Gerüst und Skin. Diese Variablen darf jeder Skin setzen:
+
+     --bg --fg --dim --accent --panel --line
+     --working --waiting --blocked --dead
+
+   Und diese Klassen darf er gestalten:
+
+     Kopf      .bar .brand .mark .wordmark .filter .prompt .tools .btn
+     Zustand   .statusrow .updatebar .boot
+     Schiene   .rail .railitem .railgroup .rdot .rname .rsub .rmeta
+     Raster    .grid .tile .thead .dot .tname .tproj .tbody .tfoot .agent
+     Listen    .liste .listbar .listbody .zeile .meta
+     Session   .sessbar .sesstitle .sesssplit .files .filetree .frow
+               .panes .pane .panelabel .paneclose
+     Überlagen .ueber .ueberbar .uebername .viewerbody .ruleslist .rrow
+     Dialoge   .hof .karte .kartentitel .kartenknoepfe
+     Auswahl   .auswahl .auswahlKnopf .auswahlListe .auswahlZeile .auswahlGruppe
+     Effekte   .fx
+*/
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.app { position: relative; height: 100%; display: flex; flex-direction: column; }
+
+/* Effektschicht für den Skin: Zeilenraster, Papierfaser, Vignette.
+   Liegt über allem, fängt aber keine Klicks. */
+.fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+/* Das hidden-Attribut muss gewinnen: viele Klassen hier setzen display und
+   überstimmen sonst die Regel des Browsers. */
+[hidden] { display: none !important; }
+
+/* ---------- Kopf ---------- */
+
+.bar { display: flex; align-items: center; gap: 18px; flex: 0 0 auto; padding: 10px 16px; }
+.brand { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.mark { display: inline-block; width: 26px; height: 26px; flex: 0 0 auto; }
+.mark svg { width: 100%; height: 100%; display: block; }
+
+.filter { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.filter input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+
+.tools { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.btn { cursor: pointer; font: inherit; white-space: nowrap; }
+
+.updatebar { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding: 7px 16px; }
+.statusrow { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 4px 16px; }
+.spacer { flex: 1; }
+
+/* ---------- Rumpf: Schiene links, Inhalt rechts ---------- */
+
+.body { flex: 1; min-height: 0; display: flex; }
+
+.rail {
+  flex: 0 0 auto; width: 200px;
+  display: flex; flex-direction: column;
+  overflow-y: auto; overflow-x: hidden;
+}
+.railitem {
+  display: flex; align-items: flex-start; gap: 8px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 7px 10px; font: inherit; color: inherit;
+  background: none; border: 0;
+}
+.railgroup { padding: 9px 10px 3px; }
+.rdot { flex: 0 0 auto; margin-top: 2px; }
+.rtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rname, .rsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rmeta { flex: 0 0 auto; }
+
+.content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---------- Kachelraster ---------- */
+
+.grid {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  display: grid; gap: 14px; padding: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  align-content: start;
+}
+
+.tile {
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: 230px;
+  cursor: pointer;
+  overflow: hidden;
+}
+.thead { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 6px 10px; }
+.dot { flex: 0 0 auto; }
+.tname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tproj { flex: 0 0 auto; }
+.tbody {
+  flex: 1; margin: 0; padding: 9px 10px;
+  white-space: pre-wrap; word-break: break-word;
+  overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+.tfoot { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding: 5px 10px; }
+.tfoot .act { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tfoot .ctx, .tfoot .agent { flex: 0 0 auto; white-space: nowrap; }
+
+.empty { flex: 1; display: grid; place-items: center; }
+.emptybox { max-width: 420px; }
+.emptybox p { margin: 0 0 12px; line-height: 1.5; }
+.emptybox p:last-child { margin-bottom: 0; }
+
+/* ---------- Listen: Archiv, Ports, Verbrauch ---------- */
+
+.liste { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.listbar { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding: 7px 14px; }
+.listbar input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+.listbody { flex: 1; overflow-y: auto; padding: 6px 0 20px; }
+
+.zeile { display: flex; align-items: center; gap: 12px; padding: 7px 14px; }
+.zeile.hoch { align-items: flex-start; }
+.zdatum { flex: 0 0 auto; width: 100px; }
+.ztitel { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zhaupt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.zauszug { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zproj { flex: 0 0 auto; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zklein { flex: 0 0 auto; }
+.zwert { flex: 0 0 auto; width: 84px; text-align: right; }
+.ztat { flex: 0 0 auto; display: flex; gap: 6px; opacity: 0; transition: opacity .1s; }
+.zeile:hover .ztat { opacity: 1; }
+
+/* Verbrauch */
+.ublock { padding: 12px 16px 4px; }
+.uhead { display: block; margin-bottom: 6px; }
+.urow { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.ukey { flex: 0 0 auto; width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ubar { flex: 1; min-width: 40px; height: 9px; position: relative; }
+.ufill { position: absolute; inset: 0 auto 0 0; }
+.uval { flex: 0 0 auto; width: 92px; text-align: right; }
+.usum { display: flex; gap: 26px; flex-wrap: wrap; padding: 12px 16px; }
+.ubox { display: flex; flex-direction: column; gap: 2px; }
+.ubig { font-size: 1.5em; }
+
+/* ---------- Session ---------- */
+
+.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sessbar { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; padding: 7px 14px; }
+.sesstitle { flex: 0 0 auto; }
+.meta { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.sesssplit { position: relative; flex: 1; min-height: 0; display: flex; }
+
+.files { flex: 0 0 auto; width: 260px; display: flex; flex-direction: column; min-height: 0; }
+.filesbar { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; }
+.filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.filetree { flex: 1; overflow: auto; padding: 4px 0 12px; }
+.frow { display: flex; align-items: center; gap: 5px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.fchev { flex: 0 0 auto; width: 10px; }
+.ficon { flex: 0 0 auto; }
+.fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* Mehrere Terminalflächen nebeneinander. */
+.panes { flex: 1; min-width: 0; display: flex; gap: 8px; padding: 10px 12px 12px; }
+.pane { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
+.panelabel { position: absolute; top: -6px; left: 10px; padding: 0 6px; z-index: 2; }
+.paneclose {
+  position: absolute; top: -7px; right: 8px; z-index: 3;
+  cursor: pointer; background: none; border: 0; font: inherit; color: inherit; padding: 0 4px;
+}
+.pterm { flex: 1; min-height: 0; overflow: hidden; }
+.pterm .xterm { height: 100%; }
+
+/* Regeln und Dateibetrachter legen sich über die ganze Aufteilung. */
+.ueber { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; }
+.ueberbar { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding: 6px 12px; }
+.uebername { flex: 0 0 auto; }
+.viewerbody {
+  flex: 1; margin: 0; overflow: auto; padding: 10px 14px;
+  white-space: pre; resize: none; border: 0; outline: none;
+  font: inherit; tab-size: 2;
+}
+.dirty { flex: 0 0 auto; }
+.ruleslist { flex: 1; overflow: auto; padding: 8px 0 20px; }
+.rrow { display: flex; gap: 12px; align-items: baseline; padding: 6px 16px; }
+.rart { flex: 0 0 auto; width: 74px; }
+.rmain { flex: 1; min-width: 0; }
+.rtitle, .rdesc { display: block; }
+.rpath { flex: 0 0 auto; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+
+/* ---------- Dialoge ---------- */
+
+.hof { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; }
+.karte { width: min(560px, 92vw); padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+.kartentitel { font-weight: normal; }
+.karte label { display: flex; flex-direction: column; gap: 5px; }
+.karte input { font: inherit; color: inherit; padding: 5px 8px; }
+.kartenknoepfe { display: flex; gap: 10px; justify-content: flex-end; }
+.zeile2 { display: flex; gap: 8px; align-items: stretch; }
+.zeile2 input { flex: 1; min-width: 0; }
+.splitliste { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
+.splitzeile { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: pointer; text-align: left; font: inherit; color: inherit; background: none; border: 0; }
+
+/* Rückfrage und Hinweis aus ui.js */
+.frage p { margin: 0; white-space: pre-wrap; line-height: 1.45; }
+
+/* ---------- Eigene Auswahlliste ---------- */
+
+.auswahl { position: relative; display: inline-flex; }
+.auswahlKnopf { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; }
+.auswahlPfeil { font-style: normal; }
+.auswahlListe {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 90;
+  min-width: 100%; max-height: 320px; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.auswahl[data-richtung="hoch"] .auswahlListe { top: auto; bottom: calc(100% + 4px); }
+.auswahlZeile { text-align: left; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; padding: 4px 12px; border: 0; background: none; }
+.auswahlGruppe { padding: 6px 12px 2px; }
+
+/* ---------- Scrollbalken ----------
+   Die des Systems passt zu keinem Skin und sieht auf macOS wie ein Fremdkörper
+   aus. Deshalb überall eigene, in jedem Skin eingefärbt. */
+*::-webkit-scrollbar { width: 12px; height: 12px; }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-button { display: none; }

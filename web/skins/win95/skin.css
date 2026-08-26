@@ -1,0 +1,138 @@
+/* Skin: Win95 — grauer Kunststoff, harte Kanten, Bevel nach außen.
+   Der Trick ist der doppelte Rahmen: außen hell/dunkel, innen umgekehrt.
+   Nichts hier ist rund, nichts hat einen weichen Schatten. */
+
+:root {
+  --bg: #008080;          /* der Teal-Schreibtisch */
+  --panel: #c0c0c0;       /* Fensterfläche */
+  --fg: #000000;
+  --dim: #808080;
+  --accent: #000080;      /* Titelleisten-Navy */
+  --line: #808080;
+  --working: #008000; --waiting: #808080; --blocked: #800000; --dead: #a0a0a0;
+  --hi: #ffffff; --sh: #808080; --dk: #000000;
+}
+
+body {
+  font-family: Tahoma, 'Segoe UI', 'MS Sans Serif', Geneva, sans-serif;
+  font-size: 12px;
+  -webkit-font-smoothing: none;
+}
+
+/* Bevel nach außen (Knöpfe, Kacheln) und nach innen (Eingabefelder). */
+.bar, .statusrow, .tile, .btn, select, .dialog, .ovbar {
+  border-style: solid; border-width: 2px;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  background: var(--panel);
+}
+.bar, .statusrow, .ovbar { border-width: 0 0 2px 0; border-color: var(--hi); box-shadow: inset 0 -1px 0 var(--sh); }
+.tile, .btn, select, .dialog { box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh); }
+
+.app { background: var(--bg); }
+.fx { display: none; }
+
+.bar { gap: 14px; }
+.mark { color: var(--accent); }
+.wordmark { font-size: 1.3em; font-weight: bold; color: var(--dk); }
+.tag { color: var(--dim); font-size: .85em; }
+
+.prompt { color: var(--dk); }
+.filter input, .dialog input {
+  background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--dk); padding: 3px 5px; outline: none;
+}
+.btn { padding: 3px 12px; }
+.btn:active { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; padding: 4px 11px 2px 13px; }
+.btn.primary { font-weight: bold; }
+select { padding: 2px 4px; }
+
+.statusrow { font-size: .9em; color: var(--dk); }
+
+.grid { background: var(--bg); }
+.tile { min-height: 240px; }
+.tile:hover { outline: 1px dotted var(--dk); outline-offset: -4px; }
+.tile[data-status="dead"] { opacity: .65; }
+
+/* Titelleiste je Kachel — der eigentliche Win95-Moment. */
+.thead {
+  margin: 2px; padding: 3px 5px;
+  background: linear-gradient(90deg, var(--accent), #1084d0);
+  color: #fff; font-weight: bold;
+}
+.tname { color: #fff; }
+.tproj { color: #cfd8ff; font-weight: normal; font-size: .9em; }
+.tile[data-status="permission"] .thead { background: linear-gradient(90deg, #800000, #c04040); }
+.tile[data-status="dead"] .thead { background: linear-gradient(90deg, #808080, #b0b0b0); }
+
+.tbody {
+  margin: 0 4px; padding: 6px 7px;
+  background: #fff; color: #000;
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.25;
+  max-height: 175px;
+}
+.tfoot { color: var(--dk); font-size: .9em; padding: 5px 7px; }
+.tfoot .agent { border: 1px solid var(--sh); background: var(--panel); padding: 0 4px; }
+
+.dot.working { color: var(--working); }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: w95blink 1s steps(2) infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes w95blink { 50% { opacity: .2 } }
+
+.overlay { background: var(--bg); }
+.ovbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; }
+.ovtitle { font-weight: bold; }
+.ovmeta { color: #cfd8ff; font-size: .9em; }
+.term { background: #000; margin: 4px; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+
+.dialog { padding: 14px 16px; gap: 12px; }
+.dialog h2 { font-weight: bold; font-size: 1.1em; }
+.dialog label { color: var(--dk); font-size: 1em; }
+
+.empty { color: #fff; }
+.empty pre { font-family: 'Courier New', monospace; }
+
+
+/* Scrollbalken: Bevel wie alles andere, plus das gepunktete Gleisraster. */
+*::-webkit-scrollbar { width: 16px; height: 16px; }
+*::-webkit-scrollbar-track {
+  background-color: #dfdfdf;
+  background-image: linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%),
+                    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%);
+  background-size: 4px 4px; background-position: 0 0, 2px 2px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--panel);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
+}
+
+/* --- Schiene, Dateibaum, Betrachter --- */
+.rail { background: var(--panel); border-right: 2px solid; border-color: var(--hi); box-shadow: inset -1px 0 0 var(--sh); }
+.railitem { color: var(--dk); }
+.railitem:hover { background: #d4d0c8; }
+.railitem.active { background: var(--accent); color: #fff; }
+.railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+.rmeta { color: var(--sh); }
+
+.sessbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; border: 0; }
+.ovtitle { font-weight: bold; }
+.ovmeta { color: #cfd8ff; font-size: .9em; }
+.btn.tiny { padding: 1px 6px; }
+.btn.tiny.on { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+
+.files { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); margin: 3px; }
+.filesbar { background: var(--panel); border-bottom: 1px solid var(--sh); }
+.filesroot { color: var(--dk); font-size: .85em; }
+.frow { color: #000; font-size: .95em; }
+.frow:hover { background: #d4d0c8; }
+.frow.noise { color: var(--sh); }
+.filetree { font-family: Tahoma, sans-serif; }
+
+.viewer { background: #fff; }
+.viewerbar { background: var(--panel); border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.viewername { font-weight: bold; color: var(--dk); }
+.viewerbody { font-family: 'Courier New', monospace; font-size: 12px; color: #000; }

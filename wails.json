@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "plxr",
+  "outputfilename": "plxr",
+  "frontend:dir": "web",
+  "frontend:install": "",
+  "frontend:build": "",
+  "author": { "name": "mg" },
+  "info": {
+    "companyName": "plxr",
+    "productName": "plxr",
+    "productVersion": "0.1.0",
+    "comments": "Leitstand für Coding-CLI-Sessions"
+  }
+}

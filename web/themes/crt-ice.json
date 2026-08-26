@@ -1,0 +1,4 @@
+{ "name": "crt-ice", "label": "CRT · Eisröhre", "skin": "crt",
+  "palette": { "bg": "#05080f", "fg": "#7fd4ff", "dim": "#2a5f80", "accent": "#b9ecff",
+               "panel": "#0a121d", "line": "#16303f",
+               "working": "#b9ecff", "waiting": "#2a5f80", "blocked": "#ff5f8f", "dead": "#16303f" } }

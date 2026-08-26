@@ -1,0 +1,4 @@
+{ "name": "sketch-blueprint", "label": "Skizze · Blaupause", "skin": "sketch",
+  "palette": { "bg": "#0d3b66", "panel": "#124a7d", "fg": "#e6f1ff", "dim": "#7fa8cc",
+               "accent": "#ffd166", "line": "#2c6396",
+               "working": "#8ce99a", "waiting": "#7fa8cc", "blocked": "#ff8fa3", "dead": "#2c6396" } }

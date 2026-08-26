@@ -1,0 +1,416 @@
+// Package core ist die Anwendung ohne Oberfläche.
+//
+// Er besitzt die PTYs, führt Registry, fleet-Zustand und Agent-Profile
+// zusammen und kennt keinen Transport. Darüber liegen zwei austauschbare
+// Schichten: das Desktop-Fenster (Wails) und ein HTTP-Server für den Browser.
+// Deshalb steht hier weder http noch wails im Import.
+package core
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"plxr/internal/accounts"
+	"plxr/internal/agent"
+	"plxr/internal/archive"
+	"plxr/internal/files"
+	"plxr/internal/fleet"
+	"plxr/internal/notify"
+	"plxr/internal/ports"
+	"plxr/internal/ptyhost"
+	"plxr/internal/rules"
+	"plxr/internal/search"
+	"plxr/internal/session"
+	"plxr/internal/theme"
+	"plxr/internal/update"
+	"plxr/internal/usage"
+)
+
+// Tile ist eine Session plus dem, was die Oberfläche sonst noch anzeigt.
+type Tile struct {
+	session.Session
+	Preview string `json:"preview"`
+}
+
+type Core struct {
+	reg    *session.Registry
+	themes fs.FS
+	agents fs.FS
+	skins  fs.FS
+
+	mu    sync.RWMutex
+	hosts map[string]*ptyhost.Host
+	// letzter gemeldeter Status je Session, um Flanken zu erkennen
+	lastStatus map[string]session.Status
+}
+
+func New(reg *session.Registry, themes, agents, skins fs.FS) *Core {
+	return &Core{
+		reg: reg, themes: themes, agents: agents, skins: skins,
+		hosts:      map[string]*ptyhost.Host{},
+		lastStatus: map[string]session.Status{},
+	}
+}
+
+func newID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+// ---- Sessions ----
+
+// Create startet ein Kommando. konto wählt das Claude-Konfigurationsverzeichnis;
+// leer heißt Standardkonto.
+func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Session, error) {
+	if cwd == "" {
+		cwd, _ = os.UserHomeDir()
+	}
+	if fi, err := os.Stat(cwd); err != nil || !fi.IsDir() {
+		return nil, errors.New("Verzeichnis gibt es nicht: " + cwd)
+	}
+	if len(cmd) == 0 {
+		cmd = []string{"claude"}
+	}
+
+	acc, _ := accounts.ByName(c.Accounts(), konto)
+	id := newID()
+	h, err := ptyhost.Start(id, cwd, cmd, acc.Env())
+	if err != nil {
+		return nil, err
+	}
+	if name == "" {
+		name = filepath.Base(cwd)
+	}
+	sess := &session.Session{
+		ID: id, Name: name, Cwd: cwd, Cmd: cmd,
+		PID: h.PID, TTY: h.TTY, StartedAt: time.Now().UnixMilli(),
+		Alive: true, Status: session.StatusUnknown,
+		Project: filepath.Base(cwd),
+		Account: acc.Name,
+	}
+	c.reg.Put(sess)
+
+	c.mu.Lock()
+	c.hosts[id] = h
+	c.mu.Unlock()
+
+	go func() {
+		<-h.Done
+		c.reg.Update(id, func(x *session.Session) {
+			x.Alive = false
+			x.Status = session.StatusDead
+			x.ExitCode = h.Exit()
+			x.Activity = ""
+		})
+	}()
+	return sess, nil
+}
+
+func (c *Core) Kill(id string, purge bool) {
+	c.mu.Lock()
+	h := c.hosts[id]
+	c.mu.Unlock()
+	if h != nil {
+		h.Kill()
+	}
+	if purge {
+		c.reg.Delete(id)
+		c.mu.Lock()
+		delete(c.hosts, id)
+		c.mu.Unlock()
+	}
+}
+
+func (c *Core) Host(id string) *ptyhost.Host {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.hosts[id]
+}
+
+// ---- Themes, Skins, Agenten ----
+
+func (c *Core) Themes() []theme.Theme                        { return theme.Load(c.themes, c.skins) }
+func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Import(raw, c.skins) }
+func (c *Core) Agents() []agent.Profile                      { return agent.Load(c.agents).All() }
+
+// ---- Konten und Archiv ----
+
+func (c *Core) Accounts() []accounts.Account { return accounts.Discover() }
+
+func (c *Core) Archive(pathFilter string) []archive.Entry {
+	return archive.List(c.Accounts(), pathFilter)
+}
+
+func (c *Core) archiveFind(id, konto string) (archive.Entry, bool) {
+	for _, e := range archive.List(c.Accounts(), "") {
+		if e.ID == id && (konto == "" || e.Account == konto) {
+			return e, true
+		}
+	}
+	return archive.Entry{}, false
+}
+
+// Suche durchsucht alle Transkripte im Volltext.
+func (c *Core) Suche(frage string, nurEigene bool) []search.Treffer {
+	return search.Suche(c.Accounts(), frage, nurEigene)
+}
+
+func (c *Core) ArchiveDelete(id, konto string) error {
+	e, ok := c.archiveFind(id, konto)
+	if !ok {
+		return errors.New("Transkript nicht gefunden")
+	}
+	return archive.Delete(e)
+}
+
+// Resume nimmt ein abgelegtes Transkript wieder auf — bei Bedarf unter einem
+// anderen Konto. Dafür muss die Datei erst dorthin gespiegelt werden, weil
+// Claude Code nur unter dem eigenen Konfigurationsverzeichnis sucht.
+func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error) {
+	e, ok := c.archiveFind(id, quellKonto)
+	if !ok {
+		return nil, errors.New("Transkript nicht gefunden")
+	}
+	if e.Cwd == "" {
+		return nil, errors.New("Arbeitsverzeichnis der Session unbekannt")
+	}
+	if _, err := os.Stat(e.Cwd); err != nil {
+		return nil, errors.New("Arbeitsverzeichnis gibt es nicht mehr: " + e.Cwd)
+	}
+
+	ziel := zielKonto
+	if ziel == "" {
+		ziel = e.Account
+	}
+	if ziel != e.Account {
+		acc, ok := accounts.ByName(c.Accounts(), ziel)
+		if !ok {
+			return nil, errors.New("Konto gibt es nicht: " + ziel)
+		}
+		if _, err := archive.Spiegeln(e, acc); err != nil {
+			return nil, errors.New("Transkript ließ sich nicht ins Zielkonto kopieren: " + err.Error())
+		}
+	}
+
+	name := e.Title
+	if name == "" {
+		name = e.Project
+	}
+	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, ziel)
+}
+
+// SwitchAccount hängt eine laufende Session auf ein anderes Konto um: Prozess
+// beenden, Transkript spiegeln, unter dem neuen Konto fortsetzen. Das ist der
+// Weg, wenn ein Kontingent aufgebraucht ist.
+func (c *Core) SwitchAccount(sessionID, zielKonto string) (*session.Session, error) {
+	s, ok := c.reg.Get(sessionID)
+	if !ok {
+		return nil, errors.New("Session gibt es nicht")
+	}
+	claudeID := s.ClaudeSessionID
+	if claudeID == "" {
+		return nil, errors.New("für diese Session ist keine Claude-Session-ID bekannt — läuft dort überhaupt Claude Code?")
+	}
+	quelle := s.Account
+	c.Kill(sessionID, true)
+	return c.Resume(claudeID, quelle, zielKonto)
+}
+
+// ---- Verbrauch ----
+
+func (c *Core) Verbrauch(tage int) usage.Bericht { return usage.Rechnen(c.Accounts(), tage) }
+
+// ---- Fassung ----
+
+// Version wird beim Start aus main gesetzt.
+var Version = "dev"
+
+func (c *Core) VersionStand() update.Stand { return update.Prüfen(Version) }
+
+func (c *Core) Update() (string, error) {
+	st := update.Prüfen(Version)
+	if st.Fehler != "" {
+		return "", errors.New(st.Fehler)
+	}
+	if !st.Verfügbar {
+		return "", errors.New("es gibt nichts Neueres")
+	}
+	return update.Anwenden(st.AssetURL, nil)
+}
+
+// ---- Regeln und Ports ----
+
+// Rules löst auf, welche Anweisungsdateien in einer Session wirken. Ohne
+// Session-ID gilt das übergebene Verzeichnis.
+func (c *Core) Rules(sessionID, dir string) []rules.Eintrag {
+	konto := ""
+	if sessionID != "" {
+		if s, ok := c.reg.Get(sessionID); ok {
+			dir, konto = s.Cwd, s.Account
+		}
+	}
+	if dir == "" {
+		return []rules.Eintrag{}
+	}
+	acc, _ := accounts.ByName(c.Accounts(), konto)
+	return rules.Resolve(dir, acc.Dir)
+}
+
+// Ports listet die belegten Ports und markiert, welche zu plxr-Sessions gehören.
+func (c *Core) Ports() []ports.Eintrag {
+	eigene := map[int]bool{}
+	for _, s := range c.reg.List() {
+		if s.Alive && s.PID > 0 {
+			eigene[s.PID] = true
+		}
+	}
+	return ports.List(eigene)
+}
+
+func (c *Core) KillPort(pid int, hart bool) error {
+	if pid <= 1 {
+		return errors.New("unsinnige Prozess-ID")
+	}
+	if pid == os.Getpid() {
+		return errors.New("das wäre plxr selbst")
+	}
+	return ports.Kill(pid, hart)
+}
+
+// ---- Dateien ----
+
+// root liefert das Arbeitsverzeichnis einer Session. Alles, was die Oberfläche
+// an Dateipfaden schickt, wird dagegen geprüft.
+func (c *Core) root(sessionID string) (string, error) {
+	s, ok := c.reg.Get(sessionID)
+	if !ok {
+		return "", errors.New("Session gibt es nicht")
+	}
+	return s.Cwd, nil
+}
+
+func (c *Core) ListDir(sessionID, dir string) ([]files.Entry, error) {
+	root, err := c.root(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return files.List(root, dir)
+}
+
+func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
+	root, err := c.root(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return files.Read(root, path)
+}
+
+func (c *Core) WriteFile(sessionID, path, text string, stand int64) (*files.Content, error) {
+	root, err := c.root(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	return files.Write(root, path, text, stand)
+}
+
+// ---- Zustand zusammenführen ----
+
+// Snapshot verheiratet Registry, laufende PTYs und den fleet-Zustand.
+func (c *Core) Snapshot(pathFilter string) []Tile {
+	agents := agent.Load(c.agents)
+	states := fleet.Read(fleet.Dir())
+
+	byPID := map[int]fleet.State{}
+	for _, st := range states {
+		// Nur den jüngsten Eintrag je PID behalten.
+		if old, ok := byPID[st.PID]; !ok || st.UpdatedAt > old.UpdatedAt {
+			byPID[st.PID] = st
+		}
+	}
+
+	out := []Tile{}
+	for _, sess := range c.reg.List() {
+		if pathFilter != "" && !strings.HasPrefix(sess.Cwd, pathFilter) {
+			continue
+		}
+
+		h := c.Host(sess.ID)
+		prof := agents.Match(sess.Cmd)
+		sess.Agent, sess.AgentLabel = prof.Name, prof.Label
+
+		st, matched := byPID[sess.PID]
+		useFleet := matched && sess.Alive && prof.Source == "fleet"
+
+		// Einmal rendern, zweimal verwenden — Vorschau und Statuserkennung.
+		screen := ""
+		if h != nil {
+			screen = h.Tail(18)
+		}
+		if sess.Alive && !useFleet && h != nil {
+			// Kein Selbstauskunft-Hook: Status aus Bildschirm und Ruhe ableiten.
+			sess.Status = session.Status(prof.Classify(screen, h.IdleFor()))
+		}
+		if useFleet {
+			sess.ClaudeSessionID = st.SessionID
+			sess.Status = session.Status(st.Status)
+			sess.Title = st.Title
+			sess.Activity = st.Activity
+			sess.Model = st.Model
+			sess.Effort = st.Effort
+			sess.Context = st.Context
+			sess.LastMessage = st.LastMessage
+			sess.Since = st.Since
+			if st.Branch != "" {
+				sess.Branch = st.Branch
+			}
+			if st.Project != "" {
+				sess.Project = st.Project
+			}
+		}
+
+		out = append(out, Tile{Session: sess, Preview: screen})
+		c.checkEdge(sess)
+	}
+	return out
+}
+
+// checkEdge feuert eine Benachrichtigung, wenn eine Session neu blockiert.
+//
+// Verglichen wird "blockiert ja/nein", nicht der Status selbst: sonst meldet
+// jeder Wechsel zwischen waiting und permission erneut. Und eine noch nie
+// gesehene Session gilt als vorher nicht blockiert — startet ein Agent sofort
+// mit einer Rückfrage, wäre die erste Beobachtung sonst verschluckt und es
+// käme nie eine Meldung.
+func (c *Core) checkEdge(sess session.Session) {
+	jetzt := sess.Alive && sess.Status == session.StatusPermission
+
+	c.mu.Lock()
+	vorher, gesehen := c.lastStatus[sess.ID]
+	c.lastStatus[sess.ID] = sess.Status
+	c.mu.Unlock()
+
+	warVorher := gesehen && vorher == session.StatusPermission
+	if !jetzt || warVorher {
+		return
+	}
+	// Ganz frisch gestartete Sessions kurz in Ruhe lassen: Claude Code zeigt
+	// beim ersten Start manchmal einen Vertrauensdialog, der nichts mit der
+	// eigentlichen Arbeit zu tun hat.
+	if time.Since(time.UnixMilli(sess.StartedAt)) < 3*time.Second {
+		return
+	}
+
+	body := sess.Activity
+	if body == "" {
+		body = "wartet auf deine Antwort"
+	}
+	notify.Send(sess.Label(), body)
+}

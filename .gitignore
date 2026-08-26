@@ -1,0 +1,6 @@
+build/bin/
+plxr
+*.app
+.DS_Store
+docs/superpowers/
+PLAN.md

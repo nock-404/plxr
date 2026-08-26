@@ -1,0 +1,4 @@
+{ "name": "crt-plasma", "label": "CRT · Plasma", "skin": "crt",
+  "palette": { "bg": "#0a0410", "fg": "#ff77e1", "dim": "#6b2a72", "accent": "#ffc2f2",
+               "panel": "#150822", "line": "#33143a",
+               "working": "#ffc2f2", "waiting": "#6b2a72", "blocked": "#ffe14d", "dead": "#33143a" } }

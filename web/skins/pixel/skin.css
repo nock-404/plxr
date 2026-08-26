@@ -1,0 +1,124 @@
+/* Skin: Pixel — 8-Bit-Konsolenmenü. Rahmen sind gestufte Schatten statt Linien,
+   damit sie wie gesetzte Blöcke aussehen und nicht wie CSS-Borders. */
+@font-face { font-family: 'PressStart'; src: url('/vendor/pressstart.woff2') format('woff2'); font-display: swap; }
+
+:root {
+  --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #7c7f9e;
+  --accent: #ffd23f; --line: #3a3f6b;
+  --working: #6ee7a0; --waiting: #7c7f9e; --blocked: #ff5c6c; --dead: #4a4d70;
+  --px: 4px;
+}
+
+body {
+  font-family: 'PressStart', ui-monospace, monospace;
+  font-size: 10px; line-height: 1.6;
+  image-rendering: pixelated;
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px,
+    var(--bg);
+}
+.fx { display: none; }
+
+/* Gestufter Blockrahmen — zwei Ringe, harte Kante. */
+.tile, .btn, select, .dialog, .filter input, .dialog input, .term {
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--line),
+    0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line),
+    var(--px) 0 0 0 var(--line);
+  border: 0;
+}
+
+.bar { border-bottom: var(--px) solid var(--line); padding: 14px 20px; gap: 20px; }
+.mark { color: var(--accent); }
+.wordmark { font-size: 1.6em; color: var(--accent); letter-spacing: .05em; }
+.tag { color: var(--dim); font-size: .8em; }
+
+.prompt { color: var(--accent); }
+.filter input, .dialog input {
+  background: var(--bg); color: var(--fg); outline: none; padding: 7px 9px; margin: var(--px);
+}
+.filter input:focus, .dialog input:focus { box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent), -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent); }
+.filter input::placeholder { color: var(--dead); }
+
+.btn, select { background: var(--panel); color: var(--fg); padding: 8px 12px; margin: var(--px); }
+.btn:hover, select:hover { background: var(--line); color: var(--accent); }
+.btn:active { transform: translateY(2px); }
+.btn.primary { background: var(--accent); color: var(--bg); }
+select option { background: var(--panel); color: var(--fg); }
+
+.statusrow { color: var(--dim); font-size: .8em; padding: 10px 20px; border-bottom: var(--px) solid var(--line); }
+
+.grid { gap: 22px; padding: 22px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.tile { background: var(--panel); margin: var(--px); min-height: 250px; }
+.tile:hover { box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent), -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent); }
+.tile[data-status="permission"] { box-shadow: 0 -4px 0 0 var(--blocked), 0 4px 0 0 var(--blocked), -4px 0 0 0 var(--blocked), 4px 0 0 0 var(--blocked); }
+.tile[data-status="dead"] { opacity: .45; }
+
+.thead { padding: 10px 12px; border-bottom: var(--px) solid var(--line); }
+.tname { color: var(--accent); font-size: .95em; }
+.tproj { color: var(--dim); font-size: .75em; }
+.tbody {
+  font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.35;
+  color: var(--fg); opacity: .8; padding: 10px 12px; max-height: 175px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30px);
+  mask-image: linear-gradient(to bottom, transparent, #000 30px);
+}
+.tfoot { color: var(--dim); font-size: .72em; padding: 9px 12px; border-top: var(--px) solid var(--line); gap: 8px; }
+.tfoot .act { color: var(--fg); }
+.tfoot .agent { background: var(--line); color: var(--fg); padding: 2px 5px; }
+
+.dot.working { color: var(--working); animation: pxstep .8s steps(2) infinite; }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: pxstep .4s steps(2) infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes pxstep { 50% { opacity: .25 } }
+
+.overlay { background: var(--bg); }
+.ovbar { border-bottom: var(--px) solid var(--line); padding: 12px 18px; }
+.ovtitle { color: var(--accent); }
+.ovmeta { color: var(--dim); font-size: .8em; }
+.term { background: var(--bg); margin: 10px; }
+
+.dialog { background: var(--panel); padding: 26px 28px; gap: 18px; }
+.dialog h2 { color: var(--accent); font-size: 1.2em; }
+.dialog label { color: var(--dim); font-size: .8em; gap: 8px; }
+
+.empty { color: var(--dim); }
+.empty pre { font-family: ui-monospace, monospace; font-size: 12px; }
+
+
+/* Scrollbalken: gesetzter Block, keine Zwischentöne. */
+*::-webkit-scrollbar { width: 14px; height: 14px; }
+*::-webkit-scrollbar-track { background: var(--bg); }
+*::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* --- Schiene, Dateibaum, Betrachter --- */
+.rail { border-right: var(--px) solid var(--line); background: var(--panel); }
+.railitem { color: var(--dim); font-size: .8em; padding: 10px; }
+.railitem:hover { background: var(--line); color: var(--fg); }
+.railitem.active { background: var(--accent); color: var(--bg); }
+.railhome { border-bottom: var(--px) solid var(--line); }
+.railitem[data-status="permission"] { color: var(--blocked); }
+.rmeta { color: var(--dead); }
+
+.sessbar { border-bottom: var(--px) solid var(--line); padding: 12px 16px; }
+.ovtitle { color: var(--accent); }
+.ovmeta { color: var(--dim); font-size: .75em; }
+.btn.tiny { padding: 4px 7px; font-size: .8em; margin: 0; }
+.btn.tiny.on { background: var(--accent); color: var(--bg); }
+
+.files { border-right: var(--px) solid var(--line); background: var(--panel); }
+.filesbar { border-bottom: var(--px) solid var(--line); padding: 8px; }
+.filesroot { color: var(--dim); font-size: .68em; }
+.frow { color: var(--fg); font-family: ui-monospace, monospace; font-size: 11px; padding: 3px 8px; }
+.frow:hover { background: var(--line); }
+.frow.noise { color: var(--dead); }
+.fchev, .ficon { color: var(--accent); }
+
+.viewer { background: var(--bg); }
+.viewerbar { border-bottom: var(--px) solid var(--line); padding: 10px 14px; }
+.viewername { color: var(--accent); font-size: .9em; }
+.viewerbody { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; color: var(--fg); }

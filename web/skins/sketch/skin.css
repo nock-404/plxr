@@ -1,0 +1,134 @@
+/* Skin: Sketch — Notizbuch. Die "gezeichneten" Rahmen entstehen aus asymmetrischen
+   Eckradien plus einem zweiten, leicht versetzten Rahmen. Das reicht, damit keine
+   Kante wie eine Kante aussieht, ohne eine Zeichenbibliothek zu laden. */
+@font-face { font-family: 'Caveat'; src: url('/vendor/caveat.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'SpaceMono'; src: url('/vendor/spacemono.woff2') format('woff2'); font-display: swap; }
+
+:root {
+  --bg: #f6f3e9; --panel: #fffdf6; --fg: #2b2b2b; --dim: #8a8578;
+  --accent: #1b6ca8; --line: #cfc9b8;
+  --working: #2e8b57; --waiting: #8a8578; --blocked: #c1440e; --dead: #b9b3a4;
+}
+
+body {
+  font-family: 'Caveat', 'Bradley Hand', cursive;
+  font-size: 21px;
+  background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px,
+    var(--bg);
+}
+.fx {
+  background: radial-gradient(circle at 20% 10%, rgba(0,0,0,.03), transparent 60%),
+              radial-gradient(circle at 80% 90%, rgba(0,0,0,.03), transparent 60%);
+}
+
+/* Ein „handgezogener" Rahmen: unregelmäßige Radien, zweite Linie leicht versetzt. */
+.tile, .btn, select, .dialog, .filter input, .dialog input {
+  border: 2px solid var(--fg);
+  border-radius: 14px 6px 12px 5px / 5px 12px 6px 14px;
+  background: var(--panel);
+  position: relative;
+}
+.tile::after, .btn::after, .dialog::after {
+  content: ''; position: absolute; inset: 2px;
+  border: 1px solid var(--fg); opacity: .22;
+  border-radius: 6px 13px 5px 11px / 12px 5px 13px 6px;
+  pointer-events: none;
+}
+
+.bar { border-bottom: 2px solid var(--fg); gap: 16px; }
+.mark { color: var(--accent); transform: rotate(-3deg); }
+.wordmark { font-size: 1.7em; color: var(--fg); }
+.tag { color: var(--dim); font-size: .85em; }
+
+.prompt { color: var(--dim); }
+.filter input, .dialog input { padding: 3px 10px; outline: none; background: transparent; }
+.filter input:focus, .dialog input:focus { border-color: var(--accent); }
+.filter input::placeholder { color: var(--dead); }
+
+.btn, select { padding: 3px 14px; color: var(--fg); }
+.btn:hover, select:hover { background: #efe9d8; transform: rotate(-.6deg); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary::after { border-color: #fff; }
+
+.statusrow { color: var(--dim); font-size: .82em; border-bottom: 1px dashed var(--line); }
+
+.grid { gap: 20px; padding: 20px; }
+.tile { min-height: 245px; box-shadow: 3px 4px 0 rgba(0,0,0,.08); }
+/* Leichte Schieflage, damit es nach hingelegten Zetteln aussieht. */
+.tile:nth-child(3n)   { transform: rotate(.5deg); }
+.tile:nth-child(3n+1) { transform: rotate(-.6deg); }
+.tile:hover { transform: rotate(0) translateY(-3px); box-shadow: 5px 7px 0 rgba(0,0,0,.12); }
+.tile[data-status="permission"] { border-color: var(--blocked); }
+.tile[data-status="dead"] { opacity: .5; }
+
+.thead { border-bottom: 1px dashed var(--line); }
+.tname { color: var(--fg); font-size: 1.05em; }
+.tproj { color: var(--dim); font-size: .8em; }
+.tbody {
+  font-family: 'SpaceMono', ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+  color: #4a4a4a; max-height: 170px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
+}
+.tfoot { border-top: 1px dashed var(--line); color: var(--dim); font-size: .8em; }
+.tfoot .act { color: var(--fg); }
+.tfoot .agent { border: 1px solid var(--dim); border-radius: 8px 4px 7px 3px / 3px 7px 4px 8px; padding: 0 7px; font-size: .95em; }
+
+.dot.working { color: var(--working); animation: wiggle 1.4s ease-in-out infinite; }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: wiggle .5s ease-in-out infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes wiggle { 50% { transform: rotate(12deg) scale(1.15) } }
+
+.overlay { background: var(--bg); }
+.ovbar { border-bottom: 2px solid var(--fg); }
+.ovtitle { font-size: 1.15em; }
+.ovmeta { color: var(--dim); font-size: .82em; }
+.term { background: #2b2b2b; margin: 8px; border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
+
+.dialog { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
+.dialog h2 { font-size: 1.5em; color: var(--fg); }
+.dialog label { color: var(--dim); font-size: .85em; }
+
+.empty { color: var(--dim); }
+.empty pre { font-family: 'SpaceMono', monospace; font-size: 12px; }
+
+
+/* Scrollbalken: Bleistiftstrich am Rand. */
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--dim); border: 3px solid var(--bg);
+  border-radius: 9px 4px 8px 5px / 5px 8px 4px 9px;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--fg); }
+
+/* --- Schiene, Dateibaum, Betrachter --- */
+.rail { border-right: 2px solid var(--fg); background: color-mix(in srgb, var(--panel) 60%, transparent); }
+.railitem { color: var(--fg); }
+.railitem:hover { background: #efe9d8; }
+.railitem.active { background: var(--accent); color: #fff; }
+.railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+.rmeta { color: var(--dim); }
+
+.sessbar { border-bottom: 2px solid var(--fg); }
+.ovtitle { font-size: 1.15em; }
+.ovmeta { color: var(--dim); font-size: .82em; }
+.btn.tiny { padding: 0 8px; font-size: .85em; }
+.btn.tiny.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.files { border-right: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.filesbar { border-bottom: 1px dashed var(--line); }
+.filesroot { color: var(--dim); font-size: .78em; }
+.frow { color: var(--fg); font-size: .92em; }
+.frow:hover { background: #efe9d8; }
+.frow.noise { color: var(--dead); }
+.fchev, .ficon { color: var(--dim); }
+
+.viewer { background: var(--panel); }
+.viewerbar { border-bottom: 1px dashed var(--line); }
+.viewername { font-size: 1.1em; }
+.viewerbody { font-family: 'SpaceMono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; color: #3a3a3a; }

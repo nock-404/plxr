@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>{{.Name}}</string>
+  <key>CFBundleIdentifier</key><string>dev.plxr.app</string>
+  <key>CFBundleName</key><string>plxr</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>{{.Info.ProductVersion}}</string>
+  <key>CFBundleVersion</key><string>{{.Info.ProductVersion}}</string>
+  <key>CFBundleIconFile</key><string>iconfile</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <key>NSHumanReadableCopyright</key><string>{{.Info.Copyright}}</string>
+  <!-- Ohne diese Erklärung verweigert macOS 26 den Zugriff auf externe
+       Volumes kommentarlos, statt einmal zu fragen. -->
+  <key>NSRemovableVolumesUsageDescription</key>
+  <string>plxr zeigt und startet Sessions in Projektordnern, die auf externen Laufwerken liegen können.</string>
+  <key>NSDesktopFolderUsageDescription</key><string>Projektordner auf dem Schreibtisch.</string>
+  <key>NSDocumentsFolderUsageDescription</key><string>Projektordner in Dokumente.</string>
+  <key>NSDownloadsFolderUsageDescription</key><string>Projektordner in Downloads.</string>
+</dict></plist>

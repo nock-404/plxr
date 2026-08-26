@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect x="2.8" y="2.8" width="26.4" height="26.4" rx="6.6" stroke="currentColor" stroke-width="2.5"/>
+  <g stroke="currentColor" stroke-width="2" stroke-linecap="butt">
+    <path d="M16 16 L12.56 13.42"/><path d="M16 16 L19.44 13.42"/>
+    <path d="M16 16 L12.56 18.58"/><path d="M16 16 L19.44 18.58"/>
+  </g>
+  <g fill="currentColor" stroke="none">
+    <path d="M10 11.5 L13.76 11.82 L11.36 15.02 Z"/>
+    <path d="M22 11.5 L18.24 11.82 L20.64 15.02 Z"/>
+    <path d="M10 20.5 L13.76 20.18 L11.36 16.98 Z"/>
+    <path d="M22 20.5 L18.24 20.18 L20.64 16.98 Z"/>
+  </g>
+</svg>

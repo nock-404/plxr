@@ -1,0 +1,4 @@
+{ "name": "pixel-gameboy", "label": "Pixel · Game Boy", "skin": "pixel",
+  "palette": { "bg": "#0f380f", "panel": "#306230", "fg": "#9bbc0f", "dim": "#5a7a2a",
+               "accent": "#9bbc0f", "line": "#1d4d1d",
+               "working": "#9bbc0f", "waiting": "#5a7a2a", "blocked": "#e8d44d", "dead": "#1d4d1d" } }

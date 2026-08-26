@@ -1,0 +1,22 @@
+{
+  "name": "generic",
+  "label": "Unbekanntes CLI",
+  "source": "screen",
+  "match": [],
+  "blocked": [
+    "\\(y/n\\)",
+    "\\[y/N\\]",
+    "\\[Y/n\\]",
+    "Do you want",
+    "Are you sure",
+    "Press Enter to",
+    "Continue\\?",
+    "password:",
+    "\\?\\s*$"
+  ],
+  "working": [
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏▏▎▍▌▋▊▉]"
+  ],
+  "idle_seconds": 4.0,
+  "idle_status": "unknown"
+}

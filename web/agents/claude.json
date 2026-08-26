@@ -1,0 +1,23 @@
+{
+  "name": "claude",
+  "label": "Claude Code",
+  "source": "fleet",
+  "match": [
+    "claude"
+  ],
+  "blocked": [
+    "Do you want to proceed",
+    "Do you trust the files",
+    "❯\\s*1\\.\\s*Yes",
+    "Enter to confirm",
+    "y/n"
+  ],
+  "working": [
+    "esc to interrupt",
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏✻✽✢·]\\s",
+    "Thinking",
+    "Baking"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

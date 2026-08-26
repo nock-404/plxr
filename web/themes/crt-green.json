@@ -1,0 +1,4 @@
+{ "name": "crt-green", "label": "CRT · P1 Grün", "skin": "crt",
+  "palette": { "bg": "#040a05", "fg": "#33ff66", "dim": "#166b2c", "accent": "#7dffa4",
+               "panel": "#08160b", "line": "#123c1c",
+               "working": "#7dffa4", "waiting": "#166b2c", "blocked": "#ffdd33", "dead": "#123c1c" } }

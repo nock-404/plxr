@@ -1,0 +1,21 @@
+{
+  "name": "cursor",
+  "label": "Cursor CLI",
+  "source": "screen",
+  "match": [
+    "cursor-agent",
+    "cursor "
+  ],
+  "blocked": [
+    "\\(y/n\\)",
+    "\\[y/N\\]",
+    "Approve",
+    "Do you want"
+  ],
+  "working": [
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]",
+    "Running"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

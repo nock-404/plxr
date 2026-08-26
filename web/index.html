@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>plxr</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/vendor/xterm.css">
+<link rel="stylesheet" href="/base.css">
+<link rel="stylesheet" href="" id="skinCss">
+</head>
+<body>
+<div class="app">
+
+  <header class="bar">
+    <div class="brand">
+      <span class="mark" id="mark"></span>
+      <span class="wordmark">plxr</span>
+    </div>
+
+    <div class="filter">
+      <span class="prompt">path&gt;</span>
+      <input id="pathFilter" spellcheck="false" placeholder="Pfad, auf den gefiltert wird">
+    </div>
+
+    <div class="tools">
+      <select id="themeSel" title="Theme"></select>
+      <label class="btn" title="Theme-JSON importieren">
+        IMPORT<input type="file" id="themeFile" accept=".json,application/json" hidden>
+      </label>
+      <button class="btn primary" id="newBtn">+ NEU</button>
+    </div>
+  </header>
+
+  <div class="updatebar" id="updateBar" hidden>
+    <span id="updateText"></span>
+    <span class="spacer"></span>
+    <button class="btn" id="updateNotes">was ist neu</button>
+    <button class="btn primary" id="updateGo">installieren</button>
+    <button class="btn" id="updateHide">später</button>
+  </div>
+
+  <div class="statusrow">
+    <span id="counts"></span>
+    <span class="spacer"></span>
+    <span id="boot" class="boot"></span>
+    <span id="clock"></span>
+  </div>
+
+  <div class="body">
+
+    <!-- Die Schiene bleibt immer stehen, auch in einer Session. Sonst
+         verliert man beim Hineinschauen den Rest der Herde aus dem Blick. -->
+    <nav class="rail" id="rail">
+      <button class="railitem railhome" id="railHome">
+        <span class="rdot">⊞</span><span class="rname">Übersicht</span>
+      </button>
+      <button class="railitem railhome" id="railPorts">
+        <span class="rdot">⇄</span><span class="rname">Ports</span><span class="rmeta" id="portsCount"></span>
+      </button>
+      <button class="railitem railhome" id="railUsage">
+        <span class="rdot">▤</span><span class="rname">Verbrauch</span>
+      </button>
+      <button class="railitem railhome" id="railArchive">
+        <span class="rdot">⌸</span><span class="rname">Archiv</span><span class="rmeta" id="archiveCount"></span>
+      </button>
+      <div id="railList"></div>
+    </nav>
+
+    <main class="content">
+
+      <section id="viewGrid" class="grid"></section>
+
+      <div id="empty" class="empty" hidden>
+        <div class="emptybox">
+          <p class="emptyhead">keine sessions</p>
+          <p>Mit <b>+ NEU</b> startest du ein CLI in einem Terminal, das dem
+             Daemon gehört — nicht deinem Fenster. Es läuft weiter, wenn du
+             plxr schließt.</p>
+          <p class="emptyagents">claude · codex · opencode · aider · gemini · cursor</p>
+        </div>
+      </div>
+
+      <section id="viewArchive" class="liste" hidden>
+        <div class="listbar">
+          <span class="prompt">suche&gt;</span>
+          <input id="archSearch" spellcheck="false" placeholder="Titel und Projekt — Eingabetaste sucht im Volltext">
+          <button class="btn" id="archFullText" title="In allen Nachrichten suchen">VOLLTEXT</button>
+          <span class="spacer"></span>
+          <select id="archAccount" title="Unter welchem Konto fortsetzen"></select>
+          <span id="archInfo" class="meta"></span>
+        </div>
+        <div class="listbody" id="archList"></div>
+      </section>
+
+      <section id="viewPorts" class="liste" hidden>
+        <div class="listbar">
+          <span class="prompt">ports&gt;</span>
+          <span id="portsInfo" class="meta"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="portsReload">NEU LESEN</button>
+        </div>
+        <div class="listbody" id="portsList"></div>
+      </section>
+
+      <section id="viewUsage" class="liste" hidden>
+        <div class="listbar">
+          <span class="prompt">verbrauch&gt;</span>
+          <span id="usageInfo" class="meta"></span>
+          <span class="spacer"></span>
+          <select id="usageRange" title="Zeitraum">
+            <option value="7">letzte 7 Tage</option>
+            <option value="30" selected>letzte 30 Tage</option>
+            <option value="0">alles</option>
+          </select>
+        </div>
+        <div class="listbody" id="usageBody"></div>
+      </section>
+
+      <section id="viewSession" class="session" hidden>
+        <div class="sessbar">
+          <span id="sessTitle" class="sesstitle"></span>
+          <span id="sessMeta" class="meta"></span>
+          <span class="spacer"></span>
+          <button class="btn" id="filesToggle" title="Dateibaum">DATEIEN</button>
+          <button class="btn" id="rulesToggle" title="Welche CLAUDE.md, Skills und Agenten hier wirken">REGELN</button>
+          <button class="btn" id="splitAdd" title="Weitere Session daneben legen">TEILEN</button>
+          <select id="sessAccount" title="Konto wechseln"></select>
+          <button class="btn" id="sessKill">STOP</button>
+        </div>
+
+        <div class="sesssplit">
+          <aside class="files" id="files" hidden>
+            <div class="filesbar">
+              <span id="filesRoot" class="filesroot"></span>
+              <button class="btn tiny" id="noiseToggle" title="Versteckte und ignorierte Einträge">·*</button>
+            </div>
+            <div class="filetree" id="filetree"></div>
+          </aside>
+
+          <!-- Terminalflächen entstehen zur Laufzeit: ihre Zahl ändert sich. -->
+          <div class="panes" id="panes"></div>
+
+          <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
+          <div id="rulesPane" class="ueber" hidden>
+            <div class="ueberbar">
+              <span class="uebername">Regeln</span>
+              <span id="rulesMeta" class="meta"></span>
+              <span class="spacer"></span>
+              <button class="btn" id="rulesClose">ZURÜCK ZUM TERMINAL</button>
+            </div>
+            <div id="rulesBody" class="ruleslist"></div>
+          </div>
+
+          <div id="viewer" class="ueber" hidden>
+            <div class="ueberbar">
+              <span id="viewerName" class="uebername"></span>
+              <span id="viewerMeta" class="meta"></span>
+              <span class="spacer"></span>
+              <span id="viewerDirty" class="dirty" hidden>ungespeichert</span>
+              <button class="btn" id="viewerSave" hidden>SPEICHERN</button>
+              <button class="btn" id="viewerClose">ZURÜCK</button>
+            </div>
+            <textarea id="viewerBody" class="viewerbody" spellcheck="false" wrap="off"></textarea>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="fx"></div>
+</div>
+
+<!-- Neue Session -->
+<div id="dialog" class="hof" hidden>
+  <form id="newForm" class="karte">
+    <b class="kartentitel">neue session</b>
+    <label>verzeichnis
+      <span class="zeile2">
+        <input id="newCwd" spellcheck="false" required>
+        <button type="button" class="btn" id="pickDir" hidden>…</button>
+      </span>
+    </label>
+    <label>kommando
+      <input id="newCmd" spellcheck="false" value="claude">
+    </label>
+    <label>konto
+      <select id="newAccount"></select>
+    </label>
+    <div class="kartenknoepfe">
+      <button type="button" class="btn" id="newCancel">ABBRECHEN</button>
+      <button type="submit" class="btn primary">STARTEN</button>
+    </div>
+  </form>
+</div>
+
+<!-- Session für die geteilte Fläche wählen -->
+<div id="splitPick" class="hof" hidden>
+  <div class="karte">
+    <b class="kartentitel">welche session daneben?</b>
+    <div id="splitList" class="splitliste"></div>
+    <div class="kartenknoepfe">
+      <button type="button" class="btn" id="splitCancel">ABBRECHEN</button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
+<script src="/ui.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

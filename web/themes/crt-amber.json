@@ -1,0 +1,4 @@
+{ "name": "crt-amber", "label": "CRT · Amber Phosphor", "skin": "crt",
+  "palette": { "bg": "#0b0906", "fg": "#ffb000", "dim": "#8a5f12", "accent": "#ffcf5c",
+               "panel": "#14100a", "line": "#3a2a10",
+               "working": "#ffcf5c", "waiting": "#8a5f12", "blocked": "#ff6b3d", "dead": "#4a3a1c" } }
