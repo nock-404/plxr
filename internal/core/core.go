@@ -454,7 +454,20 @@ func (c *Core) Tempo() usage.Tempo { return usage.TempoRechnen(c.Accounts()) }
 // Version wird beim Start aus main gesetzt.
 var Version = "dev"
 
-func (c *Core) VersionStand() update.Stand { return update.Prüfen(Version) }
+// Nach einem Update zeigt Version auf die Fassung, die auf der Platte liegt —
+// nicht auf die, mit der dieser Prozess gestartet ist. Der Daemon läuft
+// bewusst weiter, ihm gehören die Sessions; melden muss er trotzdem, was
+// installiert ist. Sonst bliebe der Hinweis "neue Fassung" stehen und lüde
+// dasselbe Paket immer wieder.
+var versionSperre sync.RWMutex
+
+func fassung() string {
+	versionSperre.RLock()
+	defer versionSperre.RUnlock()
+	return Version
+}
+
+func (c *Core) VersionStand() update.Stand { return update.Prüfen(fassung()) }
 
 // UpdateStand ist der Fortschritt einer laufenden Aktualisierung. Die
 // Oberfläche fragt ihn ab, statt auf einen Aufruf zu warten, der Minuten
@@ -526,6 +539,9 @@ func (c *Core) Update() error {
 			}
 			u.Ort, u.Phase, u.Prozent = ort, "fertig", 100
 		})
+		versionSperre.Lock()
+		Version = st.Neueste
+		versionSperre.Unlock()
 	}()
 	return nil
 }
