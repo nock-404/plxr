@@ -263,3 +263,7 @@ body {
   color: #000; font-family: 'Courier New', monospace; font-size: 11px; }
 .postantwort input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
 .postschnell button { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+
+/* Verbrauchstempo. */
+.tempo { color: var(--dk); }
+.tempo[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }

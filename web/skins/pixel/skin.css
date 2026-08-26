@@ -255,3 +255,7 @@ body {
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
 .postschnell button { background: var(--panel); color: var(--dim); font-size: .7em; padding: 5px 9px; }
 .postschnell button:hover { background: var(--accent); color: var(--bg); }
+
+/* Verbrauchstempo. */
+.tempo { color: var(--dim); }
+.tempo[data-warnung="ja"] { color: var(--blocked); }

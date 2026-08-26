@@ -362,3 +362,7 @@ html, body {
 .postantwort input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 5px 8px; }
 .postschnell { display: flex; gap: 6px; flex-wrap: wrap; }
 .postschnell button { cursor: pointer; font: inherit; color: inherit; background: none; border: 0; padding: 2px 10px; }
+
+/* Verbrauchstempo in der Statuszeile. */
+.tempo { flex: 0 0 auto; cursor: default; }
+.tempo[hidden] { display: none !important; }

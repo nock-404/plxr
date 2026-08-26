@@ -351,6 +351,10 @@ func (c *Core) HookSetzen(an bool) error {
 	return nil
 }
 
+// ---- Verbrauchstempo ----
+
+func (c *Core) Tempo() usage.Tempo { return usage.TempoRechnen(c.Accounts()) }
+
 // ---- Fassung ----
 
 // Version wird beim Start aus main gesetzt.

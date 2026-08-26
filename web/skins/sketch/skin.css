@@ -257,3 +257,7 @@ body {
   color: #3a3a3a; font-family: 'SpaceMono', monospace; font-size: 11px; }
 .postantwort input { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
 .postschnell button { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
+
+/* Verbrauchstempo. */
+.tempo { color: var(--dim); }
+.tempo[data-warnung="ja"] { color: var(--blocked); }

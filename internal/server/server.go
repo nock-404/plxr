@@ -124,6 +124,9 @@ func (s *Server) Routes() *http.ServeMux {
 		tage, _ := strconv.Atoi(r.URL.Query().Get("tage"))
 		writeJSON(w, s.c.Verbrauch(tage))
 	})
+	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Tempo())
+	})
 	mux.HandleFunc("GET /api/ports", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Ports()) })
 	mux.HandleFunc("DELETE /api/ports/{pid}", s.killPort)
 	mux.HandleFunc("GET /api/files/{id}", s.listDir)

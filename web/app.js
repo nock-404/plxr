@@ -105,6 +105,7 @@ const api = {
   ports: () => req('/api/ports'),
   portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
   verbrauch: (tage) => req('/api/usage?tage=' + tage),
+  tempo: () => req('/api/tempo'),
   fassung: () => req('/api/version'),
   updateStand: () => req('/api/update'),
   neuStarten: () => req('/api/restart', { method: 'POST' }),
@@ -1920,6 +1921,47 @@ async function verbrauchLaden() {
   block('nach Projekt', b.nachProjekt, 12);
   block('nach Modell', b.nachModell, 8);
   block('nach Konto', b.nachKonto, 8);
+}
+
+/* ═════════════════════════ Verbrauchstempo ═════════════════════════
+
+   Claude rechnet in rollenden Fenstern — fünf Stunden und eine Woche. Wer
+   mehrere Agenten gleichzeitig fährt, reißt das Fünf-Stunden-Fenster, ohne es
+   kommen zu sehen. Hier steht das Tempo, bevor es zu spät ist.
+
+   Die absolute Grenze kennt plxr nicht — die hängt am Abo und wird nirgends
+   veröffentlicht. Deshalb wird nicht behauptet, wann Schluss ist, sondern
+   gezeigt, wie schnell es gerade geht und ob das Tempo steigt. */
+
+const TREND = { steigt: '↑', faellt: '↓', gleich: '·' };
+
+function tokKurz(n) {
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
+  if (n >= 1e6) return (n / 1e6).toFixed(0) + ' Mio';
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + ' Tsd';
+  return String(n);
+}
+
+async function tempoPruefen() {
+  let t;
+  try { t = await api.tempo(); } catch { return; }
+  const el = $('#tempo');
+  if (!t.proStunde && !t.fenster5h) { el.hidden = true; return; }
+
+  el.hidden = false;
+  el.textContent =
+    `${tokKurz(t.proStunde)}/h ${TREND[t.trend] || ''} · 5h ${tokKurz(t.fenster5h)}` +
+    (t.aktive ? ` · ${t.aktive} aktiv` : '');
+  el.title =
+    `Verbrauch der letzten Stunde, hochgerechnet: ${t.proStunde.toLocaleString('de-DE')} Token\n` +
+    `In den letzten fünf Stunden: ${t.fenster5h.toLocaleString('de-DE')}\n` +
+    `${t.aktive} Sessions haben in der letzten Stunde etwas verbraucht.\n\n` +
+    'Claude rechnet in rollenden Fenstern. Wird es eng, hilft ein Kontowechsel ' +
+    'in der Kopfzeile der Session.';
+
+  // Ab drei Milliarden je Stunde wird es bei den üblichen Abos knapp — das
+  // ist eine Erfahrungsmarke, keine amtliche Grenze.
+  el.dataset.warnung = t.proStunde > 3e9 && t.trend !== 'faellt' ? 'ja' : '';
 }
 
 /* ═════════════════════════ Fassung ═════════════════════════ */

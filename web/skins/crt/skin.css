@@ -322,3 +322,7 @@ body {
 .postantwort input:focus { border-color: var(--accent); }
 .postschnell button { border: 1px solid var(--dim); color: var(--dim); font-size: .78em; letter-spacing: .08em; }
 .postschnell button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Verbrauchstempo. */
+.tempo { color: var(--dim); }
+.tempo[data-warnung="ja"] { color: var(--blocked); }
