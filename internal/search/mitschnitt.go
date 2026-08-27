@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// MitschnittTreffer ist eine Fundstelle in der Terminalausgabe einer Session.
+// RecordingHit is a match in the terminal output of a session.
 type RecordingHit struct {
 	SessionID string `json:"sessionId"`
 	Name      string `json:"name"`
@@ -19,15 +19,15 @@ type RecordingHit struct {
 	Auszug    string `json:"auszug"`
 }
 
-// SucheMitschnitte durchsucht, was in den Terminals stand.
+// SearchRecordings searches through what was on the terminals.
 //
-// Das ist die Frage, die tmux nicht beantworten kann: "wo war nochmal diese
-// Fehlermeldung". tmux verliert den Scrollback beim Neustart; hier liegt er
-// auf Platte, auch von Sessions, die es längst nicht mehr gibt.
+// This is the question tmux cannot answer: "where was that error message
+// again". tmux loses the scrollback on restart; here it sits on disk, including
+// that of sessions which are long gone.
 //
-// Gesucht wird zeilenweise auf dem Rohstrom. Escape-Sequenzen stehen mit
-// drin — deshalb wird die Trefferzeile vor der Anzeige gesäubert, nicht
-// vorher der ganze Strom: das wäre bei hunderten Megabyte zu teuer.
+// The search runs line by line over the raw stream. Escape sequences are in
+// there — so the matching line is cleaned before display, rather than the
+// whole stream up front: that would be far too expensive at hundreds of megabytes.
 func SearchRecordings(dir, question string, names map[string]RecordingHit) []RecordingHit {
 	question = strings.TrimSpace(question)
 	if len(question) < 2 || dir == "" {
@@ -70,8 +70,8 @@ func scanRaw(path, small string) (int, string) {
 	}
 	defer f.Close()
 
-	// Große Mitschnitte nur am Ende lesen: was vor Wochen durchlief, sucht
-	// niemand, und es kostet sonst Sekunden je Datei.
+	// Read only the tail of large recordings: nobody searches for what scrolled by
+	// weeks ago, and otherwise it costs seconds per file.
 	if info, err := f.Stat(); err == nil && info.Size() > 8<<20 {
 		f.Seek(info.Size()-(8<<20), io.SeekStart)
 	}
@@ -96,7 +96,7 @@ func scanRaw(path, small string) (int, string) {
 	return count, auszug
 }
 
-// sauber entfernt Steuerzeichen und schneidet um die Fundstelle herum zu.
+// clean strips control characters and trims around the match.
 func clean(line, small string) string {
 	rein := stripEscapes(line)
 	i := strings.Index(strings.ToLower(rein), small)

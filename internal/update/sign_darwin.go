@@ -9,29 +9,28 @@ import (
 	"strings"
 )
 
-// zertName ist die Identität, mit der plxr sich auf dieser Maschine ausweist.
+// certName is the identity plxr presents itself with on this machine.
 const certName = "plxr Code Signing"
 
-// nachbereiten signiert das ausgetauschte Bündel mit einer gleichbleibenden
-// lokalen Identität.
+// resign signs the swapped-in bundle with a stable local identity.
 //
-// Ohne das trägt die App nur eine Ad-hoc-Signatur, und ihr Ausweis gegenüber
-// macOS ist der Code-Hash — der sich bei jedem Bau ändert. Folge: nach jedem
-// Update fragt das System die Berechtigungen erneut ab, als wäre es ein
-// fremdes Programm. Mit einem festen Zertifikat lautet der Ausweis
-// "identifier + certificate leaf" und bleibt über alle Fassungen gleich.
+// Without it the app only carries an ad-hoc signature, and its identity towards
+// macOS is the code hash — which changes with every build. The consequence: after
+// every update the system asks for permissions again, as if it were a stranger.
+// With a fixed certificate the identity reads "identifier + certificate leaf"
+// and stays the same across all versions.
 //
-// Das Zertifikat ist selbst ausgestellt und liegt nur im Schlüsselbund dieses
-// Nutzers. Es macht die App nicht vertrauenswürdiger — es macht sie nur
+// The certificate is self-issued and lives only in this user's keychain. It does
+// not make the app more trustworthy — it only makes it
 // wiedererkennbar.
 func resign(ort string) error {
 	if !strings.HasSuffix(ort, ".app") {
-		return nil // nur Bündel tragen eine Signatur
+		return nil // only bundles carry a signature
 	}
 	if err := ensureCertificate(); err != nil {
 		return err
 	}
-	// Ohne das hält Gatekeeper die Datei für heruntergeladen und blockiert.
+	// Without this Gatekeeper considers the file downloaded and blocks it.
 	exec.Command("xattr", "-dr", "com.apple.quarantine", ort).Run()
 
 	return exec.Command("codesign", "--force", "--deep",
@@ -71,7 +70,7 @@ extendedKeyUsage = critical,codeSigning
 	}
 
 	p12 := filepath.Join(tmp, "id.p12")
-	// macOS liest die neueren Voreinstellungen von openssl nicht.
+	// macOS cannot read the newer openssl defaults.
 	if err := exec.Command("openssl", "pkcs12", "-export",
 		"-inkey", key, "-in", crt, "-out", p12,
 		"-passout", "pass:plxr", "-name", certName,

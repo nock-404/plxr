@@ -1,9 +1,9 @@
-// Package search durchsucht die abgelegten Transkripte im Volltext.
+// Package search does full-text search over the archived transcripts.
 //
-// Kein Index: bei ein paar tausend Dateien ist ein sequentieller Durchlauf mit
-// mehreren Arbeitern schnell genug, und ein Index müsste gepflegt werden und
-// wäre nach jedem Claude-Lauf veraltet. Gesucht wird bewusst nur in dem, was
-// Mensch und Assistent gesagt haben — nicht in Werkzeugausgaben, sonst
+// No index: with a few thousand files a sequential pass with several workers is
+// fast enough, and an index would have to be maintained and would be stale
+// after every Claude run. The search deliberately covers only what human and
+// assistant said — not tool output, otherwise
 // ertrinkt jeder Treffer in Dateiinhalten.
 package search
 
@@ -33,7 +33,7 @@ type Hit struct {
 	Count     int    `json:"anzahl"` // Treffer in dieser Session
 }
 
-// zeile ist der Ausschnitt eines Transkripteintrags, den wir brauchen.
+// line is the part of a transcript entry that we need.
 type line struct {
 	Type    string `json:"type"`
 	AiTitle string `json:"aiTitle"`
@@ -51,7 +51,7 @@ const (
 	maxLineLength = 2 << 20
 )
 
-// Suche durchläuft alle Transkripte aller Konten.
+// Search walks every transcript of every account.
 func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
 	question = strings.TrimSpace(question)
 	if len(question) < 2 {
@@ -96,7 +96,7 @@ func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
 			break
 		}
 	}
-	// Kanal leerlaufen lassen, damit keine Arbeiter hängen bleiben.
+	// Drain the channel so no worker gets stuck.
 	go func() {
 		for range raus {
 		}
@@ -173,8 +173,8 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 		if len(roh) == 0 || roh[0] != '{' {
 			continue
 		}
-		// Erst billig prüfen, ob der Begriff überhaupt vorkommt. Das JSON zu
-		// entpacken ist um ein Vielfaches teurer als ein Teilstringvergleich.
+		// Check cheaply first whether the term occurs at all. Unpacking the JSON
+		// is many times more expensive than a substring comparison.
 		hat := strings.Contains(strings.ToLower(string(roh)), small)
 
 		var z line
@@ -229,8 +229,8 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 	return t, true
 }
 
-// textAus holt den lesbaren Text aus dem Inhaltsfeld, das mal ein String und
-// mal eine Liste von Blöcken ist.
+// textFrom pulls the readable text out of the content field, which is sometimes
+// a string and sometimes a list of blocks.
 func textFrom(roh json.RawMessage) string {
 	if len(roh) == 0 {
 		return ""
@@ -260,7 +260,7 @@ func textFrom(roh json.RawMessage) string {
 
 func excerpt(text string, i, laenge int) string {
 	r := []rune(text)
-	// Byte- in Runenposition umrechnen, sonst zerschneidet der Ausschnitt Umlaute.
+	// Convert byte to rune position, otherwise the excerpt cuts multi-byte runes.
 	start := len([]rune(text[:i]))
 	von := start - auszugKontext
 	if von < 0 {

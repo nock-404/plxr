@@ -1,7 +1,7 @@
 // Package accounts verwaltet mehrere Claude-Code-Konten auf einer Maschine.
 //
 // Claude Code legt alles unter einem Konfigurationsverzeichnis ab — normal
-// ~/.claude, über CLAUDE_CONFIG_DIR umlenkbar. Wer mehrere Zugänge hat, startet
+// ~/.claude, redirectable via CLAUDE_CONFIG_DIR. Anyone with several accounts
 // deshalb mit unterschiedlichen Verzeichnissen. Dieses Paket findet sie.
 package accounts
 
@@ -21,9 +21,9 @@ type Account struct {
 	Sessions int    `json:"sessions"`
 }
 
-// Env liefert die Umgebungsvariable, mit der ein Prozess dieses Konto benutzt.
-// Für das Standardverzeichnis wird nichts gesetzt, damit sich Claude Code genau
-// so verhält wie beim Start von Hand.
+// Env returns the environment variable that makes a process use this account.
+// For the default directory nothing is set, so that Claude Code behaves exactly
+// as it does when started by hand.
 func (a Account) Env() []string {
 	home, _ := os.UserHomeDir()
 	if a.Dir == filepath.Join(home, ".claude") {
@@ -36,7 +36,7 @@ func (a Account) ProjectsDir() string { return filepath.Join(a.Dir, "projects") 
 
 func configPath() string { return filepath.Join(daemon.Root(), "accounts.json") }
 
-// Discover findet Konten: erst die eigene Liste, sonst ~/.claude und die
+// Discover finds accounts: our own list first, otherwise ~/.claude and the
 // durchnummerierten Geschwister daneben.
 func Discover() []Account {
 	if list, err := load(); err == nil && len(list) > 0 {
@@ -83,8 +83,8 @@ func isNumber(s string) bool {
 	return len(s) > 0
 }
 
-// count zählt die Transkripte je Konto — nur die obersten, nicht die von
-// Unteragenten und Workflows.
+// count counts the transcripts per account — only the top-level ones, not those
+// of subagents and workflows.
 func count(list []Account) []Account {
 	for i := range list {
 		n := 0
@@ -125,7 +125,7 @@ func Save(list []Account) error {
 	return os.WriteFile(configPath(), b, 0o644)
 }
 
-// ByName sucht ein Konto; ohne Treffer kommt das erste zurück.
+// ByName looks up an account; with no match the first one comes back.
 func ByName(list []Account, name string) (Account, bool) {
 	for _, a := range list {
 		if a.Name == name {

@@ -1,8 +1,8 @@
-// Package server ist der HTTP-Transport über dem Kern.
+// Package server is the HTTP transport on top of the core.
 //
-// Für die Desktop-App braucht man ihn nicht — dort redet die Oberfläche direkt
-// über Wails-Bindungen mit dem Kern. Er bleibt, weil sich die Oberfläche im
-// normalen Browser bequemer entwickeln und debuggen lässt: `plxr --serve`.
+// The desktop app does not strictly need it — there the UI talks to the core
+// through Wails bindings. It stays because the UI is more comfortable to build
+// and debug in an ordinary browser: `plxr --serve`.
 package server
 
 import (
@@ -30,15 +30,15 @@ type Server struct {
 func New(c *core.Core, web fs.FS) *Server {
 	return &Server{
 		c: c, web: web,
-		// Nur localhost, deshalb reicht eine offene Herkunftsprüfung.
+		// localhost only, so an open origin check is good enough.
 		up: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
 	}
 }
 
 func (s *Server) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
-	// Kurze Kennung, damit ein Client einen fremden Prozess auf demselben Port
-	// nicht für den Daemon hält.
+	// A short marker, so a client does not mistake some other process on the same
+	// port for the daemon.
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("plxr"))
 	})
@@ -153,10 +153,10 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/update", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.UpdateFortschritt())
 	})
-	// Startet die neue Fassung. Der Daemon beendet sich dabei ausdrücklich
-	// NICHT: ihm gehören die PTYs, und ein Exit hier würde beim Update jede
-	// laufende Session töten — genau das Gegenteil dessen, was im Dialog
-	// steht. Das Fenster verabschiedet sich selbst über die Wails-Bindung.
+	// Starts the new version. The daemon explicitly does NOT exit here: it owns
+	// the PTYs, and exiting would kill every running session on update — the exact
+	// opposite of what the dialog promises. The window bows out on its own through
+	// the Wails binding.
 	mux.HandleFunc("POST /api/restart", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.Restart(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -292,8 +292,8 @@ func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := s.c.WriteFile(r.PathValue("id"), req.Path, req.Text, req.Mod)
 	if err != nil {
-		// Ein Ausbruchsversuch ist kein Konflikt: die Unterscheidung gehört in
-		// den Statuscode, sonst sieht ein Angriff aus wie ein Bedienfehler.
+		// An escape attempt is not a conflict: that distinction belongs in the status
+		// code, otherwise an attack looks like a slip of the hand.
 		code := http.StatusBadRequest
 		switch {
 		case strings.Contains(err.Error(), "außerhalb der Session"):
@@ -316,7 +316,7 @@ func (s *Server) readFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// wsTiles schiebt einmal pro Sekunde den Gesamtzustand raus.
+// wsTiles pushes the whole state out once per second.
 func (s *Server) wsTiles(w http.ResponseWriter, r *http.Request) {
 	c, err := s.up.Upgrade(w, r, nil)
 	if err != nil {
@@ -351,7 +351,7 @@ type inMsg struct {
 	Cols uint16 `json:"cols"`
 }
 
-// wsSession ist das echte Terminal: Ausgabe raus, Tasten rein.
+// wsSession is the real terminal: output out, keystrokes in.
 func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 	h := s.c.Host(r.PathValue("id"))
 	if h == nil {
@@ -364,7 +364,7 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
-	// Scrollback zuerst, damit der Client nicht auf leerem Schirm sitzt.
+	// Scrollback first, so the client is not left staring at an empty screen.
 	if snap := h.Snapshot(); len(snap) > 0 {
 		c.WriteMessage(websocket.BinaryMessage, snap)
 	}
