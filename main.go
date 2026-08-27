@@ -52,13 +52,13 @@ var version = "dev"
 func main() {
 	// Subcommands come before the flags, so that `plxr ls` stays plain.
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
-		if kommando(os.Args[1], os.Args[2:]) {
+		if command(os.Args[1], os.Args[2:]) {
 			return
 		}
 	}
 
 	browser := flag.Bool("browser", false, "statt des Fensters den Browser öffnen")
-	zeigeVersion := flag.Bool("version", false, "Fassung ausgeben")
+	showVersion := flag.Bool("version", false, "Fassung ausgeben")
 	// Anyone looking for help types --help, not "help". Without this the flag
 	// package shows only the two switches and hides every subcommand.
 	flag.Usage = func() {
@@ -68,7 +68,7 @@ func main() {
 	}
 	flag.Parse()
 
-	if *zeigeVersion {
+	if *showVersion {
 		fmt.Println("plxr", version)
 		return
 	}
@@ -89,7 +89,7 @@ func main() {
 
 // command handles the subcommands. Returning true means: done, the window is not
 // opened any more.
-func kommando(name string, rest []string) bool {
+func command(name string, rest []string) bool {
 	if name == "daemon" {
 		runDaemon()
 		return true
@@ -101,13 +101,13 @@ func kommando(name string, rest []string) bool {
 		return true
 	}
 	if name == "setup-hook" || name == "unsetup-hook" {
-		entfernen := name == "unsetup-hook"
-		path, err := hook.Install(strings.Join(rest, " "), entfernen)
+		remove := name == "unsetup-hook"
+		path, err := hook.Install(strings.Join(rest, " "), remove)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "plxr:", err)
 			os.Exit(1)
 		}
-		if entfernen {
+		if remove {
 			fmt.Println("aus", path, "entfernt")
 		} else {
 			fmt.Println("eingetragen in", path)
@@ -124,8 +124,8 @@ func kommando(name string, rest []string) bool {
 		return true
 	}
 
-	bekannt := map[string]bool{"ls": true, "new": true, "attach": true, "kill": true, "ports": true, "update": true}
-	if !bekannt[name] {
+	known := map[string]bool{"ls": true, "new": true, "attach": true, "kill": true, "ports": true, "update": true}
+	if !known[name] {
 		return false
 	}
 
@@ -165,7 +165,7 @@ func kommando(name string, rest []string) bool {
 	case "ports":
 		err = cli.Ports(c)
 	case "update":
-		err = selbstUpdate()
+		err = selfUpdate()
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "plxr:", err)
@@ -175,7 +175,7 @@ func kommando(name string, rest []string) bool {
 }
 
 // selfUpdate fetches the latest version from GitHub.
-func selbstUpdate() error {
+func selfUpdate() error {
 	st := update.Check(version)
 	if st.Error != "" {
 		return errors.New(st.Error)
@@ -187,7 +187,7 @@ func selbstUpdate() error {
 	fmt.Printf("neue Fassung %s (aktuell %s), %.1f MB\n", st.Latest, version, float64(st.Size)/(1<<20))
 
 	last := -1
-	ort, err := update.Apply(st.AssetURL, func(read, total int64) {
+	path, err := update.Apply(st.AssetURL, func(read, total int64) {
 		if total <= 0 {
 			return
 		}
@@ -201,7 +201,7 @@ func selbstUpdate() error {
 		fmt.Println()
 		return err
 	}
-	fmt.Printf("\r  eingesetzt: %s\n", ort)
+	fmt.Printf("\r  eingesetzt: %s\n", path)
 	fmt.Println("  fertig. Beim nächsten Start läuft die neue Fassung.")
 	return nil
 }

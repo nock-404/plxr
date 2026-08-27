@@ -52,13 +52,13 @@ func (c *Client) fetch(path string, target any) error {
 	return json.NewDecoder(res.Body).Decode(target)
 }
 
-func (c *Client) send(methode, path string, koerper any, target any) error {
+func (c *Client) send(method, path string, body any, target any) error {
 	var r io.Reader
-	if koerper != nil {
-		b, _ := json.Marshal(koerper)
+	if body != nil {
+		b, _ := json.Marshal(body)
 		r = bytes.NewReader(b)
 	}
-	req, _ := http.NewRequest(methode, c.info.URL()+path, r)
+	req, _ := http.NewRequest(method, c.info.URL()+path, r)
 	req.Header.Set("X-Plxr-Token", c.info.Token)
 	res, err := c.http.Do(req)
 	if err != nil {
@@ -81,22 +81,22 @@ func (c *Client) Sessions() ([]core.Tile, error) {
 }
 
 // Find accepts short forms: the leading characters of the id, or part of a name.
-func (c *Client) Find(was string) (core.Tile, error) {
+func (c *Client) Find(which string) (core.Tile, error) {
 	list, err := c.Sessions()
 	if err != nil {
 		return core.Tile{}, err
 	}
 	var hits []core.Tile
 	for _, t := range list {
-		if t.ID == was || strings.HasPrefix(t.ID, was) ||
-			strings.EqualFold(t.Name, was) ||
-			strings.Contains(strings.ToLower(t.Name+" "+t.Title), strings.ToLower(was)) {
+		if t.ID == which || strings.HasPrefix(t.ID, which) ||
+			strings.EqualFold(t.Name, which) ||
+			strings.Contains(strings.ToLower(t.Name+" "+t.Title), strings.ToLower(which)) {
 			hits = append(hits, t)
 		}
 	}
 	switch len(hits) {
 	case 0:
-		return core.Tile{}, fmt.Errorf("keine Session passt zu %q", was)
+		return core.Tile{}, fmt.Errorf("keine Session passt zu %q", which)
 	case 1:
 		return hits[0], nil
 	default:

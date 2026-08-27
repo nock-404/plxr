@@ -16,22 +16,22 @@ func TestPreflightIsAnswered(t *testing.T) {
 		w.Write([]byte("plxr"))
 	})))
 
-	for _, herkunft := range []string{"wails://wails", "http://wails.localhost"} {
+	for _, origin := range []string{"wails://wails", "http://wails.localhost"} {
 		r := httptest.NewRequest("OPTIONS", "/api/sessions", nil)
-		r.Header.Set("Origin", herkunft)
+		r.Header.Set("Origin", origin)
 		r.Header.Set("Access-Control-Request-Method", "GET")
 		r.Header.Set("Access-Control-Request-Headers", "x-plxr-token")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 
 		if w.Code != http.StatusNoContent {
-			t.Errorf("%s: preflight answered with %d, expected 204", herkunft, w.Code)
+			t.Errorf("%s: preflight answered with %d, expected 204", origin, w.Code)
 		}
-		if got := w.Header().Get("Access-Control-Allow-Origin"); got != herkunft {
-			t.Errorf("%s: Allow-Origin is %q", herkunft, got)
+		if got := w.Header().Get("Access-Control-Allow-Origin"); got != origin {
+			t.Errorf("%s: Allow-Origin is %q", origin, got)
 		}
 		if got := w.Header().Get("Access-Control-Allow-Headers"); got == "" {
-			t.Errorf("%s: without Allow-Headers the webview rejects the token", herkunft)
+			t.Errorf("%s: without Allow-Headers the webview rejects the token", origin)
 		}
 	}
 }

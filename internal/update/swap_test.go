@@ -74,12 +74,12 @@ func TestTargetSurvivesTheCopy(t *testing.T) {
 	bundle(t, fresh, "neu")
 
 	// Reproduce what swap does, and look in between.
-	daneben := target + ".neu"
-	if err := copyTree(fresh, daneben); err != nil {
+	beside := target + ".neu"
+	if err := copyTree(fresh, beside); err != nil {
 		t.Fatal(err)
 	}
 	if got := read(t, target); got != "alt" {
 		t.Errorf("during the copy the target held %q instead of the old version", got)
 	}
-	os.RemoveAll(daneben)
+	os.RemoveAll(beside)
 }

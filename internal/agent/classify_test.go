@@ -18,10 +18,10 @@ func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 	}
 	p.compile()
 
-	faelle := []struct {
+	cases := []struct {
 		name   string
 		screen string
-		will   string
+		want   string
 	}{
 		{"question is open at the prompt",
 			"Welche Farbe?\n  1) rot\n  2) blau\nAuswahl> ", Permission},
@@ -40,23 +40,23 @@ func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 		{"working",
 			"… esc to interrupt", Working},
 	}
-	for _, f := range faelle {
-		if got := p.Classify(f.screen, 9*time.Second); got != f.will {
-			t.Errorf("%s: %q instead of %q", f.name, got, f.will)
+	for _, f := range cases {
+		if got := p.Classify(f.screen, 9*time.Second); got != f.want {
+			t.Errorf("%s: %q instead of %q", f.name, got, f.want)
 		}
 	}
 }
 
 func TestWaitingAtPrompt(t *testing.T) {
-	ja := []string{"Auswahl> ", "Passwort:", "Weiter?"}
+	yes := []string{"Auswahl> ", "Passwort:", "Weiter?"}
 	// Shell prompts are the normal state, not a question.
-	nein := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
-	for _, s := range ja {
+	no := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
+	for _, s := range yes {
 		if !waitingAtPrompt(s) {
 			t.Errorf("%q should count as a prompt", s)
 		}
 	}
-	for _, s := range nein {
+	for _, s := range no {
 		if waitingAtPrompt(s) {
 			t.Errorf("%q should not count as a prompt", s)
 		}

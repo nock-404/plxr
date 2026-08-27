@@ -69,13 +69,13 @@ func List(root, dir string) ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	des, err := os.ReadDir(real)
+	entries, err := os.ReadDir(real)
 	if err != nil {
 		return nil, err
 	}
 
-	out := make([]Entry, 0, len(des))
-	for _, de := range des {
+	out := make([]Entry, 0, len(entries))
+	for _, de := range entries {
 		info, err := de.Info()
 		if err != nil {
 			continue
@@ -208,20 +208,20 @@ func Write(root, path, text string, expectedState int64) (*Content, error) {
 // Unlike the rest of this package NOT tied to a session: the point here is to
 // find a directory in which no session is running yet. Only directory names are
 // read — no file contents.
-func Suggestions(eingabe string, max int) []string {
-	if eingabe == "" {
-		eingabe = "~/"
+func Suggestions(input string, max int) []string {
+	if input == "" {
+		input = "~/"
 	}
-	if strings.HasPrefix(eingabe, "~") {
+	if strings.HasPrefix(input, "~") {
 		home, _ := os.UserHomeDir()
-		eingabe = home + eingabe[1:]
+		input = home + input[1:]
 	}
 
 	// If the input ends on a separator it is the directory itself; otherwise the
 	// last part is a name being typed.
-	dir, rumpf := eingabe, ""
-	if !strings.HasSuffix(eingabe, string(filepath.Separator)) {
-		dir, rumpf = filepath.Split(eingabe)
+	dir, stem := input, ""
+	if !strings.HasSuffix(input, string(filepath.Separator)) {
+		dir, stem = filepath.Split(input)
 	}
 	if dir == "" {
 		dir = "."
@@ -232,7 +232,7 @@ func Suggestions(eingabe string, max int) []string {
 		return []string{}
 	}
 
-	small := strings.ToLower(rumpf)
+	small := strings.ToLower(stem)
 	out := []string{}
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -240,7 +240,7 @@ func Suggestions(eingabe string, max int) []string {
 		}
 		name := e.Name()
 		// Only show hidden entries when they are explicitly being typed.
-		if strings.HasPrefix(name, ".") && !strings.HasPrefix(rumpf, ".") {
+		if strings.HasPrefix(name, ".") && !strings.HasPrefix(stem, ".") {
 			continue
 		}
 		if small != "" && !strings.HasPrefix(strings.ToLower(name), small) {

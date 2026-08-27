@@ -22,7 +22,7 @@ type Entry struct {
 }
 
 // List reads the listening TCP ports. own maps PIDs to plxr sessions.
-func List(eigene map[int]bool) []Entry {
+func List(own map[int]bool) []Entry {
 	// -F forces a line-oriented format that can be parsed reliably; the column
 	// output of lsof breaks on spaces in the process name.
 	out, err := exec.Command("lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-FpcnuL").Output()
@@ -33,7 +33,7 @@ func List(eigene map[int]bool) []Entry {
 	res := []Entry{}
 	var pid int
 	var cmd, user string
-	gesehen := map[string]bool{}
+	seen := map[string]bool{}
 
 	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 2 {
@@ -58,14 +58,14 @@ func List(eigene map[int]bool) []Entry {
 			if err != nil {
 				continue
 			}
-			schluessel := strconv.Itoa(pid) + ":" + addr[i+1:]
-			if gesehen[schluessel] {
+			key := strconv.Itoa(pid) + ":" + addr[i+1:]
+			if seen[key] {
 				continue
 			}
-			gesehen[schluessel] = true
+			seen[key] = true
 			res = append(res, Entry{
 				PID: pid, Command: cmd, Port: port,
-				Addr: addr[:i], User: user, Eigen: eigene[pid],
+				Addr: addr[:i], User: user, Eigen: own[pid],
 			})
 		}
 	}

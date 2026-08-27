@@ -159,14 +159,14 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 	   settled question standing as "needs you" forever — the inbox showed sessions
 	   that had long moved on. Three lines are enough for multi-line dialog boxes
 	   too: their choices always sit at the bottom. */
-	unten := lastNonEmptyLines(screen, 3)
-	amPrompt := waitingAtPrompt(screen)
+	bottom := lastNonEmptyLines(screen, 3)
+	atPrompt := waitingAtPrompt(screen)
 	for _, re := range p.blockedRe {
 		// Either the question sits right at the bottom — then it is open — or the
 		// screen ends on a prompt waiting for input. The second case catches
 		// "question / list of choices / input>", where the question text sits a
 		// few lines above the cursor.
-		if re.MatchString(unten) || (amPrompt && re.MatchString(tail)) {
+		if re.MatchString(bottom) || (atPrompt && re.MatchString(tail)) {
 			return Permission
 		}
 	}
@@ -189,14 +189,14 @@ func waitingAtPrompt(screen string) bool {
 	if last == "" || len(last) > 120 {
 		return false
 	}
-	ohne := strings.TrimRight(last, " \t")
-	if ohne == "" {
+	trimmed := strings.TrimRight(last, " \t")
+	if trimmed == "" {
 		return false
 	}
 	// Deliberately without '$', '#' and '%': those are shell prompts. A shell
 	// sitting there is indeed waiting for input, but that is its normal state
 	// and not a question — otherwise the inbox would report every quiet shell.
-	switch ohne[len(ohne)-1] {
+	switch trimmed[len(trimmed)-1] {
 	case '>', ':', '?':
 		return true
 	}

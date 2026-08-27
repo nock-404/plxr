@@ -10,7 +10,7 @@ import "os"
 // would only be possible through a window message or a console event, and
 // neither reliably reaches services or windowless processes. So here there is
 // no difference between "terminate" and "hard".
-func Kill(pid int, hart bool) error {
+func Kill(pid int, hard bool) error {
 	p, err := os.FindProcess(pid)
 	if err != nil {
 		return err

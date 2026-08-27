@@ -7,25 +7,25 @@ import "testing"
 // still has to recognise its own entry. Otherwise it permanently reports "not
 // installed" and adds another entry next to it on every click.
 func TestRecognisesOwnEntry(t *testing.T) {
-	unser := []string{
+	ours := []string{
 		"/Applications/plxr.app/Contents/MacOS/plxr",
 		"/usr/local/bin/plxr",
 		`C:\Program Files\plxr\plxr.exe`,
 		"/build/bin/plxr-test",
 		"/opt/PLXR",
 	}
-	fremd := []string{
+	foreign := []string{
 		"/Users/x/.claude-fleet/fleet-hook.mjs",
 		"/usr/bin/node",
 		"plxrtools",
 		"",
 	}
-	for _, b := range unser {
+	for _, b := range ours {
 		if !isOurCommand(b) {
 			t.Errorf("%q should count as our own entry", b)
 		}
 	}
-	for _, b := range fremd {
+	for _, b := range foreign {
 		if isOurCommand(b) {
 			t.Errorf("%q should not count as our own entry", b)
 		}
@@ -41,12 +41,12 @@ func TestEntryRecognised(t *testing.T) {
 	if !isOurs(entry) {
 		t.Error("entry with a differing file name was not recognised")
 	}
-	fremd := map[string]any{
+	foreign := map[string]any{
 		"hooks": []any{map[string]any{
 			"type": "command", "command": "/Users/x/.claude-fleet/fleet-hook.mjs",
 		}},
 	}
-	if isOurs(fremd) {
+	if isOurs(foreign) {
 		t.Error("foreign entry was wrongly taken for our own")
 	}
 }

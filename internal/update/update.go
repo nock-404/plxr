@@ -61,10 +61,10 @@ func assetName() string {
 }
 
 // Check asks GitHub for the latest version.
-func Check(aktuell string) Status {
+func Check(current string) Status {
 	// Without a leading "v", exactly like Latest. Otherwise the update bar read
 	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — once with, once without.
-	st := Status{Current: strings.TrimPrefix(aktuell, "v")}
+	st := Status{Current: strings.TrimPrefix(current, "v")}
 
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
@@ -90,7 +90,7 @@ func Check(aktuell string) Status {
 	}
 	st.Latest = strings.TrimPrefix(r.Tag, "v")
 	st.Notes = r.Body
-	st.Available = isNewer(st.Latest, aktuell)
+	st.Available = isNewer(st.Latest, current)
 
 	want := assetName()
 	for _, a := range r.Assets {
@@ -113,7 +113,7 @@ func isNewer(a, b string) bool {
 	if b == "dev" {
 		return false // built from source, do not overwrite
 	}
-	teile := func(v string) []int {
+	parts := func(v string) []int {
 		var out []int
 		for _, s := range strings.Split(strings.TrimPrefix(v, "v"), ".") {
 			n, _ := strconv.Atoi(strings.TrimFunc(s, func(r rune) bool { return r < '0' || r > '9' }))
@@ -121,7 +121,7 @@ func isNewer(a, b string) bool {
 		}
 		return out
 	}
-	x, y := teile(a), teile(b)
+	x, y := parts(a), parts(b)
 	for i := 0; i < len(x) || i < len(y); i++ {
 		var xi, yi int
 		if i < len(x) {
@@ -142,7 +142,7 @@ func isNewer(a, b string) bool {
 // The swap happens through renames: the old version moves aside, the new one
 // into its place. If something goes wrong the old one comes back — a half
 // overwritten program directory would be the worst outcome.
-func Apply(assetURL string, fortschritt func(read, total int64)) (string, error) {
+func Apply(assetURL string, progress func(read, total int64)) (string, error) {
 	if assetURL == "" {
 		return "", errors.New("keine Adresse für das Archiv")
 	}
@@ -157,16 +157,16 @@ func Apply(assetURL string, fortschritt func(read, total int64)) (string, error)
 	}
 	defer os.RemoveAll(tmp)
 
-	archiv := filepath.Join(tmp, "neu.zip")
-	if err := download(assetURL, archiv, fortschritt); err != nil {
+	zipPath := filepath.Join(tmp, "neu.zip")
+	if err := download(assetURL, zipPath, progress); err != nil {
 		return "", err
 	}
-	entpackt := filepath.Join(tmp, "aus")
-	if err := unzip(archiv, entpackt); err != nil {
+	unpacked := filepath.Join(tmp, "aus")
+	if err := unzip(zipPath, unpacked); err != nil {
 		return "", err
 	}
 
-	fresh, err := findApp(entpackt)
+	fresh, err := findApp(unpacked)
 	if err != nil {
 		return "", err
 	}
@@ -203,28 +203,28 @@ func installTarget() (string, error) {
 // exception but the normal case on a poor line. Giving up then leaves you with
 // an updater that works on good WiFi and nowhere else.
 // Resumption goes through Range: bytes already fetched stay where they are.
-func download(url, nach string, fortschritt func(int64, int64)) error {
-	const versuche = 4
+func download(url, dest string, progress func(int64, int64)) error {
+	const attempts = 4
 	var last error
 
-	for versuch := 0; versuch < versuche; versuch++ {
-		if versuch > 0 {
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
 			// Wait a little, but not forever: two seconds, then four, then eight.
-			time.Sleep(time.Duration(1<<versuch) * time.Second)
+			time.Sleep(time.Duration(1<<attempt) * time.Second)
 		}
 
 		// Wie weit sind wir schon?
-		var bereits int64
-		if fi, err := os.Stat(nach); err == nil {
-			bereits = fi.Size()
+		var have int64
+		if fi, err := os.Stat(dest); err == nil {
+			have = fi.Size()
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return err
 		}
-		if bereits > 0 {
-			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", bereits))
+		if have > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", have))
 		}
 
 		res, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
@@ -235,31 +235,31 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 
 		// 206 means: continuation accepted. 200 means: from the start — then the
 		// half file has to go, otherwise two beginnings end up stitched together.
-		anhaengen := res.StatusCode == http.StatusPartialContent
-		if res.StatusCode != http.StatusOK && !anhaengen {
+		resuming := res.StatusCode == http.StatusPartialContent
+		if res.StatusCode != http.StatusOK && !resuming {
 			res.Body.Close()
 			last = fmt.Errorf("Download antwortet mit %d", res.StatusCode)
 			continue
 		}
-		if !anhaengen {
-			bereits = 0
-			os.Remove(nach)
+		if !resuming {
+			have = 0
+			os.Remove(dest)
 		}
 
 		flags := os.O_CREATE | os.O_WRONLY
-		if anhaengen {
+		if resuming {
 			flags |= os.O_APPEND
 		} else {
 			flags |= os.O_TRUNC
 		}
-		f, err := os.OpenFile(nach, flags, 0o644)
+		f, err := os.OpenFile(dest, flags, 0o644)
 		if err != nil {
 			res.Body.Close()
 			return err
 		}
 
-		total := res.ContentLength + bereits
-		read := bereits
+		total := res.ContentLength + have
+		read := have
 		buf := make([]byte, 256*1024)
 		var readErr error
 		for {
@@ -271,8 +271,8 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 					return werr
 				}
 				read += int64(n)
-				if fortschritt != nil {
-					fortschritt(read, total)
+				if progress != nil {
+					progress(read, total)
 				}
 			}
 			if err == io.EOF {
@@ -291,19 +291,19 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 		}
 		last = readErr
 	}
-	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", versuche, last)
+	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", attempts, last)
 }
 
-func unzip(archiv, nach string) error {
-	r, err := zip.OpenReader(archiv)
+func unzip(zipPath, dest string) error {
+	r, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 	for _, f := range r.File {
-		target := filepath.Join(nach, f.Name)
+		target := filepath.Join(dest, f.Name)
 		// Zip slip: an archive must not break out of its target folder.
-		if !strings.HasPrefix(target, filepath.Clean(nach)+string(os.PathSeparator)) {
+		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
 			return errors.New("Archiv enthält einen Pfad außerhalb des Ziels: " + f.Name)
 		}
 		if f.FileInfo().IsDir() {
@@ -346,25 +346,25 @@ func findApp(dir string) (string, error) {
 	return "", errors.New("im Archiv war nichts Ausführbares")
 }
 
-func copyTree(von, nach string) error {
+func copyTree(src, dest string) error {
 	if runtime.GOOS == "darwin" {
 		// ditto preserves bundle structure, permissions and extended attributes —
 		// a plain copy destroys the signature.
-		return exec.Command("ditto", von, nach).Run()
+		return exec.Command("ditto", src, dest).Run()
 	}
-	daten, err := os.ReadFile(von)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(nach, daten, 0o755)
+	return os.WriteFile(dest, data, 0o755)
 }
 
 // Restart starts the swapped-in application and ends the running one.
-func Restart(ort string) error {
+func Restart(path string) error {
 	if runtime.GOOS == "darwin" {
-		return exec.Command("open", "-n", ort).Start()
+		return exec.Command("open", "-n", path).Start()
 	}
-	c := exec.Command(ort)
+	c := exec.Command(path)
 	return c.Start()
 }
 
@@ -382,24 +382,24 @@ swap puts the new version in the place of the old one.
 	still there as .alt.
 */
 func swap(fresh, target string) error {
-	daneben := target + ".neu"
-	os.RemoveAll(daneben)
-	if err := copyTree(fresh, daneben); err != nil {
-		os.RemoveAll(daneben)
+	beside := target + ".neu"
+	os.RemoveAll(beside)
+	if err := copyTree(fresh, beside); err != nil {
+		os.RemoveAll(beside)
 		return errors.New("neue Fassung ließ sich nicht ablegen: " + err.Error())
 	}
 
-	beiseite := target + ".alt"
-	os.RemoveAll(beiseite)
-	if err := os.Rename(target, beiseite); err != nil {
-		os.RemoveAll(daneben)
+	aside := target + ".alt"
+	os.RemoveAll(aside)
+	if err := os.Rename(target, aside); err != nil {
+		os.RemoveAll(beside)
 		return errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
 	}
-	if err := os.Rename(daneben, target); err != nil {
-		os.Rename(beiseite, target) // back to the start
-		os.RemoveAll(daneben)
+	if err := os.Rename(beside, target); err != nil {
+		os.Rename(aside, target) // back to the start
+		os.RemoveAll(beside)
 		return errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
 	}
-	os.RemoveAll(beiseite)
+	os.RemoveAll(aside)
 	return nil
 }

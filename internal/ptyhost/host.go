@@ -152,18 +152,18 @@ var notInherited = []string{
 }
 
 func cleanEnv() []string {
-	alle := os.Environ()
-	out := make([]string, 0, len(alle))
-	for _, kv := range alle {
+	all := os.Environ()
+	out := make([]string, 0, len(all))
+	for _, kv := range all {
 		name, _, _ := strings.Cut(kv, "=")
-		verwerfen := false
+		drop := false
 		for _, n := range notInherited {
 			if name == n {
-				verwerfen = true
+				drop = true
 				break
 			}
 		}
-		if !verwerfen {
+		if !drop {
 			out = append(out, kv)
 		}
 	}
@@ -347,8 +347,8 @@ func (h *Host) Kill() {
 	killProcess(h.cmd.Process, h.platform)
 
 	go func() {
-		frist := time.Now().Add(KillGrace)
-		for time.Now().Before(frist) {
+		deadline := time.Now().Add(KillGrace)
+		for time.Now().Before(deadline) {
 			if !h.Alive() {
 				return
 			}

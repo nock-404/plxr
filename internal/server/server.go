@@ -227,8 +227,8 @@ func (s *Server) Routes() *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/usage", func(w http.ResponseWriter, r *http.Request) {
-		tage, _ := strconv.Atoi(r.URL.Query().Get("tage"))
-		writeJSON(w, s.c.Verbrauch(tage))
+		days, _ := strconv.Atoi(r.URL.Query().Get("tage"))
+		writeJSON(w, s.c.Verbrauch(days))
 	})
 	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Pace())
@@ -340,14 +340,14 @@ func (s *Server) listDir(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-type schreibReq struct {
+type writeReq struct {
 	Path string `json:"path"`
 	Text string `json:"text"`
 	Mod  int64  `json:"mod"`
 }
 
 func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
-	var req schreibReq
+	var req writeReq
 	if json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&req) != nil {
 		http.Error(w, "kaputtes JSON", http.StatusBadRequest)
 		return

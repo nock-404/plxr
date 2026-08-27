@@ -88,11 +88,11 @@ func questionFromScreen(screen string) string {
 			start = 0
 		}
 	}
-	teil := strings.Join(lines[start:end], "\n")
-	if len(teil) > 900 {
-		teil = teil[len(teil)-900:]
+	part := strings.Join(lines[start:end], "\n")
+	if len(part) > 900 {
+		part = part[len(part)-900:]
 	}
-	return strings.TrimSpace(teil)
+	return strings.TrimSpace(part)
 }
 
 type Core struct {
@@ -172,7 +172,7 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 }
 
 // deadLinger is how long an ended session stays visible.
-const totNachlauf = 90 * time.Second
+const deadLinger = 90 * time.Second
 
 // PruneRecordings throws away what is too old or too much.
 //
@@ -236,14 +236,14 @@ func (c *Core) Kill(id string, purge bool) {
 //
 // The inbox lives off this: eight agents, three waiting — you want to work
 // through them, not open each one separately.
-func (c *Core) Answer(id, text string, roh bool) error {
+func (c *Core) Answer(id, text string, raw bool) error {
 	h := c.Host(id)
 	if h == nil {
 		return errors.New("Session läuft nicht")
 	}
 	// A line break sends the answer off. For a control key such as Escape that
 	// would be wrong — it has to arrive on its own.
-	if !roh && !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
+	if !raw && !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
 		text += "\r"
 	}
 	_, err := h.Write([]byte(text))
@@ -278,17 +278,17 @@ func (c *Core) TemplateStart(name string) ([]string, error) {
 			continue
 		}
 		var ids []string
-		var fehler []string
+		var failed []string
 		for _, e := range v.Sessions {
 			s, err := c.Create(e.Cwd, e.Cmd, e.Name, e.Account)
 			if err != nil {
-				fehler = append(fehler, e.Cwd+": "+err.Error())
+				failed = append(failed, e.Cwd+": "+err.Error())
 				continue
 			}
 			ids = append(ids, s.ID)
 		}
-		if len(fehler) > 0 {
-			return ids, errors.New(strings.Join(fehler, "; "))
+		if len(failed) > 0 {
+			return ids, errors.New(strings.Join(failed, "; "))
 		}
 		return ids, nil
 	}
@@ -331,8 +331,8 @@ func (c *Core) archiveFind(id, account string) (archive.Entry, bool) {
 }
 
 // Suche durchsucht alle Transkripte im Volltext.
-func (c *Core) Search(question string, nurEigene bool) []search.Hit {
-	return search.Search(c.Accounts(), question, nurEigene)
+func (c *Core) Search(question string, ownOnly bool) []search.Hit {
+	return search.Search(c.Accounts(), question, ownOnly)
 }
 
 // SucheTerminals durchsucht, was je in einem Terminal stand — auch in
@@ -427,7 +427,7 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 
 // ---- Verbrauch ----
 
-func (c *Core) Verbrauch(tage int) usage.Report { return usage.Compute(c.Accounts(), tage) }
+func (c *Core) Verbrauch(days int) usage.Report { return usage.Compute(c.Accounts(), days) }
 
 // ---- Anbindung an Claude Code ----
 
@@ -436,31 +436,31 @@ func (c *Core) Verbrauch(tage int) usage.Report { return usage.Compute(c.Account
 // HookSet registers in all of them; checking only the first would mean showing
 // "installed" while two accounts stay silent.
 func (c *Core) HookStatus() map[string]any {
-	konten := c.Accounts()
-	acc, _ := accounts.ByName(konten, "")
-	fehlen := []string{}
-	for _, a := range konten {
+	all := c.Accounts()
+	acc, _ := accounts.ByName(all, "")
+	missing := []string{}
+	for _, a := range all {
 		if !hook.Installed(a.Dir) {
-			fehlen = append(fehlen, a.Label)
+			missing = append(missing, a.Label)
 		}
 	}
 	return map[string]any{
-		"eingerichtet": len(konten) > 0 && len(fehlen) == 0,
+		"eingerichtet": len(all) > 0 && len(missing) == 0,
 		"dir":          acc.Dir,
-		"konten":       len(konten),
-		"fehlen":       fehlen,
+		"konten":       len(all),
+		"fehlen":       missing,
 	}
 }
 
 // HookSet registers or unregisters plxr — in every account found, because anyone
 // running several of them wants to see the state from all.
-func (c *Core) HookSetzen(an bool) error {
-	konten := c.Accounts()
-	if len(konten) == 0 {
+func (c *Core) HookSetzen(on bool) error {
+	all := c.Accounts()
+	if len(all) == 0 {
 		return errors.New("kein Claude-Code-Verzeichnis gefunden")
 	}
-	for _, a := range konten {
-		if _, err := hook.Install(a.Dir, !an); err != nil {
+	for _, a := range all {
+		if _, err := hook.Install(a.Dir, !on); err != nil {
 			return err
 		}
 	}
@@ -540,7 +540,7 @@ func (c *Core) Update() error {
 	updateMu.Unlock()
 
 	go func() {
-		ort, err := update.Apply(st.AssetURL, func(read, total int64) {
+		path, err := update.Apply(st.AssetURL, func(read, total int64) {
 			if total <= 0 {
 				return
 			}
@@ -559,7 +559,7 @@ func (c *Core) Update() error {
 				u.Phase = "fehlgeschlagen"
 				return
 			}
-			u.Path, u.Phase, u.Percent = ort, "fertig", 100
+			u.Path, u.Phase, u.Percent = path, "fertig", 100
 		})
 		versionMu.Lock()
 		Version = st.Latest
@@ -672,23 +672,23 @@ func (c *Core) Rules(sessionID, dir string) []rules.Entry {
 
 // Ports lists the occupied ports and marks which belong to plxr sessions.
 func (c *Core) Ports() []ports.Entry {
-	eigene := map[int]bool{}
+	own := map[int]bool{}
 	for _, s := range c.reg.List() {
 		if s.Alive && s.PID > 0 {
-			eigene[s.PID] = true
+			own[s.PID] = true
 		}
 	}
-	return ports.List(eigene)
+	return ports.List(own)
 }
 
-func (c *Core) KillPort(pid int, hart bool) error {
+func (c *Core) KillPort(pid int, hard bool) error {
 	if pid <= 1 {
 		return errors.New("unsinnige Prozess-ID")
 	}
 	if pid == os.Getpid() {
 		return errors.New("das wäre plxr selbst")
 	}
-	return ports.Kill(pid, hart)
+	return ports.Kill(pid, hard)
 }
 
 // ---- Dateien ----
@@ -721,8 +721,8 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 
 // Vorschlaege hilft beim Eintippen eines Pfades. Bewusst ohne Sessionbezug:
 // what is being looked for is a directory with no session running in it yet.
-func (c *Core) Suggestions(eingabe string) []string {
-	return files.Suggestions(eingabe, 40)
+func (c *Core) Suggestions(input string) []string {
+	return files.Suggestions(input, 40)
 }
 
 func (c *Core) WriteFile(sessionID, path, text string, status int64) (*files.Content, error) {
@@ -758,7 +758,7 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		// meant to end, and only disappear once somebody clicks them away or
 		// resumes them.
 		if !sess.Alive && !sess.Orphaned && sess.EndedAt > 0 &&
-			time.Since(time.UnixMilli(sess.EndedAt)) > totNachlauf {
+			time.Since(time.UnixMilli(sess.EndedAt)) > deadLinger {
 			c.cleanup(sess.ID)
 			continue
 		}
@@ -816,15 +816,15 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 // a question, the first observation would otherwise be swallowed and no
 // notification would ever arrive.
 func (c *Core) checkEdge(sess session.Session) {
-	jetzt := sess.Alive && sess.Status == session.StatusPermission
+	now := sess.Alive && sess.Status == session.StatusPermission
 
 	c.mu.Lock()
-	before, gesehen := c.lastStatus[sess.ID]
+	before, seen := c.lastStatus[sess.ID]
 	c.lastStatus[sess.ID] = sess.Status
 	c.mu.Unlock()
 
-	wasBefore := gesehen && before == session.StatusPermission
-	if !jetzt || wasBefore {
+	wasBefore := seen && before == session.StatusPermission
+	if !now || wasBefore {
 		return
 	}
 	// Ganz frisch gestartete Sessions kurz in Ruhe lassen: Claude Code zeigt

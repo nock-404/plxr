@@ -106,36 +106,36 @@ func List(accs []accounts.Account, pathFilter string) []Entry {
 // together. The most recent copy leads — that is most likely the one in which
 // zuletzt gearbeitet wurde.
 func fold(in []Entry) []Entry {
-	nach := map[string]*Entry{}
-	reihe := []string{}
+	byID := map[string]*Entry{}
+	order := []string{}
 	for i := range in {
 		e := in[i]
-		vorh, ok := nach[e.ID]
+		existing, ok := byID[e.ID]
 		if !ok {
-			kopie := e
-			kopie.Accounts = []string{e.Account}
-			nach[e.ID] = &kopie
-			reihe = append(reihe, e.ID)
+			dup := e
+			dup.Accounts = []string{e.Account}
+			byID[e.ID] = &dup
+			order = append(order, e.ID)
 			continue
 		}
-		vorh.Accounts = append(vorh.Accounts, e.Account)
-		if e.Mod > vorh.Mod {
-			acc := vorh.Accounts
-			*vorh = e
-			vorh.Accounts = acc
+		existing.Accounts = append(existing.Accounts, e.Account)
+		if e.Mod > existing.Mod {
+			acc := existing.Accounts
+			*existing = e
+			existing.Accounts = acc
 		}
 		// Fill in missing details from the other copy.
-		if vorh.Title == "" {
-			vorh.Title = e.Title
+		if existing.Title == "" {
+			existing.Title = e.Title
 		}
-		if vorh.Cwd == "" {
-			vorh.Cwd = e.Cwd
+		if existing.Cwd == "" {
+			existing.Cwd = e.Cwd
 		}
 	}
 
-	out := make([]Entry, 0, len(reihe))
-	for _, id := range reihe {
-		e := nach[id]
+	out := make([]Entry, 0, len(order))
+	for _, id := range order {
+		e := byID[id]
 		sort.Strings(e.Accounts)
 		out = append(out, *e)
 	}
@@ -223,12 +223,12 @@ func Mirror(e Entry, target accounts.Account) (string, error) {
 		}
 	}
 
-	daten, err := os.ReadFile(e.Path)
+	data, err := os.ReadFile(e.Path)
 	if err != nil {
 		return "", err
 	}
 	tmp := targetPath + ".plxr-tmp"
-	if err := os.WriteFile(tmp, daten, 0o600); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return "", err
 	}
 	if err := os.Rename(tmp, targetPath); err != nil {

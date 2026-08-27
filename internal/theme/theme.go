@@ -118,7 +118,7 @@ func Skins(skinFS fs.FS) map[string]bool {
 func Load(builtin, skinFS fs.FS) []Theme {
 	skins := Skins(skinFS)
 	byName := map[string]Theme{}
-	eigen := false
+	custom := false
 
 	add := func(b []byte) {
 		var t Theme
@@ -128,7 +128,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 		if t.valid(skins) != nil {
 			return
 		}
-		t.Eigen = eigen
+		t.Eigen = custom
 		byName[t.Name] = t
 	}
 
@@ -146,9 +146,9 @@ func Load(builtin, skinFS fs.FS) []Theme {
 	paths, _ := filepath.Glob(filepath.Join(UserDir(), "*.json"))
 	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil {
-			eigen = true
+			custom = true
 			add(b)
-			eigen = false
+			custom = false
 		}
 	}
 

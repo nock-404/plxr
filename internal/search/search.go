@@ -45,14 +45,14 @@ type line struct {
 }
 
 const (
-	maxHits       = 200
-	maxProSession = 3
-	auszugKontext = 90
-	maxLineLength = 2 << 20
+	maxHits        = 200
+	maxProSession  = 3
+	excerptContext = 90
+	maxLineLength  = 2 << 20
 )
 
 // Search walks every transcript of every account.
-func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
+func Search(accs []accounts.Account, question string, ownOnly bool) []Hit {
 	question = strings.TrimSpace(question)
 	if len(question) < 2 {
 		return []Hit{}
@@ -61,36 +61,36 @@ func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
 
 	files := collect(accs)
 
-	arbeiter := runtime.NumCPU()
-	if arbeiter > 8 {
-		arbeiter = 8
+	workers := runtime.NumCPU()
+	if workers > 8 {
+		workers = 8
 	}
-	rein := make(chan file)
-	raus := make(chan Hit)
+	in := make(chan file)
+	found := make(chan Hit)
 	var wg sync.WaitGroup
 
-	for i := 0; i < arbeiter; i++ {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for d := range rein {
-				if t, ok := scan(d, small, nurEigene); ok {
-					raus <- t
+			for d := range in {
+				if t, ok := scan(d, small, ownOnly); ok {
+					found <- t
 				}
 			}
 		}()
 	}
 	go func() {
 		for _, d := range files {
-			rein <- d
+			in <- d
 		}
-		close(rein)
+		close(in)
 		wg.Wait()
-		close(raus)
+		close(found)
 	}()
 
 	out := []Hit{}
-	for t := range raus {
+	for t := range found {
 		out = append(out, t)
 		if len(out) >= maxHits {
 			break
@@ -98,7 +98,7 @@ func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
 	}
 	// Drain the channel so no worker gets stuck.
 	go func() {
-		for range raus {
+		for range found {
 		}
 	}()
 
@@ -115,7 +115,7 @@ type file struct {
 
 func collect(accs []accounts.Account) []file {
 	var out []file
-	gesehen := map[string]bool{}
+	seen := map[string]bool{}
 	for _, a := range accs {
 		dirs, err := os.ReadDir(a.ProjectsDir())
 		if err != nil {
@@ -135,10 +135,10 @@ func collect(accs []accounts.Account) []file {
 					continue
 				}
 				// Dieselbe Session liegt in mehreren Konten — einmal reicht.
-				if gesehen[f.Name()] {
+				if seen[f.Name()] {
 					continue
 				}
-				gesehen[f.Name()] = true
+				seen[f.Name()] = true
 				info, err := f.Info()
 				if err != nil {
 					continue
@@ -153,7 +153,7 @@ func collect(accs []accounts.Account) []file {
 	return out
 }
 
-func scan(d file, small string, nurEigene bool) (Hit, bool) {
+func scan(d file, small string, ownOnly bool) (Hit, bool) {
 	f, err := os.Open(d.path)
 	if err != nil {
 		return Hit{}, false
@@ -169,19 +169,19 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 	}
 
 	for sc.Scan() {
-		roh := sc.Bytes()
-		if len(roh) == 0 || roh[0] != '{' {
+		raw := sc.Bytes()
+		if len(raw) == 0 || raw[0] != '{' {
 			continue
 		}
 		// Check cheaply first whether the term occurs at all. Unpacking the JSON
 		// is many times more expensive than a substring comparison.
-		hat := strings.Contains(strings.ToLower(string(roh)), small)
+		has := strings.Contains(strings.ToLower(string(raw)), small)
 
 		var z line
-		if !hat && t.Title != "" && t.Cwd != "" {
+		if !has && t.Title != "" && t.Cwd != "" {
 			continue
 		}
-		if json.Unmarshal(roh, &z) != nil {
+		if json.Unmarshal(raw, &z) != nil {
 			continue
 		}
 		if z.Type == "ai-title" && z.AiTitle != "" && t.Title == "" {
@@ -190,15 +190,15 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 		if z.Cwd != "" && t.Cwd == "" {
 			t.Cwd = z.Cwd
 		}
-		if !hat {
+		if !has {
 			continue
 		}
 
-		rolle := z.Message.Role
-		if nurEigene && rolle != "user" {
+		role := z.Message.Role
+		if ownOnly && role != "user" {
 			continue
 		}
-		if rolle != "user" && rolle != "assistant" {
+		if role != "user" && role != "assistant" {
 			continue
 		}
 		text := textFrom(z.Message.Content)
@@ -211,7 +211,7 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 		}
 		t.Count++
 		if t.Auszug == "" {
-			t.Rolle = rolle
+			t.Rolle = role
 			t.Auszug = excerpt(text, i, len(small))
 		}
 		if t.Count >= maxProSession && t.Title != "" {
@@ -231,23 +231,23 @@ func scan(d file, small string, nurEigene bool) (Hit, bool) {
 
 // textFrom pulls the readable text out of the content field, which is sometimes
 // a string and sometimes a list of blocks.
-func textFrom(roh json.RawMessage) string {
-	if len(roh) == 0 {
+func textFrom(raw json.RawMessage) string {
+	if len(raw) == 0 {
 		return ""
 	}
 	var s string
-	if json.Unmarshal(roh, &s) == nil {
+	if json.Unmarshal(raw, &s) == nil {
 		return s
 	}
-	var bloecke []struct {
+	var blocks []struct {
 		Type string `json:"type"`
 		Text string `json:"text"`
 	}
-	if json.Unmarshal(roh, &bloecke) != nil {
+	if json.Unmarshal(raw, &blocks) != nil {
 		return ""
 	}
 	var b strings.Builder
-	for _, x := range bloecke {
+	for _, x := range blocks {
 		if x.Type == "text" && x.Text != "" {
 			if b.Len() > 0 {
 				b.WriteString(" ")
@@ -258,23 +258,23 @@ func textFrom(roh json.RawMessage) string {
 	return b.String()
 }
 
-func excerpt(text string, i, laenge int) string {
+func excerpt(text string, i, length int) string {
 	r := []rune(text)
 	// Convert byte to rune position, otherwise the excerpt cuts multi-byte runes.
 	start := len([]rune(text[:i]))
-	von := start - auszugKontext
-	if von < 0 {
-		von = 0
+	from := start - excerptContext
+	if from < 0 {
+		from = 0
 	}
-	bis := start + laenge + auszugKontext
-	if bis > len(r) {
-		bis = len(r)
+	to := start + length + excerptContext
+	if to > len(r) {
+		to = len(r)
 	}
-	s := strings.Join(strings.Fields(string(r[von:bis])), " ")
-	if von > 0 {
+	s := strings.Join(strings.Fields(string(r[from:to])), " ")
+	if from > 0 {
 		s = "… " + s
 	}
-	if bis < len(r) {
+	if to < len(r) {
 		s += " …"
 	}
 	return s

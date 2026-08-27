@@ -73,16 +73,16 @@ type entry struct {
 // cacheVersion invalidates older caches when the shape changes.
 const cacheVersion = 2
 
-type speicher struct {
+type store struct {
 	mu      sync.Mutex
 	File    map[string]entry `json:"datei"`
 	path    string
 	changed bool
 }
 
-func loadCache() *speicher {
+func loadCache() *store {
 	p := filepath.Join(daemon.Root(), "usage-cache.json")
-	s := &speicher{File: map[string]entry{}, path: p}
+	s := &store{File: map[string]entry{}, path: p}
 	if b, err := os.ReadFile(p); err == nil {
 		json.Unmarshal(b, s)
 		if s.File == nil {
@@ -92,7 +92,7 @@ func loadCache() *speicher {
 	return s
 }
 
-func (s *speicher) saveCache() {
+func (s *store) saveCache() {
 	if !s.changed {
 		return
 	}
@@ -126,7 +126,7 @@ type rawLine struct {
 
 // Compute evaluates all transcripts. days limits it to the last n days
 // (0 = alles).
-func Compute(accs []accounts.Account, tage int) Report {
+func Compute(accs []accounts.Account, days int) Report {
 	start := time.Now()
 	sp := loadCache()
 
@@ -135,7 +135,7 @@ func Compute(accs []accounts.Account, tage int) Report {
 		size, mod     int64
 	}
 	var jobs []job
-	gesehen := map[string]bool{}
+	seen := map[string]bool{}
 	for _, a := range accs {
 		dirs, _ := os.ReadDir(a.ProjectsDir())
 		for _, d := range dirs {
@@ -150,10 +150,10 @@ func Compute(accs []accounts.Account, tage int) Report {
 				}
 				// The same session sits in several accounts. Counting it twice
 				// would triple the spend.
-				if gesehen[f.Name()] {
+				if seen[f.Name()] {
 					continue
 				}
-				gesehen[f.Name()] = true
+				seen[f.Name()] = true
 				info, err := f.Info()
 				if err != nil {
 					continue
@@ -163,27 +163,27 @@ func Compute(accs []accounts.Account, tage int) Report {
 		}
 	}
 
-	arbeiter := runtime.NumCPU()
-	if arbeiter > 8 {
-		arbeiter = 8
+	workers := runtime.NumCPU()
+	if workers > 8 {
+		workers = 8
 	}
-	rein := make(chan job)
-	type erg struct {
+	in := make(chan job)
+	type entryResult struct {
 		account string
 		e       entry
 	}
-	raus := make(chan erg, 64)
+	results := make(chan entryResult, 64)
 	var wg sync.WaitGroup
-	for i := 0; i < arbeiter; i++ {
+	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := range rein {
+			for j := range in {
 				sp.mu.Lock()
 				old, ok := sp.File[j.path]
 				sp.mu.Unlock()
 				if ok && old.Version == cacheVersion && old.Size == j.size && old.Mod == j.mod {
-					raus <- erg{j.account, old}
+					results <- entryResult{j.account, old}
 					continue
 				}
 				e := readAll(j.path)
@@ -192,22 +192,22 @@ func Compute(accs []accounts.Account, tage int) Report {
 				sp.File[j.path] = e
 				sp.changed = true
 				sp.mu.Unlock()
-				raus <- erg{j.account, e}
+				results <- entryResult{j.account, e}
 			}
 		}()
 	}
 	go func() {
 		for _, j := range jobs {
-			rein <- j
+			in <- j
 		}
-		close(rein)
+		close(in)
 		wg.Wait()
-		close(raus)
+		close(results)
 	}()
 
 	cutoff := ""
-	if tage > 0 {
-		cutoff = time.Now().AddDate(0, 0, -tage).Format("2006-01-02")
+	if days > 0 {
+		cutoff = time.Now().AddDate(0, 0, -days).Format("2006-01-02")
 	}
 
 	b := Report{Files: len(jobs)}
@@ -215,29 +215,29 @@ func Compute(accs []accounts.Account, tage int) Report {
 	proj := map[string]*Item{}
 	mod := map[string]*Item{}
 	account := map[string]*Item{}
-	hol := func(m map[string]*Item, k string) *Item {
+	get := func(m map[string]*Item, k string) *Item {
 		if m[k] == nil {
 			m[k] = &Item{}
 		}
 		return m[k]
 	}
 
-	for r := range raus {
-		projekt := r.e.Projekt
-		if projekt == "" {
-			projekt = "(unbekannt)"
+	for r := range results {
+		project := r.e.Projekt
+		if project == "" {
+			project = "(unbekannt)"
 		}
-		for t, nachModell := range r.e.Tage {
+		for t, byModel := range r.e.Tage {
 			if cutoff != "" && t < cutoff {
 				continue
 			}
-			for m, p := range nachModell {
+			for m, p := range byModel {
 				b.Sum.add(p)
-				hol(tag, t).add(p)
-				hol(proj, projekt).add(p)
-				hol(account, r.account).add(p)
+				get(tag, t).add(p)
+				get(proj, project).add(p)
+				get(account, r.account).add(p)
 				if m != "" {
-					hol(mod, m).add(p)
+					get(mod, m).add(p)
 				}
 			}
 		}
@@ -284,12 +284,12 @@ func readAll(path string) entry {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4<<20)
 	for sc.Scan() {
-		roh := sc.Bytes()
-		if len(roh) == 0 || roh[0] != '{' {
+		raw := sc.Bytes()
+		if len(raw) == 0 || raw[0] != '{' {
 			continue
 		}
 		var z rawLine
-		if json.Unmarshal(roh, &z) != nil {
+		if json.Unmarshal(raw, &z) != nil {
 			continue
 		}
 		if z.Cwd != "" && e.Projekt == "" {
@@ -308,16 +308,16 @@ func readAll(path string) entry {
 		if len(z.Timestamp) >= 10 {
 			tag = z.Timestamp[:10]
 		}
-		modell := z.Message.Model
-		if modell == "<synthetic>" {
-			modell = ""
+		model := z.Message.Model
+		if model == "<synthetic>" {
+			model = ""
 		}
 		if e.Tage[tag] == nil {
 			e.Tage[tag] = map[string]Item{}
 		}
-		old := e.Tage[tag][modell]
+		old := e.Tage[tag][model]
 		old.add(p)
-		e.Tage[tag][modell] = old
+		e.Tage[tag][model] = old
 	}
 	return e
 }
@@ -345,15 +345,15 @@ type Pace struct {
 // ComputePace only evaluates the most recently changed transcripts — everything
 // andere kann per Definition nichts zum aktuellen Tempo beitragen.
 func ComputePace(accs []accounts.Account) Pace {
-	jetzt := time.Now()
-	cut5h := jetzt.Add(-5 * time.Hour)
-	cut1h := jetzt.Add(-time.Hour)
-	cut2h := jetzt.Add(-2 * time.Hour)
+	now := time.Now()
+	cut5h := now.Add(-5 * time.Hour)
+	cut1h := now.Add(-time.Hour)
+	cut2h := now.Add(-2 * time.Hour)
 
 	var t Pace
-	var vorstunde int64
-	aktive := map[string]bool{}
-	gesehen := map[string]bool{}
+	var prevHour int64
+	active := map[string]bool{}
+	seen := map[string]bool{}
 
 	for _, a := range accs {
 		dirs, _ := os.ReadDir(a.ProjectsDir())
@@ -364,7 +364,7 @@ func ComputePace(accs []accounts.Account) Pace {
 			pdir := filepath.Join(a.ProjectsDir(), d.Name())
 			files, _ := os.ReadDir(pdir)
 			for _, f := range files {
-				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") || gesehen[f.Name()] {
+				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") || seen[f.Name()] {
 					continue
 				}
 				info, err := f.Info()
@@ -372,26 +372,26 @@ func ComputePace(accs []accounts.Account) Pace {
 				if err != nil || info.ModTime().Before(cut5h) {
 					continue
 				}
-				gesehen[f.Name()] = true
+				seen[f.Name()] = true
 				path := filepath.Join(pdir, f.Name())
 				f5, f1, f2 := window(path, cut5h, cut1h, cut2h)
 				t.Fenster5h += f5
 				t.ProStunde += f1
-				vorstunde += f2
+				prevHour += f2
 				if f1 > 0 {
-					aktive[f.Name()] = true
+					active[f.Name()] = true
 				}
 			}
 		}
 	}
 
-	t.Aktive = len(aktive)
+	t.Aktive = len(active)
 	switch {
-	case vorstunde == 0 && t.ProStunde > 0:
+	case prevHour == 0 && t.ProStunde > 0:
 		t.Trend = "steigt"
-	case t.ProStunde > vorstunde*6/5:
+	case t.ProStunde > prevHour*6/5:
 		t.Trend = "steigt"
-	case t.ProStunde*6/5 < vorstunde:
+	case t.ProStunde*6/5 < prevHour:
 		t.Trend = "faellt"
 	default:
 		t.Trend = "gleich"
@@ -412,21 +412,21 @@ func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 	if err != nil {
 		return
 	}
-	const fenster = 4 << 20
-	if von := info.Size() - fenster; von > 0 {
-		f.Seek(von, 0)
+	const window = 4 << 20
+	if from := info.Size() - window; from > 0 {
+		f.Seek(from, 0)
 	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4<<20)
 	sc.Scan() // angeschnittene erste Zeile
 
 	for sc.Scan() {
-		roh := sc.Bytes()
-		if len(roh) == 0 || roh[0] != '{' {
+		raw := sc.Bytes()
+		if len(raw) == 0 || raw[0] != '{' {
 			continue
 		}
 		var z rawLine
-		if json.Unmarshal(roh, &z) != nil || z.Type != "assistant" {
+		if json.Unmarshal(raw, &z) != nil || z.Type != "assistant" {
 			continue
 		}
 		ts, err := time.Parse(time.RFC3339, z.Timestamp)

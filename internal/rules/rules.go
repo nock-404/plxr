@@ -44,31 +44,31 @@ const maxImportDepth = 3
 // assembles it: global first, then from the root downwards.
 func Resolve(cwd, configDir string) []Entry {
 	out := []Entry{}
-	gesehen := map[string]bool{}
+	seen := map[string]bool{}
 
-	add := func(art Art, p string, ebene int) {
+	add := func(kind Art, p string, level int) {
 		p = filepath.Clean(p)
-		if gesehen[p] {
+		if seen[p] {
 			return
 		}
 		info, err := os.Stat(p)
 		if err != nil || info.IsDir() {
 			return
 		}
-		gesehen[p] = true
+		seen[p] = true
 		out = append(out, Entry{
-			Art: art, Name: shortName(art, p), Path: p,
-			Description: describe(p), Size: info.Size(), Ebene: ebene,
+			Art: kind, Name: shortName(kind, p), Path: p,
+			Description: describe(p), Size: info.Size(), Ebene: level,
 		})
 		for _, imp := range imports(p, 1) {
-			if gesehen[imp] {
+			if seen[imp] {
 				continue
 			}
 			if info, err := os.Stat(imp); err == nil && !info.IsDir() {
-				gesehen[imp] = true
+				seen[imp] = true
 				out = append(out, Entry{
 					Art: Import, Name: filepath.Base(imp), Path: imp,
-					Description: describe(imp), Size: info.Size(), Ebene: ebene,
+					Description: describe(imp), Size: info.Size(), Ebene: level,
 				})
 			}
 		}
@@ -81,38 +81,38 @@ func Resolve(cwd, configDir string) []Entry {
 
 	// 2. From the topmost ancestor down to cwd. Collect from the bottom, then
 	//    reverse — that puts the most general rule first and the most specific last.
-	var kette []string
+	var chain []string
 	for d := filepath.Clean(cwd); ; {
-		kette = append(kette, d)
+		chain = append(chain, d)
 		parent := filepath.Dir(d)
 		if parent == d || parent == "/" || parent == filepath.Dir(os.Getenv("HOME")) {
 			break
 		}
 		d = parent
 	}
-	for i, j := 0, len(kette)-1; i < j; i, j = i+1, j-1 {
-		kette[i], kette[j] = kette[j], kette[i]
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
 	}
-	for ebene, d := range kette {
-		add(Projekt, filepath.Join(d, "CLAUDE.md"), ebene+1)
-		add(Projekt, filepath.Join(d, ".claude", "CLAUDE.md"), ebene+1)
-		add(Lokal, filepath.Join(d, "CLAUDE.local.md"), ebene+1)
+	for level, d := range chain {
+		add(Projekt, filepath.Join(d, "CLAUDE.md"), level+1)
+		add(Projekt, filepath.Join(d, ".claude", "CLAUDE.md"), level+1)
+		add(Lokal, filepath.Join(d, "CLAUDE.local.md"), level+1)
 	}
 
 	// 3. Skills and agents, local and global
-	for _, basis := range []string{filepath.Join(cwd, ".claude"), configDir} {
-		if basis == "" {
+	for _, base := range []string{filepath.Join(cwd, ".claude"), configDir} {
+		if base == "" {
 			continue
 		}
-		ebene := 0
-		if basis != configDir {
-			ebene = len(kette)
+		level := 0
+		if base != configDir {
+			level = len(chain)
 		}
-		for _, s := range glob(filepath.Join(basis, "skills", "*", "SKILL.md")) {
-			add(Skill, s, ebene)
+		for _, s := range glob(filepath.Join(base, "skills", "*", "SKILL.md")) {
+			add(Skill, s, level)
 		}
-		for _, a := range glob(filepath.Join(basis, "agents", "*.md")) {
-			add(Agent, a, ebene)
+		for _, a := range glob(filepath.Join(base, "agents", "*.md")) {
+			add(Agent, a, level)
 		}
 	}
 
@@ -122,16 +122,16 @@ func Resolve(cwd, configDir string) []Entry {
 
 func glob(p string) []string { m, _ := filepath.Glob(p); sort.Strings(m); return m }
 
-func shortName(art Art, p string) string {
-	if art == Skill {
+func shortName(kind Art, p string) string {
+	if kind == Skill {
 		return filepath.Base(filepath.Dir(p))
 	}
 	return filepath.Base(p)
 }
 
 // imports finds @path lines with which a CLAUDE.md pulls in further files.
-func imports(p string, tiefe int) []string {
-	if tiefe > maxImportDepth {
+func imports(p string, depth int) []string {
+	if depth > maxImportDepth {
 		return nil
 	}
 	f, err := os.Open(p)
@@ -192,7 +192,7 @@ func describe(p string) string {
 		}
 	}
 
-	var header, absatz string
+	var header, para string
 	for _, l := range lines {
 		t := strings.TrimSpace(l)
 		if t == "" || t == "---" {
@@ -203,11 +203,11 @@ func describe(p string) string {
 			continue
 		}
 		if !strings.HasPrefix(t, "#") {
-			absatz = t
+			para = t
 			break
 		}
 	}
-	return shorten(strings.TrimSpace(header + " — " + absatz))
+	return shorten(strings.TrimSpace(header + " — " + para))
 }
 
 func shorten(s string) string {

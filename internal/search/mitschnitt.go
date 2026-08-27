@@ -67,11 +67,11 @@ func SearchRecordings(dir, question string, names map[string]RecordingHit) []Rec
 		id := strings.TrimSuffix(filepath.Base(p), ".log")
 		t := RecordingHit{
 			SessionID: id, Mod: info.ModTime().UnixMilli(),
-			Count: res.count, Auszug: res.auszug, Danach: res.danach,
+			Count: res.count, Auszug: res.excerpt, Danach: res.after,
 			Offset: res.offset,
 		}
-		if bekannt, ok := names[id]; ok {
-			t.Name, t.Cwd = bekannt.Name, bekannt.Cwd
+		if known, ok := names[id]; ok {
+			t.Name, t.Cwd = known.Name, known.Cwd
 		}
 		if t.Name == "" {
 			t.Name = "(beendete Session)"
@@ -85,10 +85,10 @@ func SearchRecordings(dir, question string, names map[string]RecordingHit) []Rec
 const maxLine = 1 << 20
 
 type scanResult struct {
-	count  int
-	auszug string
-	danach []string
-	offset int64 // byte position where the first hit's line starts
+	count   int
+	excerpt string
+	after   []string
+	offset  int64 // byte position where the first hit's line starts
 }
 
 /*
@@ -121,34 +121,34 @@ func scanRaw(path, small string) scanResult {
 	   is needed is what came after it. Only after the FIRST — with five hundred
 	   hits nobody wants five hundred blocks of context, and the first one is the
 	   oldest, so the one with the story behind it. */
-	sammeln := 0
+	collect := 0
 	for {
-		roh, err := r.ReadBytes('\n')
-		if len(roh) == 0 && err != nil {
+		raw, err := r.ReadBytes('\n')
+		if len(raw) == 0 && err != nil {
 			break
 		}
 		start := pos
-		pos += int64(len(roh))
+		pos += int64(len(raw))
 
 		// A single line must not be allowed to eat all the memory. A terminal
 		// that never sends a line break exists — a progress bar, for instance.
-		if len(roh) > maxLine {
-			roh = roh[:maxLine]
+		if len(raw) > maxLine {
+			raw = raw[:maxLine]
 		}
-		line := strings.TrimRight(string(roh), "\r\n")
+		line := strings.TrimRight(string(raw), "\r\n")
 
-		if sammeln > 0 {
-			sammeln--
-			if rein := strings.TrimSpace(clean(line, "")); rein != "" {
-				res.danach = append(res.danach, rein)
+		if collect > 0 {
+			collect--
+			if trimmed := strings.TrimSpace(clean(line, "")); trimmed != "" {
+				res.after = append(res.after, trimmed)
 			}
 		}
 		if strings.Contains(strings.ToLower(line), small) {
 			res.count++
-			if res.auszug == "" {
-				res.auszug = clean(line, small)
+			if res.excerpt == "" {
+				res.excerpt = clean(line, small)
 				res.offset = start
-				sammeln = AfterLines
+				collect = AfterLines
 			}
 			// Counting on is cheap; searching for more context is not needed
 			// once both are in hand — from there counting to the cap suffices.
@@ -165,13 +165,13 @@ func scanRaw(path, small string) scanResult {
 
 // clean strips control characters and trims around the match.
 func clean(line, small string) string {
-	rein := stripEscapes(line)
-	i := strings.Index(strings.ToLower(rein), small)
+	trimmed := stripEscapes(line)
+	i := strings.Index(strings.ToLower(trimmed), small)
 	if i < 0 {
 		i = 0
 	}
-	r := []rune(rein)
-	start := len([]rune(rein[:i])) - 70
+	r := []rune(trimmed)
+	start := len([]rune(trimmed[:i])) - 70
 	if start < 0 {
 		start = 0
 	}

@@ -23,18 +23,18 @@ const certName = "plxr Code Signing"
 // The certificate is self-issued and lives only in this user's keychain. It does
 // not make the app more trustworthy — it only makes it
 // wiedererkennbar.
-func resign(ort string) error {
-	if !strings.HasSuffix(ort, ".app") {
+func resign(path string) error {
+	if !strings.HasSuffix(path, ".app") {
 		return nil // only bundles carry a signature
 	}
 	if err := ensureCertificate(); err != nil {
 		return err
 	}
 	// Without this Gatekeeper considers the file downloaded and blocks it.
-	exec.Command("xattr", "-dr", "com.apple.quarantine", ort).Run()
+	exec.Command("xattr", "-dr", "com.apple.quarantine", path).Run()
 
 	return exec.Command("codesign", "--force", "--deep",
-		"--sign", certName, "--identifier", "dev.plxr.app", ort).Run()
+		"--sign", certName, "--identifier", "dev.plxr.app", path).Run()
 }
 
 func ensureCertificate() error {

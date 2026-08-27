@@ -116,9 +116,9 @@ func TestTimelineStaysBoundedOverHours(t *testing.T) {
 
 	// The beginning has to stay fine-grained: that is where people seek.
 	if len(marks) > 2 {
-		erste := marks[1].At - marks[0].At
-		if erste > 300 {
-			t.Errorf("the first marks are already %d ms apart", erste)
+		first := marks[1].At - marks[0].At
+		if first > 300 {
+			t.Errorf("the first marks are already %d ms apart", first)
 		}
 	}
 	// And the marks have to stay in order, otherwise seeking lands wrong.

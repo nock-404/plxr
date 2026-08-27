@@ -62,14 +62,14 @@ func TestSaveAndDelete(t *testing.T) {
 }
 
 func TestNameValidation(t *testing.T) {
-	gut := []string{"arbeitstag", "a-b-c", "x1"}
-	schlecht := []string{"", "Gross", "mit punkt.", "mit/schraeg", `{"json":1}`}
-	for _, n := range gut {
+	valid := []string{"arbeitstag", "a-b-c", "x1"}
+	invalid := []string{"", "Gross", "mit punkt.", "mit/schraeg", `{"json":1}`}
+	for _, n := range valid {
 		if !ValidName(n) {
 			t.Errorf("%q should be allowed", n)
 		}
 	}
-	for _, n := range schlecht {
+	for _, n := range invalid {
 		if ValidName(n) {
 			t.Errorf("%q should be rejected", n)
 		}

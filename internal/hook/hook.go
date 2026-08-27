@@ -95,7 +95,7 @@ func Run(r *os.File) error {
 		json.Unmarshal(b, &old)
 	}
 
-	jetzt := time.Now().UnixMilli()
+	now := time.Now().UnixMilli()
 	z := old
 	z.SessionID = v.SessionID
 	z.Activity = old.Activity
@@ -139,12 +139,12 @@ func Run(r *os.File) error {
 		z.PID, z.TTY = p, tty
 	}
 	if z.StartedAt == 0 {
-		z.StartedAt = jetzt
+		z.StartedAt = now
 	}
 	if old.Status != z.Status || z.Since == 0 {
-		z.Since = jetzt
+		z.Since = now
 	}
-	z.UpdatedAt = jetzt
+	z.UpdatedAt = now
 
 	b, err := json.Marshal(z)
 	if err != nil {
@@ -232,16 +232,16 @@ func fromTranscript(path string, z *State) {
 	if err != nil {
 		return
 	}
-	const fenster = 512 << 10
-	von := info.Size() - fenster
-	if von < 0 {
-		von = 0
+	const window = 512 << 10
+	from := info.Size() - window
+	if from < 0 {
+		from = 0
 	}
-	if _, err := f.Seek(von, 0); err != nil {
+	if _, err := f.Seek(from, 0); err != nil {
 		return
 	}
 	br := bufio.NewReader(f)
-	if von > 0 {
+	if from > 0 {
 		br.ReadString('\n') // angeschnittene Zeile verwerfen
 	}
 
@@ -298,34 +298,34 @@ func fromTranscript(path string, z *State) {
 // match the state to a running session later.
 func claudeProcess() (int, string) {
 	pid := os.Getppid()
-	for tiefe := 0; tiefe < 6 && pid > 1; tiefe++ {
+	for depth := 0; depth < 6 && pid > 1; depth++ {
 		out, err := exec.Command("ps", "-o", "ppid=,tty=,command=", "-p", fmt.Sprint(pid)).Output()
 		if err != nil {
 			return 0, ""
 		}
-		felder := strings.Fields(strings.TrimSpace(string(out)))
-		if len(felder) < 3 {
+		fields := strings.Fields(strings.TrimSpace(string(out)))
+		if len(fields) < 3 {
 			return 0, ""
 		}
-		befehl := strings.Join(felder[2:], " ")
-		if isClaude(befehl) {
-			tty := felder[1]
+		cmdline := strings.Join(fields[2:], " ")
+		if isClaude(cmdline) {
+			tty := fields[1]
 			if tty == "??" {
 				return pid, ""
 			}
 			return pid, "/dev/" + tty
 		}
-		var eltern int
-		fmt.Sscan(felder[0], &eltern)
-		pid = eltern
+		var parent int
+		fmt.Sscan(fields[0], &parent)
+		pid = parent
 	}
 	return 0, ""
 }
 
-func isClaude(befehl string) bool {
-	erst := strings.Fields(befehl)
-	if len(erst) == 0 {
+func isClaude(cmdline string) bool {
+	first := strings.Fields(cmdline)
+	if len(first) == 0 {
 		return false
 	}
-	return filepath.Base(erst[0]) == "claude"
+	return filepath.Base(first[0]) == "claude"
 }

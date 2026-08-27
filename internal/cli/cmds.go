@@ -12,22 +12,22 @@ import (
 )
 
 const (
-	dim   = "\x1b[2m"
-	fett  = "\x1b[1m"
-	gelb  = "\x1b[33m"
-	rot   = "\x1b[31m"
-	gruen = "\x1b[32m"
-	weg   = "\x1b[0m"
+	dim    = "\x1b[2m"
+	bold   = "\x1b[1m"
+	yellow = "\x1b[33m"
+	red    = "\x1b[31m"
+	green  = "\x1b[32m"
+	reset  = "\x1b[0m"
 )
 
 func color(status string) string {
 	switch status {
 	case "working":
-		return gruen
+		return green
 	case "permission":
-		return rot
+		return red
 	case "waiting":
-		return gelb
+		return yellow
 	default:
 		return dim
 	}
@@ -67,9 +67,9 @@ func Ls(c *Client) error {
 			name = t.Name
 		}
 		fmt.Printf("%s%s%s %-8s %s%-28s%s %-13s %s%s%s\n",
-			color(string(t.Status)), glyph[string(t.Status)], weg,
-			t.ID[:8], fett, trunc(name, 28), weg,
-			word(string(t.Status)), dim, t.Cwd, weg)
+			color(string(t.Status)), glyph[string(t.Status)], reset,
+			t.ID[:8], bold, trunc(name, 28), reset,
+			word(string(t.Status)), dim, t.Cwd, reset)
 	}
 	return nil
 }
@@ -99,13 +99,13 @@ func New(c *Client, cwd string, cmd []string) error {
 		return err
 	}
 	fmt.Printf("%s gestartet in %s\n", out.ID[:8], abs)
-	fmt.Printf("%splxr attach %s%s\n", dim, out.ID[:8], weg)
+	fmt.Printf("%splxr attach %s%s\n", dim, out.ID[:8], reset)
 	return nil
 }
 
 // Kill terminates a session.
-func Kill(c *Client, was string) error {
-	t, err := c.Find(was)
+func Kill(c *Client, which string) error {
+	t, err := c.Find(which)
 	if err != nil {
 		return err
 	}
@@ -131,9 +131,9 @@ func Ports(c *Client) error {
 	for _, p := range list {
 		marker := ""
 		if p.Eigen {
-			marker = gruen + " · plxr" + weg
+			marker = green + " · plxr" + reset
 		}
-		fmt.Printf("%5d  %-20s %spid %-7d %s%s%s\n", p.Port, p.Command, dim, p.PID, p.Addr, weg, marker)
+		fmt.Printf("%5d  %-20s %spid %-7d %s%s%s\n", p.Port, p.Command, dim, p.PID, p.Addr, reset, marker)
 	}
 	return nil
 }
@@ -143,8 +143,8 @@ func Ports(c *Client) error {
 // The local screen goes into raw mode for that: keystrokes have to be passed
 // through unchanged, otherwise Ctrl-C would never reach the session
 // an, sondern beendet plxr.
-func Attach(c *Client, was string) error {
-	t, err := c.Find(was)
+func Attach(c *Client, which string) error {
+	t, err := c.Find(which)
 	if err != nil {
 		return err
 	}
@@ -196,18 +196,18 @@ func Attach(c *Client, was string) error {
 	}
 
 	// Forward size changes of the local window.
-	stopp := watchResize(fd, report)
-	defer stopp()
+	stop := watchResize(fd, report)
+	defer stop()
 
-	fertig := make(chan struct{})
+	done := make(chan struct{})
 	go func() {
-		defer close(fertig)
+		defer close(done)
 		for {
-			_, daten, err := conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			if err != nil {
 				return
 			}
-			os.Stdout.Write(daten)
+			os.Stdout.Write(data)
 		}
 	}()
 
@@ -236,11 +236,11 @@ func Attach(c *Client, was string) error {
 		}
 	}()
 
-	<-fertig
+	<-done
 	if old != nil {
 		term.Restore(fd, old)
 	}
-	fmt.Printf("\r\n%sabgehängt — %s läuft weiter%s\r\n", dim, t.Name, weg)
+	fmt.Printf("\r\n%sabgehängt — %s läuft weiter%s\r\n", dim, t.Name, reset)
 	return nil
 }
 

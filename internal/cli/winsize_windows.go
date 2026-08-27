@@ -19,17 +19,17 @@ func watchResize(fd int, report func(rows, cols int)) func() {
 	go func() {
 		t := time.NewTicker(500 * time.Millisecond)
 		defer t.Stop()
-		letztW, letztH := 0, 0
+		lastW, lastH := 0, 0
 		for {
 			select {
 			case <-end:
 				return
 			case <-t.C:
 				w, h, err := term.GetSize(fd)
-				if err != nil || (w == letztW && h == letztH) {
+				if err != nil || (w == lastW && h == lastH) {
 					continue
 				}
-				letztW, letztH = w, h
+				lastW, lastH = w, h
 				report(h, w)
 			}
 		}

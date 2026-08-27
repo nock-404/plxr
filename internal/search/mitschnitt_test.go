@@ -114,15 +114,15 @@ The hit has to carry its byte position, otherwise a click on it can only
 */
 func TestHitCarriesItsPosition(t *testing.T) {
 	dir := t.TempDir()
-	vorne := "erste Zeile\nzweite Zeile\n"
-	logfile(t, dir, "abc", vorne+"HIER ist der Fehler\nund danach\n")
+	head := "erste Zeile\nzweite Zeile\n"
+	logfile(t, dir, "abc", head+"HIER ist der Fehler\nund danach\n")
 
 	hits := SearchRecordings(dir, "HIER ist", nil)
 	if len(hits) != 1 {
 		t.Fatalf("%d hits", len(hits))
 	}
-	if hits[0].Offset != int64(len(vorne)) {
-		t.Errorf("position %d instead of %d", hits[0].Offset, len(vorne))
+	if hits[0].Offset != int64(len(head)) {
+		t.Errorf("position %d instead of %d", hits[0].Offset, len(head))
 	}
 }
 
@@ -130,11 +130,11 @@ func TestHitCarriesItsPosition(t *testing.T) {
 // and every position after the first CRLF would be wrong.
 func TestPositionSurvivesCRLF(t *testing.T) {
 	dir := t.TempDir()
-	vorne := "eins\r\nzwei\r\n"
-	logfile(t, dir, "abc", vorne+"TREFFER\r\n")
+	head := "eins\r\nzwei\r\n"
+	logfile(t, dir, "abc", head+"TREFFER\r\n")
 	hits := SearchRecordings(dir, "TREFFER", nil)
-	if hits[0].Offset != int64(len(vorne)) {
-		t.Errorf("position %d instead of %d — CRLF miscounted", hits[0].Offset, len(vorne))
+	if hits[0].Offset != int64(len(head)) {
+		t.Errorf("position %d instead of %d — CRLF miscounted", hits[0].Offset, len(head))
 	}
 }
 
