@@ -78,10 +78,10 @@ async function req(pfad, opts = {}) {
     // Und nicht den Wortlaut der Webview durchreichen: die sagt je nach
     // System "Load failed" oder "Failed to fetch". Das stand dem Nutzer dann
     // englisch und ohne Zusammenhang im Dialog und erklärte nichts.
-    neuVerbinden();
+    reconnect();
     throw new Error('Keine Verbindung zum Daemon — wird neu aufgebaut.');
   }
-  if (r.status === 403) { neuVerbinden(); throw new Error('Token abgelaufen'); }
+  if (r.status === 403) { reconnect(); throw new Error('Token abgelaufen'); }
   if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
   return r.status === 204 ? null : r.json();
 }
@@ -95,7 +95,7 @@ const b64 = (s) => {
 
 /* Wer hängt gerade an welcher Session. Nötig, um nach einem Daemon-Neustart
    dieselben Verbindungen wieder aufzubauen. */
-const anhaenger = new Map();
+const attachments = new Map();
 
 const api = {
   fenster: WAILS,
@@ -105,7 +105,7 @@ const api = {
 
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
-  themeLoeschen: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  themeDelete: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   /* Der Strom kommt als Bytes, nicht als JSON — base64 würde ihn verdreifachen.
      Deshalb an req vorbei, das JSON erwartet. */
   wiedergabe: async (id, ab = 0) => {
@@ -114,29 +114,29 @@ const api = {
     if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
     return {
       daten: new Uint8Array(await r.arrayBuffer()),
-      groesse: Number(r.headers.get('X-Plxr-Size') || 0),
+      resize: Number(r.headers.get('X-Plxr-Size') || 0),
       beschnitten: r.headers.get('X-Plxr-Cut') === 'true',
     };
   },
   zeitachse: (id) => req(`/api/playback/${encodeURIComponent(id)}/zeitachse`),
-  notbremse: () => req('/api/freeze', { method: 'POST' }),
-  auftauen: () => req('/api/unfreeze', { method: 'POST' }),
+  emergencyBrake: () => req('/api/freeze', { method: 'POST' }),
+  unfreeze: () => req('/api/unfreeze', { method: 'POST' }),
   konten: () => req('/api/accounts'),
-  vorlagen: () => req('/api/vorlagen'),
-  vorlageStarten: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
-  vorlageSpeichern: (name, label) =>
+  templates: () => req('/api/vorlagen'),
+  templateStart: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
+  templateSave: (name, label) =>
     req('/api/vorlagen', { method: 'POST', body: JSON.stringify({ Name: name, Label: label }) }),
-  vorlageLoeschen: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  templateDelete: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   regeln: (session) => req('/api/rules?session=' + encodeURIComponent(session || '')),
   ports: () => req('/api/ports'),
   portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
   verbrauch: (tage) => req('/api/usage?tage=' + tage),
   tempo: () => req('/api/tempo'),
-  fassung: () => req('/api/version'),
+  version: () => req('/api/version'),
   updateStand: () => req('/api/update'),
   neuStarten: () => req('/api/restart', { method: 'POST' }),
   hookStand: () => req('/api/hook'),
-  hookSetzen: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
+  setHook: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   aktualisieren: () => req('/api/update', { method: 'POST' }),
 
   ordner: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
@@ -147,43 +147,43 @@ const api = {
     req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: pfad, text, mod }) }),
 
   archiv: (pfad) => req('/api/archive' + (pfad ? '?path=' + encodeURIComponent(pfad) : '')),
-  archivLoeschen: (id, konto) => req(`/api/archive/${id}?account=${encodeURIComponent(konto || '')}`, { method: 'DELETE' }),
-  archivFortsetzen: (id, konto, ziel) =>
+  archiveDelete: (id, konto) => req(`/api/archive/${id}?account=${encodeURIComponent(konto || '')}`, { method: 'DELETE' }),
+  archiveResume: (id, konto, ziel) =>
     req(`/api/archive/${id}/resume?account=${encodeURIComponent(konto || '')}&target=${encodeURIComponent(ziel || '')}`,
         { method: 'POST' }),
-  suche: (q) => req('/api/search?q=' + encodeURIComponent(q)),
-  sucheTerminals: (q) => req('/api/search/terminals?q=' + encodeURIComponent(q)),
+  search: (q) => req('/api/search?q=' + encodeURIComponent(q)),
+  searchTerminals: (q) => req('/api/search/terminals?q=' + encodeURIComponent(q)),
 
   starten: (cwd, cmd, konto) =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: konto }) }),
   beenden: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
   kontoWechseln: (id, ziel) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(ziel)}`, { method: 'POST' }),
   wiederaufnehmen: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
-  antwortSenden: (id, text, roh) =>
+  sendReply: (id, text, roh) =>
     req(`/api/sessions/${id}/antwort${roh ? '?roh=1' : ''}`, { method: 'POST', body: text }),
 
   // --- Gesamtzustand ---
   _tiles: null,
   _cb: null,
-  aufZustand(cb) { this._cb = cb; this._tilesOeffnen(); },
-  _tilesOeffnen() {
+  aufZustand(cb) { this._cb = cb; this._openTiles(); },
+  _openTiles() {
     const q = state.filter ? '/ws/tiles?path=' + encodeURIComponent(state.filter) : '/ws/tiles';
     if (this._tiles) { this._tiles.onclose = null; this._tiles.close(); }
     const ws = new WebSocket(wsURL(q));
-    ws.onopen = () => zeigeVerbindung(true);
+    ws.onopen = () => showConnection(true);
     ws.onmessage = (e) => this._cb(JSON.parse(e.data));
-    ws.onclose = () => neuVerbinden();
+    ws.onclose = () => reconnect();
     ws.onerror = () => { try { ws.close(); } catch {} };
     this._tiles = ws;
   },
-  filterSetzen() { this._tilesOeffnen(); },
+  setFilter() { this._openTiles(); },
 
   // --- Terminals ---
   // Je Session eine eigene Verbindung, in einer Map statt in einer einzelnen
   // Variablen: sonst ließen sich nie zwei Sessions gleichzeitig anzeigen.
   _verb: new Map(),
-  anhaengen(id, aufDaten, aufEnde) {
-    this.abhaengen(id);
+  attach(id, aufDaten, aufEnde) {
+    this.detach(id);
     const ws = new WebSocket(wsURL(`/ws/session/${id}`));
     ws.binaryType = 'arraybuffer';
     ws.onmessage = (e) => aufDaten(typeof e.data === 'string' ? e.data : new Uint8Array(e.data));
@@ -192,33 +192,33 @@ const api = {
     // "Prozess beendet" wäre schlicht gelogen.
     ws.onclose = () => {
       this._verb.delete(id);
-      aufEnde(verbindungOk ? 'prozess' : 'leitung');
+      aufEnde(connectionOk ? 'prozess' : 'leitung');
     };
     this._verb.set(id, ws);
   },
 
   // Nach einem Daemon-Neustart hängen alle offenen Flächen an toten Sockets.
   // Wer das nicht nachzieht, hat eine Oberfläche, die aussieht als liefe sie.
-  neuAnhaengen() {
-    for (const [id, eintrag] of anhaenger) {
-      this.anhaengen(id, eintrag.aufDaten, eintrag.aufEnde);
+  reattach() {
+    for (const [id, eintrag] of attachments) {
+      this.attach(id, eintrag.aufDaten, eintrag.aufEnde);
       eintrag.beiNeu?.();
     }
   },
-  abhaengen(id) {
-    if (id === undefined) { for (const k of [...this._verb.keys()]) this.abhaengen(k); return; }
+  detach(id) {
+    if (id === undefined) { for (const k of [...this._verb.keys()]) this.detach(k); return; }
     const ws = this._verb.get(id);
     if (!ws) return;
     ws.onclose = null;
     ws.close();
     this._verb.delete(id);
   },
-  _senden(id, obj) {
+  _send(id, obj) {
     const ws = this._verb.get(id);
     if (ws?.readyState === 1) ws.send(JSON.stringify(obj));
   },
-  tippen(id, daten) { this._senden(id, { type: 'in', data: daten }); },
-  groesse(id, rows, cols) { this._senden(id, { type: 'resize', rows, cols }); },
+  tippen(id, daten) { this._send(id, { type: 'in', data: daten }); },
+  resize(id, rows, cols) { this._send(id, { type: 'resize', rows, cols }); },
 };
 
 /* ── Wiederverbinden ──
@@ -226,10 +226,10 @@ const api = {
    kann neu gestartet worden sein und dabei Port und Token gewechselt haben.
    Also erneut fragen statt die Oberfläche zu verwerfen. */
 
-let verbindungOk = true;
-function zeigeVerbindung(ok) {
-  if (ok === verbindungOk) return;
-  verbindungOk = ok;
+let connectionOk = true;
+function showConnection(ok) {
+  if (ok === connectionOk) return;
+  connectionOk = ok;
   document.documentElement.dataset.offline = ok ? '' : 'ja';
   if (!ok) {
     $('#counts').textContent = 'Verbindung verloren, versuche erneut …';
@@ -239,41 +239,41 @@ function zeigeVerbindung(ok) {
      nächsten Zustands-Update stehen zu lassen hieß: läuft gerade nichts, was
      eine Meldung auslöst, klebt "Verbindung verloren" endlos im Kopf, obwohl
      alles wieder geht. */
-  zeichneAlles(state.tiles);
-  ansichtAuffrischen();
+  renderAll(state.tiles);
+  refreshView();
 }
 
 /* Was gerade offen ist, noch einmal laden. Eine Ansicht, die während des
    Ausfalls "nicht erreichbar" angezeigt hat, heilt sonst nicht von selbst —
    der Nutzer müsste sie von Hand neu öffnen und weiß das nicht. */
-function ansichtAuffrischen() {
+function refreshView() {
   const nach = [
-    ['#viewPorts', () => ansichtLaden('#portsList', '#portsInfo', portsLaden)],
-    ['#viewUsage', () => ansichtLaden('#usageBody', '#usageInfo', verbrauchLaden)],
-    ['#viewArchive', () => ansichtLaden('#archList', '#archInfo', archivLaden)],
+    ['#viewPorts', () => loadView('#portsList', '#portsInfo', loadPorts)],
+    ['#viewUsage', () => loadView('#usageBody', '#usageInfo', loadUsage)],
+    ['#viewArchive', () => loadView('#archList', '#archInfo', loadArchive)],
   ];
-  for (const [sel, laden] of nach) {
-    if (!$(sel)?.hidden) laden();
+  for (const [sel, load] of nach) {
+    if (!$(sel)?.hidden) load();
   }
   if (!$('#settings').hidden) {
-    themesLaden($('#themeSel').value).catch(() => {});
-    hookStandZeigen();
+    loadThemes($('#themeSel').value).catch(() => {});
+    showHookStatus();
   }
 }
 
 let neuTimer = null;
-function neuVerbinden() {
+function reconnect() {
   if (neuTimer) return;
-  zeigeVerbindung(false);
+  showConnection(false);
   let wartezeit = 500;
   const versuch = async () => {
     try {
       await connect();
-      await themesLaden($('#themeSel').value);
-      api.aufZustand(zeichneAlles);
-      zeigeVerbindung(true);
+      await loadThemes($('#themeSel').value);
+      api.aufZustand(renderAll);
+      showConnection(true);
       // Erst jetzt die Terminals: vorher wäre die Adresse noch die alte.
-      api.neuAnhaengen();
+      api.reattach();
       neuTimer = null;
     } catch {
       wartezeit = Math.min(wartezeit * 1.6, 5000);
@@ -290,55 +290,55 @@ const PALETTE = ['bg','fg','dim','accent','panel','line','working','waiting','bl
 /* Skinwechsel doppelt gepuffert: das neue Blatt daneben laden, auf onload
    warten, dann erst das alte entfernen. Wer stattdessen href umbiegt, hat für
    ein paar hundert Millisekunden gar kein Stylesheet — und eine nackte Seite. */
-let skinLaeuft = null;
+let skinLoading = null;
 
-function skinSetzen(name) {
+function setSkin(name) {
   const href = `/skins/${name}/skin.css`;
   const alt = $('#skinCss');
   if (alt && alt.getAttribute('href') === href) return Promise.resolve();
-  if (skinLaeuft === href) return Promise.resolve();
-  skinLaeuft = href;
+  if (skinLoading === href) return Promise.resolve();
+  skinLoading = href;
 
   return new Promise((fertig) => {
     const neu = document.createElement('link');
     neu.rel = 'stylesheet';
     neu.href = href;
-    const uebernehmen = () => {
+    const adopt = () => {
       if (alt && alt !== neu) alt.remove();
       neu.id = 'skinCss';
-      skinLaeuft = null;
+      skinLoading = null;
       // Ein anderer Skin bringt andere Wappenzeichen mit.
-      wappenVorrat = null;
+      crestGlyphs = null;
       fertig();
     };
-    neu.addEventListener('load', uebernehmen, { once: true });
+    neu.addEventListener('load', adopt, { once: true });
     // Kaputtes Blatt: das alte bleibt lieber stehen als gar keins.
-    neu.addEventListener('error', () => { neu.remove(); skinLaeuft = null; fertig(); }, { once: true });
+    neu.addEventListener('error', () => { neu.remove(); skinLoading = null; fertig(); }, { once: true });
     document.head.appendChild(neu);
   });
 }
 
-function themeAnwenden(t) {
+function applyTheme(t) {
   if (!t || !t.skin) return;
   const wurzel = document.documentElement;
   wurzel.dataset.skin = t.skin;
   wurzel.dataset.scan = t.scanlines === false ? 'off' : 'on';
   wurzel.dataset.glow = t.glow === false ? 'off' : 'on';
 
-  skinSetzen(t.skin).then(() => {
+  setSkin(t.skin).then(() => {
     // Palette erst setzen, wenn der Skin steht: sonst überschreibt dessen
     // :root-Block die eigenen Werte, weil er später geparst wird.
     for (const k of PALETTE) wurzel.style.removeProperty('--' + k);
     for (const [k, v] of Object.entries(t.palette || {})) {
       if (PALETTE.includes(k)) wurzel.style.setProperty('--' + k, v);
     }
-    for (const p of paneListe()) p.term.options.theme = xtermFarben();
+    for (const p of paneList()) p.term.options.theme = xtermTheme();
 
     /* Ein anderes Theme bringt eine andere Palette mit — eigene Farbänderungen
        gelten dann nicht mehr. Sie stehen zu lassen hieße: der Stil-Editor zeigt
        die Farben des alten Themes an, und Speichern schriebe sie ins neue. */
-    stil.aenderungen = {};
-    if (!$('#settings').hidden) stilEditorBauen();
+    styleState.changes = {};
+    if (!$('#settings').hidden) buildStyleEditor();
   });
 
   try {
@@ -347,25 +347,25 @@ function themeAnwenden(t) {
     // sofort, ohne auf den Daemon zu warten.
     localStorage.setItem('plxr.themeCache', JSON.stringify(t));
   } catch {}
-  loeschKnopfZeigen(t);
+  showDeleteButton(t);
 }
 
 const cssVar = (n, ersatz) =>
   getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim() || ersatz;
 
-function xtermFarben() {
+function xtermTheme() {
   // Eigene Variablen mit Rückfall auf die Oberflächenpalette: ein heller Skin
   // will ein dunkles Terminal, sonst steht Bernstein auf Papier.
   const bg = cssVar('term-bg', cssVar('bg', '#000'));
   const fg = cssVar('term-fg', cssVar('fg', '#ccc'));
   const akz = cssVar('accent', fg), dim = cssVar('dim', fg);
-  const rot = cssVar('blocked', '#f55'), gruen = cssVar('working', '#5f5');
+  const red = cssVar('blocked', '#f55'), green = cssVar('working', '#5f5');
   const tot = cssVar('dead', dim);
   return {
     background: bg, foreground: fg, cursor: akz, selectionBackground: dim,
-    black: bg, red: rot, green: gruen, yellow: akz,
+    black: bg, red: red, green: green, yellow: akz,
     blue: dim, magenta: akz, cyan: fg, white: fg,
-    brightBlack: tot, brightRed: rot, brightGreen: gruen,
+    brightBlack: tot, brightRed: red, brightGreen: green,
     brightYellow: akz, brightBlue: dim, brightMagenta: akz,
     brightCyan: fg, brightWhite: fg,
   };
@@ -376,25 +376,25 @@ function xtermFarben() {
    zu tun. Ein Wechsel darf nie stumm bleiben. */
 /* Löschen gibt es nur für eigene Themes: die eingebauten stecken in der
    Anwendung und wären nach dem nächsten Update ohnehin wieder da. */
-function loeschKnopfZeigen(t) {
-  $('#themeDelete').hidden = !(t || aktuellesTheme())?.eigen;
+function showDeleteButton(t) {
+  $('#themeDelete').hidden = !(t || currentTheme())?.eigen;
 }
 
-function aktuellesTheme() {
+function currentTheme() {
   const wert = $('#themeSel').value;
   if (!wert) return null;
   return state.themes.find((t) => t.name === wert) || { name: wert, skin: wert.split('-')[0], palette: {} };
 }
 
-async function themesLaden(vorwahl) {
-  const liste = await api.themes();
-  if (!liste.length) return;
-  state.themes = liste;
+async function loadThemes(preselect) {
+  const list = await api.themes();
+  if (!list.length) return;
+  state.themes = list;
 
   const sel = $('#themeSel');
   sel.innerHTML = '';
   let gruppe = null, letzterSkin = null;
-  for (const t of liste) {
+  for (const t of list) {
     if (t.skin !== letzterSkin) {
       gruppe = document.createElement('optgroup');
       gruppe.label = t.skin;
@@ -406,25 +406,25 @@ async function themesLaden(vorwahl) {
     o.textContent = t.label;
     gruppe.appendChild(o);
   }
-  const gewuenscht = vorwahl || localStorage.getItem('plxr.theme') || 'crt-amber';
-  sel.value = liste.some((t) => t.name === gewuenscht) ? gewuenscht : liste[0].name;
-  plxrUI.auswahlAlle();
-  themeAnwenden(aktuellesTheme());
+  const wanted = preselect || localStorage.getItem('plxr.theme') || 'crt-amber';
+  sel.value = list.some((t) => t.name === wanted) ? wanted : list[0].name;
+  plxrUI.replaceSelects();
+  applyTheme(currentTheme());
 }
 
 $('#themeSel').addEventListener('change', () => {
-  themeAnwenden(aktuellesTheme());
+  applyTheme(currentTheme());
 });
 
 $('#themeDelete').addEventListener('click', async () => {
-  const t = aktuellesTheme();
+  const t = currentTheme();
   if (!t?.eigen) return;
-  if (!(await plxrUI.frage(t.label, 'Eigenes Theme löschen?'))) return;
+  if (!(await plxrUI.confirm(t.label, 'Eigenes Theme löschen?'))) return;
   try {
-    await api.themeLoeschen(t.name);
-    await themesLaden();
+    await api.themeDelete(t.name);
+    await loadThemes();
   } catch (e) {
-    plxrUI.hinweis(e.message || String(e), 'Nicht gelöscht');
+    plxrUI.notice(e.message || String(e), 'Nicht gelöscht');
   }
 });
 
@@ -433,23 +433,23 @@ $('#themeDelete').addEventListener('click', async () => {
 /* Aussehen und Einrichtung gehören nicht in die Kopfleiste: das stellt man
    einmal ein und sieht es danach nie wieder. */
 
-async function einstellungenOeffnen() {
+async function openSettings() {
   $('#settings').hidden = false;
-  plxrUI.auswahlAlle();
+  plxrUI.replaceSelects();
   $('#themeHint').textContent =
     'Änderungen greifen sofort. Speichern legt ein eigenes Theme an.';
-  stilEditorBauen();
-  loeschKnopfZeigen();
+  buildStyleEditor();
+  showDeleteButton();
   try {
-    const v = await api.fassung();
+    const v = await api.version();
     $('#settingsVersion').textContent =
-      `plxr ${v.aktuell}` + (v.verfuegbar ? ` · ${v.neueste} verfügbar` : ' · aktuell');
+      `plxr ${v.aktuell}` + (v.available ? ` · ${v.latest} verfügbar` : ' · aktuell');
   } catch {
     $('#settingsVersion').textContent = '';
   }
-  hookStandZeigen();
+  showHookStatus();
 }
-$('#settingsBtn').addEventListener('click', einstellungenOeffnen);
+$('#settingsBtn').addEventListener('click', openSettings);
 
 /* ═════════════════════════ Stil anpassen ═════════════════════════
 
@@ -457,7 +457,7 @@ $('#settingsBtn').addEventListener('click', einstellungenOeffnen);
    stimmt. Änderungen greifen sofort, damit man sieht was man tut; gespeichert
    wird erst auf Zuruf, als eigenes Theme neben den mitgelieferten. */
 
-const STILFARBEN = [
+const STYLE_COLORS = [
   ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', 'Nebensächliches'],
   ['accent', 'Hervorhebung'], ['panel', 'Flächen'], ['line', 'Linien'],
   ['working', 'arbeitet'], ['waiting', 'wartet'],
@@ -465,123 +465,123 @@ const STILFARBEN = [
   ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
 ];
 
-const stil = { aenderungen: {}, waehler: {}, fontSize: 0, termSize: 0 };
+const styleState = { changes: {}, waehler: {}, fontSize: 0, termSize: 0 };
 
-function stilEditorBauen() {
+function buildStyleEditor() {
   const box = $('#styleEditor');
   // Schon gebaut: nur die Werte auffrischen. Sonst zeigen die Tupfer nach
   // einem Themewechsel weiter die alten Farben.
   if (box.children.length) {
-    for (const [schluessel] of STILFARBEN) stil.waehler[schluessel]?.setzen(istFarbe(schluessel));
+    for (const [key] of STYLE_COLORS) styleState.waehler[key]?.set(currentColor(key));
     return;
   }
 
-  for (const [schluessel, name] of STILFARBEN) {
-    const zeile = document.createElement('div');
-    zeile.className = 'styleRow';
-    zeile.innerHTML = '<span class="styleName"></span><input class="farbwert" hidden>';
-    zeile.querySelector('.styleName').textContent = name;
-    const feld = zeile.querySelector('.farbwert');
-    feld.value = istFarbe(schluessel);
-    box.appendChild(zeile);
-    stil.waehler[schluessel] = plxrUI.farbwahl(feld, (wert) => {
-      stil.aenderungen[schluessel] = wert;
-      document.documentElement.style.setProperty('--' + schluessel, wert);
-      if (schluessel.startsWith('term-')) fuerAlleFlaechen((p) => { p.term.options.theme = xtermFarben(); });
+  for (const [key, name] of STYLE_COLORS) {
+    const row = document.createElement('div');
+    row.className = 'styleRow';
+    row.innerHTML = '<span class="styleName"></span><input class="farbwert" hidden>';
+    row.querySelector('.styleName').textContent = name;
+    const field = row.querySelector('.farbwert');
+    field.value = currentColor(key);
+    box.appendChild(row);
+    styleState.waehler[key] = plxrUI.colorPicker(field, (wert) => {
+      styleState.changes[key] = wert;
+      document.documentElement.style.setProperty('--' + key, wert);
+      if (key.startsWith('term-')) forEachPane((p) => { p.term.options.theme = xtermTheme(); });
     });
   }
 
-  box.appendChild(zahlZeile('Schriftgröße Oberfläche', 'fontSize', 11, 28, () => {
-    document.documentElement.style.setProperty('--size', stil.fontSize + 'px');
+  box.appendChild(numberRow('Schriftgröße Oberfläche', 'fontSize', 11, 28, () => {
+    document.documentElement.style.setProperty('--size', styleState.fontSize + 'px');
   }));
-  box.appendChild(zahlZeile('Schriftgröße Terminal', 'termSize', 9, 24, () => {
-    fuerAlleFlaechen((p) => { p.term.options.fontSize = stil.termSize; paneNachmessen(p); });
+  box.appendChild(numberRow('Schriftgröße Terminal', 'termSize', 9, 24, () => {
+    forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
   }));
-  box.appendChild(schalterZeile('Zeilenraster', 'scan'));
-  box.appendChild(schalterZeile('Schimmer', 'glow'));
+  box.appendChild(toggleRow('Zeilenraster', 'scan'));
+  box.appendChild(toggleRow('Schimmer', 'glow'));
 }
 
 // Der Ist-Wert einer Farbe: erst die eigene Änderung, dann das, was gerade gilt.
-function istFarbe(schluessel) {
-  if (stil.aenderungen[schluessel]) return stil.aenderungen[schluessel];
-  const wert = cssVar(schluessel, '');
-  return /^#[0-9a-f]{6}$/i.test(wert) ? wert : rgbNachHex(wert) || '#888888';
+function currentColor(key) {
+  if (styleState.changes[key]) return styleState.changes[key];
+  const wert = cssVar(key, '');
+  return /^#[0-9a-f]{6}$/i.test(wert) ? wert : rgbToHex(wert) || '#888888';
 }
 
-function rgbNachHex(wert) {
+function rgbToHex(wert) {
   const m = /rgba?\(([^)]+)\)/.exec(wert);
   if (!m) return null;
   const [r, g, b] = m[1].split(',').map((x) => parseInt(x.trim(), 10));
   return '#' + [r, g, b].map((n) => (n || 0).toString(16).padStart(2, '0')).join('');
 }
 
-function zahlZeile(name, feld, min, max, anwenden) {
-  const zeile = document.createElement('div');
-  zeile.className = 'styleRow';
-  zeile.innerHTML = '<span class="styleName"></span>' +
+function numberRow(name, field, min, max, anwenden) {
+  const row = document.createElement('div');
+  row.className = 'styleRow';
+  row.innerHTML = '<span class="styleName"></span>' +
     '<span class="styleNumber"><button type="button" data-r="-">−</button><span></span>' +
     '<button type="button" data-r="+">+</button></span>';
-  zeile.querySelector('.styleName').textContent = name;
-  const anzeige = zeile.querySelector('.styleNumber span');
+  row.querySelector('.styleName').textContent = name;
+  const anzeige = row.querySelector('.styleNumber span');
 
-  const jetzt = () => stil[feld] || (feld === 'fontSize'
+  const jetzt = () => styleState[field] || (field === 'fontSize'
     ? parseFloat(getComputedStyle(document.body).fontSize)
-    : (paneListe()[0]?.term.options.fontSize || 13));
+    : (paneList()[0]?.term.options.fontSize || 13));
 
-  const zeigen = () => { anzeige.textContent = Math.round(jetzt()); };
-  for (const b of zeile.querySelectorAll('button')) {
+  const show = () => { anzeige.textContent = Math.round(jetzt()); };
+  for (const b of row.querySelectorAll('button')) {
     b.addEventListener('click', () => {
       const neu = Math.min(max, Math.max(min, Math.round(jetzt()) + (b.dataset.r === '+' ? 1 : -1)));
-      stil[feld] = neu;
+      styleState[field] = neu;
       anwenden();
-      zeigen();
+      show();
     });
   }
-  zeigen();
-  return zeile;
+  show();
+  return row;
 }
 
-function schalterZeile(name, welcher) {
-  const zeile = document.createElement('div');
-  zeile.className = 'styleRow';
-  zeile.innerHTML = '<span class="styleName"></span><button type="button" class="styleToggle"></button>';
-  zeile.querySelector('.styleName').textContent = name;
-  const knopf = zeile.querySelector('.styleToggle');
+function toggleRow(name, welcher) {
+  const row = document.createElement('div');
+  row.className = 'styleRow';
+  row.innerHTML = '<span class="styleName"></span><button type="button" class="styleToggle"></button>';
+  row.querySelector('.styleName').textContent = name;
+  const button = row.querySelector('.styleToggle');
   const lesen = () => document.documentElement.dataset[welcher] !== 'off';
-  const zeigen = () => {
-    knopf.dataset.an = lesen() ? 'ja' : 'nein';
-    knopf.textContent = lesen() ? 'AN' : 'AUS';
+  const show = () => {
+    button.dataset.an = lesen() ? 'ja' : 'nein';
+    button.textContent = lesen() ? 'AN' : 'AUS';
   };
-  knopf.addEventListener('click', () => {
+  button.addEventListener('click', () => {
     document.documentElement.dataset[welcher] = lesen() ? 'off' : 'on';
-    zeigen();
+    show();
   });
-  zeigen();
-  return zeile;
+  show();
+  return row;
 }
 
-const fuerAlleFlaechen = (fn) => { for (const p of paneListe()) { try { fn(p); } catch {} } };
+const forEachPane = (fn) => { for (const p of paneList()) { try { fn(p); } catch {} } };
 
 $('#styleReset').addEventListener('click', () => {
-  stil.aenderungen = {};
-  stil.fontSize = 0;
-  stil.termSize = 0;
+  styleState.changes = {};
+  styleState.fontSize = 0;
+  styleState.termSize = 0;
   document.documentElement.style.cssText = '';
-  themeAnwenden(aktuellesTheme());
+  applyTheme(currentTheme());
   $('#styleEditor').innerHTML = '';
-  setTimeout(stilEditorBauen, 300);
+  setTimeout(buildStyleEditor, 300);
 });
 
 $('#styleSave').addEventListener('click', async () => {
-  const basis = aktuellesTheme();
-  const name = await plxrUI.eingabe(
+  const basis = currentTheme();
+  const name = await plxrUI.prompt(
     'Unter welchem Namen? Kleinbuchstaben und Bindestriche.',
     'Eigenes Theme speichern', (basis?.name || 'mein') + '-eigen');
   if (!name) return;
 
   const sauber = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const palette = { ...(basis?.palette || {}) };
-  for (const [k, v] of Object.entries(stil.aenderungen)) {
+  for (const [k, v] of Object.entries(styleState.changes)) {
     if (!k.startsWith('_')) palette[k] = v;
   }
 
@@ -593,21 +593,21 @@ $('#styleSave').addEventListener('click', async () => {
     scanlines: document.documentElement.dataset.scan !== 'off',
     glow: document.documentElement.dataset.glow !== 'off',
   };
-  if (stil.fontSize) theme.fontSize = stil.fontSize;
-  if (stil.termSize) theme.termSize = stil.termSize;
+  if (styleState.fontSize) theme.fontSize = styleState.fontSize;
+  if (styleState.termSize) theme.termSize = styleState.termSize;
 
   try {
     await api.themeImport(JSON.stringify(theme));
-    await themesLaden(sauber);
-    stil.aenderungen = {};
-    plxrUI.hinweis(`„${name}" steht jetzt in der Liste und liegt unter ~/.plxr/themes.`, 'Gespeichert');
+    await loadThemes(sauber);
+    styleState.changes = {};
+    plxrUI.notice(`„${name}" steht jetzt in der Liste und liegt unter ~/.plxr/themes.`, 'Gespeichert');
   } catch (e) {
-    plxrUI.hinweis(e.message || String(e), 'Nicht gespeichert');
+    plxrUI.notice(e.message || String(e), 'Nicht gespeichert');
   }
 });
 $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = true; });
 
-async function hookStandZeigen() {
+async function showHookStatus() {
   try {
     const st = await api.hookStand();
     const mehrere = (st.konten || 1) > 1 ? ` (${st.konten} Konten)` : '';
@@ -627,14 +627,14 @@ async function hookStandZeigen() {
 $('#hookBtn').addEventListener('click', async () => {
   const an = $('#hookBtn').dataset.an === 'ja';
   try {
-    await api.hookSetzen(!an);
-    await hookStandZeigen();
-    plxrUI.hinweis(
+    await api.setHook(!an);
+    await showHookStatus();
+    plxrUI.notice(
       an ? 'plxr ist aus den Claude-Code-Einstellungen entfernt.'
          : 'Eingetragen. Neue Sessions melden ihren Zustand ab sofort.\nVorhandene Hooks blieben unangetastet.',
       'Claude Code');
   } catch (e) {
-    plxrUI.hinweis(e.message || String(e), 'Nicht geändert');
+    plxrUI.notice(e.message || String(e), 'Nicht geändert');
   }
 });
 
@@ -644,9 +644,9 @@ $('#themeFile').addEventListener('change', async (e) => {
   if (!f) return;
   try {
     const t = await api.themeImport(await f.text());
-    await themesLaden(t.name);
+    await loadThemes(t.name);
   } catch (err) {
-    plxrUI.hinweis(err.message || String(err), 'Theme abgelehnt');
+    plxrUI.notice(err.message || String(err), 'Theme abgelehnt');
   }
   e.target.value = '';
 });
@@ -664,7 +664,7 @@ const ANSICHTEN = [
 
 const keineSonderansicht = () => ANSICHTEN.every(([, v]) => $(v).hidden);
 
-function nurZeigen(welche) {
+function showOnly(welche) {
   for (const [, v] of ANSICHTEN) $(v).hidden = true;
   $('#viewSession').hidden = true;
   $('#viewGrid').hidden = true;
@@ -672,36 +672,36 @@ function nurZeigen(welche) {
   if (welche) $(welche).hidden = false;
 }
 
-function zeigeRaster() {
-  paneAlleSchliessen();
-  nurZeigen(null);
+function showGrid() {
+  closeAllPanes();
+  showOnly(null);
   $('#viewGrid').hidden = state.tiles.length === 0;
   $('#empty').hidden = state.tiles.length > 0;
-  zeichneSchiene();
+  renderRail();
 }
-$('#railHome').addEventListener('click', zeigeRaster);
+$('#railHome').addEventListener('click', showGrid);
 
 /* Antwortet der Daemon nicht, soll die Ansicht das sagen. Eine unbehandelte
    Ausnahme lässt stattdessen „liest …" stehen — das sieht aus wie ein Hänger,
    und man weiß nicht, ob man warten soll. */
-async function ansichtLaden(box, info, laden) {
+async function loadView(box, info, load) {
   try {
-    await laden();
+    await load();
   } catch (e) {
     if (info) $(info).textContent = '';
-    leerZeigen($(box), 'nicht erreichbar',
+    showEmpty($(box), 'nicht erreichbar',
       'Der Daemon antwortet gerade nicht. Er wird im Hintergrund neu ' +
       'gestartet — sobald er da ist, füllt sich die Ansicht von selbst.');
   }
 }
 
-async function zeigeArchiv() {
-  paneAlleSchliessen();
-  nurZeigen('#viewArchive');
-  zeichneSchiene();
-  await ansichtLaden('#archList', '#archInfo', archivLaden);
+async function showArchive() {
+  closeAllPanes();
+  showOnly('#viewArchive');
+  renderRail();
+  await loadView('#archList', '#archInfo', loadArchive);
 }
-$('#railArchive').addEventListener('click', zeigeArchiv);
+$('#railArchive').addEventListener('click', showArchive);
 
 /* ═════════════════════════ Posteingang ═════════════════════════
 
@@ -709,7 +709,7 @@ $('#railArchive').addEventListener('click', zeigeArchiv);
    Antwort, und man weiß nicht welche. Hier stehen sie alle mit ihrer Frage —
    antworten, weiter zur nächsten, ohne eine einzige Session zu öffnen. */
 
-const SCHNELLANTWORT = [
+const QUICK_REPLIES = [
   { text: '1', label: '1' },
   { text: '2', label: '2' },
   { text: 'y', label: 'y' },
@@ -725,19 +725,19 @@ const SCHNELLANTWORT = [
 
    Getroffen werden die Formen, die die CLIs tatsächlich benutzen:
    „1) rot", „2. Nein", „❯ 1. Yes" — mit oder ohne Auswahlmarke davor. */
-const OPTIONSZEILE = /^[\s>❯▶*·-]*(\d{1,2})\s*[).:\]]\s+(.{1,60}?)\s*$/;
+const OPTION_LINE = /^[\s>❯▶*·-]*(\d{1,2})\s*[).:\]]\s+(.{1,60}?)\s*$/;
 
-function optionenAus(frage) {
-  if (!frage) return null;
+function optionsFrom(confirm) {
+  if (!confirm) return null;
   const out = [];
   const gesehen = new Set();
-  for (const zeile of String(frage).split('\n')) {
-    const m = OPTIONSZEILE.exec(zeile);
+  for (const row of String(confirm).split('\n')) {
+    const m = OPTION_LINE.exec(row);
     if (!m) continue;
     const [, taste, text] = m;
     if (gesehen.has(taste)) continue;      // dieselbe Ziffer nur einmal
     gesehen.add(taste);
-    out.push({ text: taste, label: `${taste} · ${kurzText(text)}` });
+    out.push({ text: taste, label: `${taste} · ${shorten(text)}` });
     if (out.length >= 5) break;            // mehr passt nicht auf eine Karte
   }
   // Eine einzelne Ziffer ist keine Auswahl, sondern meistens eine Zeilennummer.
@@ -745,49 +745,49 @@ function optionenAus(frage) {
 }
 
 // Der Optionstext kann eine ganze Erklärung sein — auf dem Knopf zählt der Anfang.
-function kurzText(t) {
+function shorten(t) {
   const sauber = t.replace(/\s+/g, ' ').trim();
   return sauber.length > 22 ? sauber.slice(0, 21) + '…' : sauber;
 }
 
 /* Ja/Nein-Fragen tragen keine Nummern, aber dieselbe Not: „y" sagt nicht, wozu. */
-function jaNeinAus(frage) {
-  if (!/\(y\/n\)|\[y\/N\]|\[Y\/n\]/i.test(frage || '')) return null;
+function yesNoFrom(confirm) {
+  if (!/\(y\/n\)|\[y\/N\]|\[Y\/n\]/i.test(confirm || '')) return null;
   return [
     { text: 'y', label: 'y · ja' },
     { text: 'n', label: 'n · nein' },
   ];
 }
 
-function schnellFuer(frage) {
-  const eigene = optionenAus(frage) || jaNeinAus(frage);
-  if (!eigene) return SCHNELLANTWORT;
+function quickRepliesFor(confirm) {
+  const eigene = optionsFrom(confirm) || yesNoFrom(confirm);
+  if (!eigene) return QUICK_REPLIES;
   // Bestätigen und Abbrechen gehören immer dazu.
   return [...eigene,
     { text: '', label: 'Eingabe' },
     { text: '\u001b', label: 'Esc' }];
 }
 
-async function zeigeInbox() {
-  nurZeigen('#viewInbox');
-  zeichneSchiene();
-  inboxZeichnen();
+async function showInbox() {
+  showOnly('#viewInbox');
+  renderRail();
+  renderInbox();
 }
-$('#railInbox').addEventListener('click', zeigeInbox);
-$('#inboxReload').addEventListener('click', () => inboxZeichnen());
+$('#railInbox').addEventListener('click', showInbox);
+$('#inboxReload').addEventListener('click', () => renderInbox());
 
-function wartende() {
+function waitingSessions() {
   return state.tiles.filter((t) => t.alive && t.status === 'permission');
 }
 
-function inboxZeichnen() {
-  const liste = wartende();
+function renderInbox() {
+  const list = waitingSessions();
   const box = $('#inboxBody');
   $('#inboxInfo').textContent =
-    liste.length ? `${liste.length} ${liste.length === 1 ? 'Session wartet' : 'Sessions warten'} auf dich` : '';
+    list.length ? `${list.length} ${list.length === 1 ? 'Session wartet' : 'Sessions warten'} auf dich` : '';
 
-  if (!liste.length) {
-    leerZeigen(box, 'niemand wartet',
+  if (!list.length) {
+    showEmpty(box, 'niemand wartet',
       'Keine Session hängt gerade an einer Rückfrage. Sobald eine wartet, ' +
       'steht sie hier mit ihrer Frage — antworten ohne sie zu öffnen.');
     return;
@@ -796,14 +796,14 @@ function inboxZeichnen() {
   // Vorhandene Karten aktualisieren statt neu bauen, sonst verliert das
   // Antwortfeld bei jedem Tick den Fokus und das Getippte.
   const gesehen = new Set();
-  for (const t of liste) {
+  for (const t of list) {
     gesehen.add(t.id);
-    let karte = box.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
-    if (!karte) {
-      karte = document.createElement('div');
-      karte.className = 'inboxCard';
-      karte.dataset.id = t.id;
-      karte.innerHTML =
+    let card = box.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'inboxCard';
+      card.dataset.id = t.id;
+      card.innerHTML =
         '<div class="inboxHead"><span class="dot permission">◉</span>' +
         '<b class="inboxName"></b><span class="inboxPath"></span>' +
         '<button class="btn tiny" data-t="oeffnen">ÖFFNEN</button></div>' +
@@ -811,38 +811,38 @@ function inboxZeichnen() {
         '<div class="inboxReply"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
         '<span class="inboxQuick"></span></div>';
 
-      karte.querySelector('[data-t="oeffnen"]').addEventListener('click', () => sessionOeffnen(t.id));
+      card.querySelector('[data-t="oeffnen"]').addEventListener('click', () => openSession(t.id));
 
-      const feld = karte.querySelector('.inboxReply input');
-      feld.addEventListener('keydown', async (e) => {
+      const field = card.querySelector('.inboxReply input');
+      field.addEventListener('keydown', async (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
-        await antworten(t.id, feld.value);
-        feld.value = '';
+        await reply(t.id, field.value);
+        field.value = '';
       });
 
-      box.appendChild(karte);
+      box.appendChild(card);
     }
 
-    karte.querySelector('.inboxName').textContent = t.title || t.name;
-    karte.querySelector('.inboxPath').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
-    const frage = karte.querySelector('.inboxQuestion');
-    const neu = t.frage || t.activity || '(keine Frage erkannt)';
-    if (frage.textContent !== neu) frage.textContent = neu;
+    card.querySelector('.inboxName').textContent = t.title || t.name;
+    card.querySelector('.inboxPath').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
+    const confirm = card.querySelector('.inboxQuestion');
+    const neu = t.confirm || t.activity || '(keine Frage erkannt)';
+    if (confirm.textContent !== neu) confirm.textContent = neu;
 
     /* Nur neu bauen, wenn sich die Frage geändert hat: die Karte wird im
        Sekundentakt aufgefrischt, und wer gerade auf einen Knopf zielt, soll
        ihn nicht unter dem Zeiger verlieren. */
-    const schnell = karte.querySelector('.inboxQuick');
-    if (schnell.dataset.fuer !== neu) {
-      schnell.dataset.fuer = neu;
-      schnell.innerHTML = '';
-      for (const a of schnellFuer(t.frage)) {
+    const quick = card.querySelector('.inboxQuick');
+    if (quick.dataset.fuer !== neu) {
+      quick.dataset.fuer = neu;
+      quick.innerHTML = '';
+      for (const a of quickRepliesFor(t.confirm)) {
         const b = document.createElement('button');
         b.textContent = a.label;
         b.dataset.tip = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
-        b.addEventListener('click', () => antworten(t.id, a.text, a.text === '\u001b'));
-        schnell.appendChild(b);
+        b.addEventListener('click', () => reply(t.id, a.text, a.text === '\u001b'));
+        quick.appendChild(b);
       }
     }
   }
@@ -851,32 +851,32 @@ function inboxZeichnen() {
   }
 }
 
-async function antworten(id, text, roh) {
+async function reply(id, text, roh) {
   try {
-    await api.antwortSenden(id, text, roh);
+    await api.sendReply(id, text, roh);
     // Kurz warten, dann neu lesen: die Session braucht einen Moment, bis sie
     // den Status ändert.
-    setTimeout(() => { if (!$('#viewInbox').hidden) inboxZeichnen(); }, 900);
+    setTimeout(() => { if (!$('#viewInbox').hidden) renderInbox(); }, 900);
   } catch (e) {
-    plxrUI.hinweis(e.message || String(e), 'Nicht gesendet');
+    plxrUI.notice(e.message || String(e), 'Nicht gesendet');
   }
 }
 
-async function zeigePorts() {
-  paneAlleSchliessen();
-  nurZeigen('#viewPorts');
-  zeichneSchiene();
-  await ansichtLaden('#portsList', '#portsInfo', portsLaden);
+async function showPorts() {
+  closeAllPanes();
+  showOnly('#viewPorts');
+  renderRail();
+  await loadView('#portsList', '#portsInfo', loadPorts);
 }
-$('#railPorts').addEventListener('click', zeigePorts);
+$('#railPorts').addEventListener('click', showPorts);
 
-async function zeigeVerbrauch() {
-  paneAlleSchliessen();
-  nurZeigen('#viewUsage');
-  zeichneSchiene();
-  await ansichtLaden('#usageBody', '#usageInfo', verbrauchLaden);
+async function showUsage() {
+  closeAllPanes();
+  showOnly('#viewUsage');
+  renderRail();
+  await loadView('#usageBody', '#usageInfo', loadUsage);
 }
-$('#railUsage').addEventListener('click', zeigeVerbrauch);
+$('#railUsage').addEventListener('click', showUsage);
 
 /* ═════════════════════════ Schiene ═════════════════════════ */
 
@@ -891,7 +891,7 @@ const WORT = {
 /* Eingefroren schlägt jeden gemeldeten Status. Eine gestoppte Session schreibt
    nichts mehr — der Hook meldet weiter "arbeitet", die Ruhe-Heuristik sagt
    irgendwann "unbekannt", und beides wäre gelogen. */
-const zustand = (t) =>
+const tileState = (t) =>
   t.eingefroren ? 'eingefroren' : (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
 const ZEICHEN_VERWAIST = '⚠';
 
@@ -907,23 +907,23 @@ const ZEICHEN_VERWAIST = '⚠';
    Die Zeichen kommen aus dem Skin, nicht von hier. Ein Skin ist eine ganze
    visuelle Sprache — win95 zeichnet anders als sketch —, und ein neuer Skin
    soll seine eigenen mitbringen können, ohne dass JavaScript davon weiß. */
-const WAPPEN_ERSATZ = '◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦⌘';
+const CREST_FALLBACK = '◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦⌘';
 
-let wappenVorrat = null;
-function wappenZeichen() {
+let crestGlyphs = null;
+function crestGlyphSet() {
   // Nach jedem Skinwechsel neu lesen: skinSetzen leert das hier.
-  if (wappenVorrat) return wappenVorrat;
+  if (crestGlyphs) return crestGlyphs;
   const roh = getComputedStyle(document.documentElement).getPropertyValue('--wappen').trim();
   // Der Wert kommt als CSS-Zeichenkette, also in Anführungszeichen.
   const sauber = roh.replace(/^["']|["']$/g, '');
-  wappenVorrat = [...(sauber || WAPPEN_ERSATZ)];
-  return wappenVorrat;
+  crestGlyphs = [...(sauber || CREST_FALLBACK)];
+  return crestGlyphs;
 }
 
 /* Kleine, gleichmäßig streuende Streuwertfunktion (FNV-1a). Es geht nicht um
    Sicherheit, sondern darum, dass zwei benachbarte Pfade — app/web und
    app/web2 — nicht dasselbe Zeichen bekommen. */
-function streuwert(text) {
+function hash32(text) {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);
@@ -932,24 +932,24 @@ function streuwert(text) {
   return h;
 }
 
-function wappen(pfad) {
+function crest(pfad) {
   if (!pfad) return '';
-  const zeichen = wappenZeichen();
-  return zeichen[streuwert(pfad) % zeichen.length];
+  const zeichen = crestGlyphSet();
+  return zeichen[hash32(pfad) % zeichen.length];
 }
 
 /* Die Farbe kommt aus demselben Wert, aber aus einer anderen Stelle davon —
    sonst tragen gleiche Zeichen immer dieselbe Farbe und der zweite Hinweis
    wäre keiner. */
-function wappenTon(pfad) {
+function crestHue(pfad) {
   if (!pfad) return '';
-  return `hsl(${(streuwert(pfad + '#ton') % 360)} 60% 60%)`;
+  return `hsl(${(hash32(pfad + '#ton') % 360)} 60% 60%)`;
 }
 
 /* Die Schiene ist der Grund, warum die Session kein Vollbild-Overlay ist: wer
    in einer Session steckt, soll trotzdem sehen, wenn woanders jemand hängt. */
-function zeichneSchiene() {
-  const liste = $('#railList');
+function renderRail() {
+  const list = $('#railList');
   const gruppen = new Map();
   for (const t of state.tiles) {
     const k = t.project || '—';
@@ -960,25 +960,25 @@ function zeichneSchiene() {
   const erwartet = [...gruppen.keys()].map((k) => 'g:' + k)
     .concat(state.tiles.map((t) => 's:' + t.id));
 
-  for (const [projekt, eintraege] of gruppen) {
-    const kopfSchluessel = 'g:' + projekt;
-    let kopf = liste.querySelector(`[data-key="${CSS.escape(kopfSchluessel)}"]`);
+  for (const [projekt, entries] of gruppen) {
+    const headerKey = 'g:' + projekt;
+    let kopf = list.querySelector(`[data-key="${CSS.escape(headerKey)}"]`);
     if (!kopf) {
       kopf = document.createElement('div');
       kopf.className = 'railgroup';
-      kopf.dataset.key = kopfSchluessel;
-      liste.appendChild(kopf);
+      kopf.dataset.key = headerKey;
+      list.appendChild(kopf);
     }
     kopf.textContent = projekt;
 
     // Rückwärts einhängen, damit die Reihenfolge innerhalb der Gruppe stimmt.
-    for (const t of [...eintraege].reverse()) {
-      const schluessel = 's:' + t.id;
-      let el = liste.querySelector(`[data-key="${CSS.escape(schluessel)}"]`);
+    for (const t of [...entries].reverse()) {
+      const key = 's:' + t.id;
+      let el = list.querySelector(`[data-key="${CSS.escape(key)}"]`);
       if (!el) {
         el = document.createElement('button');
         el.className = 'railitem';
-        el.dataset.key = schluessel;
+        el.dataset.key = key;
         el.dataset.id = t.id;
         el.innerHTML =
           '<span class="rdot dot"></span>' +
@@ -987,21 +987,21 @@ function zeichneSchiene() {
         el.addEventListener('click', (ev) => {
           // Mit gedrückter Alt- oder Meta-Taste kommt die Session daneben,
           // statt die vorhandene zu ersetzen.
-          if (ev.altKey || ev.metaKey) paneHinzu(t.id);
-          else sessionOeffnen(t.id);
+          if (ev.altKey || ev.metaKey) addPane(t.id);
+          else openSession(t.id);
         });
       }
       kopf.after(el);
 
-      const st = zustand(t);
+      const st = tileState(t);
       el.dataset.status = st;
       el.classList.toggle('active', state.panes.includes(t.id));
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
       punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
       const rw = el.querySelector('.crest');
-      rw.textContent = wappen(t.cwd);
-      rw.style.color = wappenTon(t.cwd);
+      rw.textContent = crest(t.cwd);
+      rw.style.color = crestHue(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
       el.querySelector('.rsub').textContent = t.verwaist
         ? 'abgestürzt · wiederaufnehmen'
@@ -1010,19 +1010,19 @@ function zeichneSchiene() {
     }
   }
 
-  for (const el of [...liste.children]) {
+  for (const el of [...list.children]) {
     if (!erwartet.includes(el.dataset.key)) el.remove();
   }
 
-  for (const [knopf, ansicht] of ANSICHTEN) $(knopf).classList.toggle('active', !$(ansicht).hidden);
+  for (const [button, ansicht] of ANSICHTEN) $(button).classList.toggle('active', !$(ansicht).hidden);
   $('#railHome').classList.toggle('active', !state.panes.length && keineSonderansicht());
 }
 
 /* ═════════════════════════ Kachelraster ═════════════════════════ */
 
-const ctxKurz = (n) => (!n ? '' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
+const ctxShort = (n) => (!n ? '' : n >= 1000 ? Math.round(n / 1000) + 'k' : String(n));
 
-function seit(ms) {
+function agoText(ms) {
   if (!ms) return '';
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
   if (s < 60) return s + 's';
@@ -1034,11 +1034,11 @@ function seit(ms) {
    bevor sie etwas tut — und das soll man sehen, ohne die Kommandozeile zu
    lesen. Geprüft wird der Anfang des Schalters, damit auch die Kurzform und
    ein angehängtes Gleichheitszeichen greifen. */
-function ungezaehmt(t) {
+function isUntamed(t) {
   return (t.cmd || []).some((a) => /^--dangerously-skip-permissions\b/.test(a));
 }
 
-function zeichneRaster() {
+function renderGrid() {
   const raster = $('#viewGrid');
   const gesehen = new Set();
 
@@ -1054,20 +1054,20 @@ function zeichneRaster() {
         '<span class="tname"></span><span class="tproj"></span></div>' +
         '<pre class="tbody"></pre>' +
         '<div class="tfoot"><span class="act"></span><span class="ctx"></span><span class="agent"></span></div>';
-      el.addEventListener('click', () => sessionOeffnen(t.id));
+      el.addEventListener('click', () => openSession(t.id));
       raster.appendChild(el);
     }
-    const st = zustand(t);
+    const st = tileState(t);
     el.dataset.status = st;
     /* Warnkleid: eine Session mit übergangenen Rückfragen sieht sonst aus wie
        jede andere — vier ruhige Ränder, einer nicht. */
-    el.dataset.ungezaehmt = ungezaehmt(t) ? 'ja' : '';
+    el.dataset.isUntamed = isUntamed(t) ? 'ja' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
     punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
     const w = el.querySelector('.crest');
-    w.textContent = wappen(t.cwd);
-    w.style.color = wappenTon(t.cwd);
+    w.textContent = crest(t.cwd);
+    w.style.color = crestHue(t.cwd);
     w.dataset.tip = t.cwd || '';
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
@@ -1077,14 +1077,14 @@ function zeichneRaster() {
       : (t.alive ? (t.activity || t.last_message || '') : `beendet (${t.exit_code})`);
     el.querySelector('.agent').textContent = t.agent_label || t.agent || '';
     el.querySelector('.ctx').textContent =
-      [t.model?.replace('claude-', ''), t.effort, ctxKurz(t.context), seit(t.since)]
+      [t.model?.replace('claude-', ''), t.effort, ctxShort(t.context), agoText(t.since)]
         .filter(Boolean).join(' · ');
   }
   for (const el of [...raster.children]) if (!gesehen.has(el.dataset.id)) el.remove();
 }
 
 // zeichneAlles ist der einzige Empfänger des Zustandsstroms.
-function zeichneAlles(tiles) {
+function renderAll(tiles) {
   state.tiles = tiles || [];
   const belegt = !!state.panes.length || !keineSonderansicht();
 
@@ -1096,8 +1096,8 @@ function zeichneAlles(tiles) {
   const wartet = blockiert;
   $('#inboxCount').textContent = wartet || '';
   $('#railInbox').dataset.status = wartet ? 'permission' : '';
-  if (!$('#viewInbox').hidden) inboxZeichnen();
-  if (verbindungOk) {
+  if (!$('#viewInbox').hidden) renderInbox();
+  if (connectionOk) {
     $('#counts').textContent =
       `${state.tiles.length} ${state.tiles.length === 1 ? 'Session' : 'Sessions'} · ` +
       `${laufen} ${laufen === 1 ? 'läuft' : 'laufen'}` +
@@ -1105,17 +1105,17 @@ function zeichneAlles(tiles) {
       (verwaist ? ` · ${verwaist} vom Absturz betroffen` : '');
   }
 
-  zeichneRaster();
-  zeichneSchiene();
+  renderGrid();
+  renderRail();
   if (!belegt) {
     $('#viewGrid').hidden = state.tiles.length === 0;
     $('#empty').hidden = state.tiles.length > 0;
   }
   // Eine Fläche, deren Session verschwunden ist, muss weg.
   for (const id of [...state.panes]) {
-    if (!state.tiles.some((t) => t.id === id)) paneSchliessen(id);
+    if (!state.tiles.some((t) => t.id === id)) closePane(id);
   }
-  if (state.panes.length) kopfleisteAktualisieren();
+  if (state.panes.length) updateHeader();
 }
 
 /* ═════════════════════════ Pfadvervollständigung ═════════════════════════ */
@@ -1124,90 +1124,90 @@ function zeichneAlles(tiles) {
    Pfadfeld echte Unterverzeichnisse vor: Pfeiltasten wählen, Tab ergänzt,
    Eingabetaste übernimmt. */
 
-function pfadHilfe(feld, beiWahl) {
+function pathComplete(field, onPick) {
   // Die Liste hängt am Rumpf, nicht am Feld: sonst schneidet sie jeder
   // Vorfahre mit overflow ab, und die Statuszeile legt sich darüber.
-  const liste = document.createElement('div');
-  liste.className = 'selectList pathList';
-  liste.hidden = true;
-  document.body.appendChild(liste);
+  const list = document.createElement('div');
+  list.className = 'selectList pathList';
+  list.hidden = true;
+  document.body.appendChild(list);
 
   const stellen = () => {
-    const r = feld.getBoundingClientRect();
-    liste.style.left = r.left + 'px';
-    liste.style.top = r.bottom + 4 + 'px';
-    liste.style.minWidth = Math.max(r.width, 380) + 'px';
+    const r = field.getBoundingClientRect();
+    list.style.left = r.left + 'px';
+    list.style.top = r.bottom + 4 + 'px';
+    list.style.minWidth = Math.max(r.width, 380) + 'px';
     // Passt sie nicht mehr nach unten, klappt sie nach oben.
     const platz = window.innerHeight - r.bottom;
     if (platz < 240) {
-      liste.style.top = 'auto';
-      liste.style.bottom = window.innerHeight - r.top + 4 + 'px';
+      list.style.top = 'auto';
+      list.style.bottom = window.innerHeight - r.top + 4 + 'px';
     } else {
-      liste.style.bottom = 'auto';
+      list.style.bottom = 'auto';
     }
   };
 
   let treffer = [];
-  let gewaehlt = -1;
+  let picked = -1;
   let timer;
 
-  const zu = () => { liste.hidden = true; gewaehlt = -1; };
+  const zu = () => { list.hidden = true; picked = -1; };
 
-  const zeichnen = () => {
-    liste.innerHTML = '';
+  const render = () => {
+    list.innerHTML = '';
     if (!treffer.length) { zu(); return; }
     treffer.forEach((pfad, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'selectRow';
       b.textContent = pfad;
-      if (i === gewaehlt) b.dataset.gewaehlt = 'ja';
+      if (i === picked) b.dataset.picked = 'ja';
       b.addEventListener('mousedown', (e) => { e.preventDefault(); waehlen(pfad); });
-      liste.appendChild(b);
+      list.appendChild(b);
     });
     stellen();
-    liste.hidden = false;
+    list.hidden = false;
   };
 
   const waehlen = (pfad) => {
     // Trenner anhängen: der nächste Tastendruck sucht dann schon darin.
-    feld.value = pfad.endsWith('/') ? pfad : pfad + '/';
+    field.value = pfad.endsWith('/') ? pfad : pfad + '/';
     zu();
-    beiWahl?.(feld.value);
-    laden();
+    onPick?.(field.value);
+    load();
   };
 
-  const laden = () => {
+  const load = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      treffer = await api.pfade(feld.value);
-      gewaehlt = -1;
-      zeichnen();
+      treffer = await api.pfade(field.value);
+      picked = -1;
+      render();
     }, 120);
   };
 
-  feld.addEventListener('input', laden);
-  feld.addEventListener('focus', laden);
-  feld.addEventListener('blur', () => setTimeout(zu, 120));
+  field.addEventListener('input', load);
+  field.addEventListener('focus', load);
+  field.addEventListener('blur', () => setTimeout(zu, 120));
 
-  feld.addEventListener('keydown', (e) => {
-    if (liste.hidden || !treffer.length) {
-      if (e.key === 'Tab' || e.key === 'ArrowDown') { laden(); }
+  field.addEventListener('keydown', (e) => {
+    if (list.hidden || !treffer.length) {
+      if (e.key === 'Tab' || e.key === 'ArrowDown') { load(); }
       return;
     }
     if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
       e.preventDefault();
-      gewaehlt = (gewaehlt + 1) % treffer.length;
-      zeichnen();
-      liste.children[gewaehlt]?.scrollIntoView({ block: 'nearest' });
+      picked = (picked + 1) % treffer.length;
+      render();
+      list.children[picked]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
       e.preventDefault();
-      gewaehlt = (gewaehlt - 1 + treffer.length) % treffer.length;
-      zeichnen();
-      liste.children[gewaehlt]?.scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter' && gewaehlt >= 0) {
+      picked = (picked - 1 + treffer.length) % treffer.length;
+      render();
+      list.children[picked]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && picked >= 0) {
       e.preventDefault();
-      waehlen(treffer[gewaehlt]);
+      waehlen(treffer[picked]);
     } else if (e.key === 'Escape') {
       zu();
     }
@@ -1217,34 +1217,34 @@ function pfadHilfe(feld, beiWahl) {
 /* Der Filter greift erst auf Bestätigung. Beim Tippen zu filtern heißt: nach
    jedem Zeichen verschwinden alle Kacheln, weil "/Volumes/…/pro" noch kein
    Verzeichnis ist. */
-function filterUebernehmen() {
+function applyFilter() {
   const wert = $('#pathFilter').value.trim().replace(/\/$/, '');
   if (wert === state.filter) return;
   state.filter = wert;
   localStorage.setItem('plxr.filter', state.filter);
-  api.filterSetzen();
+  api.setFilter();
 }
-$('#pathFilter').addEventListener('change', filterUebernehmen);
+$('#pathFilter').addEventListener('change', applyFilter);
 $('#pathFilter').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.target.blur(); filterUebernehmen(); }
+  if (e.key === 'Enter') { e.target.blur(); applyFilter(); }
   if (e.key === 'Escape') { e.target.value = state.filter; e.target.blur(); }
 });
 
 /* ═════════════════════════ Terminalflächen ═════════════════════════ */
 
 const panes = new Map(); // id -> { term, fit, el, ro }
-const paneListe = () => [...panes.values()];
+const paneList = () => [...panes.values()];
 const MAX_PANES = 4;
 
-function sessionOeffnen(id) {
-  paneAlleSchliessen();
-  paneHinzu(id);
+function openSession(id) {
+  closeAllPanes();
+  addPane(id);
 }
 
-function paneHinzu(id) {
-  if (panes.has(id)) { paneAktiv(id); return; }
+function addPane(id) {
+  if (panes.has(id)) { paneActivate(id); return; }
   if (state.panes.length >= MAX_PANES) {
-    plxrUI.hinweis(`Mehr als ${MAX_PANES} Flächen werden unübersichtlich.`, 'Genug geteilt');
+    plxrUI.notice(`Mehr als ${MAX_PANES} Flächen werden unübersichtlich.`, 'Genug geteilt');
     return;
   }
   const t = state.tiles.find((x) => x.id === id);
@@ -1252,27 +1252,27 @@ function paneHinzu(id) {
   if (t.verwaist) {
     // Der Daemon endete, während die Session lief. Bei Claude Code steht die
     // Unterhaltung im Transkript — von dort geht es weiter.
-    plxrUI.frage(`${t.name} lief noch, als der Daemon endete.\n${t.cwd}`, 'Wiederaufnehmen?')
+    plxrUI.confirm(`${t.name} lief noch, als der Daemon endete.\n${t.cwd}`, 'Wiederaufnehmen?')
       .then(async (ja) => {
         if (!ja) return;
         try {
           const neu = await api.wiederaufnehmen(t.id);
-          setTimeout(() => sessionOeffnen(neu.id), 700);
+          setTimeout(() => openSession(neu.id), 700);
         } catch (e) {
-          plxrUI.hinweis(e.message || String(e), 'Nicht wiederaufgenommen');
+          plxrUI.notice(e.message || String(e), 'Nicht wiederaufgenommen');
         }
       });
     return;
   }
   if (!t.alive) {
     // Ein totes PTY hat keinen Datenstrom mehr — die Fläche bliebe leer.
-    plxrUI.hinweis(
+    plxrUI.notice(
       `${t.name} ist beendet (Code ${t.exit_code}).\nIm Archiv lässt sich die Unterhaltung fortsetzen.`,
       'Nicht mehr aktiv');
     return;
   }
 
-  nurZeigen(null);
+  showOnly(null);
   $('#viewSession').hidden = false;
   $('#rulesPane').hidden = true;
   $('#viewer').hidden = true;
@@ -1282,8 +1282,8 @@ function paneHinzu(id) {
   el.dataset.id = id;
   el.innerHTML = '<span class="panelabel"></span><button class="paneclose" title="Fläche schließen">✕</button><div class="pterm"></div>';
   el.querySelector('.panelabel').textContent = t.agent_label || t.agent || t.name;
-  el.querySelector('.paneclose').addEventListener('click', (ev) => { ev.stopPropagation(); paneSchliessen(id); });
-  el.addEventListener('mousedown', () => paneAktiv(id));
+  el.querySelector('.paneclose').addEventListener('click', (ev) => { ev.stopPropagation(); closePane(id); });
+  el.addEventListener('mousedown', () => paneActivate(id));
   $('#panes').appendChild(el);
 
   /* Der Terminal-Aufbau. Die Voreinstellungen von xterm.js reichen für ein
@@ -1296,7 +1296,7 @@ function paneHinzu(id) {
      anderen Terminals kennt. */
   const term = new Terminal({
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-    fontSize: stil.termSize || 13,
+    fontSize: styleState.termSize || 13,
     lineHeight: 1.15,
     letterSpacing: 0,
     cursorBlink: true,
@@ -1319,15 +1319,15 @@ function paneHinzu(id) {
     // Sonst zeichnet xterm fetten Text in der hellen Farbvariante und die
     // Palette des Skins zerfällt.
     drawBoldTextInBrightColors: false,
-    theme: xtermFarben(),
+    theme: xtermTheme(),
   });
 
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
 
   // Suche im Scrollback.
-  const suche = new SearchAddon.SearchAddon();
-  term.loadAddon(suche);
+  const search = new SearchAddon.SearchAddon();
+  term.loadAddon(search);
 
   // Anklickbare Adressen. Ohne das muss man jede URL von Hand abtippen.
   term.loadAddon(new WebLinksAddon.WebLinksAddon((_, url) => {
@@ -1399,7 +1399,7 @@ function paneHinzu(id) {
       term.selectAll();
       return false;
     }
-    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'f') { sucheOeffnen(); return false; }
+    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'f') { openFind(); return false; }
     if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'k') { term.clear(); return false; }
     return true;
   });
@@ -1410,11 +1410,11 @@ function paneHinzu(id) {
      macOS und Windows haben den nicht — dort würde jedes Ziehen mit der Maus
      überschreiben, was der Nutzer vorher kopiert hatte. ⌘C reicht. */
 
-  const eintrag = { id, term, fit, suche, serial, el };
+  const eintrag = { id, term, fit, search, serial, el };
   panes.set(id, eintrag);
   state.panes.push(id);
 
-  const nachziehen = () => paneNachmessen(eintrag);
+  const nachziehen = () => paneRefit(eintrag);
   let timer;
   eintrag.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(nachziehen, 60); });
   eintrag.ro.observe(el.querySelector('.pterm'));
@@ -1425,19 +1425,19 @@ function paneHinzu(id) {
       ? '\r\n[plxr] Verbindung zum Daemon verloren — wird neu aufgebaut …\r\n'
       : '\r\n[plxr] Prozess beendet.\r\n');
   };
-  anhaenger.set(id, { aufDaten, aufEnde, beiNeu: () => term.write('\r\n[plxr] wieder verbunden.\r\n') });
-  api.anhaengen(id, aufDaten, aufEnde);
+  attachments.set(id, { aufDaten, aufEnde, beiNeu: () => term.write('\r\n[plxr] wieder verbunden.\r\n') });
+  api.attach(id, aufDaten, aufEnde);
   requestAnimationFrame(() => { nachziehen(); term.focus(); });
 
-  paneAktiv(id);
-  zeichneSchiene();
-  dateibaumLaden(t);
+  paneActivate(id);
+  renderRail();
+  loadFileTree(t);
 }
 
 /* FitAddon rundet die Zeilenzahl auf. Passt die letzte Zeile nicht mehr ganz
    in die Fläche, ragt sie unten heraus und wird angeschnitten — also so lange
    eine wegnehmen, bis es wirklich passt. */
-function paneNachmessen(p) {
+function paneRefit(p) {
   try {
     p.fit.fit();
     const kasten = p.el.querySelector('.pterm');
@@ -1447,43 +1447,43 @@ function paneNachmessen(p) {
       if (p.term.rows <= 4) break;
       p.term.resize(p.term.cols, p.term.rows - 1);
     }
-    api.groesse(p.id, p.term.rows, p.term.cols);
+    api.resize(p.id, p.term.rows, p.term.cols);
   } catch {}
 }
 
-function paneAktiv(id) {
+function paneActivate(id) {
   // Beim Markieren von Text feuert mousedown ständig — ohne diese Sperre
   // baut sich der Dateibaum bei jedem Zug neu auf.
   if (state.aktiv === id && panes.has(id)) return;
   state.aktiv = id;
-  for (const p of paneListe()) p.el.dataset.aktiv = p.id === id ? 'ja' : 'nein';
-  kopfleisteAktualisieren();
+  for (const p of paneList()) p.el.dataset.aktiv = p.id === id ? 'ja' : 'nein';
+  updateHeader();
   const t = state.tiles.find((x) => x.id === id);
-  if (t) dateibaumLaden(t);
+  if (t) loadFileTree(t);
 }
 
-function paneSchliessen(id) {
+function closePane(id) {
   const p = panes.get(id);
   if (!p) return;
-  api.abhaengen(id);
-  anhaenger.delete(id);
+  api.detach(id);
+  attachments.delete(id);
   p.ro?.disconnect();
   p.term.dispose();
   p.el.remove();
   panes.delete(id);
   state.panes = state.panes.filter((x) => x !== id);
   if (state.aktiv === id) state.aktiv = state.panes[0] || null;
-  if (!state.panes.length) zeigeRaster();
-  else { paneAktiv(state.aktiv); for (const q of paneListe()) paneNachmessen(q); }
-  zeichneSchiene();
+  if (!state.panes.length) showGrid();
+  else { paneActivate(state.aktiv); for (const q of paneList()) paneRefit(q); }
+  renderRail();
 }
 
-function paneAlleSchliessen() {
+function closeAllPanes() {
   for (const id of [...state.panes]) {
     const p = panes.get(id);
     if (!p) continue;
-    api.abhaengen(id);
-    anhaenger.delete(id);
+    api.detach(id);
+    attachments.delete(id);
     p.ro?.disconnect();
     p.term.dispose();
     p.el.remove();
@@ -1493,51 +1493,51 @@ function paneAlleSchliessen() {
   state.aktiv = null;
 }
 
-function kopfleisteAktualisieren() {
+function updateHeader() {
   const t = state.tiles.find((x) => x.id === state.aktiv);
   if (!t) return;
   $('#sessTitle').textContent = t.title || t.name;
   $('#sessMeta').textContent = [t.cwd, t.branch].filter(Boolean).join('  ·  ');
-  kontenFuellen('#sessAccount').then(() => { if (t.account) $('#sessAccount').value = t.account; });
+  fillAccounts('#sessAccount').then(() => { if (t.account) $('#sessAccount').value = t.account; });
 }
 
 $('#sessKill').addEventListener('click', async () => {
   if (!state.aktiv) return;
   const t = state.tiles.find((x) => x.id === state.aktiv);
-  if (!(await plxrUI.frage(t?.name || '', 'Session wirklich beenden?'))) return;
+  if (!(await plxrUI.confirm(t?.name || '', 'Session wirklich beenden?'))) return;
   await api.beenden(state.aktiv);
-  paneSchliessen(state.aktiv);
+  closePane(state.aktiv);
 });
 
 /* ═════════════════════════ Suche im Terminal ═════════════════════════ */
 
-function sucheOeffnen() {
+function openFind() {
   if (!state.aktiv) return;
   $('#find').hidden = false;
   $('#findInput').focus();
   $('#findInput').select();
 }
 
-function sucheSchliessen() {
+function closeFind() {
   $('#find').hidden = true;
   const p = panes.get(state.aktiv);
-  try { p?.suche.clearDecorations(); } catch {}
+  try { p?.search.clearDecorations(); } catch {}
   p?.term.focus();
 }
 
 /* Beim Tippen soll vom Anfang gesucht werden, nicht vom letzten Treffer aus.
    Sonst landet man bei „err" drei Treffer weiter als erwartet. */
-function suchen(rueckwaerts, vonVorn) {
+function findInTerminal(backwards, vonVorn) {
   const p = panes.get(state.aktiv);
   if (!p) return;
   const q = $('#findInput').value;
-  if (!q) { $('#findCount').textContent = ''; try { p.suche.clearDecorations(); } catch {} return; }
+  if (!q) { $('#findCount').textContent = ''; try { p.search.clearDecorations(); } catch {} return; }
 
   // Zähler anmelden, sobald es die Fläche zum ersten Mal betrifft.
   if (!p.zaehlerAn) {
     p.zaehlerAn = true;
     try {
-      p.suche.onDidChangeResults((r) => {
+      p.search.onDidChangeResults((r) => {
         $('#findCount').textContent = !r || !r.resultCount
           ? 'nichts gefunden'
           : `${r.resultIndex + 1} von ${r.resultCount}`;
@@ -1549,7 +1549,7 @@ function suchen(rueckwaerts, vonVorn) {
      Terminal, und die muss deshalb mit weg. Sonst zählt eine frische Suche
      mitten im Text weiter. */
   if (vonVorn) {
-    try { p.suche.clearDecorations(); } catch {}
+    try { p.search.clearDecorations(); } catch {}
     try { p.term.clearSelection(); } catch {}
   }
 
@@ -1563,20 +1563,20 @@ function suchen(rueckwaerts, vonVorn) {
       activeMatchColorOverviewRuler: cssVar('accent', '#fc0'),
     },
   };
-  const gefunden = rueckwaerts ? p.suche.findPrevious(q, opt) : p.suche.findNext(q, opt);
+  const gefunden = backwards ? p.search.findPrevious(q, opt) : p.search.findNext(q, opt);
   // Der Zähler kommt über onDidChangeResults; nur wenn der ausbleibt, hier
   // wenigstens sagen, dass nichts da ist.
   if (!gefunden) $('#findCount').textContent = 'nichts gefunden';
 }
 
-$('#findInput').addEventListener('input', () => suchen(false, true));
+$('#findInput').addEventListener('input', () => findInTerminal(false, true));
 $('#findInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); suchen(e.shiftKey); }
-  if (e.key === 'Escape') { e.preventDefault(); sucheSchliessen(); }
+  if (e.key === 'Enter') { e.preventDefault(); findInTerminal(e.shiftKey); }
+  if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
 });
-$('#findPrev').addEventListener('click', () => suchen(true));
-$('#findNext').addEventListener('click', () => suchen(false));
-$('#findClose').addEventListener('click', sucheSchliessen);
+$('#findPrev').addEventListener('click', () => findInTerminal(true));
+$('#findNext').addEventListener('click', () => findInTerminal(false));
+$('#findClose').addEventListener('click', closeFind);
 
 /* ═════════════════════════ Tastenkürzel ═════════════════════════
 
@@ -1584,23 +1584,23 @@ $('#findClose').addEventListener('click', sucheSchliessen);
    Cmd+Q, Cmd+M, Cmd+H und die Bewegung zwischen Fenstern — die gehören dem
    System, und ein Programm, das sie schluckt, fühlt sich falsch an. */
 
-const KUERZEL = [
+const SHORTCUTS = [
   ['t', () => $('#newBtn').click(),                     'neue Session'],
-  ['w', () => state.aktiv && paneSchliessen(state.aktiv), 'Fläche schließen'],
-  ['f', () => ($('#viewer').hidden ? sucheOeffnen() : editorSucheOeffnen()), 'suchen'],
-  ['.', notbremse,                                        'Notbremse'],
+  ['w', () => state.aktiv && closePane(state.aktiv), 'Fläche schließen'],
+  ['f', () => ($('#viewer').hidden ? openFind() : openFindInFile()), 'suchen'],
+  ['.', emergencyBrake,                                        'Notbremse'],
   ['d', () => $('#splitAdd').click(),                    'teilen'],
-  [',', einstellungenOeffnen,                            'Einstellungen'],
-  ['0', () => schriftAendern(0),                         'Schrift zurücksetzen'],
-  ['+', () => schriftAendern(1),                         'Schrift größer'],
-  ['=', () => schriftAendern(1),                         'Schrift größer'],
-  ['-', () => schriftAendern(-1),                        'Schrift kleiner'],
+  [',', openSettings,                            'Einstellungen'],
+  ['0', () => changeFontSize(0),                         'Schrift zurücksetzen'],
+  ['+', () => changeFontSize(1),                         'Schrift größer'],
+  ['=', () => changeFontSize(1),                         'Schrift größer'],
+  ['-', () => changeFontSize(-1),                        'Schrift kleiner'],
 ];
 
-function schriftAendern(richtung) {
-  const jetzt = stil.termSize || paneListe()[0]?.term.options.fontSize || 13;
-  stil.termSize = richtung === 0 ? 13 : Math.min(28, Math.max(8, jetzt + richtung));
-  fuerAlleFlaechen((p) => { p.term.options.fontSize = stil.termSize; paneNachmessen(p); });
+function changeFontSize(richtung) {
+  const jetzt = styleState.termSize || paneList()[0]?.term.options.fontSize || 13;
+  styleState.termSize = richtung === 0 ? 13 : Math.min(28, Math.max(8, jetzt + richtung));
+  forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1616,7 +1616,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  const treffer = KUERZEL.find(([taste]) => taste === e.key.toLowerCase());
+  const treffer = SHORTCUTS.find(([taste]) => taste === e.key.toLowerCase());
   if (!treffer) return;
 
   /* In einem Eingabefeld gelten die üblichen Bearbeitungskürzel weiter.
@@ -1625,10 +1625,10 @@ document.addEventListener('keydown', (e) => {
      Eingabefeld, und ⌘T, ⌘W, ⌘D und die Schriftgröße sind tot. */
   const el = document.activeElement;
   const imTerminal = !!el?.closest?.('.xterm');
-  const imFeld = !imTerminal && /^(INPUT|TEXTAREA)$/.test(el?.tagName || '');
+  const inInput = !imTerminal && /^(INPUT|TEXTAREA)$/.test(el?.tagName || '');
   // ⌘F darf ins Textfeld des Editors durch: dort ist es die Dateisuche.
   const imEditor = el?.id === 'viewerBody';
-  if (imFeld && e.key !== ',' && !(imEditor && e.key.toLowerCase() === 'f')) return;
+  if (inInput && e.key !== ',' && !(imEditor && e.key.toLowerCase() === 'f')) return;
   // ⌘F wird im Terminal schon vom xterm-Handler behandelt — sonst feuert es doppelt.
   if (imTerminal && e.key.toLowerCase() === 'f') return;
   e.preventDefault();
@@ -1643,15 +1643,15 @@ $('#filesToggle').addEventListener('click', () => {
   // hat dateibaumLaden nichts getan.
   if (!f.hidden) {
     const t = state.tiles.find((x) => x.id === state.aktiv);
-    if (t) dateibaumLaden(t);
+    if (t) loadFileTree(t);
   }
-  for (const p of paneListe()) paneNachmessen(p);
+  for (const p of paneList()) paneRefit(p);
 });
 
 /* Fläche teilen: eine zweite Session danebenlegen. */
 $('#splitAdd').addEventListener('click', () => {
   const frei = state.tiles.filter((t) => !state.panes.includes(t.id));
-  if (!frei.length) { plxrUI.hinweis('Es gibt keine weitere Session.', 'Nichts zum Teilen'); return; }
+  if (!frei.length) { plxrUI.notice('Es gibt keine weitere Session.', 'Nichts zum Teilen'); return; }
   const box = $('#splitList');
   box.innerHTML = '';
   for (const t of frei) {
@@ -1662,7 +1662,7 @@ $('#splitAdd').addEventListener('click', () => {
     b.querySelector('.dot').className = 'dot ' + st;
     b.querySelector('.dot').textContent = ZEICHEN[st] || '·';
     b.querySelector('.rname').textContent = (t.title || t.name) + '  ·  ' + t.project;
-    b.addEventListener('click', () => { $('#splitPick').hidden = true; paneHinzu(t.id); });
+    b.addEventListener('click', () => { $('#splitPick').hidden = true; addPane(t.id); });
     box.appendChild(b);
   }
   $('#splitPick').hidden = false;
@@ -1679,13 +1679,13 @@ for (const d of DIALOGE) {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   for (const d of DIALOGE) if (!$(d).hidden) { $(d).hidden = true; return; }
-  if (!$('#find').hidden) { sucheSchliessen(); return; }
-  if (!$('#viewer').hidden) { viewerSchliessen(); return; }
+  if (!$('#find').hidden) { closeFind(); return; }
+  if (!$('#viewer').hidden) { closeViewer(); return; }
   if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
-  if (state.panes.length) zeigeRaster();
+  if (state.panes.length) showGrid();
 });
 
-window.addEventListener('resize', () => { for (const p of paneListe()) paneNachmessen(p); });
+window.addEventListener('resize', () => { for (const p of paneList()) paneRefit(p); });
 
 /* Ein verborgener Tab bekommt weder requestAnimationFrame noch Rückmeldung vom
    ResizeObserver — beide hängen am Zeichenschritt, den Chrome dort anhält. Wer
@@ -1694,17 +1694,17 @@ window.addEventListener('resize', () => { for (const p of paneListe()) paneNachm
    denn eine Größenänderung, die den Beobachter weckt, gibt es dann nicht. */
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  for (const p of paneListe()) paneNachmessen(p);
+  for (const p of paneList()) paneRefit(p);
   // Wer das Fenster nach vorne holt, soll einen wartenden Hinweis sofort sehen.
-  fassungPruefen();
+  checkVersion();
 });
-window.addEventListener('focus', () => fassungPruefen());
+window.addEventListener('focus', () => checkVersion());
 
 /* ═════════════════════════ Konten ═════════════════════════ */
 
 let kontenCache = null;
 
-async function kontenFuellen(sel) {
+async function fillAccounts(sel) {
   const el = $(sel);
   if (el.options.length) return;
   try {
@@ -1715,7 +1715,7 @@ async function kontenFuellen(sel) {
       o.textContent = k.label;
       el.appendChild(o);
     }
-    plxrUI.auswahlAlle();
+    plxrUI.replaceSelects();
   } catch {}
 }
 
@@ -1726,15 +1726,15 @@ $('#sessAccount').addEventListener('change', async (e) => {
   const ziel = e.target.value;
   const t = state.tiles.find((x) => x.id === state.aktiv);
   if (!t || t.account === ziel) return;
-  const weiter = await plxrUI.frage(
+  const weiter = await plxrUI.confirm(
     `Der Prozess wird beendet und mit --resume unter ${ziel} neu gestartet.`, 'Konto wechseln?');
   if (!weiter) { e.target.value = t.account || ''; return; }
   try {
     const neu = await api.kontoWechseln(state.aktiv, ziel);
-    paneSchliessen(state.aktiv);
-    setTimeout(() => sessionOeffnen(neu.id), 700);
+    closePane(state.aktiv);
+    setTimeout(() => openSession(neu.id), 700);
   } catch (err) {
-    plxrUI.hinweis(err.message || String(err), 'Wechsel fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), 'Wechsel fehlgeschlagen');
     e.target.value = t.account || '';
   }
 });
@@ -1747,10 +1747,10 @@ $('#noiseToggle').addEventListener('click', () => {
   baum.rauschen = !baum.rauschen;
   $('#noiseToggle').classList.toggle('on', baum.rauschen);
   const t = state.tiles.find((x) => x.id === state.aktiv);
-  if (t) dateibaumLaden(t);
+  if (t) loadFileTree(t);
 });
 
-function dateiZeichen(e) {
+function fileGlyph(e) {
   if (e.dir) return '';
   const ext = e.name.split('.').pop().toLowerCase();
   if (['go','rs','c','h','cpp','java','rb','py','php'].includes(ext)) return '◈';
@@ -1762,47 +1762,47 @@ function dateiZeichen(e) {
   return '·';
 }
 
-async function dateibaumLaden(t) {
+async function loadFileTree(t) {
   if ($('#files').hidden) return;
   baum.wurzel = t.cwd;
   $('#filesRoot').textContent = t.cwd;
   const box = $('#filetree');
   box.innerHTML = '';
-  await ebeneZeichnen(box, t.cwd, 0, t.id);
+  await renderMarkLayer(box, t.cwd, 0, t.id);
 }
 
-async function ebeneZeichnen(box, dir, tiefe, sid) {
-  const eintraege = await api.ordner(sid, dir);
-  if (tiefe === 0 && (!eintraege || !eintraege.length)) {
-    leerZeigen(box, 'leerer ordner', 'Hier liegt nichts, was angezeigt werden könnte.');
+async function renderMarkLayer(box, dir, tiefe, sid) {
+  const entries = await api.ordner(sid, dir);
+  if (tiefe === 0 && (!entries || !entries.length)) {
+    showEmpty(box, 'leerer ordner', 'Hier liegt nichts, was angezeigt werden könnte.');
     return;
   }
-  for (const e of eintraege || []) {
+  for (const e of entries || []) {
     if (e.noise && !baum.rauschen) continue;
 
-    const zeile = document.createElement('div');
-    zeile.className = 'frow' + (e.noise ? ' noise' : '');
-    zeile.style.paddingLeft = 8 + tiefe * 13 + 'px';
-    zeile.innerHTML = '<span class="fchev"></span><span class="ficon"></span><span class="fname"></span>';
-    zeile.querySelector('.fchev').textContent = e.dir ? '▸' : '';
-    zeile.querySelector('.ficon').textContent = dateiZeichen(e);
-    zeile.querySelector('.fname').textContent = e.name;
-    box.appendChild(zeile);
+    const row = document.createElement('div');
+    row.className = 'frow' + (e.noise ? ' noise' : '');
+    row.style.paddingLeft = 8 + tiefe * 13 + 'px';
+    row.innerHTML = '<span class="fchev"></span><span class="ficon"></span><span class="fname"></span>';
+    row.querySelector('.fchev').textContent = e.dir ? '▸' : '';
+    row.querySelector('.ficon').textContent = fileGlyph(e);
+    row.querySelector('.fname').textContent = e.name;
+    box.appendChild(row);
 
     if (e.dir) {
       const kinder = document.createElement('div');
       kinder.hidden = true;
       box.appendChild(kinder);
-      zeile.addEventListener('click', async () => {
-        if (kinder.hidden && !kinder.dataset.geladen) {
-          kinder.dataset.geladen = '1';
-          await ebeneZeichnen(kinder, e.path, tiefe + 1, sid);
+      row.addEventListener('click', async () => {
+        if (kinder.hidden && !kinder.dataset.loaded) {
+          kinder.dataset.loaded = '1';
+          await renderMarkLayer(kinder, e.path, tiefe + 1, sid);
         }
         kinder.hidden = !kinder.hidden;
-        zeile.querySelector('.fchev').textContent = kinder.hidden ? '▸' : '▾';
+        row.querySelector('.fchev').textContent = kinder.hidden ? '▸' : '▾';
       });
     } else {
-      zeile.addEventListener('click', () => dateiOeffnen(e, sid));
+      row.addEventListener('click', () => openFile(e, sid));
     }
   }
 }
@@ -1812,20 +1812,20 @@ async function ebeneZeichnen(box, dir, tiefe, sid) {
    Agent in genau dieser Session zum Beispiel —, lehnt der Daemon ab, statt die
    fremde Änderung zu überschreiben. */
 
-const datei = { sid: null, pfad: null, mod: 0, original: '', binaer: false };
+const datei = { sid: null, pfad: null, mod: 0, original: '', binary: false };
 
-function dirtySetzen(ja) {
+function setDirty(ja) {
   $('#viewerDirty').hidden = !ja;
   $('#viewerSave').disabled = !ja;
 }
 
-async function dateiOeffnen(e, sid) {
+async function openFile(e, sid) {
   try {
     const c = await api.datei(sid, e.path);
     datei.sid = sid;
     datei.pfad = c.path;
     datei.mod = c.mod;
-    datei.binaer = c.binary;
+    datei.binary = c.binary;
     datei.original = c.binary ? '' : c.text;
 
     $('#viewerName').textContent = e.name;
@@ -1834,23 +1834,23 @@ async function dateiOeffnen(e, sid) {
       : `${c.lines} Zeilen · ${(c.size / 1024).toFixed(1)} kB` +
         (c.truncated ? ' · gekürzt, Speichern gesperrt' : '');
 
-    const feld = $('#viewerBody');
-    feld.value = datei.original;
+    const field = $('#viewerBody');
+    field.value = datei.original;
     // Gekürzt heißt: wir haben nicht die ganze Datei. Wer das speichert,
     // schneidet den Rest ab.
-    feld.readOnly = c.binary || c.truncated;
-    $('#viewerSave').hidden = feld.readOnly;
-    dirtySetzen(false);
+    field.readOnly = c.binary || c.truncated;
+    $('#viewerSave').hidden = field.readOnly;
+    setDirty(false);
 
     $('#rulesPane').hidden = true;
     $('#viewer').hidden = false;
   } catch (err) {
-    plxrUI.hinweis(err.message || String(err), 'Datei nicht lesbar');
+    plxrUI.notice(err.message || String(err), 'Datei nicht lesbar');
   }
 }
 
 $('#viewerBody').addEventListener('input', () => {
-  dirtySetzen($('#viewerBody').value !== datei.original);
+  setDirty($('#viewerBody').value !== datei.original);
 });
 
 // Tabulator gehört in den Text, nicht auf den nächsten Knopf.
@@ -1861,10 +1861,10 @@ $('#viewerBody').addEventListener('keydown', (e) => {
   const a = f.selectionStart, b = f.selectionEnd;
   f.value = f.value.slice(0, a) + '\t' + f.value.slice(b);
   f.selectionStart = f.selectionEnd = a + 1;
-  dirtySetzen(f.value !== datei.original);
+  setDirty(f.value !== datei.original);
 });
 
-async function dateiSpeichern() {
+async function saveFile() {
   if ($('#viewerSave').hidden || $('#viewerSave').disabled) return;
   const text = $('#viewerBody').value;
   $('#viewerSave').disabled = true;
@@ -1872,142 +1872,142 @@ async function dateiSpeichern() {
     const c = await api.dateiSchreiben(datei.sid, datei.pfad, text, datei.mod);
     datei.mod = c.mod;
     datei.original = text;
-    dirtySetzen(false);
+    setDirty(false);
     $('#viewerMeta').textContent = `${c.lines} Zeilen · ${(c.size / 1024).toFixed(1)} kB · gespeichert`;
   } catch (err) {
-    dirtySetzen(true);
-    plxrUI.hinweis(err.message || String(err), 'Nicht gespeichert');
+    setDirty(true);
+    plxrUI.notice(err.message || String(err), 'Nicht gespeichert');
   }
 }
-$('#viewerSave').addEventListener('click', dateiSpeichern);
+$('#viewerSave').addEventListener('click', saveFile);
 
 document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 's' && !$('#viewer').hidden) {
     e.preventDefault();
-    dateiSpeichern();
+    saveFile();
   }
 });
 
-async function viewerSchliessen() {
+async function closeViewer() {
   $('#findInFile').hidden = true;
   if (!$('#viewerDirty').hidden) {
-    const weg = await plxrUI.frage(
+    const weg = await plxrUI.confirm(
       'Die Änderungen an ' + $('#viewerName').textContent + ' gehen verloren.', 'Ohne Speichern schließen?');
     if (!weg) return;
   }
-  dirtySetzen(false);
+  setDirty(false);
   $('#viewer').hidden = true;
 }
-$('#viewerClose').addEventListener('click', viewerSchliessen);
+$('#viewerClose').addEventListener('click', closeViewer);
 
 /* ── Suche im Datei-Editor ──
    Ein <textarea> bringt keine Suche mit, und im Fenster gibt es keine
    Browserleiste, die einspringt. Also eine eigene — dieselbe Leiste wie im
    Terminal, damit sie in jedem Skin ohne Zutun richtig aussieht. */
-const esuche = { treffer: [], index: -1, quelle: null };
+const fileFind = { treffer: [], index: -1, source: null };
 
-function editorSucheOeffnen() {
-  const feld = $('#findInFileInput');
+function openFindInFile() {
+  const field = $('#findInFileInput');
   const body = $('#viewerBody');
   const markiert = body.value.slice(body.selectionStart, body.selectionEnd);
-  if (markiert && !markiert.includes('\n')) feld.value = markiert;
+  if (markiert && !markiert.includes('\n')) field.value = markiert;
   $('#findInFile').hidden = false;
-  feld.focus();
-  feld.select();
-  editorTrefferSammeln();
+  field.focus();
+  field.select();
+  editorCollectHits();
 }
 
-function editorSucheSchliessen() {
+function closeFindInFile() {
   $('#findInFile').hidden = true;
   $('#viewerMarks').textContent = '';
-  esuche.treffer = [];
-  esuche.index = -1;
-  esuche.quelle = null;
+  fileFind.treffer = [];
+  fileFind.index = -1;
+  fileFind.source = null;
   $('#viewerBody').focus();
 }
 
 // Alle Fundstellen auf einmal, sonst kann der Zähler nicht stimmen.
-function editorTrefferSammeln() {
+function editorCollectHits() {
   const text = $('#viewerBody').value;
   const q = $('#findInFileInput').value;
-  esuche.quelle = text;
-  esuche.treffer = [];
-  esuche.index = -1;
+  fileFind.source = text;
+  fileFind.treffer = [];
+  fileFind.index = -1;
   if (q) {
     const heu = text.toLowerCase();
     const nadel = q.toLowerCase();
     for (let i = heu.indexOf(nadel); i !== -1; i = heu.indexOf(nadel, i + nadel.length)) {
-      esuche.treffer.push(i);
+      fileFind.treffer.push(i);
     }
   }
-  editorStandZeigen();
+  editorShowCount();
 }
 
-function editorStandZeigen() {
+function editorShowCount() {
   const stand = $('#findInFileCount');
   if (!$('#findInFileInput').value) { stand.textContent = ''; return; }
-  if (!esuche.treffer.length) { stand.textContent = 'nichts gefunden'; return; }
-  stand.textContent = `${Math.max(esuche.index, 0) + 1} von ${esuche.treffer.length}`;
+  if (!fileFind.treffer.length) { stand.textContent = 'nichts gefunden'; return; }
+  stand.textContent = `${Math.max(fileFind.index, 0) + 1} von ${fileFind.treffer.length}`;
 }
 
-function editorSpringen(rueckwaerts) {
+function editorJump(backwards) {
   const body = $('#viewerBody');
   // Wer beim offenen Suchfeld weitertippt, ändert den Text unter den Treffern.
-  if (body.value !== esuche.quelle) editorTrefferSammeln();
+  if (body.value !== fileFind.source) editorCollectHits();
   const q = $('#findInFileInput').value;
-  if (!q || !esuche.treffer.length) { editorStandZeigen(); return; }
+  if (!q || !fileFind.treffer.length) { editorShowCount(); return; }
 
-  if (esuche.index === -1) {
+  if (fileFind.index === -1) {
     // Der erste Sprung geht von der Stelle aus, an der der Cursor steht.
     const ab = body.selectionStart;
-    const i = esuche.treffer.findIndex((p) => p >= ab);
-    esuche.index = rueckwaerts
-      ? (i <= 0 ? esuche.treffer.length - 1 : i - 1)
+    const i = fileFind.treffer.findIndex((p) => p >= ab);
+    fileFind.index = backwards
+      ? (i <= 0 ? fileFind.treffer.length - 1 : i - 1)
       : (i === -1 ? 0 : i);
   } else {
-    const n = esuche.treffer.length;
-    esuche.index = rueckwaerts ? (esuche.index - 1 + n) % n : (esuche.index + 1) % n;
+    const n = fileFind.treffer.length;
+    fileFind.index = backwards ? (fileFind.index - 1 + n) % n : (fileFind.index + 1) % n;
   }
 
-  const pos = esuche.treffer[esuche.index];
+  const pos = fileFind.treffer[fileFind.index];
   body.setSelectionRange(pos, pos + q.length);
-  editorScrollen(pos);
-  editorStandZeigen();
-  markierungenZeichnen();
+  editorScrollTo(pos);
+  editorShowCount();
+  renderMarks();
 }
 
 /* Ein Textfeld scrollt nur zur Auswahl, wenn es den Fokus hat — und den soll
    das Suchfeld behalten. Also selbst rechnen: bei wrap="off" ist jede
    Textzeile genau eine sichtbare Zeile, das geht exakt auf. */
-function editorScrollen(pos) {
+function editorScrollTo(pos) {
   const body = $('#viewerBody');
   const st = getComputedStyle(body);
   let zh = parseFloat(st.lineHeight);
   if (!Number.isFinite(zh)) zh = parseFloat(st.fontSize) * 1.4;
 
   const davor = body.value.slice(0, pos);
-  const zeile = davor.length - davor.replaceAll('\n', '').length;
-  body.scrollTop = Math.max(0, zeile * zh - body.clientHeight / 2);
+  const row = davor.length - davor.replaceAll('\n', '').length;
+  body.scrollTop = Math.max(0, row * zh - body.clientHeight / 2);
 
   const spalte = pos - (davor.lastIndexOf('\n') + 1);
-  body.scrollLeft = Math.max(0, spalte * zeichenbreite(st) - body.clientWidth / 2);
+  body.scrollLeft = Math.max(0, spalte * charWidth(st) - body.clientWidth / 2);
 }
 
-let breiteMerker = null;
-function zeichenbreite(st) {
-  const schrift = `${st.fontSize} ${st.fontFamily}`;
-  if (breiteMerker?.schrift === schrift) return breiteMerker.breite;
+let charWidthCache = null;
+function charWidth(st) {
+  const font = `${st.fontSize} ${st.fontFamily}`;
+  if (charWidthCache?.font === font) return charWidthCache.breite;
   const c = document.createElement('canvas').getContext('2d');
-  c.font = schrift;
+  c.font = font;
   const breite = c.measureText('0').width || parseFloat(st.fontSize) * 0.6;
-  breiteMerker = { schrift, breite };
+  charWidthCache = { font, breite };
   return breite;
 }
 
 /* Die Markierungsebene übernimmt Schrift und Ränder zur Laufzeit vom Textfeld:
    jeder Skin setzt dort andere Werte, und schon ein Pixel Abweichung verschiebt
    jede Hervorhebung gegen den Text darunter. */
-function markGeometrie() {
+function markLayerGeometry() {
   const st = getComputedStyle($('#viewerBody'));
   const lage = $('#viewerMarks').style;
   for (const eig of ['font', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
@@ -2024,21 +2024,21 @@ const htmlSicher = (t) => t.replace(/[&<>]/g, (z) => HTML_ZEICHEN[z]);
 // nützt — dann bleibt es beim Zähler und beim Springen.
 const MARK_GRENZE = 2 << 20;
 
-function markierungenZeichnen() {
+function renderMarks() {
   const body = $('#viewerBody');
   const lage = $('#viewerMarks');
   const q = $('#findInFileInput').value;
-  if ($('#findInFile').hidden || !q || !esuche.treffer.length || body.value.length > MARK_GRENZE) {
+  if ($('#findInFile').hidden || !q || !fileFind.treffer.length || body.value.length > MARK_GRENZE) {
     lage.textContent = '';
     return;
   }
-  markGeometrie();
+  markLayerGeometry();
   const text = body.value;
   const teile = [];
   let ab = 0;
-  esuche.treffer.forEach((p, i) => {
+  fileFind.treffer.forEach((p, i) => {
     teile.push(htmlSicher(text.slice(ab, p)));
-    teile.push(i === esuche.index ? '<mark class="jetzt">' : '<mark>');
+    teile.push(i === fileFind.index ? '<mark class="jetzt">' : '<mark>');
     teile.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
     ab = p + q.length;
   });
@@ -2049,29 +2049,29 @@ function markierungenZeichnen() {
      jede Hervorhebung eine Zeile zu hoch. */
   teile.push(' ');
   lage.innerHTML = teile.join('');
-  markMitscrollen();
+  markLayerScroll();
 }
 
 // Beide Lagen müssen denselben Ausschnitt zeigen.
-function markMitscrollen() {
+function markLayerScroll() {
   const body = $('#viewerBody');
   const lage = $('#viewerMarks');
   lage.scrollTop = body.scrollTop;
   lage.scrollLeft = body.scrollLeft;
 }
 
-$('#viewerBody').addEventListener('scroll', markMitscrollen);
+$('#viewerBody').addEventListener('scroll', markLayerScroll);
 $('#viewerBody').addEventListener('input', () => {
-  if (!$('#findInFile').hidden) { editorTrefferSammeln(); markierungenZeichnen(); }
+  if (!$('#findInFile').hidden) { editorCollectHits(); renderMarks(); }
 });
-$('#findInFileInput').addEventListener('input', () => { editorTrefferSammeln(); editorSpringen(false); });
+$('#findInFileInput').addEventListener('input', () => { editorCollectHits(); editorJump(false); });
 $('#findInFileInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); editorSpringen(e.shiftKey); }
-  else if (e.key === 'Escape') { e.preventDefault(); editorSucheSchliessen(); }
+  if (e.key === 'Enter') { e.preventDefault(); editorJump(e.shiftKey); }
+  else if (e.key === 'Escape') { e.preventDefault(); closeFindInFile(); }
 });
-$('#findInFilePrev').addEventListener('click', () => editorSpringen(true));
-$('#findInFileNext').addEventListener('click', () => editorSpringen(false));
-$('#findInFileClose').addEventListener('click', editorSucheSchliessen);
+$('#findInFilePrev').addEventListener('click', () => editorJump(true));
+$('#findInFileNext').addEventListener('click', () => editorJump(false));
+$('#findInFileClose').addEventListener('click', closeFindInFile);
 
 /* ═════════════════════════ Wiedergabe ═════════════════════════
 
@@ -2087,7 +2087,7 @@ $('#findInFileClose').addEventListener('click', editorSucheSchliessen);
    höchstens acht Megabyte, die ein Abruf liefert, dauert das den Bruchteil
    einer Sekunde. */
 
-const kino = {
+const player = {
   term: null,
   fit: null,
   daten: null,      // Uint8Array des Stroms
@@ -2095,81 +2095,81 @@ const kino = {
   pos: 0,           // wie weit bereits geschrieben wurde
   laeuft: false,
   tempo: 1,
-  pausenUeber: true,
+  skipIdle: true,
   timer: null,
   id: null,
   beschnitten: false,
 };
 
-const KINO_TEMPI = [1, 2, 4, 8];
+const PLAYER_SPEEDS = [1, 2, 4, 8];
 // Ab wann eine Pause übersprungen wird. Darunter merkt man sie kaum, darüber
 // sieht man minutenlang zu, wie nichts passiert.
-const KINO_PAUSE = 1200;
+const PLAYER_IDLE_GAP = 1200;
 // Und worauf sie zusammengeschnitten wird, damit die Naht nicht hart wirkt.
-const KINO_REST = 300;
+const PLAYER_IDLE_KEEP = 300;
 
-async function kinoOeffnen(id, name, abOffset) {
-  const feld = $('#player');
-  feld.hidden = false;
+async function openPlayer(id, name, abOffset) {
+  const field = $('#player');
+  field.hidden = false;
   $('#playerName').textContent = name || id.slice(0, 8);
   $('#playerMeta').textContent = 'lädt …';
-  kino.id = id;
+  player.id = id;
 
-  if (!kino.term) {
-    kino.term = new Terminal({
+  if (!player.term) {
+    player.term = new Terminal({
       // Ohne das würde ein Tastendruck in eine Aufzeichnung tippen wollen.
       disableStdin: true,
       cursorBlink: false,
       fontFamily: cssVar('term-font', 'ui-monospace, monospace'),
-      fontSize: stil.termSize || 13,
-      theme: xtermFarben(),
+      fontSize: styleState.termSize || 13,
+      theme: xtermTheme(),
       scrollback: 5000,
     });
-    kino.fit = new FitAddon.FitAddon();
-    kino.term.loadAddon(kino.fit);
-    kino.term.open($('#playerTerm'));
+    player.fit = new FitAddon.FitAddon();
+    player.term.loadAddon(player.fit);
+    player.term.open($('#playerTerm'));
   }
-  kino.term.reset();
-  try { kino.fit.fit(); } catch {}
+  player.term.reset();
+  try { player.fit.fit(); } catch {}
 
   try {
     const [strom, marken] = await Promise.all([
       api.wiedergabe(id),
       api.zeitachse(id),
     ]);
-    kino.daten = strom.daten;
-    kino.beschnitten = strom.beschnitten;
-    kino.marken = marken;
+    player.daten = strom.daten;
+    player.beschnitten = strom.beschnitten;
+    player.marken = marken;
   } catch (e) {
     $('#playerMeta').textContent = '';
-    kinoSchliessen();
-    plxrUI.hinweis(e.message || String(e), 'Keine Aufzeichnung');
+    closePlayer();
+    plxrUI.notice(e.message || String(e), 'Keine Aufzeichnung');
     return;
   }
 
-  kino.pos = 0;
+  player.pos = 0;
   $('#playerSeek').value = 0;
-  kinoStandZeigen();
+  playerShowPosition();
 
   // Von einem Suchtreffer aus: direkt an die Fundstelle.
-  if (abOffset > 0) kinoSpringen(Math.min(abOffset, kino.daten.length));
-  kinoSpielen(true);
+  if (abOffset > 0) playerSeek(Math.min(abOffset, player.daten.length));
+  playerPlay(true);
 }
 
-function kinoSchliessen() {
-  kinoAnhalten();
+function closePlayer() {
+  playerPause();
   $('#player').hidden = true;
-  kino.daten = null;
-  kino.marken = [];
-  kino.id = null;
+  player.daten = null;
+  player.marken = [];
+  player.id = null;
 }
 
 /* Wie viel Zeit zwischen zwei Stellen im Strom verging. Ohne Zeitachse — ein
    Mitschnitt von vor ihrer Einführung — wird gleichmäßig abgespielt. */
-function kinoDauer(vonOffset, bisOffset) {
-  if (!kino.marken.length) return 16;   // etwa ein Bild
+function playerGap(vonOffset, bisOffset) {
+  if (!player.marken.length) return 16;   // etwa ein Bild
   let a = null, b = null;
-  for (const m of kino.marken) {
+  for (const m of player.marken) {
     if (m.offset <= vonOffset) a = m;
     if (m.offset <= bisOffset) b = m;
   }
@@ -2179,94 +2179,94 @@ function kinoDauer(vonOffset, bisOffset) {
 
 // Die nächste Marke hinter der aktuellen Stelle — bis dorthin wird am Stück
 // geschrieben, danach gewartet.
-function kinoNaechsteMarke(pos) {
-  for (const m of kino.marken) if (m.offset > pos) return m.offset;
-  return kino.daten ? kino.daten.length : pos;
+function playerNextMark(pos) {
+  for (const m of player.marken) if (m.offset > pos) return m.offset;
+  return player.daten ? player.daten.length : pos;
 }
 
-function kinoSchritt() {
-  if (!kino.laeuft || !kino.daten) return;
-  if (kino.pos >= kino.daten.length) { kinoAnhalten(); return; }
+function playerStep() {
+  if (!player.laeuft || !player.daten) return;
+  if (player.pos >= player.daten.length) { playerPause(); return; }
 
-  const bis = Math.min(kinoNaechsteMarke(kino.pos), kino.daten.length);
-  kino.term.write(kino.daten.subarray(kino.pos, bis));
-  const vorher = kino.pos;
-  kino.pos = bis;
-  kinoStandZeigen();
+  const bis = Math.min(playerNextMark(player.pos), player.daten.length);
+  player.term.write(player.daten.subarray(player.pos, bis));
+  const vorher = player.pos;
+  player.pos = bis;
+  playerShowPosition();
 
-  let warten = kinoDauer(vorher, bis) / kino.tempo;
-  if (kino.pausenUeber && warten > KINO_PAUSE) warten = KINO_REST;
-  kino.timer = setTimeout(kinoSchritt, Math.max(0, warten));
+  let warten = playerGap(vorher, bis) / player.tempo;
+  if (player.skipIdle && warten > PLAYER_IDLE_GAP) warten = PLAYER_IDLE_KEEP;
+  player.timer = setTimeout(playerStep, Math.max(0, warten));
 }
 
-function kinoSpielen(an) {
-  kino.laeuft = an;
+function playerPlay(an) {
+  player.laeuft = an;
   $('#playerPlay').textContent = an ? '❙❙' : '▶';
-  clearTimeout(kino.timer);
-  if (an) kinoSchritt();
+  clearTimeout(player.timer);
+  if (an) playerStep();
 }
 
-function kinoAnhalten() {
-  kino.laeuft = false;
-  clearTimeout(kino.timer);
+function playerPause() {
+  player.laeuft = false;
+  clearTimeout(player.timer);
   $('#playerPlay').textContent = '▶';
 }
 
 /* Springen. xterm kann nicht zurückspulen, also von vorn: Terminal leeren und
    alles bis zur Zielstelle in einem Rutsch schreiben. */
-function kinoSpringen(ziel) {
-  if (!kino.daten) return;
-  const lief = kino.laeuft;
-  kinoAnhalten();
-  kino.term.reset();
-  kino.pos = Math.max(0, Math.min(ziel, kino.daten.length));
-  if (kino.pos > 0) kino.term.write(kino.daten.subarray(0, kino.pos));
-  kinoStandZeigen();
-  if (lief) kinoSpielen(true);
+function playerSeek(ziel) {
+  if (!player.daten) return;
+  const lief = player.laeuft;
+  playerPause();
+  player.term.reset();
+  player.pos = Math.max(0, Math.min(ziel, player.daten.length));
+  if (player.pos > 0) player.term.write(player.daten.subarray(0, player.pos));
+  playerShowPosition();
+  if (lief) playerPlay(true);
 }
 
-function kinoStandZeigen() {
-  if (!kino.daten) return;
-  const anteil = kino.daten.length ? kino.pos / kino.daten.length : 0;
+function playerShowPosition() {
+  if (!player.daten) return;
+  const anteil = player.daten.length ? player.pos / player.daten.length : 0;
   const regler = $('#playerSeek');
   // Nicht setzen, während daran gezogen wird.
   if (document.activeElement !== regler) regler.value = Math.round(anteil * 1000);
 
-  const gesamt = kino.marken.length > 1
-    ? (kino.marken[kino.marken.length - 1].at - kino.marken[0].at) / 1000
+  const gesamt = player.marken.length > 1
+    ? (player.marken[player.marken.length - 1].at - player.marken[0].at) / 1000
     : 0;
   $('#playerTime').textContent = gesamt
-    ? `${kinoZeit(gesamt * anteil)} / ${kinoZeit(gesamt)}`
+    ? `${playerClock(gesamt * anteil)} / ${playerClock(gesamt)}`
     : `${Math.round(anteil * 100)} %`;
-  $('#playerMeta').textContent = kino.beschnitten
+  $('#playerMeta').textContent = player.beschnitten
     ? 'nur der Anfang — die Aufzeichnung ist länger als das, was auf einmal geht'
-    : (kino.marken.length ? '' : 'ohne Zeitachse, gleichmäßiges Tempo');
+    : (player.marken.length ? '' : 'ohne Zeitachse, gleichmäßiges Tempo');
 }
 
-const kinoZeit = (sek) => {
+const playerClock = (sek) => {
   const m = Math.floor(sek / 60), s = Math.floor(sek % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-$('#playerClose').addEventListener('click', kinoSchliessen);
-$('#playerPlay').addEventListener('click', () => kinoSpielen(!kino.laeuft));
+$('#playerClose').addEventListener('click', closePlayer);
+$('#playerPlay').addEventListener('click', () => playerPlay(!player.laeuft));
 $('#playerSeek').addEventListener('input', (e) => {
-  if (!kino.daten) return;
-  kinoSpringen(Math.round((e.target.value / 1000) * kino.daten.length));
+  if (!player.daten) return;
+  playerSeek(Math.round((e.target.value / 1000) * player.daten.length));
 });
 $('#playerSpeed').addEventListener('click', () => {
-  const i = (KINO_TEMPI.indexOf(kino.tempo) + 1) % KINO_TEMPI.length;
-  kino.tempo = KINO_TEMPI[i];
-  $('#playerSpeed').textContent = `${kino.tempo}×`;
+  const i = (PLAYER_SPEEDS.indexOf(player.tempo) + 1) % PLAYER_SPEEDS.length;
+  player.tempo = PLAYER_SPEEDS[i];
+  $('#playerSpeed').textContent = `${player.tempo}×`;
 });
 $('#playerSkipIdle').addEventListener('click', () => {
-  kino.pausenUeber = !kino.pausenUeber;
-  $('#playerSkipIdle').dataset.an = kino.pausenUeber ? 'ja' : '';
+  player.skipIdle = !player.skipIdle;
+  $('#playerSkipIdle').dataset.an = player.skipIdle ? 'ja' : '';
 });
 document.addEventListener('keydown', (e) => {
   if ($('#player').hidden) return;
-  if (e.key === ' ') { e.preventDefault(); kinoSpielen(!kino.laeuft); }
-  if (e.key === 'Escape') { e.preventDefault(); kinoSchliessen(); }
+  if (e.key === ' ') { e.preventDefault(); playerPlay(!player.laeuft); }
+  if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
 }, true);
 
 /* ═════════════════════════ Regeln ═════════════════════════ */
@@ -2279,37 +2279,37 @@ $('#rulesToggle').addEventListener('click', async () => {
   $('#viewer').hidden = true;
   $('#rulesPane').hidden = false;
   $('#rulesMeta').textContent = 'lädt …';
-  const liste = await api.regeln(state.aktiv);
-  $('#rulesMeta').textContent = liste.length === 1
+  const list = await api.regeln(state.aktiv);
+  $('#rulesMeta').textContent = list.length === 1
     ? 'Eine Datei wirkt hier · Ist-Zustand, nicht der von damals'
-    : `${liste.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
+    : `${list.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
   const box = $('#rulesBody');
   box.innerHTML = '';
-  if (!liste.length) {
-    leerZeigen(box, 'keine regeln',
+  if (!list.length) {
+    showEmpty(box, 'keine regeln',
       'In diesem Verzeichnis und darüber liegt keine CLAUDE.md, kein Skill und ' +
       'kein Agent. Der Assistent arbeitet hier ohne zusätzliche Anweisungen.');
     return;
   }
-  for (const e of liste) {
-    const zeile = document.createElement('div');
-    zeile.className = 'rrow';
-    zeile.dataset.art = e.art;
-    zeile.innerHTML = '<span class="rart"></span><span class="rmain">' +
+  for (const e of list) {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.dataset.art = e.art;
+    row.innerHTML = '<span class="rart"></span><span class="rmain">' +
       '<b class="rtitle"></b><span class="rdesc"></span></span><span class="rpath"></span>';
-    zeile.querySelector('.rart').textContent = ARTNAME[e.art] || e.art;
-    zeile.querySelector('.rtitle').textContent = e.name;
-    zeile.querySelector('.rdesc').textContent = e.description || '';
-    zeile.querySelector('.rpath').textContent = e.path;
-    zeile.dataset.tip = e.path;
-    box.appendChild(zeile);
+    row.querySelector('.rart').textContent = ARTNAME[e.art] || e.art;
+    row.querySelector('.rtitle').textContent = e.name;
+    row.querySelector('.rdesc').textContent = e.description || '';
+    row.querySelector('.rpath').textContent = e.path;
+    row.dataset.tip = e.path;
+    box.appendChild(row);
   }
 });
 $('#rulesClose').addEventListener('click', () => { $('#rulesPane').hidden = true; });
 
 /* Eine leere Liste ohne Erklärung ist ein Fehlerzustand, der wie ein Fehler
    aussieht. Jede Liste sagt, warum sie leer ist. */
-function leerZeigen(box, titel, text) {
+function showEmpty(box, titel, text) {
   box.innerHTML = '';
   const d = document.createElement('div');
   d.className = 'emptyNote';
@@ -2325,39 +2325,39 @@ function leerZeigen(box, titel, text) {
    über Dutzende Projektordner verstreut, und der eingebaute Picker zeigt
    standardmäßig nur das aktuelle Verzeichnis. */
 
-const archiv = { alle: [], suche: '', treffer: null, terminals: null };
+const archiv = { alle: [], search: '', treffer: null, terminals: null };
 
-async function archivLaden() {
+async function loadArchive() {
   $('#archInfo').textContent = 'lädt …';
-  await kontenFuellen('#archAccount');
+  await fillAccounts('#archAccount');
   archiv.alle = await api.archiv(state.filter);
   archiv.treffer = null;
   archiv.terminals = null;
   $('#archiveCount').textContent = archiv.alle.length;
-  archivZeichnen();
+  renderArchive();
 }
 
 $('#archSearch').addEventListener('input', (e) => {
-  archiv.suche = e.target.value.toLowerCase();
+  archiv.search = e.target.value.toLowerCase();
   archiv.treffer = null;
   archiv.terminals = null;
-  archivZeichnen();
+  renderArchive();
 });
-$('#archSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') volltext(); });
-$('#archFullText').addEventListener('click', volltext);
-$('#archTerminals').addEventListener('click', terminalSuche);
+$('#archSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') fullTextSearch(); });
+$('#archFullText').addEventListener('click', fullTextSearch);
+$('#archTerminals').addEventListener('click', searchTerminals);
 
 /* Die zweite Suchart: nicht was der Assistent geschrieben hat, sondern was im
    Terminal stand. Fehlermeldungen, Ausgaben von Testläufen, Stapelspuren —
    alles, was tmux beim Neustart verliert. */
-async function terminalSuche() {
+async function searchTerminals() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
   $('#archInfo').textContent = 'durchsuche alle Terminalmitschnitte …';
   try {
-    archiv.terminals = await api.sucheTerminals(q);
+    archiv.terminals = await api.searchTerminals(q);
     archiv.treffer = null;
-    archivZeichnen();
+    renderArchive();
   } catch (e) {
     $('#archInfo').textContent = 'Suche fehlgeschlagen: ' + (e.message || e);
   }
@@ -2366,34 +2366,34 @@ async function terminalSuche() {
 /* Die Titelsuche findet nur, was im Titel steht. Die eigentliche Frage ist
    aber meist "wo hab ich das mal gemacht" — dafür muss durch alle Nachrichten
    gegangen werden. Dauert ein paar Sekunden, deshalb auf Zuruf. */
-async function volltext() {
+async function fullTextSearch() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
   $('#archInfo').textContent = 'durchsuche alle Transkripte …';
   try {
-    archiv.treffer = await api.suche(q);
-    archivZeichnen();
+    archiv.treffer = await api.search(q);
+    renderArchive();
   } catch (e) {
     $('#archInfo').textContent = 'Suche fehlgeschlagen: ' + (e.message || e);
   }
 }
 
-function datumKurz(ms) {
+function shortDate(ms) {
   return new Date(ms).toLocaleString('de-DE',
     { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-async function fortsetzen(id, konto) {
+async function resumeSession(id, konto) {
   try {
-    const s = await api.archivFortsetzen(id, konto, $('#archAccount').value);
-    zeigeRaster();
-    setTimeout(() => sessionOeffnen(s.id), 500);
+    const s = await api.archiveResume(id, konto, $('#archAccount').value);
+    showGrid();
+    setTimeout(() => openSession(s.id), 500);
   } catch (err) {
-    plxrUI.hinweis(err.message || String(err), 'Fortsetzen fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), 'Fortsetzen fehlgeschlagen');
   }
 }
 
-function archivZeichnen() {
+function renderArchive() {
   const box = $('#archList');
   box.innerHTML = '';
 
@@ -2403,24 +2403,24 @@ function archivZeichnen() {
       ? `Ein Terminal enthält „${wonach}"`
       : `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
     if (!archiv.terminals.length) {
-      leerZeigen(box, 'nichts im terminal',
+      showEmpty(box, 'nichts im terminal',
         `„${wonach}" kam in keiner Terminalausgabe vor. Aufgezeichnet wird ab ` +
         'dem Start dieser Fassung — Älteres steht nicht zur Verfügung.');
       return;
     }
     for (const t of archiv.terminals) {
-      const zeile = document.createElement('div');
-      zeile.className = 'row tall';
-      zeile.innerHTML =
+      const row = document.createElement('div');
+      row.className = 'row tall';
+      row.innerHTML =
         '<span class="hitDate"></span>' +
         '<span class="hitMain"><b class="hitTitle"></b><span class="hitExcerpt"></span></span>' +
         '<span class="hitProject"></span><span class="hitValue"></span>';
-      zeile.querySelector('.hitDate').textContent = datumKurz(t.mod);
-      zeile.querySelector('.hitTitle').textContent = t.name;
-      zeile.querySelector('.hitExcerpt').textContent = t.auszug;
-      zeile.querySelector('.hitProject').textContent = t.cwd ? t.cwd.split('/').pop() : '';
-      zeile.querySelector('.hitValue').textContent = t.anzahl + '×';
-      zeile.dataset.tip = t.cwd || '';
+      row.querySelector('.hitDate').textContent = shortDate(t.mod);
+      row.querySelector('.hitTitle').textContent = t.name;
+      row.querySelector('.hitExcerpt').textContent = t.auszug;
+      row.querySelector('.hitProject').textContent = t.cwd ? t.cwd.split('/').pop() : '';
+      row.querySelector('.hitValue').textContent = t.anzahl + '×';
+      row.dataset.tip = t.cwd || '';
 
       /* Was danach kam, ist der eigentliche Fund: dieselbe Fehlermeldung hat
          man schon dreimal gesehen — gesucht wird der Befehl, der sie damals
@@ -2429,19 +2429,19 @@ function archivZeichnen() {
         const nach = document.createElement('pre');
         nach.className = 'hitAfter';
         nach.textContent = t.danach.join('\n');
-        zeile.appendChild(nach);
+        row.appendChild(nach);
       }
 
       /* Ein Klick spielt die Aufzeichnung ab dieser Stelle ab — auch bei
          Sessions, die es nicht mehr gibt. Genau dafür liegt der Mitschnitt auf
          der Platte. */
-      zeile.style.cursor = 'pointer';
-      zeile.addEventListener('click', (e) => {
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', (e) => {
         // Auf den Nachspann geklickt heißt lesen, nicht abspielen.
         if (e.target.closest('.hitAfter')) return;
-        kinoOeffnen(t.sessionId, t.name, t.offset || 0);
+        openPlayer(t.sessionId, t.name, t.offset || 0);
       });
-      box.appendChild(zeile);
+      box.appendChild(row);
     }
     return;
   }
@@ -2452,36 +2452,36 @@ function archivZeichnen() {
       ? `Eine Session enthält „${wonach}"`
       : `${archiv.treffer.length} Sessions enthalten „${wonach}"`;
     if (!archiv.treffer.length) {
-      leerZeigen(box, 'nichts gefunden',
+      showEmpty(box, 'nichts gefunden',
         `Kein Transkript enthält „${wonach}". Gesucht wird in dem, was du und der ` +
         'Assistent geschrieben habt — nicht in Werkzeugausgaben.');
       return;
     }
     for (const t of archiv.treffer) {
-      const zeile = document.createElement('div');
-      zeile.className = 'row tall';
-      zeile.innerHTML =
+      const row = document.createElement('div');
+      row.className = 'row tall';
+      row.innerHTML =
         '<span class="hitDate"></span>' +
         '<span class="hitMain"><b class="hitTitle"></b><span class="hitExcerpt"></span></span>' +
         '<span class="hitProject"></span><span class="hitValue"></span>' +
         '<span class="hitAction"><button class="btn">FORTSETZEN</button></span>';
-      zeile.querySelector('.hitDate').textContent = datumKurz(t.mod);
-      zeile.querySelector('.hitTitle').textContent = t.title || '(ohne Titel)';
-      zeile.querySelector('.hitExcerpt').textContent = t.auszug;
-      zeile.querySelector('.hitProject').textContent = t.project;
-      zeile.querySelector('.hitValue').textContent = t.anzahl + '×';
-      zeile.dataset.tip = t.cwd;
-      zeile.querySelector('button').addEventListener('click', (ev) => {
+      row.querySelector('.hitDate').textContent = shortDate(t.mod);
+      row.querySelector('.hitTitle').textContent = t.title || '(ohne Titel)';
+      row.querySelector('.hitExcerpt').textContent = t.auszug;
+      row.querySelector('.hitProject').textContent = t.project;
+      row.querySelector('.hitValue').textContent = t.anzahl + '×';
+      row.dataset.tip = t.cwd;
+      row.querySelector('button').addEventListener('click', (ev) => {
         ev.stopPropagation();
-        fortsetzen(t.sessionId, t.account);
+        resumeSession(t.sessionId, t.account);
       });
-      box.appendChild(zeile);
+      box.appendChild(row);
     }
     return;
   }
 
-  const q = archiv.suche;
-  const liste = q
+  const q = archiv.search;
+  const list = q
     ? archiv.alle.filter((e) =>
         (e.title || '').toLowerCase().includes(q) ||
         (e.project || '').toLowerCase().includes(q) ||
@@ -2489,55 +2489,55 @@ function archivZeichnen() {
     : archiv.alle;
 
   $('#archInfo').textContent = q
-    ? `${liste.length} von ${archiv.alle.length}`
+    ? `${list.length} von ${archiv.alle.length}`
     : `${archiv.alle.length} ${archiv.alle.length === 1 ? 'Transkript' : 'Transkripte'}`;
 
-  if (!liste.length) {
+  if (!list.length) {
     if (archiv.alle.length) {
-      leerZeigen(box, 'kein treffer im titel',
+      showEmpty(box, 'kein treffer im titel',
         'Eingabetaste durchsucht stattdessen den vollen Text aller Transkripte.');
     } else if (state.filter) {
-      leerZeigen(box, 'nichts unter diesem pfad',
+      showEmpty(box, 'nichts unter diesem pfad',
         `Unter ${state.filter} liegt kein Transkript. Filter oben leeren zeigt alle.`);
     } else {
-      leerZeigen(box, 'noch kein archiv',
+      showEmpty(box, 'noch kein archiv',
         'Hier erscheinen abgelegte Claude-Code-Unterhaltungen, sobald welche existieren.');
     }
     return;
   }
 
-  for (const e of liste.slice(0, 400)) {
-    const zeile = document.createElement('div');
-    zeile.className = 'row';
-    zeile.innerHTML =
+  for (const e of list.slice(0, 400)) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML =
       '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
       '<span class="hitSmall"></span><span class="hitValue"></span>' +
       '<span class="hitAction"><button class="btn" data-t="auf">FORTSETZEN</button>' +
       '<button class="btn" data-t="weg">LÖSCHEN</button></span>';
-    zeile.querySelector('.hitDate').textContent = datumKurz(e.mod);
-    zeile.querySelector('.hitTitle').textContent = e.title || '(ohne Titel)';
-    zeile.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
-    zeile.querySelector('.hitSmall').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
-    zeile.querySelector('.hitValue').textContent = (e.size / 1024).toFixed(0) + ' kB';
-    zeile.dataset.tip = e.cwd;
+    row.querySelector('.hitDate').textContent = shortDate(e.mod);
+    row.querySelector('.hitTitle').textContent = e.title || '(ohne Titel)';
+    row.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
+    row.querySelector('.hitSmall').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
+    row.querySelector('.hitValue').textContent = (e.size / 1024).toFixed(0) + ' kB';
+    row.dataset.tip = e.cwd;
 
-    zeile.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
+    row.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
       ev.stopPropagation();
-      fortsetzen(e.id, e.account);
+      resumeSession(e.id, e.account);
     });
-    zeile.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
+    row.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
       ev.stopPropagation();
-      const weg = await plxrUI.frage(`${e.title || e.id}\n${e.cwd}`, 'Transkript löschen?');
+      const weg = await plxrUI.confirm(`${e.title || e.id}\n${e.cwd}`, 'Transkript löschen?');
       if (!weg) return;
       try {
-        await api.archivLoeschen(e.id, e.account);
+        await api.archiveDelete(e.id, e.account);
         archiv.alle = archiv.alle.filter((x) => x.id !== e.id);
-        archivZeichnen();
+        renderArchive();
       } catch (err) {
-        plxrUI.hinweis(err.message || String(err), 'Löschen fehlgeschlagen');
+        plxrUI.notice(err.message || String(err), 'Löschen fehlgeschlagen');
       }
     });
-    box.appendChild(zeile);
+    box.appendChild(row);
   }
 }
 
@@ -2547,47 +2547,47 @@ function archivZeichnen() {
    nächsten Start blockiert. Was zu einer plxr-Session gehört, wird eingefärbt
    — das darf man nicht versehentlich abschießen. */
 
-async function portsLaden() {
+async function loadPorts() {
   $('#portsInfo').textContent = 'liest …';
-  const liste = await api.ports();
-  $('#portsCount').textContent = liste.length;
-  $('#portsInfo').textContent = liste.length === 1
+  const list = await api.ports();
+  $('#portsCount').textContent = list.length;
+  $('#portsInfo').textContent = list.length === 1
     ? 'Ein lauschender Port'
-    : `${liste.length} lauschende Ports`;
+    : `${list.length} lauschende Ports`;
   const box = $('#portsList');
   box.innerHTML = '';
-  if (!liste.length) {
-    leerZeigen(box, 'kein port belegt',
+  if (!list.length) {
+    showEmpty(box, 'kein port belegt',
       'Kein Prozess lauscht gerade auf einem TCP-Port. Hier tauchen vergessene ' +
       'Dev-Server auf, die den nächsten Start blockieren.');
     return;
   }
-  for (const p of liste) {
-    const zeile = document.createElement('div');
-    zeile.className = 'row';
-    zeile.dataset.eigen = p.eigen ? 'ja' : 'nein';
-    zeile.innerHTML =
+  for (const p of list) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.dataset.eigen = p.eigen ? 'ja' : 'nein';
+    row.innerHTML =
       '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
       '<span class="hitValue"></span>' +
       '<span class="hitAction"><button class="btn" data-h="0">BEENDEN</button>' +
       '<button class="btn" data-h="1">HART</button></span>';
-    zeile.querySelector('.hitDate').textContent = p.port;
-    zeile.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
-    zeile.querySelector('.hitProject').textContent = p.addr;
-    zeile.querySelector('.hitValue').textContent = 'pid ' + p.pid;
+    row.querySelector('.hitDate').textContent = p.port;
+    row.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
+    row.querySelector('.hitProject').textContent = p.addr;
+    row.querySelector('.hitValue').textContent = 'pid ' + p.pid;
     for (const hart of [false, true]) {
-      zeile.querySelector(`[data-h="${hart ? 1 : 0}"]`).addEventListener('click', async () => {
+      row.querySelector(`[data-h="${hart ? 1 : 0}"]`).addEventListener('click', async () => {
         const wie = hart ? 'HART beenden (SIGKILL)' : 'beenden (SIGTERM)';
-        const ja = await plxrUI.frage(`${p.command}, pid ${p.pid}`, `Port ${p.port} ${wie}?`);
+        const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`, `Port ${p.port} ${wie}?`);
         if (!ja) return;
-        try { await api.portBeenden(p.pid, hart); setTimeout(portsLaden, 500); }
-        catch (e) { plxrUI.hinweis(e.message || String(e), 'Beenden fehlgeschlagen'); }
+        try { await api.portBeenden(p.pid, hart); setTimeout(loadPorts, 500); }
+        catch (e) { plxrUI.notice(e.message || String(e), 'Beenden fehlgeschlagen'); }
       });
     }
-    box.appendChild(zeile);
+    box.appendChild(row);
   }
 }
-$('#portsReload').addEventListener('click', portsLaden);
+$('#portsReload').addEventListener('click', loadPorts);
 
 /* ═════════════════════════ Verbrauch ═════════════════════════ */
 
@@ -2603,9 +2603,9 @@ function tok(n) {
   return String(n);
 }
 
-$('#usageRange').addEventListener('change', verbrauchLaden);
+$('#usageRange').addEventListener('change', loadUsage);
 
-async function verbrauchLaden() {
+async function loadUsage() {
   $('#usageInfo').textContent = 'rechnet …';
   const b = await api.verbrauch($('#usageRange').value);
   $('#usageInfo').textContent =
@@ -2633,18 +2633,18 @@ async function verbrauchLaden() {
   box.appendChild(summe);
 
   const gesamt = (z) => z.ein + z.aus + z.cacheNeu + z.cacheLesen;
-  const block = (titel, zeilen, grenze) => {
-    if (!zeilen || !zeilen.length) return;
+  const block = (titel, rows, grenze) => {
+    if (!rows || !rows.length) return;
     const d = document.createElement('div');
     d.className = 'ublock';
     d.innerHTML = '<b class="uhead"></b>';
     d.querySelector('.uhead').textContent = titel;
-    const max = Math.max(...zeilen.map(gesamt), 1);
-    for (const z of zeilen.slice(0, grenze)) {
+    const max = Math.max(...rows.map(gesamt), 1);
+    for (const z of rows.slice(0, grenze)) {
       const r = document.createElement('div');
       r.className = 'urow';
       r.innerHTML = '<span class="ukey"></span><span class="ubar"><i class="ufill"></i></span><span class="uval"></span>';
-      r.querySelector('.ukey').textContent = z.schluessel;
+      r.querySelector('.ukey').textContent = z.key;
       r.querySelector('.ufill').style.width = (gesamt(z) / max * 100).toFixed(1) + '%';
       r.querySelector('.uval').textContent = tok(gesamt(z));
       d.appendChild(r);
@@ -2653,7 +2653,7 @@ async function verbrauchLaden() {
   };
 
   if (!b.nachTag.length) {
-    leerZeigen(box, 'kein verbrauch',
+    showEmpty(box, 'kein verbrauch',
       'In diesem Zeitraum wurde nichts gezählt. Gerechnet wird aus den ' +
       'Transkripten — ohne abgelegte Unterhaltungen bleibt die Rechnung leer.');
     return;
@@ -2677,14 +2677,14 @@ async function verbrauchLaden() {
 
 const TREND = { steigt: '↑', faellt: '↓', gleich: '·' };
 
-function tokKurz(n) {
+function tokShort(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
   if (n >= 1e6) return (n / 1e6).toFixed(0) + ' Mio';
   if (n >= 1e3) return (n / 1e3).toFixed(0) + ' Tsd';
   return String(n);
 }
 
-async function tempoPruefen() {
+async function checkPace() {
   let t;
   try { t = await api.tempo(); } catch { return; }
   const el = $('#pace');
@@ -2692,7 +2692,7 @@ async function tempoPruefen() {
 
   el.hidden = false;
   el.textContent =
-    `${tokKurz(t.proStunde)}/h ${TREND[t.trend] || ''} · 5h ${tokKurz(t.fenster5h)}` +
+    `${tokShort(t.proStunde)}/h ${TREND[t.trend] || ''} · 5h ${tokShort(t.fenster5h)}` +
     (t.aktive ? ` · ${t.aktive} aktiv` : '');
   el.title =
     `Verbrauch der letzten Stunde, hochgerechnet: ${t.proStunde.toLocaleString('de-DE')} Token\n` +
@@ -2708,7 +2708,7 @@ async function tempoPruefen() {
 
 /* ═════════════════════════ Fassung ═════════════════════════ */
 
-let fassungsStand = null;
+let versionStatus = null;
 
 /* Wie oft nachgesehen wird.
 
@@ -2720,40 +2720,40 @@ let fassungsStand = null;
    Die Sperre darunter deckelt beides zusammen. GitHub lässt ohne Anmeldung
    sechzig Abfragen pro Stunde zu; ohne Deckel könnte häufiges Fensterwechseln
    die aufbrauchen, und dann meldet die Prüfung nur noch Fehler. */
-const FASSUNG_INTERVALL = 10 * 60 * 1000;
-const FASSUNG_SPERRE = 2 * 60 * 1000;
-let fassungZuletzt = 0;
+const VERSION_INTERVAL = 10 * 60 * 1000;
+const VERSION_THROTTLE = 2 * 60 * 1000;
+let versionCheckedAt = 0;
 
-async function fassungPruefen(erzwingen) {
+async function checkVersion(erzwingen) {
   const jetzt = Date.now();
-  if (!erzwingen && jetzt - fassungZuletzt < FASSUNG_SPERRE) return;
-  fassungZuletzt = jetzt;
+  if (!erzwingen && jetzt - versionCheckedAt < VERSION_THROTTLE) return;
+  versionCheckedAt = jetzt;
   try {
-    const st = await api.fassung();
-    fassungsStand = st;
-    if (!st.verfuegbar) { $('#updateBar').hidden = true; return; }
-    if (localStorage.getItem('plxr.updateIgnoriert') === st.neueste) return;
+    const st = await api.version();
+    versionStatus = st;
+    if (!st.available) { $('#updateBar').hidden = true; return; }
+    if (localStorage.getItem('plxr.updateIgnoriert') === st.latest) return;
     $('#updateText').textContent =
-      `Fassung ${st.neueste} ist da (du hast ${st.aktuell})` +
-      (st.groesse ? ` · ${(st.groesse / (1 << 20)).toFixed(1)} MB` : '');
+      `Fassung ${st.latest} ist da (du hast ${st.aktuell})` +
+      (st.resize ? ` · ${(st.resize / (1 << 20)).toFixed(1)} MB` : '');
     $('#updateBar').hidden = false;
   } catch {}
 }
 
 $('#updateHide').addEventListener('click', () => {
-  if (fassungsStand) localStorage.setItem('plxr.updateIgnoriert', fassungsStand.neueste);
+  if (versionStatus) localStorage.setItem('plxr.updateIgnoriert', versionStatus.latest);
   $('#updateBar').hidden = true;
 });
 $('#updateNotes').addEventListener('click', () => {
-  plxrUI.hinweis(fassungsStand?.notizen || 'keine Anmerkungen zu dieser Fassung', 'Was ist neu');
+  plxrUI.notice(versionStatus?.notizen || 'keine Anmerkungen zu dieser Fassung', 'Was ist neu');
 });
 /* Der Ablauf, den man erwartet: Hinweis, Klick, Ladebalken, Neustart. Die
    Sessions merken davon nichts — sie gehören dem Daemon, und der läuft
    weiter. Nur das Fenster kommt neu. */
 $('#updateGo').addEventListener('click', async () => {
-  const ja = await plxrUI.frage(
+  const ja = await plxrUI.confirm(
     'Der Daemon läuft weiter, alle Sessions bleiben. Nur das Fenster startet neu.',
-    'Fassung ' + (fassungsStand?.neueste || '') + ' installieren?');
+    'Fassung ' + (versionStatus?.latest || '') + ' installieren?');
   if (!ja) return;
 
   $('#updateGo').disabled = true;
@@ -2824,7 +2824,7 @@ const STARTBAR = [
 ];
 let shellCmd = null;
 
-async function wahlFuellen() {
+async function fillChoice() {
   const box = $('#newCmdChoice');
   if (box.children.length) return;
   try { shellCmd = (await api.shell()).cmd; } catch { shellCmd = ['/bin/sh', '-l']; }
@@ -2835,21 +2835,21 @@ async function wahlFuellen() {
     b.className = 'choiceButton';
     b.dataset.id = w.id;
     b.textContent = w.id === 'shell' ? `Shell (${shellCmd[0].split('/').pop()})` : w.label;
-    b.addEventListener('click', () => wahlSetzen(w.id));
+    b.addEventListener('click', () => setChoice(w.id));
     box.appendChild(b);
   }
-  wahlSetzen(zuletzt);
+  setChoice(zuletzt);
 }
 
-function wahlSetzen(id) {
-  for (const b of $('#newCmdChoice').children) b.dataset.gewaehlt = b.dataset.id === id ? 'ja' : 'nein';
+function setChoice(id) {
+  for (const b of $('#newCmdChoice').children) b.dataset.picked = b.dataset.id === id ? 'ja' : 'nein';
   $('#newCmdInput').hidden = id !== 'eigenes';
   localStorage.setItem('plxr.startart', id);
   if (id === 'eigenes') $('#newCmd').focus();
 }
 
-function gewaehltesKommando() {
-  const id = [...$('#newCmdChoice').children].find((b) => b.dataset.gewaehlt === 'ja')?.dataset.id || 'shell';
+function chosenCommand() {
+  const id = [...$('#newCmdChoice').children].find((b) => b.dataset.picked === 'ja')?.dataset.id || 'shell';
   if (id === 'shell') return shellCmd || [];
   if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
   return STARTBAR.find((w) => w.id === id).cmd;
@@ -2861,17 +2861,17 @@ function gewaehltesKommando() {
    dieselbe Handbewegung. Eine Vorlage macht daraus einen Klick, und sie
    entsteht aus dem, was gerade offen ist. */
 
-$('#templatesBtn').addEventListener('click', vorlagenOeffnen);
+$('#templatesBtn').addEventListener('click', openTemplates);
 $('#templatesCancel').addEventListener('click', () => { $('#templates').hidden = true; });
 
-async function vorlagenOeffnen() {
+async function openTemplates() {
   $('#templates').hidden = false;
   const box = $('#templatesList');
   box.innerHTML = '';
-  let liste = [];
-  try { liste = await api.vorlagen(); } catch {}
+  let list = [];
+  try { list = await api.templates(); } catch {}
 
-  if (!liste.length) {
+  if (!list.length) {
     const d = document.createElement('div');
     d.className = 'emptyNote';
     d.innerHTML = '<b>noch keine vorlage</b><span>„Lage speichern" macht aus den ' +
@@ -2880,56 +2880,56 @@ async function vorlagenOeffnen() {
     return;
   }
 
-  for (const v of liste) {
-    const zeile = document.createElement('div');
-    zeile.className = 'splitRow';
-    zeile.innerHTML = '<span class="rname"></span><span class="spacer"></span>' +
+  for (const v of list) {
+    const row = document.createElement('div');
+    row.className = 'splitRow';
+    row.innerHTML = '<span class="rname"></span><span class="spacer"></span>' +
       '<span class="meta"></span><button class="btn tiny" data-t="weg">✕</button>';
-    zeile.querySelector('.rname').textContent = v.label;
-    zeile.querySelector('.meta').textContent =
+    row.querySelector('.rname').textContent = v.label;
+    row.querySelector('.meta').textContent =
       `${v.sessions.length} ${v.sessions.length === 1 ? 'Session' : 'Sessions'}`;
-    zeile.dataset.tip = v.sessions.map((e) => e.cwd).join('\n');
+    row.dataset.tip = v.sessions.map((e) => e.cwd).join('\n');
 
-    zeile.addEventListener('click', async (ev) => {
+    row.addEventListener('click', async (ev) => {
       if (ev.target.dataset.t === 'weg') return;
       $('#templates').hidden = true;
       try {
-        const r = await api.vorlageStarten(v.name);
-        if (r.teilweise) plxrUI.hinweis(r.teilweise, 'Nicht alles ließ sich starten');
+        const r = await api.templateStart(v.name);
+        if (r.teilweise) plxrUI.notice(r.teilweise, 'Nicht alles ließ sich starten');
       } catch (e) {
-        plxrUI.hinweis(e.message || String(e), 'Nicht gestartet');
+        plxrUI.notice(e.message || String(e), 'Nicht gestartet');
       }
     });
 
-    zeile.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
+    row.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
       ev.stopPropagation();
-      if (!(await plxrUI.frage(v.label, 'Vorlage löschen?'))) return;
-      try { await api.vorlageLoeschen(v.name); vorlagenOeffnen(); }
-      catch (e) { plxrUI.hinweis(e.message || String(e), 'Nicht gelöscht'); }
+      if (!(await plxrUI.confirm(v.label, 'Vorlage löschen?'))) return;
+      try { await api.templateDelete(v.name); openTemplates(); }
+      catch (e) { plxrUI.notice(e.message || String(e), 'Nicht gelöscht'); }
     });
-    box.appendChild(zeile);
+    box.appendChild(row);
   }
 }
 
 $('#templatesSave').addEventListener('click', async () => {
   const offen = state.tiles.filter((t) => t.alive).length;
-  if (!offen) { plxrUI.hinweis('Es läuft keine Session, die sich sichern ließe.', 'Nichts zu speichern'); return; }
-  const label = await plxrUI.eingabe(
+  if (!offen) { plxrUI.notice('Es läuft keine Session, die sich sichern ließe.', 'Nichts zu speichern'); return; }
+  const label = await plxrUI.prompt(
     `${offen} laufende ${offen === 1 ? 'Session wird' : 'Sessions werden'} gesichert: ` +
     'Verzeichnis, Kommando und Konto.', 'Wie soll die Vorlage heißen?', 'Arbeitstag');
   if (!label) return;
   const name = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   try {
-    await api.vorlageSpeichern(name, label);
-    vorlagenOeffnen();
+    await api.templateSave(name, label);
+    openTemplates();
   } catch (e) {
-    plxrUI.hinweis(e.message || String(e), 'Nicht gespeichert');
+    plxrUI.notice(e.message || String(e), 'Nicht gespeichert');
   }
 });
 
 $('#newBtn').addEventListener('click', async () => {
   $('#newCwd').value = state.filter || localStorage.getItem('plxr.lastCwd') || '';
-  await Promise.all([kontenFuellen('#newAccount'), wahlFuellen()]);
+  await Promise.all([fillAccounts('#newAccount'), fillChoice()]);
   $('#dialog').hidden = false;
   $('#newCwd').focus();
 });
@@ -2947,14 +2947,14 @@ if (api.fenster) {
 $('#newForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const cwd = $('#newCwd').value.trim();
-  const cmd = gewaehltesKommando();
+  const cmd = chosenCommand();
   try {
     const s = await api.starten(cwd, cmd, $('#newAccount').value);
     localStorage.setItem('plxr.lastCwd', cwd);
     $('#dialog').hidden = true;
-    setTimeout(() => sessionOeffnen(s.id), 400);
+    setTimeout(() => openSession(s.id), 400);
   } catch (err) {
-    plxrUI.hinweis(err.message || String(err), 'Start fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), 'Start fehlgeschlagen');
   }
 });
 
@@ -2966,13 +2966,13 @@ $('#newForm').addEventListener('submit', async (e) => {
 (function themeAusSpeicher() {
   try {
     const roh = localStorage.getItem('plxr.themeCache');
-    themeAnwenden(roh ? JSON.parse(roh) : { name: 'crt-amber', skin: 'crt', palette: {} });
+    applyTheme(roh ? JSON.parse(roh) : { name: 'crt-amber', skin: 'crt', palette: {} });
   } catch {
-    themeAnwenden({ name: 'crt-amber', skin: 'crt', palette: {} });
+    applyTheme({ name: 'crt-amber', skin: 'crt', palette: {} });
   }
 })();
 
-plxrUI.auswahlAlle();
+plxrUI.replaceSelects();
 
 fetch('/logo.svg').then((r) => r.text()).then((svg) => { $('#mark').innerHTML = svg; }).catch(() => {});
 
@@ -2983,7 +2983,7 @@ api.env().then((e) => {
   if (e.titlebarInset) document.documentElement.dataset.titlebarInset = 'yes';
 }).catch(() => {});
 
-(function bootzeile() {
+(function bootLine() {
   const el = $('#boot');
   const txt = WAILS ? 'pty host online' : 'browsermodus · pty host online';
   let i = 0;
@@ -3007,46 +3007,46 @@ plxrUI.tippBinden();
 
    Bewusst ohne Rückfrage: eine Sicherheitsabfrage vor der Notbremse wäre
    dasselbe wie keine Notbremse. Rückgängig macht sie der zweite Klick. */
-async function notbremse() {
-  const knopf = $('#brake');
-  if (knopf.dataset.an === 'ja') {
+async function emergencyBrake() {
+  const button = $('#brake');
+  if (button.dataset.an === 'ja') {
     try {
-      const r = await api.auftauen();
-      knopf.dataset.an = '';
-      knopf.textContent = 'STOPP';
+      const r = await api.unfreeze();
+      button.dataset.an = '';
+      button.textContent = 'STOPP';
       document.documentElement.dataset.eingefroren = '';
       $('#counts').textContent = `${r.fortgesetzt} fortgesetzt`;
-    } catch (e) { plxrUI.hinweis(e.message || String(e), 'Nicht fortgesetzt'); }
+    } catch (e) { plxrUI.notice(e.message || String(e), 'Nicht fortgesetzt'); }
     return;
   }
   try {
-    const r = await api.notbremse();
-    if (!r.betroffen) { plxrUI.hinweis('Es läuft gerade nichts.', 'Nichts anzuhalten'); return; }
-    knopf.dataset.an = 'ja';
-    knopf.textContent = 'WEITER';
+    const r = await api.emergencyBrake();
+    if (!r.betroffen) { plxrUI.notice('Es läuft gerade nichts.', 'Nichts anzuhalten'); return; }
+    button.dataset.an = 'ja';
+    button.textContent = 'WEITER';
     document.documentElement.dataset.eingefroren = 'ja';
     $('#counts').textContent = r.eingefroren === r.betroffen
       ? `${r.eingefroren} angehalten`
       : `${r.eingefroren} von ${r.betroffen} angehalten — der Rest ließ sich nicht stoppen`;
-  } catch (e) { plxrUI.hinweis(e.message || String(e), 'Notbremse fehlgeschlagen'); }
+  } catch (e) { plxrUI.notice(e.message || String(e), 'Notbremse fehlgeschlagen'); }
 }
-$('#brake').addEventListener('click', notbremse);
+$('#brake').addEventListener('click', emergencyBrake);
 
-pfadHilfe($('#pathFilter'), filterUebernehmen);
-pfadHilfe($('#newCwd'));
+pathComplete($('#pathFilter'), applyFilter);
+pathComplete($('#newCwd'));
 
 state.filter = localStorage.getItem('plxr.filter') || '';
 $('#pathFilter').value = state.filter;
 
 connect()
-  .then(() => themesLaden())
+  .then(() => loadThemes())
   .then(() => {
-    api.aufZustand(zeichneAlles);
-    fassungPruefen(true);
+    api.aufZustand(renderAll);
+    checkVersion(true);
     // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
     api.updateStand().then((st) => {
       if (st.laeuft) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
-    setInterval(fassungPruefen, FASSUNG_INTERVALL);
+    setInterval(checkVersion, VERSION_INTERVAL);
   })
-  .catch(() => neuVerbinden());
+  .catch(() => reconnect());

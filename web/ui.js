@@ -13,7 +13,7 @@
 
   /* ---------- Auswahlliste ---------- */
 
-  function auswahl(sel) {
+  function makeSelect(sel) {
     if (sel.dataset.eigen) return;
     sel.dataset.eigen = 'ja';
     sel.hidden = true;
@@ -23,74 +23,74 @@
     wurzel.innerHTML = '<button type="button" class="selectButton"><span class="auswahlText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
     sel.after(wurzel);
 
-    const knopf = $$('.selectButton', wurzel);
+    const button = $$('.selectButton', wurzel);
     const text = $$('.auswahlText', wurzel);
-    const liste = $$('.selectList', wurzel);
-    if (sel.dataset.tip) knopf.dataset.tip = sel.dataset.tip;
+    const list = $$('.selectList', wurzel);
+    if (sel.dataset.tip) button.dataset.tip = sel.dataset.tip;
 
-    const zeichnen = () => {
+    const render = () => {
       text.textContent = sel.options[sel.selectedIndex]?.textContent || '';
-      liste.innerHTML = '';
+      list.innerHTML = '';
       for (const kind of sel.children) {
         if (kind.tagName === 'OPTGROUP') {
           const h = document.createElement('div');
           h.className = 'selectGroup';
           h.textContent = kind.label;
-          liste.appendChild(h);
-          for (const o of kind.children) liste.appendChild(zeile(o));
+          list.appendChild(h);
+          for (const o of kind.children) list.appendChild(row(o));
         } else {
-          liste.appendChild(zeile(kind));
+          list.appendChild(row(kind));
         }
       }
     };
 
-    const zeile = (o) => {
+    const row = (o) => {
       const d = document.createElement('button');
       d.type = 'button';
       d.className = 'selectRow';
       d.textContent = o.textContent;
       d.dataset.wert = o.value;
-      if (o.value === sel.value) d.dataset.gewaehlt = 'ja';
+      if (o.value === sel.value) d.dataset.picked = 'ja';
       d.addEventListener('click', () => {
         sel.value = o.value;
         // Der übrige Code hört auf 'change' des echten Elements.
         sel.dispatchEvent(new Event('change', { bubbles: true }));
         zu();
-        zeichnen();
+        render();
       });
       return d;
     };
 
     const auf = () => {
-      zeichnen();
-      liste.hidden = false;
+      render();
+      list.hidden = false;
       wurzel.dataset.offen = 'ja';
       // Nach oben klappen, wenn unten kein Platz ist.
-      const platz = window.innerHeight - knopf.getBoundingClientRect().bottom;
-      wurzel.dataset.richtung = platz < Math.min(320, liste.scrollHeight + 16) ? 'tall' : 'runter';
-      const g = $$('[data-gewaehlt]', liste);
+      const platz = window.innerHeight - button.getBoundingClientRect().bottom;
+      wurzel.dataset.richtung = platz < Math.min(320, list.scrollHeight + 16) ? 'tall' : 'runter';
+      const g = $$('[data-gewaehlt]', list);
       if (g) g.scrollIntoView({ block: 'nearest' });
     };
-    const zu = () => { liste.hidden = true; delete wurzel.dataset.offen; };
+    const zu = () => { list.hidden = true; delete wurzel.dataset.offen; };
 
-    knopf.addEventListener('click', (e) => { e.stopPropagation(); liste.hidden ? auf() : zu(); });
+    button.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? auf() : zu(); });
     document.addEventListener('click', (e) => { if (!wurzel.contains(e.target)) zu(); });
     document.addEventListener('keydown', (e) => {
       // Nur wenn diese Liste offen ist — sonst schließt ein Escape irgendwo
       // im Fenster auch noch den Dialog darunter.
-      if (e.key === 'Escape' && !liste.hidden) { e.stopPropagation(); zu(); }
+      if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); zu(); }
     }, true);
     // Änderungen von außen (etwa beim Laden) müssen sichtbar werden.
-    sel.addEventListener('change', zeichnen);
-    new MutationObserver(zeichnen).observe(sel, { childList: true, subtree: true });
-    zeichnen();
+    sel.addEventListener('change', render);
+    new MutationObserver(render).observe(sel, { childList: true, subtree: true });
+    render();
   }
 
   /* ---------- Rückfrage und Hinweis ---------- */
 
   let offen = null;
 
-  function dialog(titel, text, knoepfe) {
+  function dialog(titel, text, buttons) {
     return new Promise((fertig) => {
       if (offen) offen.remove();
       const d = document.createElement('div');
@@ -104,7 +104,7 @@
       $$('.cardTitle', d).textContent = titel;
       $$('.dialogText', d).textContent = text;
 
-      const schliessen = (wert) => {
+      const close = (wert) => {
         d.remove();
         offen = null;
         document.removeEventListener('keydown', taste, true);
@@ -112,23 +112,23 @@
       };
 
       const box = $$('.cardButtons', d);
-      for (const k of knoepfe) {
+      for (const k of buttons) {
         const b = document.createElement('button');
         b.className = 'btn' + (k.haupt ? ' primary' : '');
         b.textContent = k.text;
-        b.addEventListener('click', () => schliessen(k.wert));
+        b.addEventListener('click', () => close(k.wert));
         box.appendChild(b);
       }
 
       // Klick neben die Karte bricht ab — wie bei jedem anderen Dialog auch.
-      d.addEventListener('mousedown', (e) => { if (e.target === d) schliessen(false); });
+      d.addEventListener('mousedown', (e) => { if (e.target === d) close(false); });
 
       function taste(e) {
-        if (e.key === 'Escape') { e.stopPropagation(); schliessen(false); }
+        if (e.key === 'Escape') { e.stopPropagation(); close(false); }
         // Enter bricht ab, nicht bestätigt. Bei "Transkript löschen?" wäre die
         // Eingabetaste sonst die zerstörerische Antwort — und genau die drückt
         // man aus Gewohnheit.
-        if (e.key === 'Enter') { e.preventDefault(); schliessen(false); }
+        if (e.key === 'Enter') { e.preventDefault(); close(false); }
       }
       // Vor dem Handler der Anwendung, damit Escape nicht zusätzlich das
       // darunterliegende Fenster schließt.
@@ -172,7 +172,7 @@
     return { h, s: max ? d / max : 0, v: max };
   }
 
-  function farbwahl(feld, beiAenderung) {
+  function colorPicker(field, onChange) {
     const wurzel = document.createElement('div');
     wurzel.className = 'colorPicker';
     wurzel.innerHTML =
@@ -182,31 +182,31 @@
       '  <div class="swatchHue"><i class="swatchHueDot"></i></div>' +
       '  <input class="swatchHex" spellcheck="false" maxlength="7">' +
       '</div>';
-    feld.after(wurzel);
-    feld.hidden = true;
+    field.after(wurzel);
+    field.hidden = true;
 
     const tupfer = $$('.swatch', wurzel);
     const kasten = $$('.swatchField', wurzel);
-    const flaeche = $$('.swatchArea', wurzel);
+    const pane = $$('.swatchArea', wurzel);
     const punkt = $$('.swatchDot', wurzel);
     const ton = $$('.swatchHue', wurzel);
     const tonPunkt = $$('.swatchHueDot', wurzel);
     const hex = $$('.swatchHex', wurzel);
 
-    let hsv = hexNachHsv(feld.value) || { h: 40, s: 1, v: 1 };
+    let hsv = hexNachHsv(field.value) || { h: 40, s: 1, v: 1 };
 
-    const zeichnen = (melden) => {
+    const render = (melden) => {
       const wert = hsvNachHex(hsv.h, hsv.s, hsv.v);
       tupfer.style.background = wert;
-      flaeche.style.background =
+      pane.style.background =
         `linear-gradient(to top, #000, transparent), ` +
         `linear-gradient(to right, #fff, ${hsvNachHex(hsv.h, 1, 1)})`;
       punkt.style.left = hsv.s * 100 + '%';
       punkt.style.top = (1 - hsv.v) * 100 + '%';
       tonPunkt.style.left = (hsv.h / 360) * 100 + '%';
       if (document.activeElement !== hex) hex.value = wert;
-      feld.value = wert;
-      if (melden !== false) beiAenderung?.(wert);
+      field.value = wert;
+      if (melden !== false) onChange?.(wert);
     };
 
     const ziehen = (el, beiPunkt) => {
@@ -215,7 +215,7 @@
         beiPunkt(
           Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
           Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)));
-        zeichnen();
+        render();
       };
       el.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -230,28 +230,28 @@
       });
     };
 
-    ziehen(flaeche, (x, y) => { hsv.s = x; hsv.v = 1 - y; });
+    ziehen(pane, (x, y) => { hsv.s = x; hsv.v = 1 - y; });
     ziehen(ton, (x) => { hsv.h = x * 360; });
 
     hex.addEventListener('input', () => {
       const neu = hexNachHsv(hex.value);
-      if (neu) { hsv = neu; zeichnen(); }
+      if (neu) { hsv = neu; render(); }
     });
 
     tupfer.addEventListener('click', (e) => {
       e.stopPropagation();
       kasten.hidden = !kasten.hidden;
-      if (!kasten.hidden) zeichnen(false);
+      if (!kasten.hidden) render(false);
     });
     document.addEventListener('mousedown', (e) => {
       if (!wurzel.contains(e.target)) kasten.hidden = true;
     });
 
-    zeichnen(false);
+    render(false);
     return {
-      setzen(wert) {
+      set(wert) {
         const neu = hexNachHsv(wert);
-        if (neu) { hsv = neu; zeichnen(false); }
+        if (neu) { hsv = neu; render(false); }
       },
     };
   }
@@ -264,7 +264,7 @@
   let tippEl = null;
   let tippTimer = null;
 
-  function tippZeigen(ziel) {
+  function showTip(ziel) {
     const text = ziel.dataset.tip;
     if (!text) return;
     if (!tippEl) {
@@ -297,7 +297,7 @@
       const ziel = e.target.closest?.('[data-tip]');
       if (!ziel) return;
       clearTimeout(tippTimer);
-      tippTimer = setTimeout(() => tippZeigen(ziel), 400);
+      tippTimer = setTimeout(() => showTip(ziel), 400);
     };
     document.addEventListener('mouseover', einstieg);
     document.addEventListener('mouseout', (e) => {
@@ -309,25 +309,25 @@
     // Tastaturbedienung: beim Fokussieren sofort, ohne Verzögerung.
     document.addEventListener('focusin', (e) => {
       const ziel = e.target.closest?.('[data-tip]');
-      if (ziel) tippZeigen(ziel);
+      if (ziel) showTip(ziel);
     });
     document.addEventListener('focusout', tippWeg);
   }
 
   window.plxrUI = {
-    farbwahl,
+    colorPicker,
     tippBinden,
-    auswahlAlle() { document.querySelectorAll('select').forEach(auswahl); },
+    replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
     // Versalien wie im übrigen Markup: crt setzt text-transform, die anderen
     // Skins nicht — kleines "ja" neben großem "ABBRECHEN" fiel sofort auf.
-    frage: (text, titel = 'Sicher?') =>
+    confirm: (text, titel = 'Sicher?') =>
       dialog(titel, text, [{ text: 'ABBRECHEN', wert: false }, { text: 'JA', wert: true, haupt: true }]),
-    hinweis: (text, titel = 'Hinweis') =>
+    notice: (text, titel = 'Hinweis') =>
       dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
 
     /* Nach einem Text fragen. Wie frage(), nur mit Eingabefeld — und hier
        darf Enter bestätigen, weil nichts Zerstörerisches daran hängt. */
-    eingabe(text, titel = 'Eingabe', vorgabe = '') {
+    prompt(text, titel = 'Eingabe', vorgabe = '') {
       return new Promise((fertig) => {
         if (offen) offen.remove();
         const d = document.createElement('div');
@@ -341,29 +341,29 @@
           '<button class="btn primary" data-w="1">OK</button></div></div>';
         $$('.cardTitle', d).textContent = titel;
         $$('.dialogText', d).textContent = text;
-        const feld = $$('.promptInput', d);
-        feld.value = vorgabe;
+        const field = $$('.promptInput', d);
+        field.value = vorgabe;
 
-        const schliessen = (wert) => {
+        const close = (wert) => {
           d.remove();
           offen = null;
           document.removeEventListener('keydown', taste, true);
           fertig(wert);
         };
         for (const b of d.querySelectorAll('[data-w]')) {
-          b.addEventListener('click', () => schliessen(b.dataset.w === '1' ? feld.value.trim() : null));
+          b.addEventListener('click', () => close(b.dataset.w === '1' ? field.value.trim() : null));
         }
-        d.addEventListener('mousedown', (e) => { if (e.target === d) schliessen(null); });
+        d.addEventListener('mousedown', (e) => { if (e.target === d) close(null); });
 
         function taste(e) {
-          if (e.key === 'Escape') { e.stopPropagation(); schliessen(null); }
-          if (e.key === 'Enter') { e.preventDefault(); schliessen(feld.value.trim()); }
+          if (e.key === 'Escape') { e.stopPropagation(); close(null); }
+          if (e.key === 'Enter') { e.preventDefault(); close(field.value.trim()); }
         }
         document.addEventListener('keydown', taste, true);
 
         document.body.appendChild(d);
-        feld.focus();
-        feld.select();
+        field.focus();
+        field.select();
       });
     },
   };

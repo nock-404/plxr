@@ -31,6 +31,7 @@ schritt "ampelrand" grep -q 'data-titlebar-inset' web/base.css
 schritt "go vet" go vet ./...
 schritt "bindungen" python3 bindungen.py
 schritt "js-parser" node web/parser_test.mjs
+schritt "js-aufrufe" node aufrufe.mjs web/app.js web/ui.js
 
 printf '%-16s' "go test"
 go test ./... >/dev/null || { echo "FEHLER"; go test ./...; exit 1; }
