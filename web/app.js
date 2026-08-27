@@ -1,12 +1,12 @@
-/* plxr — Oberfläche.
+/* plxr — the user interface.
 
-   Läuft in zwei Umgebungen: im Wails-Fenster und im Browser (`plxr --browser`).
-   Der Unterschied steckt vollständig in `connect()` und den beiden Aufrufen an
-   die Wails-Bindungen; alles darüber weiß nichts davon.
+   Runs in two environments: the Wails window and the browser
+   (`plxr --browser`). The difference lives entirely in `connect()` and the two
+   calls into the Wails bindings; everything above that knows nothing of it.
 
-   Gesprochen wird immer mit dem Daemon über HTTP und WebSocket. Der Daemon ist
-   ein eigener Prozess: Sessions überleben das Schließen des Fensters, und es
-   dürfen mehrere Clients gleichzeitig zusehen.
+   It always talks to the daemon over HTTP and WebSocket. The daemon is a
+   process of its own: sessions survive closing the window, and several clients
+   may watch at the same time.
 */
 
 const $ = (s) => document.querySelector(s);
@@ -14,8 +14,8 @@ const $ = (s) => document.querySelector(s);
 const state = {
   tiles: [],        // letzter bekannter Gesamtzustand
   filter: '',       // Pfadfilter
-  panes: [],        // Session-IDs der offenen Terminalflächen
-  aktiv: null,      // welche davon die Kopfleiste bedient
+  panes: [],        // session ids of the open terminal panes
+  aktiv: null,      // which of them the header acts on
   themes: [],
 };
 
@@ -25,9 +25,9 @@ const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const WAILS = !!(window.go && window.go.main && window.go.main.App);
 const Native = WAILS ? window.go.main.App : null;
 
-/* Im Fenster, aber ohne gebundene Methoden: dann findet die Oberfläche den
-   Daemon nicht und bliebe stumm weiß. Lieber laut sein — das passiert, wenn
-   jemand ohne Bindungen baut. */
+/* In the window, but without bound methods: then the UI cannot find the daemon
+   and would stay silently blank. Better to be loud — this happens when someone
+   builds without bindings. */
 if (window.runtime && !WAILS) {
   document.addEventListener('DOMContentLoaded', () => {
     document.body.innerHTML =
@@ -43,16 +43,16 @@ let TOKEN = '';
 
 async function connect() {
   if (WAILS) {
-    // Fragt Go jedes Mal neu — dort wird bei Bedarf ein Daemon gestartet.
+    // Asks Go afresh every time — a daemon is started there if needed.
     const d = await Native.Daemon();
     BASE = d.url;
     TOKEN = d.token;
     return;
   }
   BASE = location.origin;
-  // Das Token kommt einmal über die Adresse. Danach liegt es im
-  // sessionStorage, damit ein Neuladen die Verbindung nicht verliert, und
-  // verschwindet aus der Adresszeile, damit es nicht im Verlauf landet.
+  // The token arrives once through the address. After that it lives in
+  // sessionStorage, so a reload does not lose the connection, and it
+  // disappears from the address bar so it does not end up in the history.
   const ausURL = new URLSearchParams(location.search).get('token');
   if (ausURL) {
     TOKEN = ausURL;
@@ -72,12 +72,12 @@ async function req(pfad, opts = {}) {
   try {
     r = await fetch(BASE + pfad, { ...opts, headers: { 'X-Plxr-Token': TOKEN, ...(opts.headers || {}) } });
   } catch (e) {
-    // Netzwerkfehler heißt hier: der Daemon ist weg. Nicht dem Aufrufer
-    // aufbürden, sondern die Wiederverbindung anstoßen.
+    // A network error means: the daemon is gone. Do not push that onto the
+    // caller, start the reconnect instead.
     //
-    // Und nicht den Wortlaut der Webview durchreichen: die sagt je nach
-    // System "Load failed" oder "Failed to fetch". Das stand dem Nutzer dann
-    // englisch und ohne Zusammenhang im Dialog und erklärte nichts.
+    // And do not pass the webview's own wording through: depending on the
+    // system it says "Load failed" or "Failed to fetch". That then stood in the
+    // dialog without any context and explained nothing.
     reconnect();
     throw new Error('Keine Verbindung zum Daemon — wird neu aufgebaut.');
   }
@@ -93,8 +93,8 @@ const b64 = (s) => {
   return out;
 };
 
-/* Wer hängt gerade an welcher Session. Nötig, um nach einem Daemon-Neustart
-   dieselben Verbindungen wieder aufzubauen. */
+/* Who is attached to which session. Needed to rebuild the same connections
+   after a daemon restart. */
 const attachments = new Map();
 
 const api = {
@@ -106,8 +106,8 @@ const api = {
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
   themeDelete: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  /* Der Strom kommt als Bytes, nicht als JSON — base64 würde ihn verdreifachen.
-     Deshalb an req vorbei, das JSON erwartet. */
+  /* The stream comes as bytes, not JSON — base64 would treble its size. Hence
+     around req, which expects JSON. */
   wiedergabe: async (id, ab = 0) => {
     const r = await fetch(`${BASE}/api/playback/${encodeURIComponent(id)}?ab=${ab}`,
       { headers: { 'X-Plxr-Token': TOKEN } });
@@ -179,17 +179,17 @@ const api = {
   setFilter() { this._openTiles(); },
 
   // --- Terminals ---
-  // Je Session eine eigene Verbindung, in einer Map statt in einer einzelnen
-  // Variablen: sonst ließen sich nie zwei Sessions gleichzeitig anzeigen.
+  // One connection per session, in a Map rather than a single variable:
+  // otherwise two sessions could never be shown at once.
   _verb: new Map(),
   attach(id, aufDaten, aufEnde) {
     this.detach(id);
     const ws = new WebSocket(wsURL(`/ws/session/${id}`));
     ws.binaryType = 'arraybuffer';
     ws.onmessage = (e) => aufDaten(typeof e.data === 'string' ? e.data : new Uint8Array(e.data));
-    // Der Grund für den Unterschied: ein geschlossener Socket heißt nicht, dass
-    // der Prozess endete. Stirbt der Daemon, verlieren wir nur die Leitung —
-    // "Prozess beendet" wäre schlicht gelogen.
+    // The reason for the distinction: a closed socket does not mean the process
+    // ended. If the daemon dies we only lose the line — "process finished"
+    // would simply be a lie.
     ws.onclose = () => {
       this._verb.delete(id);
       aufEnde(connectionOk ? 'prozess' : 'leitung');
@@ -197,8 +197,8 @@ const api = {
     this._verb.set(id, ws);
   },
 
-  // Nach einem Daemon-Neustart hängen alle offenen Flächen an toten Sockets.
-  // Wer das nicht nachzieht, hat eine Oberfläche, die aussieht als liefe sie.
+  // After a daemon restart every open pane hangs on a dead socket.
+  // Without pulling them along you get a UI that only looks alive.
   reattach() {
     for (const [id, eintrag] of attachments) {
       this.attach(id, eintrag.aufDaten, eintrag.aufEnde);
@@ -221,10 +221,10 @@ const api = {
   resize(id, rows, cols) { this._send(id, { type: 'resize', rows, cols }); },
 };
 
-/* ── Wiederverbinden ──
-   Ein Abriss ist kein Fehlerzustand, sondern ein Zwischenzustand: der Daemon
-   kann neu gestartet worden sein und dabei Port und Token gewechselt haben.
-   Also erneut fragen statt die Oberfläche zu verwerfen. */
+/* ── Reconnecting ──
+   A dropped connection is not an error state but an intermediate one: the
+   daemon may have been restarted and changed port and token along the way. So
+   ask again rather than throwing the UI away. */
 
 let connectionOk = true;
 function showConnection(ok) {
@@ -235,17 +235,17 @@ function showConnection(ok) {
     $('#counts').textContent = 'Verbindung verloren, versuche erneut …';
     return;
   }
-  /* Steht die Verbindung wieder, muss der Satz sofort weg. Ihn nur bis zum
-     nächsten Zustands-Update stehen zu lassen hieß: läuft gerade nichts, was
-     eine Meldung auslöst, klebt "Verbindung verloren" endlos im Kopf, obwohl
-     alles wieder geht. */
+  /* Once the connection is back the sentence has to go immediately. Leaving it
+     until the next state update meant: with nothing running that triggers a
+     message, "connection lost" sticks in the header forever even though
+     everything works again. */
   renderAll(state.tiles);
   refreshView();
 }
 
-/* Was gerade offen ist, noch einmal laden. Eine Ansicht, die während des
-   Ausfalls "nicht erreichbar" angezeigt hat, heilt sonst nicht von selbst —
-   der Nutzer müsste sie von Hand neu öffnen und weiß das nicht. */
+/* Reload whatever is open. A view that showed "not reachable" during the
+   outage does not otherwise heal by itself — the user would have to reopen it
+   by hand, and has no way of knowing that. */
 function refreshView() {
   const nach = [
     ['#viewPorts', () => loadView('#portsList', '#portsInfo', loadPorts)],
@@ -272,7 +272,7 @@ function reconnect() {
       await loadThemes($('#themeSel').value);
       api.aufZustand(renderAll);
       showConnection(true);
-      // Erst jetzt die Terminals: vorher wäre die Adresse noch die alte.
+      // The terminals only now: before this the address would still be the old one.
       api.reattach();
       neuTimer = null;
     } catch {
@@ -283,13 +283,13 @@ function reconnect() {
   neuTimer = setTimeout(versuch, wartezeit);
 }
 
-/* ═════════════════════════ Themes und Skins ═════════════════════════ */
+/* ═════════════════════════ Themes and skins ═════════════════════════ */
 
 const PALETTE = ['bg','fg','dim','accent','panel','line','working','waiting','blocked','dead'];
 
-/* Skinwechsel doppelt gepuffert: das neue Blatt daneben laden, auf onload
-   warten, dann erst das alte entfernen. Wer stattdessen href umbiegt, hat für
-   ein paar hundert Millisekunden gar kein Stylesheet — und eine nackte Seite. */
+/* A skin change is double buffered: load the new sheet alongside, wait for
+   onload, only then remove the old one. Redirecting href instead leaves a few
+   hundred milliseconds with no stylesheet at all — and a naked page. */
 let skinLoading = null;
 
 function setSkin(name) {
@@ -307,12 +307,12 @@ function setSkin(name) {
       if (alt && alt !== neu) alt.remove();
       neu.id = 'skinCss';
       skinLoading = null;
-      // Ein anderer Skin bringt andere Wappenzeichen mit.
+      // A different skin brings different crest glyphs.
       crestGlyphs = null;
       fertig();
     };
     neu.addEventListener('load', adopt, { once: true });
-    // Kaputtes Blatt: das alte bleibt lieber stehen als gar keins.
+    // A broken sheet: better to keep the old one than have none.
     neu.addEventListener('error', () => { neu.remove(); skinLoading = null; fertig(); }, { once: true });
     document.head.appendChild(neu);
   });
@@ -326,25 +326,25 @@ function applyTheme(t) {
   wurzel.dataset.glow = t.glow === false ? 'off' : 'on';
 
   setSkin(t.skin).then(() => {
-    // Palette erst setzen, wenn der Skin steht: sonst überschreibt dessen
-    // :root-Block die eigenen Werte, weil er später geparst wird.
+    // Set the palette only once the skin is in place: otherwise its :root block
+    // overrides our values, because it is parsed later.
     for (const k of PALETTE) wurzel.style.removeProperty('--' + k);
     for (const [k, v] of Object.entries(t.palette || {})) {
       if (PALETTE.includes(k)) wurzel.style.setProperty('--' + k, v);
     }
     for (const p of paneList()) p.term.options.theme = xtermTheme();
 
-    /* Ein anderes Theme bringt eine andere Palette mit — eigene Farbänderungen
-       gelten dann nicht mehr. Sie stehen zu lassen hieße: der Stil-Editor zeigt
-       die Farben des alten Themes an, und Speichern schriebe sie ins neue. */
+    /* A different theme brings a different palette — own colour changes no longer
+       apply. Leaving them would mean: the style editor shows the old theme's
+       colours, and saving would write them into the new one. */
     styleState.changes = {};
     if (!$('#settings').hidden) buildStyleEditor();
   });
 
   try {
     localStorage.setItem('plxr.theme', t.name);
-    // Das ganze Theme mitschreiben: beim nächsten Start steht das Aussehen
-    // sofort, ohne auf den Daemon zu warten.
+    // Write the whole theme along: on the next start the look is there
+    // immediately, without waiting for the daemon.
     localStorage.setItem('plxr.themeCache', JSON.stringify(t));
   } catch {}
   showDeleteButton(t);
@@ -354,8 +354,8 @@ const cssVar = (n, ersatz) =>
   getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim() || ersatz;
 
 function xtermTheme() {
-  // Eigene Variablen mit Rückfall auf die Oberflächenpalette: ein heller Skin
-  // will ein dunkles Terminal, sonst steht Bernstein auf Papier.
+  // Own variables falling back to the UI palette: a light skin wants a dark
+  // terminal, otherwise amber sits on paper.
   const bg = cssVar('term-bg', cssVar('bg', '#000'));
   const fg = cssVar('term-fg', cssVar('fg', '#ccc'));
   const akz = cssVar('accent', fg), dim = cssVar('dim', fg);
@@ -371,11 +371,11 @@ function xtermTheme() {
   };
 }
 
-/* Findet sich das Theme nicht in der geladenen Liste — etwa weil der Daemon
-   gerade weg war —, wird der Skin aus dem Namen abgeleitet statt gar nichts
-   zu tun. Ein Wechsel darf nie stumm bleiben. */
-/* Löschen gibt es nur für eigene Themes: die eingebauten stecken in der
-   Anwendung und wären nach dem nächsten Update ohnehin wieder da. */
+/* If the theme is not in the loaded list — because the daemon was away, say —
+   the skin is derived from the name rather than doing nothing at all. A change
+   must never pass silently. */
+/* Deleting exists only for own themes: the built-in ones live inside the
+   application and would be back after the next update anyway. */
 function showDeleteButton(t) {
   $('#themeDelete').hidden = !(t || currentTheme())?.eigen;
 }
@@ -430,8 +430,8 @@ $('#themeDelete').addEventListener('click', async () => {
 
 /* ═════════════════════════ Einstellungen ═════════════════════════ */
 
-/* Aussehen und Einrichtung gehören nicht in die Kopfleiste: das stellt man
-   einmal ein und sieht es danach nie wieder. */
+/* Appearance and setup do not belong in the header: you set that once and
+   never look at it again. */
 
 async function openSettings() {
   $('#settings').hidden = false;
@@ -451,11 +451,11 @@ async function openSettings() {
 }
 $('#settingsBtn').addEventListener('click', openSettings);
 
-/* ═════════════════════════ Stil anpassen ═════════════════════════
+/* ═════════════════════════ Adjusting the style ═════════════════════════
 
-   Ein Theme wählen reicht nicht — man will die Farbe verschieben, bis sie
-   stimmt. Änderungen greifen sofort, damit man sieht was man tut; gespeichert
-   wird erst auf Zuruf, als eigenes Theme neben den mitgelieferten. */
+   Picking a theme is not enough — you want to nudge the colour until it is
+   right. Changes take effect at once so you can see what you are doing; saving
+   happens on request, as an own theme alongside the shipped ones. */
 
 const STYLE_COLORS = [
   ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', 'Nebensächliches'],
@@ -469,8 +469,8 @@ const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0 };
 
 function buildStyleEditor() {
   const box = $('#styleEditor');
-  // Schon gebaut: nur die Werte auffrischen. Sonst zeigen die Tupfer nach
-  // einem Themewechsel weiter die alten Farben.
+  // Already built: only refresh the values. Otherwise the swatches keep showing
+  // the old colours after a theme change.
   if (box.children.length) {
     for (const [key] of STYLE_COLORS) styleState.pickers[key]?.set(currentColor(key));
     return;
@@ -501,7 +501,7 @@ function buildStyleEditor() {
   box.appendChild(toggleRow('Schimmer', 'glow'));
 }
 
-// Der Ist-Wert einer Farbe: erst die eigene Änderung, dann das, was gerade gilt.
+// The current value of a colour: our own change first, then whatever applies.
 function currentColor(key) {
   if (styleState.changes[key]) return styleState.changes[key];
   const wert = cssVar(key, '');
@@ -653,8 +653,8 @@ $('#themeFile').addEventListener('change', async (e) => {
 
 /* ═════════════════════════ Ansichten ═════════════════════════ */
 
-/* Eine Stelle bestimmt, was sichtbar ist. Vorher lag das über mehrere
-   Funktionen verstreut und lief regelmäßig auseinander. */
+/* One place decides what is visible. This used to be scattered across several
+   functions and regularly drifted apart. */
 const ANSICHTEN = [
   ['#railInbox', '#viewInbox'],
   ['#railPorts', '#viewPorts'],
@@ -681,9 +681,9 @@ function showGrid() {
 }
 $('#railHome').addEventListener('click', showGrid);
 
-/* Antwortet der Daemon nicht, soll die Ansicht das sagen. Eine unbehandelte
-   Ausnahme lässt stattdessen „liest …" stehen — das sieht aus wie ein Hänger,
-   und man weiß nicht, ob man warten soll. */
+/* If the daemon does not answer, the view should say so. An unhandled
+   exception instead leaves "reading …" standing — that looks like a hang, and
+   you cannot tell whether to keep waiting. */
 async function loadView(box, info, load) {
   try {
     await load();
@@ -703,28 +703,28 @@ async function showArchive() {
 }
 $('#railArchive').addEventListener('click', showArchive);
 
-/* ═════════════════════════ Posteingang ═════════════════════════
+/* ═════════════════════════ Inbox ═════════════════════════
 
-   Der Grund, warum es plxr gibt: acht Agenten laufen, drei warten auf eine
-   Antwort, und man weiß nicht welche. Hier stehen sie alle mit ihrer Frage —
-   antworten, weiter zur nächsten, ohne eine einzige Session zu öffnen. */
+   The reason plxr exists: eight agents running, three waiting for an answer,
+   and no way to tell which. Here they all stand with their question — answer,
+   move to the next, without opening a single session. */
 
 const QUICK_REPLIES = [
   { text: '1', label: '1' },
   { text: '2', label: '2' },
   { text: 'y', label: 'y' },
   { text: 'n', label: 'n' },
-  { text: '', label: 'Eingabe' },   // nur bestätigen
+  { text: '', label: 'Eingabe' },   // just confirm
   { text: '\u001b', label: 'Esc' },
 ];
 
-/* Die Knöpfe trugen „1 / 2 / y / n". Was hinter der 2 steckt, stand drei Zeilen
-   darüber — man musste die Frage lesen, um zu wissen, was man drückt. Die
-   Auswahlzeilen stehen aber im erkannten Fragetext; von dort lassen sie sich
-   herausschneiden und auf die Knöpfe schreiben.
+/* The buttons read "1 / 2 / y / n". What was behind the 2 stood three lines
+   above — you had to read the question to know what you were pressing. But the
+   choice lines are in the detected question text; from there they can be cut
+   out and written onto the buttons.
 
-   Getroffen werden die Formen, die die CLIs tatsächlich benutzen:
-   „1) rot", „2. Nein", „❯ 1. Yes" — mit oder ohne Auswahlmarke davor. */
+   The shapes matched are the ones the CLIs actually use: "1) red", "2. No",
+   "❯ 1. Yes" — with or without a selection marker in front. */
 const OPTION_LINE = /^[\s>❯▶*·-]*(\d{1,2})\s*[).:\]]\s+(.{1,60}?)\s*$/;
 
 function optionsFrom(confirm) {
@@ -738,19 +738,20 @@ function optionsFrom(confirm) {
     if (gesehen.has(taste)) continue;      // dieselbe Ziffer nur einmal
     gesehen.add(taste);
     out.push({ text: taste, label: `${taste} · ${shorten(text)}` });
-    if (out.length >= 5) break;            // mehr passt nicht auf eine Karte
+    if (out.length >= 5) break;            // more does not fit on a card
   }
-  // Eine einzelne Ziffer ist keine Auswahl, sondern meistens eine Zeilennummer.
+  // A single digit is not a choice but usually a line number.
   return out.length >= 2 ? out : null;
 }
 
-// Der Optionstext kann eine ganze Erklärung sein — auf dem Knopf zählt der Anfang.
+// An option text can be a whole explanation — on the button the start is what counts.
 function shorten(t) {
   const sauber = t.replace(/\s+/g, ' ').trim();
   return sauber.length > 22 ? sauber.slice(0, 21) + '…' : sauber;
 }
 
-/* Ja/Nein-Fragen tragen keine Nummern, aber dieselbe Not: „y" sagt nicht, wozu. */
+/* Yes/no questions carry no numbers but have the same problem: "y" does not
+   say to what. */
 function yesNoFrom(confirm) {
   if (!/\(y\/n\)|\[y\/N\]|\[Y\/n\]/i.test(confirm || '')) return null;
   return [
@@ -762,7 +763,7 @@ function yesNoFrom(confirm) {
 function quickRepliesFor(confirm) {
   const eigene = optionsFrom(confirm) || yesNoFrom(confirm);
   if (!eigene) return QUICK_REPLIES;
-  // Bestätigen und Abbrechen gehören immer dazu.
+  // Confirm and cancel always belong.
   return [...eigene,
     { text: '', label: 'Eingabe' },
     { text: '\u001b', label: 'Esc' }];
@@ -793,8 +794,8 @@ function renderInbox() {
     return;
   }
 
-  // Vorhandene Karten aktualisieren statt neu bauen, sonst verliert das
-  // Antwortfeld bei jedem Tick den Fokus und das Getippte.
+  // Update existing cards rather than rebuilding them, otherwise the reply
+  // field loses focus and what was typed on every tick.
   const gesehen = new Set();
   for (const t of list) {
     gesehen.add(t.id);
@@ -830,9 +831,9 @@ function renderInbox() {
     const neu = t.confirm || t.activity || '(keine Frage erkannt)';
     if (confirm.textContent !== neu) confirm.textContent = neu;
 
-    /* Nur neu bauen, wenn sich die Frage geändert hat: die Karte wird im
-       Sekundentakt aufgefrischt, und wer gerade auf einen Knopf zielt, soll
-       ihn nicht unter dem Zeiger verlieren. */
+    /* Only rebuild when the question changed: the card refreshes every second,
+       and anyone aiming at a button should not lose it from under the
+       pointer. */
     const quick = card.querySelector('.inboxQuick');
     if (quick.dataset.fuer !== neu) {
       quick.dataset.fuer = neu;
@@ -854,8 +855,8 @@ function renderInbox() {
 async function reply(id, text, roh) {
   try {
     await api.sendReply(id, text, roh);
-    // Kurz warten, dann neu lesen: die Session braucht einen Moment, bis sie
-    // den Status ändert.
+    // Wait a moment, then read again: the session needs a beat before it
+    // changes its status.
     setTimeout(() => { if (!$('#viewInbox').hidden) renderInbox(); }, 900);
   } catch (e) {
     plxrUI.notice(e.message || String(e), 'Nicht gesendet');
@@ -886,43 +887,43 @@ const WORT = {
   dead: 'beendet', unknown: 'läuft',
 };
 
-/* Verwaist ist kein Status vom Daemon, sondern ein Vermerk: die Session lief
-   noch, als der Daemon endete. Für die Anzeige zählt er trotzdem wie einer. */
-/* Eingefroren schlägt jeden gemeldeten Status. Eine gestoppte Session schreibt
-   nichts mehr — der Hook meldet weiter "arbeitet", die Ruhe-Heuristik sagt
-   irgendwann "unbekannt", und beides wäre gelogen. */
+/* Orphaned is not a status from the daemon but a note: the session was still
+   running when the daemon ended. For display it counts as one all the same. */
+/* Frozen beats any reported status. A stopped session writes nothing more —
+   the hook keeps reporting "working", the quiet heuristic eventually says
+   "unknown", and both would be a lie. */
 const tileState = (t) =>
   t.eingefroren ? 'eingefroren' : (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
 const ZEICHEN_VERWAIST = '⚠';
 
-/* Wappen — ein Zeichen je Arbeitsverzeichnis.
+/* Crest — one glyph per working directory.
 
-   Elf Kacheln, sechs Worktrees desselben Monorepos: die Titel schneiden alle
-   gleich ab, und man liest dreimal, bevor man die richtige findet. Ein Zeichen
-   findet das Auge, ohne zu lesen.
+   Eleven tiles, six worktrees of the same monorepo: the titles all truncate the
+   same way, and you read three times before finding the right one. A glyph the
+   eye finds without reading.
 
-   Errechnet, nicht vergeben: derselbe Pfad ergibt immer dasselbe Zeichen, auf
-   jeder Maschine, ohne dass irgendwo eine Zuordnung gepflegt werden muss.
+   Computed, not assigned: the same path always yields the same glyph, on every
+   machine, without a mapping having to be maintained anywhere.
 
-   Die Zeichen kommen aus dem Skin, nicht von hier. Ein Skin ist eine ganze
-   visuelle Sprache — win95 zeichnet anders als sketch —, und ein neuer Skin
-   soll seine eigenen mitbringen können, ohne dass JavaScript davon weiß. */
+   The glyphs come from the skin, not from here. A skin is a whole visual
+   language — win95 draws differently from sketch — and a new skin should be
+   able to bring its own without JavaScript knowing about it. */
 const CREST_FALLBACK = '◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦⌘';
 
 let crestGlyphs = null;
 function crestGlyphSet() {
-  // Nach jedem Skinwechsel neu lesen: skinSetzen leert das hier.
+  // Re-read after every skin change: setSkin clears this.
   if (crestGlyphs) return crestGlyphs;
   const roh = getComputedStyle(document.documentElement).getPropertyValue('--wappen').trim();
-  // Der Wert kommt als CSS-Zeichenkette, also in Anführungszeichen.
+  // The value arrives as a CSS string, so in quotes.
   const sauber = roh.replace(/^["']|["']$/g, '');
   crestGlyphs = [...(sauber || CREST_FALLBACK)];
   return crestGlyphs;
 }
 
-/* Kleine, gleichmäßig streuende Streuwertfunktion (FNV-1a). Es geht nicht um
-   Sicherheit, sondern darum, dass zwei benachbarte Pfade — app/web und
-   app/web2 — nicht dasselbe Zeichen bekommen. */
+/* A small, evenly spreading hash (FNV-1a). This is not about security but
+   about two neighbouring paths — app/web and app/web2 — not ending up with the
+   same glyph. */
 function hash32(text) {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
@@ -938,16 +939,16 @@ function crest(pfad) {
   return zeichen[hash32(pfad) % zeichen.length];
 }
 
-/* Die Farbe kommt aus demselben Wert, aber aus einer anderen Stelle davon —
-   sonst tragen gleiche Zeichen immer dieselbe Farbe und der zweite Hinweis
-   wäre keiner. */
+/* The colour comes from the same hash but from a different part of it —
+   otherwise identical glyphs would always carry the same colour and the second
+   cue would be no cue at all. */
 function crestHue(pfad) {
   if (!pfad) return '';
   return `hsl(${(hash32(pfad + '#ton') % 360)} 60% 60%)`;
 }
 
-/* Die Schiene ist der Grund, warum die Session kein Vollbild-Overlay ist: wer
-   in einer Session steckt, soll trotzdem sehen, wenn woanders jemand hängt. */
+/* The rail is the reason a session is not a full-screen overlay: whoever is
+   inside one session should still see when somebody elsewhere is stuck. */
 function renderRail() {
   const list = $('#railList');
   const gruppen = new Map();
@@ -971,7 +972,7 @@ function renderRail() {
     }
     kopf.textContent = projekt;
 
-    // Rückwärts einhängen, damit die Reihenfolge innerhalb der Gruppe stimmt.
+    // Insert backwards so the order within the group comes out right.
     for (const t of [...entries].reverse()) {
       const key = 's:' + t.id;
       let el = list.querySelector(`[data-key="${CSS.escape(key)}"]`);
@@ -985,8 +986,8 @@ function renderRail() {
           '<span class="crest"></span>' +
           '<span class="rtext"><span class="rname"></span><span class="rsub"></span></span>';
         el.addEventListener('click', (ev) => {
-          // Mit gedrückter Alt- oder Meta-Taste kommt die Session daneben,
-          // statt die vorhandene zu ersetzen.
+          // With Alt or Meta held the session opens alongside instead of
+          // replacing the existing one.
           if (ev.altKey || ev.metaKey) addPane(t.id);
           else openSession(t.id);
         });
@@ -1030,10 +1031,10 @@ function agoText(ms) {
   return Math.floor(s / 3600) + 'h';
 }
 
-/* Läuft die Session mit übergangenen Rückfragen? Dann fragt sie nicht mehr,
-   bevor sie etwas tut — und das soll man sehen, ohne die Kommandozeile zu
-   lesen. Geprüft wird der Anfang des Schalters, damit auch die Kurzform und
-   ein angehängtes Gleichheitszeichen greifen. */
+/* Is the session running with permission prompts skipped? Then it no longer
+   asks before doing something — and that should be visible without reading the
+   command line. The start of the flag is matched, so a shorthand or a trailing
+   equals sign is caught too. */
 function isUntamed(t) {
   return (t.cmd || []).some((a) => /^--dangerously-skip-permissions\b/.test(a));
 }
@@ -1059,8 +1060,8 @@ function renderGrid() {
     }
     const st = tileState(t);
     el.dataset.status = st;
-    /* Warnkleid: eine Session mit übergangenen Rückfragen sieht sonst aus wie
-       jede andere — vier ruhige Ränder, einer nicht. */
+    /* Warning coat: a session with permission prompts skipped otherwise looks
+       like every other one — four calm borders, one not. */
     el.dataset.isUntamed = isUntamed(t) ? 'ja' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
@@ -1083,7 +1084,7 @@ function renderGrid() {
   for (const el of [...raster.children]) if (!gesehen.has(el.dataset.id)) el.remove();
 }
 
-// zeichneAlles ist der einzige Empfänger des Zustandsstroms.
+// renderAll is the only receiver of the state stream.
 function renderAll(tiles) {
   state.tiles = tiles || [];
   const belegt = !!state.panes.length || !keineSonderansicht();
@@ -1091,7 +1092,7 @@ function renderAll(tiles) {
   const laufen = state.tiles.filter((t) => t.alive).length;
   const blockiert = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
   const verwaist = state.tiles.filter((t) => t.verwaist).length;
-  // Zähler an der Schiene, damit man auch aus einer Session heraus sieht,
+  // A counter on the rail, so that even from inside a session you can see
   // dass jemand wartet.
   const wartet = blockiert;
   $('#inboxCount').textContent = wartet || '';
@@ -1111,22 +1112,22 @@ function renderAll(tiles) {
     $('#viewGrid').hidden = state.tiles.length === 0;
     $('#empty').hidden = state.tiles.length > 0;
   }
-  // Eine Fläche, deren Session verschwunden ist, muss weg.
+  // A pane whose session has gone has to go too.
   for (const id of [...state.panes]) {
     if (!state.tiles.some((t) => t.id === id)) closePane(id);
   }
   if (state.panes.length) updateHeader();
 }
 
-/* ═════════════════════════ Pfadvervollständigung ═════════════════════════ */
+/* ═════════════════════════ Path completion ═════════════════════════ */
 
-/* Einen Pfad blind eintippen ist zumutbar-Grenze. Deshalb schlägt jedes
-   Pfadfeld echte Unterverzeichnisse vor: Pfeiltasten wählen, Tab ergänzt,
-   Eingabetaste übernimmt. */
+/* Typing a path blind is at the edge of what is reasonable to ask. So every
+   path field suggests real subdirectories: arrow keys pick, Tab completes,
+   Return accepts. */
 
 function pathComplete(field, onPick) {
-  // Die Liste hängt am Rumpf, nicht am Feld: sonst schneidet sie jeder
-  // Vorfahre mit overflow ab, und die Statuszeile legt sich darüber.
+  // The list hangs off the body, not the field: otherwise any ancestor with
+  // overflow clips it, and the status row lies on top of it.
   const list = document.createElement('div');
   list.className = 'selectList pathList';
   list.hidden = true;
@@ -1137,7 +1138,7 @@ function pathComplete(field, onPick) {
     list.style.left = r.left + 'px';
     list.style.top = r.bottom + 4 + 'px';
     list.style.minWidth = Math.max(r.width, 380) + 'px';
-    // Passt sie nicht mehr nach unten, klappt sie nach oben.
+    // If it no longer fits below, it opens upwards.
     const platz = window.innerHeight - r.bottom;
     if (platz < 240) {
       list.style.top = 'auto';
@@ -1170,7 +1171,7 @@ function pathComplete(field, onPick) {
   };
 
   const pick = (pfad) => {
-    // Trenner anhängen: der nächste Tastendruck sucht dann schon darin.
+    // Append the separator: the next keystroke then searches inside it.
     field.value = pfad.endsWith('/') ? pfad : pfad + '/';
     zu();
     onPick?.(field.value);
@@ -1214,9 +1215,9 @@ function pathComplete(field, onPick) {
   });
 }
 
-/* Der Filter greift erst auf Bestätigung. Beim Tippen zu filtern heißt: nach
-   jedem Zeichen verschwinden alle Kacheln, weil "/Volumes/…/pro" noch kein
-   Verzeichnis ist. */
+/* The filter only takes effect on confirmation. Filtering while typing means:
+   after every character all tiles disappear, because "/Volumes/…/pro" is not a
+   directory yet. */
 function applyFilter() {
   const wert = $('#pathFilter').value.trim().replace(/\/$/, '');
   if (wert === state.filter) return;
@@ -1230,7 +1231,7 @@ $('#pathFilter').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.target.value = state.filter; e.target.blur(); }
 });
 
-/* ═════════════════════════ Terminalflächen ═════════════════════════ */
+/* ═════════════════════════ Terminal panes ═════════════════════════ */
 
 const panes = new Map(); // id -> { term, fit, el, ro }
 const paneList = () => [...panes.values()];
@@ -1250,7 +1251,7 @@ function addPane(id) {
   const t = state.tiles.find((x) => x.id === id);
   if (!t) return;
   if (t.verwaist) {
-    // Der Daemon endete, während die Session lief. Bei Claude Code steht die
+    // The daemon ended while the session was running. With Claude Code the
     // Unterhaltung im Transkript — von dort geht es weiter.
     plxrUI.confirm(`${t.name} lief noch, als der Daemon endete.\n${t.cwd}`, 'Wiederaufnehmen?')
       .then(async (ja) => {
@@ -1265,7 +1266,7 @@ function addPane(id) {
     return;
   }
   if (!t.alive) {
-    // Ein totes PTY hat keinen Datenstrom mehr — die Fläche bliebe leer.
+    // A dead PTY has no stream any more — the pane would stay empty.
     plxrUI.notice(
       `${t.name} ist beendet (Code ${t.exit_code}).\nIm Archiv lässt sich die Unterhaltung fortsetzen.`,
       'Nicht mehr aktiv');
@@ -1286,14 +1287,13 @@ function addPane(id) {
   el.addEventListener('mousedown', () => paneActivate(id));
   $('#panes').appendChild(el);
 
-  /* Der Terminal-Aufbau. Die Voreinstellungen von xterm.js reichen für ein
-     Spielzeug, nicht für tägliche Arbeit — deshalb hier jede Option bewusst.
+  /* Setting up the terminal. The xterm.js defaults are enough for a toy, not
+     for daily work — so every option here is a deliberate one.
 
-     allowProposedApi ist Pflicht für die Unicode-Erweiterung; ohne sie sind
-     Emoji und CJK-Zeichen einen Halbschritt zu schmal und der Cursor läuft
-     aus dem Ruder. macOptionIsMeta macht Alt+Taste zu einer Meta-Eingabe,
-     wie es Shells erwarten. rightClickSelectsWord entspricht dem, was man von
-     anderen Terminals kennt. */
+     allowProposedApi is required for the Unicode addon; without it emoji and
+     CJK characters are half a step too narrow and the cursor drifts out of
+     line. macOptionIsMeta turns Alt+key into a meta input, the way shells
+     expect. rightClickSelectsWord matches what other terminals do. */
   const term = new Terminal({
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     fontSize: styleState.termSize || 13,
@@ -1301,14 +1301,14 @@ function addPane(id) {
     letterSpacing: 0,
     cursorBlink: true,
     cursorStyle: 'block',
-    // Zeigt, welche Fläche den Fokus hat — bei vier nebeneinander sonst
-    // nicht erkennbar.
+    // Shows which pane has the focus — with four side by side otherwise
+    // impossible to tell.
     cursorInactiveStyle: 'outline',
     scrollback: 50000,
-    // Pflicht für Unicode-Erweiterung und Such-Markierungen.
+    // Required for the Unicode addon and the search decorations.
     allowProposedApi: true,
     macOptionIsMeta: true,
-    // Ohne das lässt sich in tmux und vim auf macOS nichts mit der Maus
+    // Without this nothing can be selected with the mouse in tmux and vim on
     // auswählen — die Anwendung im Terminal verschluckt die Mausereignisse.
     macOptionClickForcesSelection: true,
     rightClickSelectsWord: true,

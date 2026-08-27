@@ -1,14 +1,14 @@
-/* Prueft die reinen Parser-Funktionen aus app.js ohne Browser.
+/* Checks the pure parser functions from app.js without a browser.
 
-   Sie haengen an nichts — kein DOM, kein Zustand —, also lassen sie sich
-   herausziehen und einzeln pruefen. Genau das ist der Punkt: die Knoepfe im
-   Posteingang tragen jetzt den echten Optionstext, und ob der richtig
-   herausgeschnitten wird, want nicht erst im Fenster auffallen. */
+   They hang off nothing — no DOM, no state — so they can be pulled out and
+   checked one by one. That is the point: the buttons in the inbox now carry the
+   real option text, and whether it is cut out correctly should not have to show
+   up in the window first. */
 import { readFileSync } from 'node:fs';
 const src = readFileSync('web/app.js', 'utf8');
 const lines = src.split('\n');
 
-// Eine Konstante steht auf einer Zeile, eine Funktion geht bis zur schliessenden
+// A constant sits on one line, a function runs to the closing brace in
 // Klammer in Spalte 0. Klammern zu zaehlen scheitert an Regex-Literalen wie {1,2}.
 function grab(name) {
   const iConst = lines.findIndex((l) => l.startsWith(`const ${name} = `));
@@ -32,7 +32,7 @@ const QUICK_REPLIES = [
 const mod = new Function('QUICK_REPLIES',
   source + '\nreturn { optionsFrom, quickRepliesFor, isUntamed, hash32, CREST_FALLBACK };')(QUICK_REPLIES);
 
-const MARKER = '❯';   // die Auswahlmarke, die Claude Code setzt
+const MARKER = '❯';   // the selection marker Claude Code draws
 
 const cases = [
   ['Claude-Dialog',
@@ -78,12 +78,12 @@ for (const [t, want] of coats) {
 }
 
 console.log('  --- Wappen ---');
-// Ohne Fenster gibt es kein getComputedStyle — hier wird der Ersatzvorrat
-// geprueft, also genau das, was ein Skin ohne own Zeichen bekommt.
+// Without a window there is no getComputedStyle — what is checked here is the
+// fallback set, that is exactly what a skin without its own glyphs gets.
 const glyphs = [...mod.CREST_FALLBACK];
 const crestFor = (p) => glyphs[mod.hash32(p) % glyphs.length];
 
-// Sechs Worktrees desselben Monorepos — genau der Fall, crestFor den es das gibt.
+// Six worktrees of the same monorepo — precisely the case this exists for.
 const paths = [
   '/w/mono', '/w/mono2', '/w/mono-feature-a', '/w/mono-feature-b',
   '/w/mono/apps/web', '/w/mono/apps/api',

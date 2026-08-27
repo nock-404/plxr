@@ -1,12 +1,12 @@
-/* plxr — eigene Bedienelemente.
+/* plxr — our own controls.
 
-   Kein <select>, kein confirm(), kein alert(): die zeichnet das Betriebssystem,
-   und damit ist jeder Skin an genau der Stelle durchbrochen, an der man ihn am
-   meisten sieht. Alles hier ist gewöhnliches Markup, das der Skin gestaltet.
+   No <select>, no confirm(), no alert(): the operating system draws those, and
+   that punches a hole through every skin at exactly the spot where it is most
+   visible. Everything here is ordinary markup that the skin styles.
 
-   Die <select>-Elemente bleiben im HTML stehen — sie halten weiterhin Wert und
-   Optionen, und der übrige Code liest sie unverändert. Sichtbar ist nur die
-   Hülle daneben. */
+   The <select> elements stay in the HTML — they still hold value and options,
+   and the rest of the code reads them unchanged. Only the shell beside them is
+   what you see. */
 
 (function () {
   const $$ = (s, w = document) => w.querySelector(s);
@@ -53,7 +53,7 @@
       if (o.value === sel.value) d.dataset.picked = 'ja';
       d.addEventListener('click', () => {
         sel.value = o.value;
-        // Der übrige Code hört auf 'change' des echten Elements.
+        // The rest of the code listens for 'change' on the real element.
         sel.dispatchEvent(new Event('change', { bubbles: true }));
         zu();
         render();
@@ -65,7 +65,7 @@
       render();
       list.hidden = false;
       wurzel.dataset.offen = 'ja';
-      // Nach oben klappen, wenn unten kein Platz ist.
+      // Open upwards when there is no room below.
       const platz = window.innerHeight - button.getBoundingClientRect().bottom;
       wurzel.dataset.richtung = platz < Math.min(320, list.scrollHeight + 16) ? 'tall' : 'runter';
       const g = $$('[data-gewaehlt]', list);
@@ -76,17 +76,17 @@
     button.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? auf() : zu(); });
     document.addEventListener('click', (e) => { if (!wurzel.contains(e.target)) zu(); });
     document.addEventListener('keydown', (e) => {
-      // Nur wenn diese Liste offen ist — sonst schließt ein Escape irgendwo
-      // im Fenster auch noch den Dialog darunter.
+      // Only while this list is open — otherwise an Escape anywhere in the
+      // window would close the dialog underneath as well.
       if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); zu(); }
     }, true);
-    // Änderungen von außen (etwa beim Laden) müssen sichtbar werden.
+    // Changes from outside (on load, say) have to become visible.
     sel.addEventListener('change', render);
     new MutationObserver(render).observe(sel, { childList: true, subtree: true });
     render();
   }
 
-  /* ---------- Rückfrage und Hinweis ---------- */
+  /* ---------- Confirmation and notice ---------- */
 
   let offen = null;
 
@@ -95,8 +95,8 @@
       if (offen) offen.remove();
       const d = document.createElement('div');
       offen = d;
-      // Bewusst dieselben Klassen wie die übrigen Dialoge: sonst gestaltet
-      // sie kein Skin und die Rückfrage steht nackt auf der Seite.
+      // Deliberately the same classes as the other dialogs: otherwise no skin
+      // styles them and the confirmation stands naked on the page.
       d.className = 'backdrop';
       d.innerHTML =
         '<div class="card"><b class="cardTitle"></b>' +
@@ -120,31 +120,31 @@
         box.appendChild(b);
       }
 
-      // Klick neben die Karte bricht ab — wie bei jedem anderen Dialog auch.
+      // A click beside the card cancels — as with every other dialog.
       d.addEventListener('mousedown', (e) => { if (e.target === d) close(false); });
 
       function taste(e) {
         if (e.key === 'Escape') { e.stopPropagation(); close(false); }
-        // Enter bricht ab, nicht bestätigt. Bei "Transkript löschen?" wäre die
-        // Eingabetaste sonst die zerstörerische Antwort — und genau die drückt
-        // man aus Gewohnheit.
+        // Enter cancels, it does not confirm. With "delete transcript?" the return
+        // key would otherwise be the destructive answer — and that is exactly the one
+        // people press out of habit.
         if (e.key === 'Enter') { e.preventDefault(); close(false); }
       }
-      // Vor dem Handler der Anwendung, damit Escape nicht zusätzlich das
-      // darunterliegende Fenster schließt.
+      // Before the application's handler, so Escape does not also close the
+      // window underneath.
       document.addEventListener('keydown', taste, true);
       document.body.appendChild(d);
-      // Der abbrechende Knopf bekommt den Fokus: wer blind bestätigt, soll
+      // The cancelling button gets the focus: anyone confirming blindly should
       // nichts kaputtmachen.
       box.firstElementChild?.focus();
     });
   }
 
-  /* ---------- Farbwahl ----------
+  /* ---------- Colour picker ----------
 
-     Eigene statt <input type="color">: die native öffnet den Farbwähler des
-     Systems, und der bricht jeden Skin. Aufbau: Fläche für Sättigung und
-     Helligkeit, Regler für den Farbton, Feld für den Hex-Wert. */
+     Our own rather than <input type="color">: the native one opens the system
+     colour picker, and that breaks every skin. Layout: an area for saturation
+     and lightness, a slider for the hue, a field for the hex value. */
 
   function hsvNachHex(h, s, v) {
     const f = (n) => {
@@ -256,11 +256,11 @@
     };
   }
 
-  /* Eigene Kurzhinweise statt title="".
-     Ein title-Attribut lässt das Betriebssystem eine graue Kachel zeichnen —
-     mitten in einer Oberfläche, die sonst nichts vom System übernimmt. Sie
-     erscheint verzögert, ignoriert jeden Skin und lässt sich nicht platzieren.
-     Deshalb data-tip: gleicher Zweck, aber gezeichnet wie alles andere. */
+  /* Our own tooltips instead of title="".
+     A title attribute makes the operating system draw a grey box — in the
+     middle of a UI that takes nothing else from the system. It appears with a
+     delay, ignores every skin and cannot be placed. Hence data-tip: same
+     purpose, but drawn like everything else. */
   let tippEl = null;
   let tippTimer = null;
 
@@ -275,13 +275,13 @@
     tippEl.textContent = text;
     tippEl.hidden = false;
 
-    // Erst messen, dann setzen: sonst schiebt ein langer Hinweis am Rand
-    // das Fenster auf.
+    // Measure first, then place: otherwise a long tip at the edge pushes the
+    // window open.
     const k = ziel.getBoundingClientRect();
     const t = tippEl.getBoundingClientRect();
     let x = k.left + k.width / 2 - t.width / 2;
     x = Math.max(6, Math.min(x, window.innerWidth - t.width - 6));
-    // Unter das Element, es sei denn dort ist kein Platz mehr.
+    // Below the element, unless there is no room left there.
     const y = k.bottom + 8 + t.height > window.innerHeight ? k.top - t.height - 8 : k.bottom + 8;
     tippEl.style.left = Math.round(x) + 'px';
     tippEl.style.top = Math.round(Math.max(6, y)) + 'px';
@@ -303,10 +303,10 @@
     document.addEventListener('mouseout', (e) => {
       if (e.target.closest?.('[data-tip]')) tippWeg();
     });
-    // Beim Klicken und beim Rollen stört der Hinweis nur.
+    // While clicking and scrolling the tip only gets in the way.
     document.addEventListener('mousedown', tippWeg, true);
     document.addEventListener('scroll', tippWeg, true);
-    // Tastaturbedienung: beim Fokussieren sofort, ohne Verzögerung.
+    // Keyboard use: on focus immediately, without the delay.
     document.addEventListener('focusin', (e) => {
       const ziel = e.target.closest?.('[data-tip]');
       if (ziel) showTip(ziel);
@@ -318,15 +318,15 @@
     colorPicker,
     tippBinden,
     replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
-    // Versalien wie im übrigen Markup: crt setzt text-transform, die anderen
-    // Skins nicht — kleines "ja" neben großem "ABBRECHEN" fiel sofort auf.
+    // Capitals as in the rest of the markup: crt sets text-transform, the other
+    // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.
     confirm: (text, titel = 'Sicher?') =>
       dialog(titel, text, [{ text: 'ABBRECHEN', wert: false }, { text: 'JA', wert: true, haupt: true }]),
     notice: (text, titel = 'Hinweis') =>
       dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
 
-    /* Nach einem Text fragen. Wie frage(), nur mit Eingabefeld — und hier
-       darf Enter bestätigen, weil nichts Zerstörerisches daran hängt. */
+    /* Ask for a piece of text. Like confirm(), only with an input field — and here
+       Enter may confirm, because nothing destructive hangs off it. */
     prompt(text, titel = 'Eingabe', vorgabe = '') {
       return new Promise((fertig) => {
         if (offen) offen.remove();
