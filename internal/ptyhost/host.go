@@ -1,10 +1,10 @@
-// Package ptyhost startet Prozesse in einem Pseudo-Terminal, das dem Daemon
-// gehört statt einem Terminalfenster. Damit überlebt die Session das Schließen
+// Package ptyhost starts processes in a pseudo terminal owned by the daemon
+// rather than by a terminal window. That way the session survives closing
 // des Fensters.
 //
-// Die PTY-Anbindung läuft über go-pty, weil das eine API für Unix-PTYs und
-// Windows-ConPTY bietet. creack/pty kann kein Windows, und os/exec allein
-// reicht dort nicht: ConPTY braucht ein Prozessattribut, das os/exec nicht
+// The PTY binding goes through go-pty because it offers one API for Unix PTYs
+// and Windows ConPTY. creack/pty cannot do Windows, and os/exec alone is not
+// enough there: ConPTY needs a process attribute that os/exec does not
 // setzen kann (golang/go#62708).
 package ptyhost
 
@@ -21,13 +21,13 @@ import (
 	"github.com/aymanbagabas/go-pty"
 )
 
-// Scrollback pro Session. Ältere Ausgabe fällt hinten raus.
+// Scrollback per session. Older output falls off the back.
 const MaxBuf = 2 << 20
 
-// Fassung wird beim Start gesetzt und landet in TERM_PROGRAM_VERSION.
+// Version is set at startup and ends up in TERM_PROGRAM_VERSION.
 var Version = "dev"
 
-// erbtNicht wird unten ergänzt: TERM und Verwandte setzen wir selbst.
+// notInherited is extended below: we set TERM and relatives ourselves.
 
 type Host struct {
 	ID  string
@@ -42,26 +42,26 @@ type Host struct {
 	subs  map[chan []byte]struct{}
 	alive bool
 	exit  int
-	last  time.Time // letzte Ausgabe — Grundlage der Ruhe-Heuristik
+	last  time.Time // last output — the basis of the quiet heuristic
 
-	// Zwischenspeicher für die gerenderte Vorschau, siehe tailLines.
+	// Cache for the rendered preview, see tailLines.
 	tailLen   int
 	tailCache []string
 
-	// mitschnitt ist die Datei, in die der ganze Strom läuft — auch das, was
-	// vorne aus dem Ringpuffer fällt.
+	// recording is the file the whole stream runs into — including what falls
+	// off the front of the ring buffer.
 	recording   *os.File
 	geschrieben int64
 
-	// plattform hält, was nur ein bestimmtes System braucht — unter Windows
-	// etwa das Job Object, über das die ganze Prozessgruppe endet.
+	// platform holds whatever only one specific system needs — on Windows for
+	// instance the job object through which the whole process group ends.
 	plattform any
 
 	Done chan struct{}
 }
 
-// Start hängt argv in ein frisches PTY. cwd ist das Arbeitsverzeichnis, env
-// zusätzliche Umgebungsvariablen als "NAME=wert" — darüber läuft die Wahl des
+// Start hangs argv into a fresh PTY. cwd is the working directory, env holds
+// additional environment variables as "NAME=value" — that is how the choice of
 // Claude-Kontos (CLAUDE_CONFIG_DIR).
 func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	if len(argv) == 0 {
@@ -79,9 +79,9 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	c.Env = append(c.Env, "PLXR=1")
 	c.Env = append(c.Env, env...)
 
-	// Größe VOR dem Start setzen: ConPTY legt sich sonst auf 80x25 fest, und
-	// das CLI zeichnet seinen ersten Frame in der falschen Geometrie.
-	_ = p.Resize(140, 44) // Breite, Höhe
+	// Set the size BEFORE starting: otherwise ConPTY settles on 80x25 and the
+	// CLI draws its first frame in the wrong geometry.
+	_ = p.Resize(140, 44) // width, height
 
 	if err := c.Start(); err != nil {
 		p.Close()
@@ -102,9 +102,9 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 		h.PID = c.Process.Pid
 		h.plattform = afterStart(c.Process)
 	}
-	// Mitschnitt öffnen. Scheitert das, läuft alles weiter — nur ohne
-	// Aufzeichnung. Ein Terminal, das wegen eines vollen Datenträgers nicht
-	// startet, wäre die schlechtere Wahl.
+	// Open the recording. If that fails everything carries on — just without a
+	// recording. A terminal that refuses to start because a disk is full would
+	// be the worse trade.
 	if RecordingDir != "" {
 		if err := os.MkdirAll(RecordingDir, 0o755); err == nil {
 			f, err := os.OpenFile(filepath.Join(RecordingDir, id+".log"),
@@ -119,21 +119,21 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	return h, nil
 }
 
-// MitschnittDir ist das Verzeichnis für die Mitschnitte. Leer heißt: keine.
+// RecordingDir is the directory for the recordings. Empty means: none.
 var RecordingDir string
 
-// MaxMitschnitt begrenzt eine einzelne Aufzeichnung.
+// MaxRecording limits a single recording.
 //
-// Ein Dev-Server, der wochenlang läuft, schreibt sonst Gigabyte. Bei
-// Überschreitung wird nicht mehr angehängt — der Anfang bleibt erhalten, denn
-// dort steht üblicherweise, was die Session eigentlich tut.
+// A dev server running for weeks would otherwise write gigabytes. Once the
+// limit is passed nothing more is appended — the beginning is kept, because that
+// is usually where what the session actually does is written down.
 const MaxRecording = 64 << 20
 
-// erbtNicht sind Variablen, die eine Claude-Code-Session an ihre Kindprozesse
+// notInherited are variables a Claude Code session passes to its child processes
 // weitergibt. Wird plxr aus einer solchen Session heraus gestartet, landen sie
-// über os.Environ() in jeder neuen Session — und CLAUDE_CODE_CHILD_SESSION
-// schaltet dort das Speichern des Transkripts ab. Die Session läuft dann zwar,
-// hinterlässt aber nichts, was sich später fortsetzen ließe.
+// through os.Environ() into every new session — and CLAUDE_CODE_CHILD_SESSION
+// turns off saving the transcript there. The session does run, but leaves
+// nothing behind that could be picked up later.
 var notInherited = []string{
 	"CLAUDECODE",
 	"CLAUDE_CODE_CHILD_SESSION",
@@ -144,7 +144,7 @@ var notInherited = []string{
 	"CLAUDE_JOB_DIR",
 	"CLAUDE_PLUGIN_ROOT",
 	"CLAUDE_SESSION_ID",
-	"CLAUDE_CONFIG_DIR", // wird bewusst je Session gesetzt, nicht geerbt
+	"CLAUDE_CONFIG_DIR", // deliberately set per session, not inherited
 	"PLXR",
 }
 
@@ -225,14 +225,14 @@ func (h *Host) pump() {
 func (h *Host) Alive() bool { h.mu.Lock(); defer h.mu.Unlock(); return h.alive }
 func (h *Host) Exit() int   { h.mu.Lock(); defer h.mu.Unlock(); return h.exit }
 
-// IdleFor sagt, wie lange nichts mehr aus dem PTY kam.
+// IdleFor reports how long nothing has come out of the PTY.
 func (h *Host) IdleFor() time.Duration {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return time.Since(h.last)
 }
 
-// Snapshot liefert den kompletten Scrollback für einen neu verbundenen Client.
+// Snapshot returns the complete scrollback for a newly connected client.
 func (h *Host) Snapshot() []byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -241,15 +241,15 @@ func (h *Host) Snapshot() []byte {
 	return out
 }
 
-// tailWindow begrenzt, wie viel Rohpuffer die Vorschau anfasst.
+// tailWindow limits how much raw buffer the preview touches.
 //
-// Ohne die Grenze rendert jeder Aufruf die vollen 2 MB Scrollback. Bei einer
-// Handvoll Sessions und einem Tick pro Sekunde reicht das, um den Daemon auf
-// über 300 % CPU zu treiben und die Oberfläche zum Stehen zu bringen.
+// Without the limit every call renders the full 2 MB of scrollback. With a
+// handful of sessions and one tick per second that is enough to drive the daemon
+// past 300 % CPU and bring the UI to a standstill.
 const tailWindow = 48 << 10
 
-// tailLines rendert das Ende des Puffers und merkt sich das Ergebnis, solange
-// nichts Neues dazugekommen ist.
+// tailLines renders the end of the buffer and remembers the result for as long
+// as nothing new has arrived.
 func (h *Host) tailLines() []string {
 	h.mu.Lock()
 	if h.tailCache != nil && h.tailLen == len(h.buf) {
@@ -261,11 +261,11 @@ func (h *Host) tailLines() []string {
 	raw := h.buf
 	if len(raw) > tailWindow {
 		raw = raw[len(raw)-tailWindow:]
-		// Nicht mitten in einer Escape-Sequenz anfangen, sonst fehlt deren
-		// Einleitung und die Reste landen sichtbar im Text. Ein Zeilenumbruch
-		// allein reicht dafür nicht: Voll-Bildschirm-Oberflächen wie Claude
-		// Code schreiben ganze Frames ohne einen einzigen. Deshalb hinter dem
-		// letzten ESC einsteigen, das noch vor dem Fenster begann.
+		// Do not start in the middle of an escape sequence, otherwise its
+		// introducer is missing and the remains show up visibly in the text. A
+		// line break alone is not enough: full-screen UIs like Claude Code write
+		// whole frames without a single one. So enter behind the last ESC that
+		// began before the window.
 		if i := bytes.IndexByte(raw, '\n'); i >= 0 && i < 4096 {
 			raw = raw[i+1:]
 		} else if i := bytes.IndexByte(raw, 0x1b); i >= 0 && i < 4096 {
@@ -275,7 +275,7 @@ func (h *Host) tailLines() []string {
 	src := string(raw)
 	h.mu.Unlock()
 
-	// Rendern außerhalb des Locks — es ist der teure Teil.
+	// Render outside the lock — that is the expensive part.
 	lines := renderPlain(src)
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
 		lines = lines[:len(lines)-1]
@@ -287,7 +287,7 @@ func (h *Host) tailLines() []string {
 	return lines
 }
 
-// Tail liefert die letzten n Zeilen als reinen Text — für die Kachelvorschau.
+// Tail returns the last n lines as plain text — for the tile preview.
 func (h *Host) Tail(n int) string {
 	lines := h.tailLines()
 	if len(lines) > n {
@@ -320,18 +320,18 @@ func (h *Host) Unsubscribe(c chan []byte) {
 
 func (h *Host) Write(p []byte) (int, error) { return h.pty.Write(p) }
 
-// Resize nimmt Zeilen und Spalten; go-pty erwartet die andere Reihenfolge.
+// Resize takes rows and columns; go-pty expects the other order.
 func (h *Host) Resize(rows, cols uint16) error {
 	return h.pty.Resize(int(cols), int(rows))
 }
 
-// Kill beendet den Prozess. Auf Unix die ganze Gruppe, damit von der Session
-// gestartete Kindprozesse nicht verwaist weiterlaufen.
+// Kill terminates the process. On Unix the whole group, so child processes
+// started by the session do not carry on orphaned.
 //
-// Erst freundlich, dann bestimmt: eine interaktive Login-Shell — und Claude
-// Code selbst — ignoriert SIGTERM, weil ein Terminal das Signal sonst bei
-// jedem Versehen beenden würde. Ohne Nachfassen bliebe "beenden" wirkungslos,
-// und der Nutzer bekäme 204 zurück, während die Session weiterläuft. Deshalb
+// Politely first, then firmly: an interactive login shell — and Claude Code
+// itself — ignores SIGTERM, because otherwise any slip in a terminal would end
+// it. Without following up, "terminate" would stay without effect and the user
+// would get a 204 back while the session keeps running. Hence
 // nach einer Schonfrist SIGKILL.
 func (h *Host) Kill() {
 	if h.cmd.Process == nil {
@@ -353,5 +353,5 @@ func (h *Host) Kill() {
 	}()
 }
 
-// KillFrist ist die Zeit zwischen freundlichem und hartem Beenden.
+// KillGrace is the time between the polite and the hard termination.
 var KillGrace = 2 * time.Second

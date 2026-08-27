@@ -1,13 +1,13 @@
-// plxr — Leitstand für Coding-CLI-Sessions.
+// plxr — a control room for coding CLI sessions.
 //
-// Zwei Prozesse mit klarer Rollenteilung:
+// Two processes with clearly divided roles:
 //
-//	plxr daemon   hält die Terminals, lauscht auf 127.0.0.1 mit Token
-//	plxr          Fenster; startet den Daemon bei Bedarf und hängt sich dran
+//	plxr daemon   holds the terminals, listens on 127.0.0.1 with a token
+//	plxr          the window; starts the daemon if needed and attaches to it
 //
-// Die Trennung ist der Punkt der ganzen Übung: solange die Pseudo-Terminals
-// Kinder des Fensters sind, stirbt beim Schließen alles mit. So läuft die
-// Arbeit weiter, und es dürfen auch mehrere Clients gleichzeitig zusehen.
+// The separation is the point of the whole exercise: as long as the pseudo
+// terminals are children of the window, closing it takes everything down. This
+// way the work carries on, and several clients may watch at the same time.
 package main
 
 import (
@@ -45,12 +45,12 @@ import (
 //go:embed all:web
 var embedded embed.FS
 
-// version wird beim Bauen gesetzt: -ldflags "-X main.version=1.2.3".
-// "dev" heißt: aus dem Quelltext gebaut, dann rührt der Updater nichts an.
+// version is set at build time: -ldflags "-X main.version=1.2.3".
+// "dev" means: built from source, and then the updater leaves everything alone.
 var version = "dev"
 
 func main() {
-	// Unterbefehle stehen vor den Flags, damit `plxr ls` schlicht bleibt.
+	// Subcommands come before the flags, so that `plxr ls` stays plain.
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		if kommando(os.Args[1], os.Args[2:]) {
 			return
@@ -59,8 +59,8 @@ func main() {
 
 	browser := flag.Bool("browser", false, "statt des Fensters den Browser öffnen")
 	zeigeVersion := flag.Bool("version", false, "Fassung ausgeben")
-	// Wer Hilfe sucht, tippt --help, nicht "help". Ohne das zeigt das
-	// Flag-Paket nur die zwei Schalter und verschweigt jeden Unterbefehl.
+	// Anyone looking for help types --help, not "help". Without this the flag
+	// package shows only the two switches and hides every subcommand.
 	flag.Usage = func() {
 		cli.Help()
 		fmt.Fprintln(os.Stderr, "\nSchalter:")
@@ -87,16 +87,16 @@ func main() {
 	runWindow(info)
 }
 
-// kommando behandelt die Unterbefehle. Rückgabe true heißt: erledigt, das
-// Fenster wird nicht mehr geöffnet.
+// command handles the subcommands. Returning true means: done, the window is not
+// opened any more.
 func kommando(name string, rest []string) bool {
 	if name == "daemon" {
 		runDaemon()
 		return true
 	}
 	if name == "hook" {
-		// Fehler bleiben stumm: ein Hook, der Claude Code mit Ausgabe
-		// zumüllt oder abbricht, ist schlimmer als ein fehlender Zustand.
+		// Errors stay silent: a hook that floods Claude Code with output or aborts
+		// is worse than a missing piece of state.
 		_ = hook.Run(os.Stdin)
 		return true
 	}
@@ -174,7 +174,7 @@ func kommando(name string, rest []string) bool {
 	return true
 }
 
-// selbstUpdate holt die neueste Fassung von GitHub.
+// selfUpdate fetches the latest version from GitHub.
 func selbstUpdate() error {
 	st := update.Check(version)
 	if st.Error != "" {
@@ -206,7 +206,7 @@ func selbstUpdate() error {
 	return nil
 }
 
-// runDaemon ist der Prozess, dem die Terminals gehören.
+// runDaemon is the process that owns the terminals.
 func runDaemon() {
 	reg, err := session.NewRegistry(filepath.Join(daemon.Root(), "sessions"))
 	if err != nil {
@@ -215,8 +215,8 @@ func runDaemon() {
 
 	core.Version = version
 	ptyhost.Version = version
-	// Der Mitschnitt liegt neben dem übrigen Zustand. Damit überlebt der
-	// Scrollback jeden Neustart — bei tmux ist er weg.
+	// The recording sits next to the rest of the state. That way the scrollback
+	// survives every restart — with tmux it is gone.
 	ptyhost.RecordingDir = filepath.Join(daemon.Root(), "mitschnitt")
 	c := core.New(reg, sub("web/themes"), sub("web/agents"), sub("web/skins"))
 	srv := server.New(c, sub("web"))
@@ -227,15 +227,15 @@ func runDaemon() {
 	}
 	defer daemon.Forget()
 
-	// Einmal beim Start aufräumen; häufiger lohnt nicht.
+	// Clean up once at startup; more often is not worth it.
 	go c.PruneRecordings()
 
 	log.Printf("plxr daemon auf %s (PID %d)", info.URL(), info.PID)
 	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))
 }
 
-// runWindow ist nur noch eine Hülle: sie liefert die Oberfläche aus und sagt
-// ihr, wo der Daemon sitzt. Alles Weitere läuft direkt zwischen beiden.
+// runWindow is only a shell now: it serves the UI and tells it where the daemon
+// sits. Everything else runs directly between those two.
 func runWindow(info daemon.Info) {
 	app := NewApp(info)
 	err := wails.Run(&options.App{
@@ -245,22 +245,22 @@ func runWindow(info daemon.Info) {
 		MinWidth:    900,
 		MinHeight:   560,
 		AssetServer: &assetserver.Options{Assets: sub("web")},
-		// Ohne das zoomt Strg/Cmd +/- die gesamte Oberfläche. In einem Terminal
-		// soll sich die Schrift des Terminals ändern, nicht das ganze Fenster —
-		// plxr belegt die Kürzel selbst.
+		// Without this Ctrl/Cmd +/- zooms the entire UI. In a terminal the font of
+		// the terminal should change, not the whole window — plxr binds those
+		// shortcuts itself.
 		Windows: &windows.Options{
 			ZoomFactor:           1.0,
 			IsZoomControlEnabled: false,
 		},
-		// Der Rahmen bleibt vom System, aber der Hintergrund gehört dem Skin —
-		// sonst blitzt bei jedem Themewechsel Weiß durch.
+		// The frame stays with the system, but the background belongs to the skin —
+		// otherwise white flashes through on every theme change.
 		BackgroundColour: &options.RGBA{R: 11, G: 9, B: 6, A: 1},
 		OnStartup:        app.startup,
 		Bind:             []any{app},
-		// Ohne ein natives Bearbeiten-Menü reicht WKWebView Cmd+C und Cmd+V
-		// gar nicht erst an die Seite durch — die Kürzel wären schlicht tot.
-		// Das Menü bleibt unsichtbar, solange die Titelleiste eingelassen ist;
-		// es geht allein darum, dass macOS die Kürzel kennt.
+		// Without a native Edit menu WKWebView does not pass Cmd+C and Cmd+V through
+		// to the page at all — the shortcuts would simply be dead.
+		// The menu stays invisible while the title bar is inset; the only point is
+		// that macOS knows the shortcuts.
 		Menu: menu.NewMenuFromItems(
 			menu.SubMenu("plxr", menu.NewMenuFromItems(
 				menu.Text("Über plxr", nil, func(*menu.CallbackData) {}),
