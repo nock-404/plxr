@@ -1,9 +1,9 @@
-// Package theme lädt Oberflächen-Themes.
+// Package theme loads UI themes.
 //
-// Ein Theme ist mehr als eine Farbpalette: es wählt einen *Skin* — eine
-// vollständige visuelle Sprache mit eigenen Rahmen, Knopfformen, Schriften und
-// Texturen. Der Skin liegt als CSS unter web/skins/<name>/skin.css, das Theme
-// verweist nur darauf und darf die Palette überschreiben.
+// A theme is more than a colour palette: it picks a *skin* — a complete visual
+// language with its own frames, button shapes, typefaces and textures. The skin
+// lives as CSS under web/skins/<name>/skin.css; the theme only points at it and
+// may override the palette.
 //
 // Eingebaute Themes kommen aus web/themes, eigene aus ~/.plxr/themes.
 package theme
@@ -24,34 +24,34 @@ type Theme struct {
 	Label  string `json:"label"`
 	Author string `json:"author,omitempty"`
 
-	// Skin ist der Verzeichnisname unter web/skins.
+	// Skin is the directory name under web/skins.
 	Skin string `json:"skin"`
 
-	// Palette überschreibt einzelne CSS-Variablen des Skins. Leer lassen heißt:
-	// der Skin bringt seine eigenen Farben mit.
+	// Palette overrides individual CSS variables of the skin. Leaving it empty
+	// means: the skin brings its own colours.
 	Palette map[string]string `json:"palette,omitempty"`
 
-	// Schalter, die jeder Skin respektieren darf.
+	// Switches any skin is free to respect.
 	Scanlines *bool `json:"scanlines,omitempty"`
 	Glow      *bool `json:"glow,omitempty"`
 
-	// Schrift der Oberfläche und des Terminals, jeweils überschreibbar.
-	// Leer heißt: der Skin entscheidet.
+	// Font size of the UI and of the terminal, each overridable.
+	// Empty means: the skin decides.
 	Font     string `json:"font,omitempty"`
 	FontSize int    `json:"fontSize,omitempty"`
 	TermFont string `json:"termFont,omitempty"`
 	TermSize int    `json:"termSize,omitempty"`
 
-	// Eigen markiert ein Theme, das der Nutzer angelegt hat — nur solche
-	// dürfen überschrieben und gelöscht werden.
+	// Own marks a theme the user created — only those may be overwritten and
+	// deleted.
 	Eigen bool `json:"eigen,omitempty"`
 }
 
-// Erlaubt begrenzt, welche Paletteneinträge ins CSS dürfen — ein importiertes
-// Theme soll keine beliebigen Eigenschaften setzen können.
+// Allowed limits which palette entries may reach the CSS — an imported theme
+// must not be able to set arbitrary properties.
 //
-// term-bg und term-fg sind bewusst getrennt von bg und fg: ein heller Skin
-// braucht trotzdem ein dunkles, lesbares Terminal.
+// term-bg and term-fg are deliberately separate from bg and fg: a light skin
+// still needs a dark, readable terminal.
 var Allowed = map[string]bool{
 	"bg": true, "fg": true, "dim": true, "accent": true,
 	"working": true, "waiting": true, "blocked": true, "dead": true,
@@ -96,7 +96,7 @@ func (t *Theme) valid(skins map[string]bool) error {
 
 func UserDir() string { return filepath.Join(daemon.Root(), "themes") }
 
-// Skins listet die installierten Skins, also die Verzeichnisse unter web/skins.
+// Skins lists the installed skins, that is the directories under web/skins.
 func Skins(skinFS fs.FS) map[string]bool {
 	out := map[string]bool{}
 	if skinFS == nil {
@@ -114,7 +114,7 @@ func Skins(skinFS fs.FS) map[string]bool {
 	return out
 }
 
-// Load liest eingebaute und eigene Themes. Bei Namensgleichheit gewinnt das eigene.
+// Load reads built-in and own themes. On a name clash the own one wins.
 func Load(builtin, skinFS fs.FS) []Theme {
 	skins := Skins(skinFS)
 	byName := map[string]Theme{}
@@ -165,7 +165,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 	return out
 }
 
-// Import prüft ein hochgeladenes Theme und legt es unter ~/.plxr/themes ab.
+// Import validates an uploaded theme and stores it under ~/.plxr/themes.
 func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 	var t Theme
 	if err := json.Unmarshal(raw, &t); err != nil {
@@ -184,8 +184,8 @@ func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 	return &t, nil
 }
 
-// Löschen entfernt ein eigenes Theme. Eingebaute bleiben unantastbar — sie
-// stecken in der Anwendung und wären nach dem nächsten Update wieder da.
+// Delete removes an own theme. Built-in ones stay untouchable — they live
+// inside the application and would be back after the next update anyway.
 func Delete(name string) error {
 	if strings.ContainsAny(name, `/\.`) {
 		return errors.New("unzulässiger Name")

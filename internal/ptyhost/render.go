@@ -2,20 +2,20 @@ package ptyhost
 
 import "strings"
 
-// maxCol fängt kaputte Sequenzen ab, damit eine Zeile nicht ins Unendliche wächst.
+// maxCol catches broken sequences so a line does not grow without bound.
 const maxCol = 1000
 
-// renderPlain baut aus dem rohen PTY-Strom lesbaren Text.
+// renderPlain turns the raw PTY stream into readable text.
 //
-// Wichtig für Aufrufer: der Anfang muss auf einer Sequenzgrenze liegen. Wer
-// mitten in einer Escape-Folge einsteigt, verliert deren Einleitung — und die
+// Important for callers: the start has to sit on a sequence boundary. Entering
+// in the middle of an escape sequence loses its introducer — and the
 // Reste ("0q", "1u4;2m") landen sichtbar im Text.
 //
-// Ein Regex-Filter reicht dafür nicht: Claude Code setzt jedes Wort einzeln mit
-// CSI<n>G auf eine absolute Spalte, statt Leerzeichen zu schicken. Wer die
+// A regex filter is not enough for this: Claude Code places every word
+// individually at an absolute column with CSI<n>G instead of sending spaces.
 // Sequenzen nur wegwirft, bekommt "Quicksafetycheck" statt "Quick safety check".
-// Also wird hier eine einzelne Zeile tatsächlich gesetzt — Cursor links/rechts,
-// Zeile löschen, Bild löschen. Mehr Terminal braucht eine Vorschau nicht.
+// So a single line is actually laid out here — cursor left/right, erase line,
+// erase display. A preview needs no more terminal than that.
 func renderPlain(raw string) []string {
 	var lines []string
 	line := make([]rune, 0, 200)
@@ -49,7 +49,7 @@ func renderPlain(raw string) []string {
 			if i+1 >= len(rs) {
 				break
 			}
-			// Ein zweites ESC hebt die begonnene Sequenz auf. Kommt vor, wenn
+			// A second ESC cancels the sequence that was started. Happens when
 			// zwei Ausgaben ineinanderlaufen.
 			if rs[i+1] == 0x1b {
 				continue
@@ -86,11 +86,11 @@ func renderPlain(raw string) []string {
 					if col -= n; col < 0 {
 						col = 0
 					}
-				case 'K': // Rest der Zeile löschen
+				case 'K': // erase to end of line
 					if col < len(line) {
 						line = line[:col]
 					}
-				case 'J': // Bild löschen
+				case 'J': // erase display
 					lines, line, col = lines[:0], line[:0], 0
 				}
 				i = j

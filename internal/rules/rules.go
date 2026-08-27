@@ -1,13 +1,13 @@
-// Package rules löst auf, welche Anweisungsdateien in einem Verzeichnis wirken.
+// Package rules resolves which instruction files take effect in a directory.
 //
-// Claude Code sammelt beim Start CLAUDE.md aus mehreren Ebenen, dazu Skills und
-// Agenten. Wer in vielen Repos arbeitet, verliert den Überblick, was gerade
-// alles mitredet — genau die Frage beantwortet dieses Paket.
+// At startup Claude Code collects CLAUDE.md from several levels, plus skills and
+// agents. Anyone working across many repositories loses track of what is having
+// a say — this package answers exactly that question.
 //
-// Wichtige Einschränkung: das ist der IST-Zustand der Dateien, nicht der
-// Zustand zur Laufzeit einer alten Session. Claude Code schreibt den
-// eingefügten CLAUDE.md-Block nicht ins Transkript, historisch ist die Kette
-// also nicht rekonstruierbar.
+// An important limitation: this is the current state of the files, not the state
+// at the time an old session ran. Claude Code does not write the inlined
+// CLAUDE.md block into the transcript, so the chain cannot be reconstructed
+// after the fact.
 package rules
 
 import (
@@ -35,13 +35,13 @@ type Entry struct {
 	Path        string `json:"path"`
 	Description string `json:"description"`
 	Size        int64  `json:"size"`
-	Ebene       int    `json:"ebene"` // 0 = global, dann Tiefe im Baum
+	Ebene       int    `json:"ebene"` // 0 = global, then depth in the tree
 }
 
 const maxImportDepth = 3
 
-// Resolve liefert alles, was in cwd wirkt — in der Reihenfolge, in der Claude
-// Code es zusammenträgt: global zuerst, dann von der Wurzel abwärts.
+// Resolve returns everything that applies in cwd — in the order Claude Code
+// assembles it: global first, then from the root downwards.
 func Resolve(cwd, configDir string) []Entry {
 	out := []Entry{}
 	gesehen := map[string]bool{}
@@ -79,8 +79,8 @@ func Resolve(cwd, configDir string) []Entry {
 		add(Global, filepath.Join(configDir, "CLAUDE.md"), 0)
 	}
 
-	// 2. Vom obersten Vorfahren abwärts bis cwd. Von unten sammeln, dann drehen
-	//    — so steht die allgemeinste Regel oben und die speziellste unten.
+	// 2. From the topmost ancestor down to cwd. Collect from the bottom, then
+	//    reverse — that puts the most general rule first and the most specific last.
 	var kette []string
 	for d := filepath.Clean(cwd); ; {
 		kette = append(kette, d)
@@ -99,7 +99,7 @@ func Resolve(cwd, configDir string) []Entry {
 		add(Lokal, filepath.Join(d, "CLAUDE.local.md"), ebene+1)
 	}
 
-	// 3. Skills und Agenten, lokal und global
+	// 3. Skills and agents, local and global
 	for _, basis := range []string{filepath.Join(cwd, ".claude"), configDir} {
 		if basis == "" {
 			continue
@@ -129,7 +129,7 @@ func shortName(art Art, p string) string {
 	return filepath.Base(p)
 }
 
-// importe findet @pfad-Zeilen, mit denen eine CLAUDE.md weitere Dateien einbindet.
+// imports finds @path lines with which a CLAUDE.md pulls in further files.
 func imports(p string, tiefe int) []string {
 	if tiefe > maxImportDepth {
 		return nil
@@ -160,8 +160,8 @@ func imports(p string, tiefe int) []string {
 	return out
 }
 
-// beschreibung nimmt das Feld description aus dem Frontmatter, sonst die erste
-// Überschrift plus den ersten Absatz.
+// describe takes the description field from the front matter, otherwise the
+// first heading plus the first paragraph.
 func describe(p string) string {
 	f, err := os.Open(p)
 	if err != nil {

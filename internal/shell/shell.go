@@ -1,10 +1,10 @@
-// Package shell ermittelt, womit ein Terminal starten soll.
+// Package shell works out what a terminal should start with.
 //
-// Ein Terminal, das nur Coding-Agenten startet, ist kein Terminal. Der
-// Normalfall ist die Login-Shell des Nutzers — und die richtig zu starten hat
-// mehr Fallstricke, als es aussieht: die Shell muss als Login-Shell laufen
-// (sonst fehlen PATH-Einträge aus .zprofile), und die Umgebung muss stimmen
-// (sonst zeigen Programme keine Farben oder brechen bei Umlauten).
+// A terminal that only starts coding agents is not a terminal. The normal case
+// is the user's login shell — and starting that correctly has more pitfalls than
+// it looks: the shell has to run as a login shell (otherwise PATH entries from
+// .zprofile are missing), and the environment has to be right (otherwise
+// programs show no colours or choke on non-ASCII characters).
 package shell
 
 import (
@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-// Standard liefert das Kommando für eine gewöhnliche Terminalsitzung.
+// Default returns the command for an ordinary terminal session.
 func Default() []string {
 	if runtime.GOOS == "windows" {
 		return windowsShell()
@@ -23,17 +23,17 @@ func Default() []string {
 	return unixShell()
 }
 
-// unixShell startet die Login-Shell.
+// unixShell starts the login shell.
 //
-// Das führende "-" im nullten Argument ist die überlieferte Art, einer Shell
-// zu sagen, dass sie eine Login-Shell ist. Nur so liest sie .zprofile bzw.
-// .bash_profile — und ohne die fehlen die PATH-Einträge, die der Nutzer in
-// seiner normalen Konsole hat. go-pty reicht Args unverändert durch, deshalb
-// geht es hier über das Argument statt über exec.Cmd.
+// The leading "-" in argument zero is the traditional way of telling a shell
+// that it is a login shell. Only then does it read .zprofile or .bash_profile —
+// and without those the PATH entries the user has in their normal console are
+// missing. go-pty passes Args through unchanged, which is why this goes through
+// the argument rather than through exec.Cmd.
 func unixShell() []string {
 	sh := os.Getenv("SHELL")
 	if sh == "" {
-		// $SHELL fehlt in Diensten und beim Start über LaunchServices.
+		// $SHELL is missing in services and when started through LaunchServices.
 		if out, err := exec.Command("dscl", ".", "-read",
 			filepath.Join("/Users", os.Getenv("USER")), "UserShell").Output(); err == nil {
 			if f := strings.Fields(string(out)); len(f) == 2 {
@@ -55,15 +55,15 @@ func unixShell() []string {
 	return []string{sh, "-l"}
 }
 
-// windowsShell nimmt die beste vorhandene Shell.
+// windowsShell picks the best shell available.
 //
-// Reihenfolge nach Nützlichkeit: PowerShell 7 vor der mitgelieferten
-// Windows PowerShell vor cmd.exe. Die Voreinstellung von Windows selbst wäre
-// cmd.exe — das will heute niemand mehr.
+// Ordered by usefulness: PowerShell 7 before the bundled Windows PowerShell
+// before cmd.exe. Windows itself would default to cmd.exe — which nobody wants
+// any more.
 func windowsShell() []string {
 	for _, k := range []string{"pwsh.exe", "powershell.exe"} {
 		if p, err := exec.LookPath(k); err == nil {
-			// -NoLogo: der Startbanner steht sonst in jeder neuen Sitzung.
+			// -NoLogo: otherwise the startup banner appears in every new session.
 			return []string{p, "-NoLogo"}
 		}
 	}
@@ -73,13 +73,13 @@ func windowsShell() []string {
 	return []string{"cmd.exe"}
 }
 
-// Umgebung sind die Variablen, die ein Terminal setzen muss.
+// Environment are the variables a terminal has to set.
 //
-// Ohne TERM erkennen Programme kein Terminal und lassen Farben und
-// Zeilenbearbeitung weg. COLORTERM=truecolor schaltet 24-Bit-Farben frei, die
-// xterm.js kann. LANG mit UTF-8 verhindert, dass Umlaute und Rahmenzeichen
-// als Fragezeichen ankommen — das fehlt erstaunlich oft, wenn ein Programm
-// nicht aus einer Konsole gestartet wurde.
+// Without TERM programs do not recognise a terminal and drop colours and line
+// editing. COLORTERM=truecolor unlocks the 24-bit colours xterm.js supports.
+// LANG with UTF-8 keeps accented and box-drawing characters from arriving as
+// question marks — that is missing surprisingly often when a program was not
+// started from a console.
 func Environment(currentVersion string) []string {
 	env := []string{
 		"TERM=xterm-256color",
@@ -93,7 +93,7 @@ func Environment(currentVersion string) []string {
 	return env
 }
 
-// Name ist der Anzeigename eines Kommandos, ohne Pfad und Argumente.
+// Name is the display name of a command, without path and arguments.
 func Name(argv []string) string {
 	if len(argv) == 0 {
 		return ""
