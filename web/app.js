@@ -1544,7 +1544,10 @@ window.addEventListener('resize', () => { for (const p of paneListe()) paneNachm
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   for (const p of paneListe()) paneNachmessen(p);
+  // Wer das Fenster nach vorne holt, soll einen wartenden Hinweis sofort sehen.
+  fassungPruefen();
 });
+window.addEventListener('focus', () => fassungPruefen());
 
 /* ═════════════════════════ Konten ═════════════════════════ */
 
@@ -2345,7 +2348,24 @@ async function tempoPruefen() {
 
 let fassungsStand = null;
 
-async function fassungPruefen() {
+/* Wie oft nachgesehen wird.
+
+   Vorher einmal beim Start und dann stündlich — wer eine neue Fassung
+   veröffentlicht hatte, sah bis zu einer Stunde lang nichts davon und musste
+   das Fenster neu starten. Jetzt alle zehn Minuten, und zusätzlich sobald das
+   Fenster wieder nach vorne kommt: das ist der Moment, in dem jemand hinsieht.
+
+   Die Sperre darunter deckelt beides zusammen. GitHub lässt ohne Anmeldung
+   sechzig Abfragen pro Stunde zu; ohne Deckel könnte häufiges Fensterwechseln
+   die aufbrauchen, und dann meldet die Prüfung nur noch Fehler. */
+const FASSUNG_INTERVALL = 10 * 60 * 1000;
+const FASSUNG_SPERRE = 2 * 60 * 1000;
+let fassungZuletzt = 0;
+
+async function fassungPruefen(erzwingen) {
+  const jetzt = Date.now();
+  if (!erzwingen && jetzt - fassungZuletzt < FASSUNG_SPERRE) return;
+  fassungZuletzt = jetzt;
   try {
     const st = await api.fassung();
     fassungsStand = st;
@@ -2626,11 +2646,11 @@ connect()
   .then(() => themesLaden())
   .then(() => {
     api.aufZustand(zeichneAlles);
-    fassungPruefen();
+    fassungPruefen(true);
     // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
     api.updateStand().then((st) => {
       if (st.laeuft) { $('#updateBar').hidden = false; $('#updateBalken').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
-    setInterval(fassungPruefen, 60 * 60 * 1000);
+    setInterval(fassungPruefen, FASSUNG_INTERVALL);
   })
   .catch(() => neuVerbinden());
