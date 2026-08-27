@@ -1,0 +1,140 @@
+/* Werkbank — the built-in console.
+ *
+ * Deliberately NOT skinned, and deliberately not using a single variable from
+ * base.css or a skin. The panel exists for the case where exactly those have
+ * gone wrong: when the stylesheet fails to load, the page stands there naked
+ * and every skinned element is unreadable. A tool that breaks together with
+ * what it is meant to diagnose is worthless.
+ *
+ * For the same reason everything here is spelled out, colours included, and
+ * z-index sits above anything the application itself puts on screen.
+ */
+
+.devPanel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 460px;
+  max-width: 90vw;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  background: #14161a;
+  color: #d7dae0;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  border-left: 1px solid #2b3038;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+.devPanel[hidden] { display: none; }
+
+.devHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #1b1e24;
+  border-bottom: 1px solid #2b3038;
+  flex: 0 0 auto;
+}
+
+.devTitle {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: #8b93a1;
+  margin-right: auto;
+}
+
+.devTab {
+  appearance: none;
+  border: 1px solid #2b3038;
+  background: #191c22;
+  color: #9aa2b1;
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.devTab:hover { background: #212630; color: #d7dae0; }
+.devTab[data-on] { background: #2d3a4d; border-color: #3d5170; color: #e8ecf3; }
+
+/* The count of errors has to catch the eye even when nobody opened the panel. */
+.devBadge {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin-left: 5px;
+  border-radius: 8px;
+  background: #b6413a;
+  color: #fff;
+  font-size: 10px;
+  text-align: center;
+}
+
+.devBadge[hidden] { display: none; }
+
+.devBody {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 6px 0;
+}
+
+.devRow {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 8px;
+  padding: 3px 10px;
+  border-bottom: 1px solid #1d2128;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.devRow:hover { background: #191d24; }
+
+.devWhen { color: #5f6775; }
+.devText { color: #d7dae0; }
+
+.devRow[data-kind="error"] .devText { color: #ff8a80; }
+.devRow[data-kind="warn"] .devText { color: #ffcc66; }
+.devRow[data-kind="net"] .devText { color: #8fd3ff; }
+.devRow[data-kind="bad"] .devText { color: #ff8a80; }
+.devRow[data-kind="info"] .devText { color: #9aa2b1; }
+
+.devFoot {
+  display: flex;
+  gap: 6px;
+  padding: 7px 10px;
+  background: #1b1e24;
+  border-top: 1px solid #2b3038;
+  flex: 0 0 auto;
+}
+
+.devBtn {
+  appearance: none;
+  border: 1px solid #2b3038;
+  background: #232831;
+  color: #c7ccd6;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.devBtn:hover { background: #2c3340; color: #fff; }
+
+.devHint {
+  margin-left: auto;
+  align-self: center;
+  color: #5f6775;
+  font-size: 11px;
+}
+
+.devEmpty {
+  padding: 18px 12px;
+  color: #5f6775;
+  text-align: center;
+}

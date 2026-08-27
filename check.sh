@@ -22,6 +22,7 @@ schritt() {
 
 schritt "javascript" node --check web/app.js
 schritt "javascript ui" node --check web/ui.js
+schritt "javascript werkbank" node --check web/devpanel.js
 schritt "klassen" python3 klassen.py
 schritt "merkmale" python3 merkmale.py
 # Ohne diese Regeln lässt sich das Fenster nicht bewegen. Beim Neuschreiben von
@@ -33,6 +34,8 @@ schritt "go vet" go vet ./...
 schritt "bindungen" python3 bindungen.py
 schritt "js-parser" node web/parser_test.mjs
 schritt "js-aufrufe" node aufrufe.mjs web/app.js web/ui.js
+schritt "routen" python3 routen.py
+schritt "werkbank" node web/devpanel_test.mjs
 schritt "i18n" node web/i18n_test.mjs
 
 printf '%-16s' "go test"

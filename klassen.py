@@ -86,6 +86,15 @@ def klassen_aus_css(pfad):
 
 def main():
     erzeugt = (klassen_aus_js() | klassen_aus_html()) - NUR_LAYOUT
+
+    # Die Werkbank bringt ihr eigenes, vollständiges Blatt mit und wird
+    # absichtlich von keinem Skin angefasst: sie ist das Werkzeug, mit dem man
+    # nachsieht, warum ein Skin nicht geladen hat. Würde sie sich aus base.css
+    # oder einem Skin bedienen, wäre sie in genau dem Fall unlesbar, für den es
+    # sie gibt. Deshalb zählen ihre Klassen hier weder als ungestylt noch als
+    # Lücke in einem Skin — sie stehen vollständig in devpanel.css.
+    werkbank = klassen_aus_css(os.path.join(WEB, 'devpanel.css'))
+    erzeugt -= werkbank
     base = klassen_aus_css(os.path.join(WEB, 'base.css'))
     skins = {os.path.basename(os.path.dirname(p)): klassen_aus_css(p)
              for p in sorted(glob.glob(os.path.join(WEB, 'skins', '*', 'skin.css')))}

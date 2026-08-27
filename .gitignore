@@ -4,3 +4,4 @@ plxr
 .DS_Store
 docs/superpowers/
 PLAN.md
+__pycache__/
