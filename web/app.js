@@ -478,9 +478,9 @@ function stilEditorBauen() {
 
   for (const [schluessel, name] of STILFARBEN) {
     const zeile = document.createElement('div');
-    zeile.className = 'stilzeile';
-    zeile.innerHTML = '<span class="stilname"></span><input class="farbwert" hidden>';
-    zeile.querySelector('.stilname').textContent = name;
+    zeile.className = 'styleRow';
+    zeile.innerHTML = '<span class="styleName"></span><input class="farbwert" hidden>';
+    zeile.querySelector('.styleName').textContent = name;
     const feld = zeile.querySelector('.farbwert');
     feld.value = istFarbe(schluessel);
     box.appendChild(zeile);
@@ -517,12 +517,12 @@ function rgbNachHex(wert) {
 
 function zahlZeile(name, feld, min, max, anwenden) {
   const zeile = document.createElement('div');
-  zeile.className = 'stilzeile';
-  zeile.innerHTML = '<span class="stilname"></span>' +
-    '<span class="stilzahl"><button type="button" data-r="-">−</button><span></span>' +
+  zeile.className = 'styleRow';
+  zeile.innerHTML = '<span class="styleName"></span>' +
+    '<span class="styleNumber"><button type="button" data-r="-">−</button><span></span>' +
     '<button type="button" data-r="+">+</button></span>';
-  zeile.querySelector('.stilname').textContent = name;
-  const anzeige = zeile.querySelector('.stilzahl span');
+  zeile.querySelector('.styleName').textContent = name;
+  const anzeige = zeile.querySelector('.styleNumber span');
 
   const jetzt = () => stil[feld] || (feld === 'fontSize'
     ? parseFloat(getComputedStyle(document.body).fontSize)
@@ -543,10 +543,10 @@ function zahlZeile(name, feld, min, max, anwenden) {
 
 function schalterZeile(name, welcher) {
   const zeile = document.createElement('div');
-  zeile.className = 'stilzeile';
-  zeile.innerHTML = '<span class="stilname"></span><button type="button" class="stilschalter"></button>';
-  zeile.querySelector('.stilname').textContent = name;
-  const knopf = zeile.querySelector('.stilschalter');
+  zeile.className = 'styleRow';
+  zeile.innerHTML = '<span class="styleName"></span><button type="button" class="styleToggle"></button>';
+  zeile.querySelector('.styleName').textContent = name;
+  const knopf = zeile.querySelector('.styleToggle');
   const lesen = () => document.documentElement.dataset[welcher] !== 'off';
   const zeigen = () => {
     knopf.dataset.an = lesen() ? 'ja' : 'nein';
@@ -801,19 +801,19 @@ function inboxZeichnen() {
     let karte = box.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
     if (!karte) {
       karte = document.createElement('div');
-      karte.className = 'postkarte';
+      karte.className = 'inboxCard';
       karte.dataset.id = t.id;
       karte.innerHTML =
-        '<div class="postkopf"><span class="dot permission">◉</span>' +
-        '<b class="postname"></b><span class="postort"></span>' +
+        '<div class="inboxHead"><span class="dot permission">◉</span>' +
+        '<b class="inboxName"></b><span class="inboxPath"></span>' +
         '<button class="btn tiny" data-t="oeffnen">ÖFFNEN</button></div>' +
-        '<pre class="postfrage"></pre>' +
-        '<div class="postantwort"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
-        '<span class="postschnell"></span></div>';
+        '<pre class="inboxQuestion"></pre>' +
+        '<div class="inboxReply"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
+        '<span class="inboxQuick"></span></div>';
 
       karte.querySelector('[data-t="oeffnen"]').addEventListener('click', () => sessionOeffnen(t.id));
 
-      const feld = karte.querySelector('.postantwort input');
+      const feld = karte.querySelector('.inboxReply input');
       feld.addEventListener('keydown', async (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -824,16 +824,16 @@ function inboxZeichnen() {
       box.appendChild(karte);
     }
 
-    karte.querySelector('.postname').textContent = t.title || t.name;
-    karte.querySelector('.postort').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
-    const frage = karte.querySelector('.postfrage');
+    karte.querySelector('.inboxName').textContent = t.title || t.name;
+    karte.querySelector('.inboxPath').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
+    const frage = karte.querySelector('.inboxQuestion');
     const neu = t.frage || t.activity || '(keine Frage erkannt)';
     if (frage.textContent !== neu) frage.textContent = neu;
 
     /* Nur neu bauen, wenn sich die Frage geändert hat: die Karte wird im
        Sekundentakt aufgefrischt, und wer gerade auf einen Knopf zielt, soll
        ihn nicht unter dem Zeiger verlieren. */
-    const schnell = karte.querySelector('.postschnell');
+    const schnell = karte.querySelector('.inboxQuick');
     if (schnell.dataset.fuer !== neu) {
       schnell.dataset.fuer = neu;
       schnell.innerHTML = '';
@@ -846,7 +846,7 @@ function inboxZeichnen() {
       }
     }
   }
-  for (const el of [...box.querySelectorAll('.postkarte')]) {
+  for (const el of [...box.querySelectorAll('.inboxCard')]) {
     if (!gesehen.has(el.dataset.id)) el.remove();
   }
 }
@@ -982,7 +982,7 @@ function zeichneSchiene() {
         el.dataset.id = t.id;
         el.innerHTML =
           '<span class="rdot dot"></span>' +
-          '<span class="wappen"></span>' +
+          '<span class="crest"></span>' +
           '<span class="rtext"><span class="rname"></span><span class="rsub"></span></span>';
         el.addEventListener('click', (ev) => {
           // Mit gedrückter Alt- oder Meta-Taste kommt die Session daneben,
@@ -999,7 +999,7 @@ function zeichneSchiene() {
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
       punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
-      const rw = el.querySelector('.wappen');
+      const rw = el.querySelector('.crest');
       rw.textContent = wappen(t.cwd);
       rw.style.color = wappenTon(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
@@ -1050,7 +1050,7 @@ function zeichneRaster() {
       el.className = 'tile';
       el.dataset.id = t.id;
       el.innerHTML =
-        '<div class="thead"><span class="dot"></span><span class="wappen"></span>' +
+        '<div class="thead"><span class="dot"></span><span class="crest"></span>' +
         '<span class="tname"></span><span class="tproj"></span></div>' +
         '<pre class="tbody"></pre>' +
         '<div class="tfoot"><span class="act"></span><span class="ctx"></span><span class="agent"></span></div>';
@@ -1065,7 +1065,7 @@ function zeichneRaster() {
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
     punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
-    const w = el.querySelector('.wappen');
+    const w = el.querySelector('.crest');
     w.textContent = wappen(t.cwd);
     w.style.color = wappenTon(t.cwd);
     w.dataset.tip = t.cwd || '';
@@ -1128,7 +1128,7 @@ function pfadHilfe(feld, beiWahl) {
   // Die Liste hängt am Rumpf, nicht am Feld: sonst schneidet sie jeder
   // Vorfahre mit overflow ab, und die Statuszeile legt sich darüber.
   const liste = document.createElement('div');
-  liste.className = 'auswahlListe pfadListe';
+  liste.className = 'selectList pathList';
   liste.hidden = true;
   document.body.appendChild(liste);
 
@@ -1159,7 +1159,7 @@ function pfadHilfe(feld, beiWahl) {
     treffer.forEach((pfad, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'auswahlZeile';
+      b.className = 'selectRow';
       b.textContent = pfad;
       if (i === gewaehlt) b.dataset.gewaehlt = 'ja';
       b.addEventListener('mousedown', (e) => { e.preventDefault(); waehlen(pfad); });
@@ -1656,7 +1656,7 @@ $('#splitAdd').addEventListener('click', () => {
   box.innerHTML = '';
   for (const t of frei) {
     const b = document.createElement('button');
-    b.className = 'splitzeile';
+    b.className = 'splitRow';
     b.innerHTML = '<span class="dot"></span><span class="rname"></span>';
     const st = t.status || 'unknown';
     b.querySelector('.dot').className = 'dot ' + st;
@@ -2312,7 +2312,7 @@ $('#rulesClose').addEventListener('click', () => { $('#rulesPane').hidden = true
 function leerZeigen(box, titel, text) {
   box.innerHTML = '';
   const d = document.createElement('div');
-  d.className = 'leer';
+  d.className = 'emptyNote';
   d.innerHTML = '<b></b><span></span>';
   d.querySelector('b').textContent = titel;
   d.querySelector('span').textContent = text;
@@ -2410,16 +2410,16 @@ function archivZeichnen() {
     }
     for (const t of archiv.terminals) {
       const zeile = document.createElement('div');
-      zeile.className = 'zeile hoch';
+      zeile.className = 'row tall';
       zeile.innerHTML =
-        '<span class="zdatum"></span>' +
-        '<span class="zhaupt"><b class="ztitel"></b><span class="zauszug"></span></span>' +
-        '<span class="zproj"></span><span class="zwert"></span>';
-      zeile.querySelector('.zdatum').textContent = datumKurz(t.mod);
-      zeile.querySelector('.ztitel').textContent = t.name;
-      zeile.querySelector('.zauszug').textContent = t.auszug;
-      zeile.querySelector('.zproj').textContent = t.cwd ? t.cwd.split('/').pop() : '';
-      zeile.querySelector('.zwert').textContent = t.anzahl + '×';
+        '<span class="hitDate"></span>' +
+        '<span class="hitMain"><b class="hitTitle"></b><span class="hitExcerpt"></span></span>' +
+        '<span class="hitProject"></span><span class="hitValue"></span>';
+      zeile.querySelector('.hitDate').textContent = datumKurz(t.mod);
+      zeile.querySelector('.hitTitle').textContent = t.name;
+      zeile.querySelector('.hitExcerpt').textContent = t.auszug;
+      zeile.querySelector('.hitProject').textContent = t.cwd ? t.cwd.split('/').pop() : '';
+      zeile.querySelector('.hitValue').textContent = t.anzahl + '×';
       zeile.dataset.tip = t.cwd || '';
 
       /* Was danach kam, ist der eigentliche Fund: dieselbe Fehlermeldung hat
@@ -2427,7 +2427,7 @@ function archivZeichnen() {
          behoben hat. */
       if (t.danach?.length) {
         const nach = document.createElement('pre');
-        nach.className = 'znachspann';
+        nach.className = 'hitAfter';
         nach.textContent = t.danach.join('\n');
         zeile.appendChild(nach);
       }
@@ -2438,7 +2438,7 @@ function archivZeichnen() {
       zeile.style.cursor = 'pointer';
       zeile.addEventListener('click', (e) => {
         // Auf den Nachspann geklickt heißt lesen, nicht abspielen.
-        if (e.target.closest('.znachspann')) return;
+        if (e.target.closest('.hitAfter')) return;
         kinoOeffnen(t.sessionId, t.name, t.offset || 0);
       });
       box.appendChild(zeile);
@@ -2459,17 +2459,17 @@ function archivZeichnen() {
     }
     for (const t of archiv.treffer) {
       const zeile = document.createElement('div');
-      zeile.className = 'zeile hoch';
+      zeile.className = 'row tall';
       zeile.innerHTML =
-        '<span class="zdatum"></span>' +
-        '<span class="zhaupt"><b class="ztitel"></b><span class="zauszug"></span></span>' +
-        '<span class="zproj"></span><span class="zwert"></span>' +
-        '<span class="ztat"><button class="btn">FORTSETZEN</button></span>';
-      zeile.querySelector('.zdatum').textContent = datumKurz(t.mod);
-      zeile.querySelector('.ztitel').textContent = t.title || '(ohne Titel)';
-      zeile.querySelector('.zauszug').textContent = t.auszug;
-      zeile.querySelector('.zproj').textContent = t.project;
-      zeile.querySelector('.zwert').textContent = t.anzahl + '×';
+        '<span class="hitDate"></span>' +
+        '<span class="hitMain"><b class="hitTitle"></b><span class="hitExcerpt"></span></span>' +
+        '<span class="hitProject"></span><span class="hitValue"></span>' +
+        '<span class="hitAction"><button class="btn">FORTSETZEN</button></span>';
+      zeile.querySelector('.hitDate').textContent = datumKurz(t.mod);
+      zeile.querySelector('.hitTitle').textContent = t.title || '(ohne Titel)';
+      zeile.querySelector('.hitExcerpt').textContent = t.auszug;
+      zeile.querySelector('.hitProject').textContent = t.project;
+      zeile.querySelector('.hitValue').textContent = t.anzahl + '×';
       zeile.dataset.tip = t.cwd;
       zeile.querySelector('button').addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -2508,17 +2508,17 @@ function archivZeichnen() {
 
   for (const e of liste.slice(0, 400)) {
     const zeile = document.createElement('div');
-    zeile.className = 'zeile';
+    zeile.className = 'row';
     zeile.innerHTML =
-      '<span class="zdatum"></span><span class="ztitel"></span><span class="zproj"></span>' +
-      '<span class="zklein"></span><span class="zwert"></span>' +
-      '<span class="ztat"><button class="btn" data-t="auf">FORTSETZEN</button>' +
+      '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
+      '<span class="hitSmall"></span><span class="hitValue"></span>' +
+      '<span class="hitAction"><button class="btn" data-t="auf">FORTSETZEN</button>' +
       '<button class="btn" data-t="weg">LÖSCHEN</button></span>';
-    zeile.querySelector('.zdatum').textContent = datumKurz(e.mod);
-    zeile.querySelector('.ztitel').textContent = e.title || '(ohne Titel)';
-    zeile.querySelector('.zproj').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
-    zeile.querySelector('.zklein').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
-    zeile.querySelector('.zwert').textContent = (e.size / 1024).toFixed(0) + ' kB';
+    zeile.querySelector('.hitDate').textContent = datumKurz(e.mod);
+    zeile.querySelector('.hitTitle').textContent = e.title || '(ohne Titel)';
+    zeile.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
+    zeile.querySelector('.hitSmall').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
+    zeile.querySelector('.hitValue').textContent = (e.size / 1024).toFixed(0) + ' kB';
     zeile.dataset.tip = e.cwd;
 
     zeile.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
@@ -2564,17 +2564,17 @@ async function portsLaden() {
   }
   for (const p of liste) {
     const zeile = document.createElement('div');
-    zeile.className = 'zeile';
+    zeile.className = 'row';
     zeile.dataset.eigen = p.eigen ? 'ja' : 'nein';
     zeile.innerHTML =
-      '<span class="zdatum"></span><span class="ztitel"></span><span class="zproj"></span>' +
-      '<span class="zwert"></span>' +
-      '<span class="ztat"><button class="btn" data-h="0">BEENDEN</button>' +
+      '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
+      '<span class="hitValue"></span>' +
+      '<span class="hitAction"><button class="btn" data-h="0">BEENDEN</button>' +
       '<button class="btn" data-h="1">HART</button></span>';
-    zeile.querySelector('.zdatum').textContent = p.port;
-    zeile.querySelector('.ztitel').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
-    zeile.querySelector('.zproj').textContent = p.addr;
-    zeile.querySelector('.zwert').textContent = 'pid ' + p.pid;
+    zeile.querySelector('.hitDate').textContent = p.port;
+    zeile.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
+    zeile.querySelector('.hitProject').textContent = p.addr;
+    zeile.querySelector('.hitValue').textContent = 'pid ' + p.pid;
     for (const hart of [false, true]) {
       zeile.querySelector(`[data-h="${hart ? 1 : 0}"]`).addEventListener('click', async () => {
         const wie = hart ? 'HART beenden (SIGKILL)' : 'beenden (SIGTERM)';
@@ -2832,7 +2832,7 @@ async function wahlFuellen() {
   for (const w of STARTBAR) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'wahlknopf';
+    b.className = 'choiceButton';
     b.dataset.id = w.id;
     b.textContent = w.id === 'shell' ? `Shell (${shellCmd[0].split('/').pop()})` : w.label;
     b.addEventListener('click', () => wahlSetzen(w.id));
@@ -2873,7 +2873,7 @@ async function vorlagenOeffnen() {
 
   if (!liste.length) {
     const d = document.createElement('div');
-    d.className = 'leer';
+    d.className = 'emptyNote';
     d.innerHTML = '<b>noch keine vorlage</b><span>„Lage speichern" macht aus den ' +
       'gerade offenen Sessions eine Vorlage.</span>';
     box.appendChild(d);
@@ -2882,7 +2882,7 @@ async function vorlagenOeffnen() {
 
   for (const v of liste) {
     const zeile = document.createElement('div');
-    zeile.className = 'splitzeile';
+    zeile.className = 'splitRow';
     zeile.innerHTML = '<span class="rname"></span><span class="spacer"></span>' +
       '<span class="meta"></span><button class="btn tiny" data-t="weg">✕</button>';
     zeile.querySelector('.rname').textContent = v.label;

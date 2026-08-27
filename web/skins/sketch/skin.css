@@ -27,14 +27,14 @@ body {
 }
 
 /* Ein handgezogener Rahmen: unregelmäßige Radien, zweite Linie leicht versetzt. */
-.tile, .btn, .auswahlKnopf, .auswahlListe, .karte,
-.filter input, .listbar input, .karte input {
+.tile, .btn, .selectButton, .selectList, .card,
+.filter input, .listbar input, .card input {
   border: 2px solid var(--fg);
   border-radius: 14px 6px 12px 5px / 5px 12px 6px 14px;
   background: var(--panel);
   position: relative;
 }
-.tile::after, .btn::after, .karte::after {
+.tile::after, .btn::after, .card::after {
   content: ''; position: absolute; inset: 2px;
   border: 1px solid var(--fg); opacity: .22;
   border-radius: 6px 13px 5px 11px / 12px 5px 13px 6px;
@@ -47,12 +47,12 @@ body {
 .mark { color: var(--accent); transform: rotate(-3deg); }
 .wordmark { font-size: 1.7em; color: var(--fg); }
 .prompt { color: var(--dim); }
-.filter input, .listbar input, .karte input { padding: 3px 10px; outline: none; background: transparent; }
-.filter input:focus, .listbar input:focus, .karte input:focus { border-color: var(--accent); }
+.filter input, .listbar input, .card input { padding: 3px 10px; outline: none; background: transparent; }
+.filter input:focus, .listbar input:focus, .card input:focus { border-color: var(--accent); }
 .filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
 
-.btn, .auswahlKnopf { padding: 3px 14px; color: var(--fg); cursor: pointer; }
-.btn:hover, .auswahlKnopf:hover { background: #efe9d8; transform: rotate(-.6deg); }
+.btn, .selectButton { padding: 3px 14px; color: var(--fg); cursor: pointer; }
+.btn:hover, .selectButton:hover { background: #efe9d8; transform: rotate(-.6deg); }
 .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn.primary::after { border-color: #fff; }
 .btn.tiny { padding: 0 8px; font-size: .85em; }
@@ -115,14 +115,14 @@ body {
 /* ---------- Listen ---------- */
 
 .listbar { border-bottom: 2px solid var(--fg); }
-.zeile { border-bottom: 1px dashed var(--line); }
-.zeile:hover { background: #efe9d8; }
-.zdatum, .zproj, .zwert, .zklein { color: var(--dim); font-size: .85em; }
-.ztitel { color: var(--fg); }
-.zhaupt .ztitel { color: var(--accent); }
-.zauszug { color: var(--dim); font-family: 'SpaceMono', monospace; font-size: 11px; }
-.zeile .btn { padding: 0 10px; font-size: .85em; }
-.zeile[data-eigen="ja"] .ztitel { color: var(--working); }
+.row { border-bottom: 1px dashed var(--line); }
+.row:hover { background: #efe9d8; }
+.hitDate, .hitProject, .hitValue, .hitSmall { color: var(--dim); font-size: .85em; }
+.hitTitle { color: var(--fg); }
+.hitMain .hitTitle { color: var(--accent); }
+.hitExcerpt { color: var(--dim); font-family: 'SpaceMono', monospace; font-size: 11px; }
+.row .btn { padding: 0 10px; font-size: .85em; }
+.row[data-eigen="ja"] .hitTitle { color: var(--working); }
 
 .ublock { border-bottom: 1px dashed var(--line); }
 .uhead { color: var(--dim); font-size: .85em; }
@@ -154,9 +154,9 @@ body {
 .pane[data-aktiv="ja"] .pterm { border-color: var(--accent); }
 .pane[data-aktiv="ja"] .panelabel { color: var(--accent); }
 
-.ueber { background: var(--panel); }
-.ueberbar { border-bottom: 1px dashed var(--line); }
-.uebername { font-size: 1.1em; color: var(--accent); }
+.overlay { background: var(--panel); }
+.overlayBar { border-bottom: 1px dashed var(--line); }
+.overlayName { font-size: 1.1em; color: var(--accent); }
 .viewerbody { font-family: 'SpaceMono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; color: #3a3a3a; background: var(--panel); caret-color: var(--accent); }
 .dirty { color: var(--blocked); font-size: .85em; }
 
@@ -169,19 +169,19 @@ body {
 
 /* ---------- Dialoge ---------- */
 
-.hof { background: rgba(246,243,233,.82); }
-.karte { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
-.kartentitel { font-size: 1.5em; color: var(--fg); }
-.feldname { color: var(--dim); font-size: .85em; }
-.splitzeile { color: var(--fg); }
-.splitzeile:hover { background: #efe9d8; }
+.backdrop { background: rgba(246,243,233,.82); }
+.card { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
+.cardTitle { font-size: 1.5em; color: var(--fg); }
+.fieldName { color: var(--dim); font-size: .85em; }
+.splitRow { color: var(--fg); }
+.splitRow:hover { background: #efe9d8; }
 
 /* ---------- Auswahlliste ---------- */
 
-.auswahlZeile { color: var(--fg); }
-.auswahlZeile:hover { background: #efe9d8; color: var(--accent); }
-.auswahlZeile[data-gewaehlt] { color: var(--accent); }
-.auswahlGruppe { color: var(--dim); font-size: .8em; }
+.selectRow { color: var(--fg); }
+.selectRow:hover { background: #efe9d8; color: var(--accent); }
+.selectRow[data-gewaehlt] { color: var(--accent); }
+.selectGroup { color: var(--dim); font-size: .8em; }
 
 /* ---------- Scrollbalken: Bleistiftstrich am Rand ---------- */
 
@@ -196,13 +196,13 @@ body {
 /* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
    Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
    dass kein Skin sie wieder verliert. */
-.fragetext { color: var(--fg); }
+.dialogText { color: var(--fg); }
 .boot { color: var(--dim); }
-.hinweis { color: var(--dim); font-size: .85em; text-transform: none; line-height: 1.5; }
-.fusszeile { border-top: 1px dashed var(--line); padding-top: 14px; }
+.notice { color: var(--dim); font-size: .85em; text-transform: none; line-height: 1.5; }
+.dialogFoot { border-top: 1px dashed var(--line); padding-top: 14px; }
 .btn.icon { font-size: 1.1em; line-height: 1; }
-.leer { color: var(--dim); }
-.leer b { color: var(--accent); display: block; margin-bottom: 6px; font-size: 1.1em; }
+.emptyNote { color: var(--dim); }
+.emptyNote b { color: var(--accent); display: block; margin-bottom: 6px; font-size: 1.1em; }
 
 /* --- Vom Absturz betroffen ---
    Der Daemon endete, während die Session lief. Kein normales Ende: der
@@ -219,58 +219,58 @@ body {
    klassen.py sorgt dafür, dass keiner sie wieder verliert. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
-.auswahlPfeil { color: var(--dim); font-size: .8em; }
+.selectArrow { color: var(--dim); font-size: .8em; }
 .emptybox { color: var(--dim); }
-.zhaupt .ztitel { color: var(--accent); }
+.hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
 /* Ladebalken beim Update. */
-.balken { background: #e8e2d2; }
-.balken i { background: var(--accent); }
+.progress { background: #e8e2d2; }
+.progress i { background: var(--accent); }
 
 /* Auswahl im Startdialog. */
-.wahlknopf { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
-.wahlknopf[data-gewaehlt="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
+.choiceButton[data-gewaehlt="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* Stil-Editor und Farbwahl. */
-.stilname { color: var(--dim); font-size: .85em; text-transform: none; }
-.stilzahl { color: var(--fg); }
-.stilzahl button { color: var(--accent); }
-.stilschalter { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
-.stilschalter[data-an="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
-.farbtupfer { border: 2px solid var(--fg); border-radius: 6px 3px 5px 2px / 2px 5px 3px 6px; }
-.farbfeld { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
-.farbhex { background: transparent; border: 2px solid var(--dim); border-radius: 8px 3px 7px 2px / 2px 7px 3px 8px; text-align: center; }
+.styleName { color: var(--dim); font-size: .85em; text-transform: none; }
+.styleNumber { color: var(--fg); }
+.styleNumber button { color: var(--accent); }
+.styleToggle { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
+.styleToggle[data-an="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.swatch { border: 2px solid var(--fg); border-radius: 6px 3px 5px 2px / 2px 5px 3px 6px; }
+.swatchField { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
+.swatchHex { background: transparent; border: 2px solid var(--dim); border-radius: 8px 3px 7px 2px / 2px 7px 3px 8px; text-align: center; }
 
 /* Eingabefeld im Dialog. */
-.eingabefeld { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
+.promptInput { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
 
 /* Suche im Terminal. */
-.suche { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
-.suche input { background: transparent; border: 0; outline: none; border-bottom: 1px dashed var(--line); }
+.find { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
+.find input { background: transparent; border: 0; outline: none; border-bottom: 1px dashed var(--line); }
 
 /* Posteingang. */
-.postkarte { border-bottom: 1px dashed var(--line); }
-.postname { color: var(--accent); font-size: 1.05em; }
-.postort { color: var(--dim); font-size: .82em; }
-.postfrage { background: var(--panel); border: 2px solid var(--fg);
+.inboxCard { border-bottom: 1px dashed var(--line); }
+.inboxName { color: var(--accent); font-size: 1.05em; }
+.inboxPath { color: var(--dim); font-size: .82em; }
+.inboxQuestion { background: var(--panel); border: 2px solid var(--fg);
   border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px;
   color: #3a3a3a; font-family: 'SpaceMono', monospace; font-size: 11px; }
-.postantwort input { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
-.postschnell button { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
+.inboxReply input { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
+.inboxQuick button { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
 
 /* Verbrauchstempo. */
-.tempo { color: var(--dim); }
-.tempo[data-warnung="ja"] { color: var(--blocked); }
+.pace { color: var(--dim); }
+.pace[data-warnung="ja"] { color: var(--blocked); }
 
 /* Hover-Zustände: was klickbar ist, soll es zeigen. */
-.wahlknopf:hover { background: #efe9d8; }
-.stilschalter:hover { background: #efe9d8; }
+.choiceButton:hover { background: #efe9d8; }
+.styleToggle:hover { background: #efe9d8; }
 .paneclose:hover { color: var(--blocked); }
-.farbtupfer:hover { border-color: var(--accent); }
+.swatch:hover { border-color: var(--accent); }
 
 /* Kurzhinweis */
-.tipp { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
+.tip { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
 
 /* Warnkleid: übergangene Rückfragen */
 .tile[data-ungezaehmt="ja"]::before {
@@ -290,8 +290,8 @@ body {
    eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
    nichts. */
 :root[data-skin="sketch"] { --wappen: "✎✂✿❀☘✈☂⚑⌂✱❍✚△▢◇☾"; }
-.wappen { transform: rotate(-4deg); display: inline-block; }
+.crest { transform: rotate(-4deg); display: inline-block; }
 
 /* Wiedergabe */
-.kinobar { border-top: 1px dashed var(--line); }
-.znachspann { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }
+.playbar { border-top: 1px dashed var(--line); }
+.hitAfter { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }

@@ -26,13 +26,13 @@ body {
 .fx { display: none; }
 
 /* Bevel nach außen: erhaben. Für Knöpfe, Kacheln, Karten. */
-.btn, .auswahlKnopf, .tile, .karte, .auswahlListe {
+.btn, .selectButton, .tile, .card, .selectList {
   background: var(--panel); color: var(--dk);
   border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
 /* Bevel nach innen: vertieft. Für alles, was Eingabe aufnimmt. */
-.filter input, .listbar input, .karte input, .viewerbody, .tbody, .files {
+.filter input, .listbar input, .card input, .viewerbody, .tbody, .files {
   background: #fff; color: #000;
   border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
   box-shadow: inset 1px 1px 0 var(--dk);
@@ -40,7 +40,7 @@ body {
 
 /* ---------- Kopf ---------- */
 
-.bar, .statusrow, .sessbar, .listbar, .ueberbar, .updatebar, .filesbar {
+.bar, .statusrow, .sessbar, .listbar, .overlayBar, .updatebar, .filesbar {
   background: var(--panel);
   border-bottom: 2px solid var(--hi);
   box-shadow: inset 0 -1px 0 var(--sh);
@@ -48,7 +48,7 @@ body {
 .mark { color: var(--accent); }
 .wordmark { font-size: 1.3em; font-weight: bold; color: var(--dk); }
 .prompt { color: var(--dk); }
-.filter input, .listbar input, .karte input { padding: 3px 5px; outline: none; }
+.filter input, .listbar input, .card input { padding: 3px 5px; outline: none; }
 
 .btn { padding: 3px 12px; cursor: pointer; }
 .btn:active { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; padding: 4px 11px 2px 13px; }
@@ -108,15 +108,15 @@ body {
 /* ---------- Listen ---------- */
 
 .listbody { background: #fff; }
-.zeile { border-bottom: 1px solid #dfdfdf; }
-.zeile:hover { background: #d4d0c8; }
-.zeile:nth-child(even) { background: #f4f4f4; }
-.zeile:nth-child(even):hover { background: #d4d0c8; }
-.zdatum, .zproj, .zwert, .zklein { color: var(--dim); }
-.ztitel { color: #000; }
-.zauszug { color: var(--dim); font-size: .92em; }
-.zeile .btn { padding: 1px 8px; font-size: .95em; }
-.zeile[data-eigen="ja"] .ztitel { color: var(--working); font-weight: bold; }
+.row { border-bottom: 1px solid #dfdfdf; }
+.row:hover { background: #d4d0c8; }
+.row:nth-child(even) { background: #f4f4f4; }
+.row:nth-child(even):hover { background: #d4d0c8; }
+.hitDate, .hitProject, .hitValue, .hitSmall { color: var(--dim); }
+.hitTitle { color: #000; }
+.hitExcerpt { color: var(--dim); font-size: .92em; }
+.row .btn { padding: 1px 8px; font-size: .95em; }
+.row[data-eigen="ja"] .hitTitle { color: var(--working); font-weight: bold; }
 
 .ublock { background: #fff; border-bottom: 1px solid #dfdfdf; }
 .uhead { color: var(--dk); font-weight: bold; }
@@ -153,8 +153,8 @@ body {
 .paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .pane[data-aktiv="ja"] .panelabel { background: var(--accent); color: #fff; }
 
-.ueber { background: var(--panel); }
-.uebername { font-weight: bold; color: var(--dk); }
+.overlay { background: var(--panel); }
+.overlayName { font-weight: bold; color: var(--dk); }
 .viewerbody { font-family: 'Courier New', monospace; font-size: 12px; margin: 4px; caret-color: #000; }
 .dirty { color: var(--blocked); font-weight: bold; font-size: .9em; }
 
@@ -168,22 +168,22 @@ body {
 
 /* ---------- Dialoge ---------- */
 
-.hof { background: rgba(0,0,0,.35); }
-.karte { padding: 14px 16px; gap: 12px; }
-.kartentitel { font-weight: bold; font-size: 1.1em; color: var(--dk); }
-.feldname { color: var(--dk); }
-.splitzeile { color: var(--dk); }
-.splitzeile:hover { background: var(--accent); color: #fff; }
+.backdrop { background: rgba(0,0,0,.35); }
+.card { padding: 14px 16px; gap: 12px; }
+.cardTitle { font-weight: bold; font-size: 1.1em; color: var(--dk); }
+.fieldName { color: var(--dk); }
+.splitRow { color: var(--dk); }
+.splitRow:hover { background: var(--accent); color: #fff; }
 
 /* ---------- Auswahlliste ---------- */
 
-.auswahlKnopf { padding: 2px 8px; }
-.auswahlPfeil { color: var(--dk); font-size: .8em; }
-.auswahlListe { padding: 2px; }
-.auswahlZeile { color: var(--dk); }
-.auswahlZeile:hover { background: var(--accent); color: #fff; }
-.auswahlZeile[data-gewaehlt] { font-weight: bold; }
-.auswahlGruppe { color: var(--dim); font-weight: bold; font-size: .9em; }
+.selectButton { padding: 2px 8px; }
+.selectArrow { color: var(--dk); font-size: .8em; }
+.selectList { padding: 2px; }
+.selectRow { color: var(--dk); }
+.selectRow:hover { background: var(--accent); color: #fff; }
+.selectRow[data-gewaehlt] { font-weight: bold; }
+.selectGroup { color: var(--dim); font-weight: bold; font-size: .9em; }
 
 /* ---------- Scrollbalken: mit Gleisraster wie damals ---------- */
 
@@ -203,13 +203,13 @@ body {
 /* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
    Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
    dass kein Skin sie wieder verliert. */
-.fragetext { color: var(--dk); }
+.dialogText { color: var(--dk); }
 .boot { color: var(--dim); }
-.hinweis { color: var(--dim); font-size: .92em; text-transform: none; }
-.fusszeile { border-top: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); padding-top: 14px; }
+.notice { color: var(--dim); font-size: .92em; text-transform: none; }
+.dialogFoot { border-top: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); padding-top: 14px; }
 .btn.icon { font-size: 1.1em; line-height: 1; padding: 3px 9px; }
-.leer { color: var(--dim); }
-.leer b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }
+.emptyNote { color: var(--dim); }
+.emptyNote b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }
 
 /* --- Vom Absturz betroffen ---
    Der Daemon endete, während die Session lief. Kein normales Ende: der
@@ -226,58 +226,58 @@ body {
    klassen.py sorgt dafür, dass keiner sie wieder verliert. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
-.auswahlPfeil { color: var(--dim); font-size: .8em; }
+.selectArrow { color: var(--dim); font-size: .8em; }
 .emptybox { color: var(--dim); }
-.zhaupt .ztitel { color: var(--accent); }
+.hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
 /* Ladebalken beim Update. */
-.balken { background: #fff; }
-.balken i { background: var(--accent); }
+.progress { background: #fff; }
+.progress i { background: var(--accent); }
 
 /* Auswahl im Startdialog. */
-.wahlknopf { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.wahlknopf[data-gewaehlt="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.choiceButton[data-gewaehlt="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 
 /* Stil-Editor und Farbwahl. */
-.stilname { color: var(--dk); font-size: .92em; text-transform: none; }
-.stilzahl { color: var(--dk); }
-.stilzahl button { color: var(--dk); }
-.stilschalter { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
-.stilschalter[data-an="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
-.farbtupfer { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
-.farbfeld { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.farbhex { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); color: #000; }
+.styleName { color: var(--dk); font-size: .92em; text-transform: none; }
+.styleNumber { color: var(--dk); }
+.styleNumber button { color: var(--dk); }
+.styleToggle { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+.styleToggle[data-an="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.swatch { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.swatchField { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.swatchHex { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); color: #000; }
 
 /* Eingabefeld im Dialog. */
-.eingabefeld { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+.promptInput { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
 
 /* Suche im Terminal. */
-.suche { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.suche input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; padding: 2px 4px; }
+.find { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.find input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; padding: 2px 4px; }
 
 /* Posteingang. */
-.postkarte { border-bottom: 1px solid #dfdfdf; }
-.postname { font-weight: bold; color: var(--accent); }
-.postort { color: var(--dim); font-size: .9em; }
-.postfrage { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+.inboxCard { border-bottom: 1px solid #dfdfdf; }
+.inboxName { font-weight: bold; color: var(--accent); }
+.inboxPath { color: var(--dim); font-size: .9em; }
+.inboxQuestion { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
   color: #000; font-family: 'Courier New', monospace; font-size: 11px; }
-.postantwort input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
-.postschnell button { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+.inboxReply input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+.inboxQuick button { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
 
 /* Verbrauchstempo. */
-.tempo { color: var(--dk); }
-.tempo[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }
+.pace { color: var(--dk); }
+.pace[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }
 
 /* Hover-Zustände: was klickbar ist, soll es zeigen. */
-.wahlknopf:hover { background: #d4d0c8; }
-.stilschalter:hover { background: #d4d0c8; }
+.choiceButton:hover { background: #d4d0c8; }
+.styleToggle:hover { background: #d4d0c8; }
 .paneclose:hover { color: var(--blocked); }
-.farbtupfer:hover { border-color: var(--accent); }
+.swatch:hover { border-color: var(--accent); }
 .btn:hover { background: #d4d0c8; }
 
 /* Kurzhinweis */
-.tipp { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
+.tip { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
 
 /* Warnkleid: übergangene Rückfragen */
 .tile[data-ungezaehmt="ja"]::before {
@@ -295,8 +295,8 @@ body {
    eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
    nichts. */
 :root[data-skin="win95"] { --wappen: "■□▲△●○◆◇★☆♠♣♥♦※¶§"; }
-.wappen { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
+.crest { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
 
 /* Wiedergabe */
-.kinobar { border-top: 1px solid #fff; box-shadow: inset 0 1px 0 #808080; }
-.znachspann { color: #444; background: #fff; border: 1px solid #808080; padding: 3px 6px; }
+.playbar { border-top: 1px solid #fff; box-shadow: inset 0 1px 0 #808080; }
+.hitAfter { color: #444; background: #fff; border: 1px solid #808080; padding: 3px 6px; }

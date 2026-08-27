@@ -19,13 +19,13 @@
     sel.hidden = true;
 
     const wurzel = document.createElement('div');
-    wurzel.className = 'auswahl';
-    wurzel.innerHTML = '<button type="button" class="auswahlKnopf"><span class="auswahlText"></span><i class="auswahlPfeil">▾</i></button><div class="auswahlListe" hidden></div>';
+    wurzel.className = 'select';
+    wurzel.innerHTML = '<button type="button" class="selectButton"><span class="auswahlText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
     sel.after(wurzel);
 
-    const knopf = $$('.auswahlKnopf', wurzel);
+    const knopf = $$('.selectButton', wurzel);
     const text = $$('.auswahlText', wurzel);
-    const liste = $$('.auswahlListe', wurzel);
+    const liste = $$('.selectList', wurzel);
     if (sel.dataset.tip) knopf.dataset.tip = sel.dataset.tip;
 
     const zeichnen = () => {
@@ -34,7 +34,7 @@
       for (const kind of sel.children) {
         if (kind.tagName === 'OPTGROUP') {
           const h = document.createElement('div');
-          h.className = 'auswahlGruppe';
+          h.className = 'selectGroup';
           h.textContent = kind.label;
           liste.appendChild(h);
           for (const o of kind.children) liste.appendChild(zeile(o));
@@ -47,7 +47,7 @@
     const zeile = (o) => {
       const d = document.createElement('button');
       d.type = 'button';
-      d.className = 'auswahlZeile';
+      d.className = 'selectRow';
       d.textContent = o.textContent;
       d.dataset.wert = o.value;
       if (o.value === sel.value) d.dataset.gewaehlt = 'ja';
@@ -67,7 +67,7 @@
       wurzel.dataset.offen = 'ja';
       // Nach oben klappen, wenn unten kein Platz ist.
       const platz = window.innerHeight - knopf.getBoundingClientRect().bottom;
-      wurzel.dataset.richtung = platz < Math.min(320, liste.scrollHeight + 16) ? 'hoch' : 'runter';
+      wurzel.dataset.richtung = platz < Math.min(320, liste.scrollHeight + 16) ? 'tall' : 'runter';
       const g = $$('[data-gewaehlt]', liste);
       if (g) g.scrollIntoView({ block: 'nearest' });
     };
@@ -97,12 +97,12 @@
       offen = d;
       // Bewusst dieselben Klassen wie die übrigen Dialoge: sonst gestaltet
       // sie kein Skin und die Rückfrage steht nackt auf der Seite.
-      d.className = 'hof';
+      d.className = 'backdrop';
       d.innerHTML =
-        '<div class="karte"><b class="kartentitel"></b>' +
-        '<p class="fragetext"></p><div class="kartenknoepfe"></div></div>';
-      $$('.kartentitel', d).textContent = titel;
-      $$('.fragetext', d).textContent = text;
+        '<div class="card"><b class="cardTitle"></b>' +
+        '<p class="dialogText"></p><div class="cardButtons"></div></div>';
+      $$('.cardTitle', d).textContent = titel;
+      $$('.dialogText', d).textContent = text;
 
       const schliessen = (wert) => {
         d.remove();
@@ -111,7 +111,7 @@
         fertig(wert);
       };
 
-      const box = $$('.kartenknoepfe', d);
+      const box = $$('.cardButtons', d);
       for (const k of knoepfe) {
         const b = document.createElement('button');
         b.className = 'btn' + (k.haupt ? ' primary' : '');
@@ -174,24 +174,24 @@
 
   function farbwahl(feld, beiAenderung) {
     const wurzel = document.createElement('div');
-    wurzel.className = 'farbwahl';
+    wurzel.className = 'colorPicker';
     wurzel.innerHTML =
-      '<button type="button" class="farbtupfer"></button>' +
-      '<div class="farbfeld" hidden>' +
-      '  <div class="farbflaeche"><i class="farbpunkt"></i></div>' +
-      '  <div class="farbton"><i class="farbtonpunkt"></i></div>' +
-      '  <input class="farbhex" spellcheck="false" maxlength="7">' +
+      '<button type="button" class="swatch"></button>' +
+      '<div class="swatchField" hidden>' +
+      '  <div class="swatchArea"><i class="swatchDot"></i></div>' +
+      '  <div class="swatchHue"><i class="swatchHueDot"></i></div>' +
+      '  <input class="swatchHex" spellcheck="false" maxlength="7">' +
       '</div>';
     feld.after(wurzel);
     feld.hidden = true;
 
-    const tupfer = $$('.farbtupfer', wurzel);
-    const kasten = $$('.farbfeld', wurzel);
-    const flaeche = $$('.farbflaeche', wurzel);
-    const punkt = $$('.farbpunkt', wurzel);
-    const ton = $$('.farbton', wurzel);
-    const tonPunkt = $$('.farbtonpunkt', wurzel);
-    const hex = $$('.farbhex', wurzel);
+    const tupfer = $$('.swatch', wurzel);
+    const kasten = $$('.swatchField', wurzel);
+    const flaeche = $$('.swatchArea', wurzel);
+    const punkt = $$('.swatchDot', wurzel);
+    const ton = $$('.swatchHue', wurzel);
+    const tonPunkt = $$('.swatchHueDot', wurzel);
+    const hex = $$('.swatchHex', wurzel);
 
     let hsv = hexNachHsv(feld.value) || { h: 40, s: 1, v: 1 };
 
@@ -269,7 +269,7 @@
     if (!text) return;
     if (!tippEl) {
       tippEl = document.createElement('div');
-      tippEl.className = 'tipp';
+      tippEl.className = 'tip';
       document.body.appendChild(tippEl);
     }
     tippEl.textContent = text;
@@ -332,16 +332,16 @@
         if (offen) offen.remove();
         const d = document.createElement('div');
         offen = d;
-        d.className = 'hof';
+        d.className = 'backdrop';
         d.innerHTML =
-          '<div class="karte"><b class="kartentitel"></b>' +
-          '<p class="fragetext"></p><input class="eingabefeld" spellcheck="false">' +
-          '<div class="kartenknoepfe">' +
+          '<div class="card"><b class="cardTitle"></b>' +
+          '<p class="dialogText"></p><input class="promptInput" spellcheck="false">' +
+          '<div class="cardButtons">' +
           '<button class="btn" data-w="0">ABBRECHEN</button>' +
           '<button class="btn primary" data-w="1">OK</button></div></div>';
-        $$('.kartentitel', d).textContent = titel;
-        $$('.fragetext', d).textContent = text;
-        const feld = $$('.eingabefeld', d);
+        $$('.cardTitle', d).textContent = titel;
+        $$('.dialogText', d).textContent = text;
+        const feld = $$('.promptInput', d);
         feld.value = vorgabe;
 
         const schliessen = (wert) => {

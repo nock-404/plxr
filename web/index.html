@@ -25,7 +25,7 @@
 
     <!-- Freie Fläche zwischen Pfadfeld und Werkzeugen: hier greift man das
          Fenster. Ohne sie gibt es bei eingelassener Titelleiste keinen Griff. -->
-    <div class="griff"></div>
+    <div class="draghandle"></div>
 
     <div class="tools">
       <button class="btn" id="brake" data-tip="Alle Sessions sofort anhalten (nichts geht verloren)">STOPP</button>
@@ -37,7 +37,7 @@
 
   <div class="updatebar" id="updateBar" hidden>
     <span id="updateText"></span>
-    <span class="balken" id="updateBalken" hidden><i id="updateFuellung"></i></span>
+    <span class="progress" id="updateBalken" hidden><i id="updateFuellung"></i></span>
     <span class="spacer"></span>
     <button class="btn" id="updateNotes">WAS IST NEU</button>
     <button class="btn primary" id="updateGo">INSTALLIEREN</button>
@@ -47,7 +47,7 @@
   <div class="statusrow">
     <span id="counts"></span>
     <span class="spacer"></span>
-    <span id="tempo" class="tempo" hidden></span>
+    <span id="tempo" class="pace" hidden></span>
     <span id="boot" class="boot"></span>
     <span id="clock"></span>
   </div>
@@ -89,7 +89,7 @@
         </div>
       </div>
 
-      <section id="viewArchive" class="liste" hidden>
+      <section id="viewArchive" class="list" hidden>
         <div class="listbar">
           <span class="prompt">suche&gt;</span>
           <input id="archSearch" spellcheck="false" placeholder="Titel und Projekt — Eingabetaste sucht im Volltext">
@@ -102,7 +102,7 @@
         <div class="listbody" id="archList"></div>
       </section>
 
-      <section id="viewInbox" class="liste" hidden>
+      <section id="viewInbox" class="list" hidden>
         <div class="listbar">
           <span class="prompt">wartet&gt;</span>
           <span id="inboxInfo" class="meta"></span>
@@ -112,7 +112,7 @@
         <div class="listbody" id="inboxBody"></div>
       </section>
 
-      <section id="viewPorts" class="liste" hidden>
+      <section id="viewPorts" class="list" hidden>
         <div class="listbar">
           <span class="prompt">ports&gt;</span>
           <span id="portsInfo" class="meta"></span>
@@ -122,7 +122,7 @@
         <div class="listbody" id="portsList"></div>
       </section>
 
-      <section id="viewUsage" class="liste" hidden>
+      <section id="viewUsage" class="list" hidden>
         <div class="listbar">
           <span class="prompt">verbrauch&gt;</span>
           <span id="usageInfo" class="meta"></span>
@@ -161,7 +161,7 @@
           <div class="panes" id="panes"></div>
 
           <!-- Suche im Scrollback der aktiven Fläche. -->
-          <div class="suche" id="suche" hidden>
+          <div class="find" id="suche" hidden>
             <span class="prompt">suchen&gt;</span>
             <input id="sucheFeld" spellcheck="false" placeholder="im Terminal suchen">
             <span id="sucheStand" class="meta"></span>
@@ -171,9 +171,9 @@
           </div>
 
           <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
-          <div id="rulesPane" class="ueber" hidden>
-            <div class="ueberbar">
-              <span class="uebername">Regeln</span>
+          <div id="rulesPane" class="overlay" hidden>
+            <div class="overlayBar">
+              <span class="overlayName">Regeln</span>
               <span id="rulesMeta" class="meta"></span>
               <span class="spacer"></span>
               <button class="btn" id="rulesClose">ZURÜCK</button>
@@ -182,15 +182,15 @@
           </div>
 
           <!-- Wiedergabe: eigenes Terminal ohne Eingabe, über allem. -->
-          <div id="kino" class="ueber" hidden>
-            <div class="ueberbar">
-              <span id="kinoName" class="uebername"></span>
+          <div id="kino" class="overlay" hidden>
+            <div class="overlayBar">
+              <span id="kinoName" class="overlayName"></span>
               <span id="kinoMeta" class="meta"></span>
               <span class="spacer"></span>
               <button class="btn" id="kinoClose">ZURÜCK</button>
             </div>
-            <div class="kinoterm" id="kinoTerm"></div>
-            <div class="kinobar">
+            <div class="playterm" id="kinoTerm"></div>
+            <div class="playbar">
               <button class="btn" id="kinoPlay" data-tip="Abspielen und anhalten (Leertaste)">▶</button>
               <input type="range" id="kinoRegler" min="0" max="1000" value="0"
                      data-tip="An eine Stelle springen">
@@ -201,16 +201,16 @@
             </div>
           </div>
 
-          <div id="viewer" class="ueber" hidden>
-            <div class="ueberbar">
-              <span id="viewerName" class="uebername"></span>
+          <div id="viewer" class="overlay" hidden>
+            <div class="overlayBar">
+              <span id="viewerName" class="overlayName"></span>
               <span id="viewerMeta" class="meta"></span>
               <span class="spacer"></span>
               <span id="viewerDirty" class="dirty" hidden>ungespeichert</span>
               <button class="btn" id="viewerSave" hidden>SPEICHERN</button>
               <button class="btn" id="viewerClose">ZURÜCK</button>
             </div>
-            <div class="suche editorsuche" id="esuche" hidden>
+            <div class="find findInFile" id="esuche" hidden>
               <span class="prompt">suchen&gt;</span>
               <input id="esucheFeld" spellcheck="false" placeholder="in der Datei suchen">
               <span id="esucheStand" class="meta"></span>
@@ -233,29 +233,29 @@
 </div>
 
 <!-- Neue Session -->
-<div id="dialog" class="hof" hidden>
-  <form id="newForm" class="karte">
-    <b class="kartentitel">neue session</b>
-    <div class="feld">
-      <span class="feldname">verzeichnis</span>
-      <span class="zeile2">
+<div id="dialog" class="backdrop" hidden>
+  <form id="newForm" class="card">
+    <b class="cardTitle">neue session</b>
+    <div class="field">
+      <span class="fieldName">verzeichnis</span>
+      <span class="rowInline">
         <input id="newCwd" spellcheck="false" required>
         <button type="button" class="btn" id="pickDir" hidden>…</button>
       </span>
     </div>
-    <div class="feld">
-      <span class="feldname">was starten</span>
-      <div class="wahl" id="newWahl"></div>
+    <div class="field">
+      <span class="fieldName">was starten</span>
+      <div class="choice" id="newWahl"></div>
     </div>
-    <div class="feld" id="newCmdFeld" hidden>
-      <span class="feldname">kommando</span>
+    <div class="field" id="newCmdFeld" hidden>
+      <span class="fieldName">kommando</span>
       <input id="newCmd" spellcheck="false">
     </div>
-    <div class="feld">
-      <span class="feldname">konto</span>
+    <div class="field">
+      <span class="fieldName">konto</span>
       <select id="newAccount"></select>
     </div>
-    <div class="kartenknoepfe">
+    <div class="cardButtons">
       <button type="button" class="btn" id="newCancel">ABBRECHEN</button>
       <button type="submit" class="btn primary">STARTEN</button>
     </div>
@@ -263,20 +263,20 @@
 </div>
 
 <!-- Einstellungen -->
-<div id="settings" class="hof" hidden>
-  <div class="karte breit">
-    <b class="kartentitel">einstellungen</b>
+<div id="settings" class="backdrop" hidden>
+  <div class="card wide">
+    <b class="cardTitle">einstellungen</b>
 
-    <div class="feld">
-      <span class="feldname">aussehen</span>
+    <div class="field">
+      <span class="fieldName">aussehen</span>
       <select id="themeSel" data-tip="Theme"></select>
     </div>
 
-    <div class="feld">
-      <span class="feldname">stil anpassen</span>
-      <div class="stil" id="stilEditor"></div>
-      <span class="zeile2">
-        <span id="themeHint" class="hinweis"></span>
+    <div class="field">
+      <span class="fieldName">stil anpassen</span>
+      <div class="style" id="stilEditor"></div>
+      <span class="rowInline">
+        <span id="themeHint" class="notice"></span>
         <button type="button" class="btn" id="themeLoeschen" hidden>LÖSCHEN</button>
         <button type="button" class="btn" id="stilReset">ZURÜCKSETZEN</button>
         <button type="button" class="btn" id="stilSpeichern">SPEICHERN</button>
@@ -285,16 +285,16 @@
       </span>
     </div>
 
-    <div class="feld">
-      <span class="feldname">claude code</span>
-      <span class="zeile2">
-        <span id="hookHint" class="hinweis"></span>
+    <div class="field">
+      <span class="fieldName">claude code</span>
+      <span class="rowInline">
+        <span id="hookHint" class="notice"></span>
         <button type="button" class="btn" id="hookBtn"></button>
       </span>
     </div>
 
-    <div class="fusszeile">
-      <span id="settingsVersion" class="hinweis"></span>
+    <div class="dialogFoot">
+      <span id="settingsVersion" class="notice"></span>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="settingsClose">FERTIG</button>
     </div>
@@ -302,13 +302,13 @@
 </div>
 
 <!-- Vorlagen: mehrere Sessions auf einen Schlag -->
-<div id="vorlagen" class="hof" hidden>
-  <div class="karte">
-    <b class="kartentitel">vorlagen</b>
-    <p class="hinweis">Eine Vorlage öffnet mehrere Sessions auf einmal — dieselben
+<div id="vorlagen" class="backdrop" hidden>
+  <div class="card">
+    <b class="cardTitle">vorlagen</b>
+    <p class="notice">Eine Vorlage öffnet mehrere Sessions auf einmal — dieselben
       Verzeichnisse, dieselben Konten, dieselben Kommandos wie beim Speichern.</p>
-    <div id="vorlagenListe" class="splitliste"></div>
-    <div class="kartenknoepfe">
+    <div id="vorlagenListe" class="splitList"></div>
+    <div class="cardButtons">
       <button type="button" class="btn" id="vorlagenCancel">SCHLIESSEN</button>
       <button type="button" class="btn primary" id="vorlagenSpeichern">LAGE SPEICHERN</button>
     </div>
@@ -316,11 +316,11 @@
 </div>
 
 <!-- Session für die geteilte Fläche wählen -->
-<div id="splitPick" class="hof" hidden>
-  <div class="karte">
-    <b class="kartentitel">welche session daneben?</b>
-    <div id="splitList" class="splitliste"></div>
-    <div class="kartenknoepfe">
+<div id="splitPick" class="backdrop" hidden>
+  <div class="card">
+    <b class="cardTitle">welche session daneben?</b>
+    <div id="splitList" class="splitList"></div>
+    <div class="cardButtons">
       <button type="button" class="btn" id="splitCancel">ABBRECHEN</button>
     </div>
   </div>

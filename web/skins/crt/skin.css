@@ -151,17 +151,17 @@ body {
 
 .listbar { border-bottom: 1px solid var(--dim); }
 .meta { color: var(--dim); font-size: .8em; }
-.zeile { border-bottom: 1px solid var(--line); }
-.zeile:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.zdatum { color: var(--dim); font-size: .8em; letter-spacing: .06em; }
-.ztitel { color: var(--fg); }
-.zhaupt .ztitel { color: var(--accent); }
-.zauszug { color: var(--dim); font-size: .8em; line-height: 1.4; }
-.zproj { color: var(--dim); font-size: .82em; }
-.zklein { color: var(--dead); font-size: .7em; letter-spacing: .12em; text-transform: uppercase; }
-.zwert { color: var(--dead); font-size: .78em; }
-.zeile .btn { padding: 1px 8px; font-size: .78em; }
-.zeile[data-eigen="ja"] .ztitel { color: var(--working); }
+.row { border-bottom: 1px solid var(--line); }
+.row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.hitDate { color: var(--dim); font-size: .8em; letter-spacing: .06em; }
+.hitTitle { color: var(--fg); }
+.hitMain .hitTitle { color: var(--accent); }
+.hitExcerpt { color: var(--dim); font-size: .8em; line-height: 1.4; }
+.hitProject { color: var(--dim); font-size: .82em; }
+.hitSmall { color: var(--dead); font-size: .7em; letter-spacing: .12em; text-transform: uppercase; }
+.hitValue { color: var(--dead); font-size: .78em; }
+.row .btn { padding: 1px 8px; font-size: .78em; }
+.row[data-eigen="ja"] .hitTitle { color: var(--working); }
 
 .ublock { border-bottom: 1px solid var(--line); }
 .uhead { color: var(--dead); font-size: .7em; letter-spacing: .2em; text-transform: uppercase; }
@@ -196,9 +196,9 @@ body {
 .pane[data-aktiv="ja"] .pterm { border-color: var(--accent); }
 .pane[data-aktiv="ja"] .panelabel { color: var(--accent); }
 
-.ueber { background: var(--bg); }
-.ueberbar { border-bottom: 1px solid var(--dim); }
-.uebername { color: var(--accent); }
+.overlay { background: var(--bg); }
+.overlayBar { border-bottom: 1px solid var(--dim); }
+.overlayName { color: var(--accent); }
 .viewerbody {
   font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.5;
   color: var(--fg); background: var(--bg); caret-color: var(--accent);
@@ -217,32 +217,32 @@ body {
 
 /* ---------- Dialoge ---------- */
 
-.hof { background: color-mix(in srgb, var(--bg) 82%, transparent); }
-.karte { background: var(--bg); border: 1px solid var(--accent); }
-.kartentitel { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
-.feldname { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .76em; }
-.karte input {
+.backdrop { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+.card { background: var(--bg); border: 1px solid var(--accent); }
+.cardTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
+.fieldName { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .76em; }
+.card input {
   background: transparent; border: 1px solid var(--dim); outline: none;
   text-shadow: inherit; text-transform: none; letter-spacing: 0;
 }
-.karte input:focus { border-color: var(--accent); }
-.splitzeile { color: var(--fg); }
-.splitzeile:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.card input:focus { border-color: var(--accent); }
+.splitRow { color: var(--fg); }
+.splitRow:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
 /* ---------- Eigene Auswahlliste ---------- */
 
-.auswahlKnopf {
+.selectButton {
   background: transparent; color: var(--fg); border: 1px solid var(--dim);
   padding: 3px 10px; letter-spacing: .1em; text-transform: uppercase; text-shadow: inherit;
 }
-.auswahlKnopf:hover, .auswahl[data-offen] .auswahlKnopf { border-color: var(--accent); color: var(--accent); }
-.auswahlPfeil { color: var(--dim); font-size: .8em; }
-.auswahlListe { background: var(--bg); border: 1px solid var(--accent); }
-.auswahlZeile { color: var(--fg); letter-spacing: .06em; text-shadow: inherit; }
-.auswahlZeile:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
-.auswahlZeile[data-gewaehlt] { color: var(--accent); }
-.auswahlZeile[data-gewaehlt]::before { content: '› '; }
-.auswahlGruppe { color: var(--dead); font-size: .68em; letter-spacing: .22em; text-transform: uppercase; }
+.selectButton:hover, .select[data-offen] .selectButton { border-color: var(--accent); color: var(--accent); }
+.selectArrow { color: var(--dim); font-size: .8em; }
+.selectList { background: var(--bg); border: 1px solid var(--accent); }
+.selectRow { color: var(--fg); letter-spacing: .06em; text-shadow: inherit; }
+.selectRow:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.selectRow[data-gewaehlt] { color: var(--accent); }
+.selectRow[data-gewaehlt]::before { content: '› '; }
+.selectGroup { color: var(--dead); font-size: .68em; letter-spacing: .22em; text-transform: uppercase; }
 
 /* ---------- Scrollbalken ---------- */
 
@@ -253,13 +253,13 @@ body {
 /* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
    Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
    dass kein Skin sie wieder verliert. */
-.fragetext { color: var(--fg); font-size: .92em; }
+.dialogText { color: var(--fg); font-size: .92em; }
 .boot { color: var(--dim); }
-.hinweis { color: var(--dim); font-size: .8em; text-transform: none; letter-spacing: 0; line-height: 1.4; }
-.fusszeile { border-top: 1px solid var(--line); padding-top: 14px; }
+.notice { color: var(--dim); font-size: .8em; text-transform: none; letter-spacing: 0; line-height: 1.4; }
+.dialogFoot { border-top: 1px solid var(--line); padding-top: 14px; }
 .btn.icon { font-size: 1.1em; line-height: 1; }
-.leer { color: var(--dim); font-size: .88em; }
-.leer b { color: var(--accent); font-weight: normal; display: block; margin-bottom: 6px;
+.emptyNote { color: var(--dim); font-size: .88em; }
+.emptyNote b { color: var(--accent); font-weight: normal; display: block; margin-bottom: 6px;
           letter-spacing: .18em; text-transform: uppercase; font-size: .82em; }
 
 /* --- Vom Absturz betroffen ---
@@ -277,61 +277,61 @@ body {
    klassen.py sorgt dafür, dass keiner sie wieder verliert. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
-.auswahlPfeil { color: var(--dim); font-size: .8em; }
+.selectArrow { color: var(--dim); font-size: .8em; }
 .emptybox { color: var(--dim); }
-.zhaupt .ztitel { color: var(--accent); }
+.hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
 /* Ladebalken beim Update. */
-.balken { background: color-mix(in srgb, var(--fg) 14%, transparent); }
-.balken i { background: var(--accent); }
+.progress { background: color-mix(in srgb, var(--fg) 14%, transparent); }
+.progress i { background: var(--accent); }
 
 /* Auswahl im Startdialog. */
-.wahlknopf { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
-.wahlknopf:hover { border-color: var(--accent); color: var(--accent); }
-.wahlknopf[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
+.choiceButton { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
+.choiceButton:hover { border-color: var(--accent); color: var(--accent); }
+.choiceButton[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
 
 /* Stil-Editor und Farbwahl. */
-.stilname { color: var(--dim); font-size: .78em; text-transform: none; letter-spacing: .04em; }
-.stilzahl { color: var(--fg); font-size: .8em; }
-.stilzahl button { color: var(--dim); }
-.stilzahl button:hover { color: var(--accent); }
-.stilschalter { border: 1px solid var(--dim); color: var(--dim); font-size: .76em; letter-spacing: .1em; }
-.stilschalter[data-an="ja"] { border-color: var(--accent); color: var(--accent); }
-.farbtupfer { border: 1px solid var(--dim); }
-.farbtupfer:hover { border-color: var(--accent); }
-.farbfeld { background: var(--bg); border: 1px solid var(--accent); }
-.farbhex { background: transparent; border: 1px solid var(--dim); text-shadow: inherit; text-align: center; }
+.styleName { color: var(--dim); font-size: .78em; text-transform: none; letter-spacing: .04em; }
+.styleNumber { color: var(--fg); font-size: .8em; }
+.styleNumber button { color: var(--dim); }
+.styleNumber button:hover { color: var(--accent); }
+.styleToggle { border: 1px solid var(--dim); color: var(--dim); font-size: .76em; letter-spacing: .1em; }
+.styleToggle[data-an="ja"] { border-color: var(--accent); color: var(--accent); }
+.swatch { border: 1px solid var(--dim); }
+.swatch:hover { border-color: var(--accent); }
+.swatchField { background: var(--bg); border: 1px solid var(--accent); }
+.swatchHex { background: transparent; border: 1px solid var(--dim); text-shadow: inherit; text-align: center; }
 
 /* Eingabefeld im Dialog. */
-.eingabefeld { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
-.eingabefeld:focus { border-color: var(--accent); }
+.promptInput { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
+.promptInput:focus { border-color: var(--accent); }
 
 /* Suche im Terminal. */
-.suche { background: var(--bg); border: 1px solid var(--accent); }
-.suche input { background: transparent; border: 0; outline: none; border-bottom: 1px solid var(--dim); text-shadow: inherit; }
-.suche input:focus { border-color: var(--accent); }
+.find { background: var(--bg); border: 1px solid var(--accent); }
+.find input { background: transparent; border: 0; outline: none; border-bottom: 1px solid var(--dim); text-shadow: inherit; }
+.find input:focus { border-color: var(--accent); }
 
 /* Posteingang. */
-.postkarte { border-bottom: 1px solid var(--line); }
-.postname { color: var(--accent); }
-.postort { color: var(--dim); font-size: .8em; }
-.postfrage { background: var(--panel); border: 1px solid var(--line); color: var(--fg);
+.inboxCard { border-bottom: 1px solid var(--line); }
+.inboxName { color: var(--accent); }
+.inboxPath { color: var(--dim); font-size: .8em; }
+.inboxQuestion { background: var(--panel); border: 1px solid var(--line); color: var(--fg);
   font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.45; }
-.postantwort input { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
-.postantwort input:focus { border-color: var(--accent); }
-.postschnell button { border: 1px solid var(--dim); color: var(--dim); font-size: .78em; letter-spacing: .08em; }
-.postschnell button:hover { border-color: var(--accent); color: var(--accent); }
+.inboxReply input { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }
+.inboxReply input:focus { border-color: var(--accent); }
+.inboxQuick button { border: 1px solid var(--dim); color: var(--dim); font-size: .78em; letter-spacing: .08em; }
+.inboxQuick button:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Verbrauchstempo. */
-.tempo { color: var(--dim); }
-.tempo[data-warnung="ja"] { color: var(--blocked); }
+.pace { color: var(--dim); }
+.pace[data-warnung="ja"] { color: var(--blocked); }
 
 /* Hover-Zustände: was klickbar ist, soll es zeigen. */
-.stilschalter:hover { border-color: var(--accent); color: var(--accent); }
+.styleToggle:hover { border-color: var(--accent); color: var(--accent); }
 
 /* Kurzhinweis */
-.tipp { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+.tip { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
 
 /* Warnkleid: übergangene Rückfragen */
 .tile[data-ungezaehmt="ja"]::before {
@@ -350,8 +350,8 @@ body {
    eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
    nichts. */
 :root[data-skin="crt"] { --wappen: "◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦"; }
-.wappen { text-shadow: 0 0 5px currentColor; }
+.crest { text-shadow: 0 0 5px currentColor; }
 
 /* Wiedergabe */
-.kinobar { border-top: 1px solid var(--line); }
-.znachspann { color: var(--dim); border-left: 2px solid var(--line); padding-left: 8px; }
+.playbar { border-top: 1px solid var(--line); }
+.hitAfter { color: var(--dim); border-left: 2px solid var(--line); padding-left: 8px; }
