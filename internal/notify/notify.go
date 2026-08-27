@@ -1,4 +1,4 @@
-// Package notify schickt macOS-Benachrichtigungen, wenn eine Session hängt.
+// Package notify sends macOS notifications when a session gets stuck.
 package notify
 
 import (

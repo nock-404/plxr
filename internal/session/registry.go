@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Registry hält die Sessions im Speicher und spiegelt sie nach ~/.plxr/sessions/.
+// Registry keeps the sessions in memory and mirrors them to ~/.plxr/sessions/.
 type Registry struct {
 	dir string
 	mu  sync.RWMutex
@@ -38,13 +38,13 @@ func (r *Registry) load() error {
 		if json.Unmarshal(b, &s) != nil || s.ID == "" {
 			continue
 		}
-		// Beim Start lebt nichts mehr, was wir nicht selbst gestartet haben.
+		// At startup nothing is alive that we did not start ourselves.
 		//
-		// Stand die Session beim letzten Mal noch auf "läuft", ist der Daemon
-		// gestorben und hat sie mitgerissen. Das kommentarlos wegzuräumen wäre
-		// das Schlechteste: der Mensch merkt nur, dass Arbeit fehlt. Also
-		// bleibt der Eintrag als verwaist stehen — bei Claude-Sessions mit der
-		// Kennung, über die sich die Unterhaltung fortsetzen lässt.
+		// If the session was last recorded as running, the daemon died and took
+		// it along. Silently clearing that away would be the worst option: all
+		// the person notices is that work is missing. So the entry stays,
+		// marked orphaned — for Claude sessions together with the id that lets
+		// the conversation be picked up again.
 		if s.Alive {
 			s.Alive = false
 			s.Status = StatusDead
@@ -76,7 +76,7 @@ func (r *Registry) Get(id string) (*Session, bool) {
 	return s, ok
 }
 
-// Update wendet fn unter Lock an und schreibt danach auf Platte.
+// Update applies fn under the lock and writes to disk afterwards.
 func (r *Registry) Update(id string, fn func(*Session)) {
 	r.mu.Lock()
 	s, ok := r.m[id]
@@ -96,7 +96,7 @@ func (r *Registry) Delete(id string) {
 	os.Remove(filepath.Join(r.dir, id+".json"))
 }
 
-// List gibt eine Kopie zurück, sortiert: blockierte zuerst, dann nach Start.
+// List returns a copy, sorted: blocked ones first, then by start time.
 func (r *Registry) List() []Session {
 	r.mu.RLock()
 	out := make([]Session, 0, len(r.m))

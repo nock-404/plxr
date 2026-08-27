@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-// detach startet den Daemon ohne Konsolenfenster und abgekoppelt vom Elternteil.
+// detach starts the daemon without a console window, detached from its parent.
 func detach(c *exec.Cmd) {
 	c.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,

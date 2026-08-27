@@ -2,6 +2,6 @@
 
 package update
 
-// nachbereiten hat außerhalb von macOS nichts zu tun: Windows und Linux
-// knüpfen Berechtigungen nicht an eine Code-Signatur.
+// resign has nothing to do outside macOS: Windows and Linux do not tie
+// permissions to a code signature.
 func resign(string) error { return nil }

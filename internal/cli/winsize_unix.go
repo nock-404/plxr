@@ -10,8 +10,8 @@ import (
 	"golang.org/x/term"
 )
 
-// groessenWache meldet jede Größenänderung des lokalen Terminals weiter.
-// Unix schickt dafür SIGWINCH.
+// watchResize forwards every size change of the local terminal.
+// Unix signals this with SIGWINCH.
 func watchResize(fd int, report func(rows, cols int)) func() {
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)

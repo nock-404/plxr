@@ -7,9 +7,9 @@ import (
 	"syscall"
 )
 
-// detach hängt den Daemon in eine eigene Session. Ohne das bekäme er das
-// SIGHUP mit, wenn das startende Terminal verschwindet — und damit wäre der
-// ganze Zweck dahin.
+// detach puts the daemon into a session of its own. Without that it would
+// receive the SIGHUP when the launching terminal goes away — which would
+// defeat the entire point of it.
 func detach(c *exec.Cmd) {
 	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 }

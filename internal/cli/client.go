@@ -1,9 +1,9 @@
-// Package cli ist die Kommandozeile von plxr.
+// Package cli is the plxr command line.
 //
-// Sie redet mit demselben Daemon wie das Fenster — über HTTP und WebSocket auf
-// 127.0.0.1. Dadurch sieht man im Terminal exakt dieselben Sessions wie in der
-// Oberfläche, und `plxr attach` hängt sich an ein Terminal, an dem gleichzeitig
-// das Fenster hängen darf.
+// It talks to the same daemon as the window — over HTTP and WebSocket on
+// 127.0.0.1. So the terminal shows exactly the same sessions as the window,
+// and `plxr attach` attaches to a terminal the window is allowed to be
+// attached to at the same time.
 package cli
 
 import (
@@ -28,7 +28,7 @@ type Client struct {
 	http *http.Client
 }
 
-// Verbinden liefert einen Client und startet den Daemon, falls keiner läuft.
+// Connect returns a client and starts the daemon if none is running.
 func Connect() (*Client, error) {
 	info, err := daemon.Ensure()
 	if err != nil {
@@ -80,7 +80,7 @@ func (c *Client) Sessions() ([]core.Tile, error) {
 	return out, c.fetch("/api/sessions", &out)
 }
 
-// Finden erlaubt Kürzel: die ersten Zeichen der ID oder ein Namensteil.
+// Find accepts short forms: the leading characters of the id, or part of a name.
 func (c *Client) Find(was string) (core.Tile, error) {
 	list, err := c.Sessions()
 	if err != nil {

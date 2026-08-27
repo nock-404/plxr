@@ -4,9 +4,8 @@ package ports
 
 import "syscall"
 
-// Kill beendet einen Prozess. Erst höflich mit SIGTERM, damit ein Dev-Server
-// seine Aufräumarbeiten machen kann; das Nachfassen mit SIGKILL entscheidet
-// der Aufrufer.
+// Kill terminates a process. Politely with SIGTERM first, so a dev server gets
+// to run its cleanup; whether to follow up with SIGKILL is the caller's call.
 func Kill(pid int, hart bool) error {
 	sig := syscall.SIGTERM
 	if hart {

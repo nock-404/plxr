@@ -1,8 +1,8 @@
 // Package ports zeigt, welcher Prozess welchen Port belegt.
 //
-// Anlass sind vergessene Dev-Server: ein Nuxt auf 3000, das seit Tagen läuft
-// und den nächsten Start blockiert. lsof ist dafür das einzige Werkzeug, das
-// ohne Root auskommt und trotzdem Prozess und Port zusammenbringt.
+// The reason are forgotten dev servers: a Nuxt on 3000 that has been running
+// for days and blocks the next start. lsof is the only tool for this that gets
+// by without root and still pairs up process and port.
 package ports
 
 import (
@@ -18,13 +18,13 @@ type Entry struct {
 	Port    int    `json:"port"`
 	Addr    string `json:"addr"`
 	User    string `json:"user"`
-	Eigen   bool   `json:"eigen"` // gehört zu einer plxr-Session
+	Eigen   bool   `json:"eigen"` // belongs to a plxr session
 }
 
-// List liest die lauschenden TCP-Ports. eigene ordnet PIDs plxr-Sessions zu.
+// List reads the listening TCP ports. own maps PIDs to plxr sessions.
 func List(eigene map[int]bool) []Entry {
-	// -F erzwingt ein zeilenweises Format, das sich verlässlich parsen lässt;
-	// die Spaltenausgabe von lsof bricht bei Leerzeichen im Prozessnamen.
+	// -F forces a line-oriented format that can be parsed reliably; the column
+	// output of lsof breaks on spaces in the process name.
 	out, err := exec.Command("lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-FpcnuL").Output()
 	if err != nil && len(out) == 0 {
 		return []Entry{}

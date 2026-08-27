@@ -8,12 +8,12 @@ import (
 	"golang.org/x/term"
 )
 
-// groessenWache meldet Größenänderungen weiter.
+// watchResize forwards size changes.
 //
-// Windows kennt kein SIGWINCH — die Konsole benachrichtigt nur über
-// Fensterereignisse, die ein angehängter Prozess nicht ohne Weiteres bekommt.
-// Deshalb wird nachgesehen. Zweimal pro Sekunde ist billig genug und schnell
-// genug, dass es beim Ziehen am Fensterrand nicht auffällt.
+// Windows has no SIGWINCH — the console only reports window events, which an
+// attached process does not readily receive. So it polls instead. Twice a
+// second is cheap enough and quick enough to go unnoticed while dragging the
+// window edge.
 func watchResize(fd int, report func(rows, cols int)) func() {
 	end := make(chan struct{})
 	go func() {

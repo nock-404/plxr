@@ -2,8 +2,8 @@ package search
 
 import "regexp"
 
-// escapes trifft die Steuerfolgen, die in einem Rohmitschnitt stehen: OSC bis
-// BEL oder ST, CSI, einzelne Escapes und die übrigen Steuerzeichen.
+// escapePattern matches the control sequences found in a raw recording: OSC up
+// to BEL or ST, CSI, lone escapes and the remaining control characters.
 var escapePattern = regexp.MustCompile(
 	`\x1b\][^\x07\x1b]*(\x07|\x1b\\)` +
 		`|\x1b[\[\(][0-9;?]*[ -/]*[@-~]` +

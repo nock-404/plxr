@@ -1,5 +1,5 @@
-// Package fleet liest den Zustand, den der plxr-Hook je Session ablegt.
-// Dadurch muss plxr den Status nicht aus der Terminalausgabe raten.
+// Package fleet reads the state that the plxr hook writes out per session.
+// That saves plxr from guessing the status out of the terminal output.
 package fleet
 
 import (
@@ -31,11 +31,11 @@ type State struct {
 	UpdatedAt      int64  `json:"updated_at"`
 }
 
-// Dirs sind die Verzeichnisse, in denen Zustandsdateien liegen können.
+// Dirs are the directories that may hold state files.
 //
-// Zuerst das eigene: dort schreibt `plxr hook`. Das zweite ist ein Zugeständnis
-// an eine ältere, eigenständige Fassung derselben Idee — wer die noch laufen
-// hat, soll nichts umstellen müssen.
+// Ours comes first: that is where `plxr hook` writes. The second is a
+// concession to an older, standalone take on the same idea — anyone still
+// running it should not have to change anything.
 func Dirs() []string {
 	home, _ := os.UserHomeDir()
 	return []string{
@@ -44,11 +44,12 @@ func Dirs() []string {
 	}
 }
 
-// Dir ist das Verzeichnis, in das plxr selbst schreibt.
+// Dir is the directory plxr itself writes to.
 func Dir() string { return Dirs()[0] }
 
-// Watch pollt das Verzeichnis. Gepollt statt fsnotify, weil der Hook atomar
-// über tmp+rename schreibt — da sind Rename-Events die unzuverlässigere Quelle.
+// Watch polls the directory. Polling rather than fsnotify, because the hook
+// writes atomically via tmp+rename — rename events are the less reliable
+// signal there.
 func Watch(dir string, every time.Duration, fn func([]State)) {
 	for {
 		fn(Read(dir))
@@ -57,7 +58,7 @@ func Watch(dir string, every time.Duration, fn func([]State)) {
 }
 
 // Read liest alle bekannten Verzeichnisse. Liegt dieselbe Session mehrfach
-// vor, gewinnt der jüngere Eintrag.
+// twice, the more recent entry wins.
 func Read(_ string) []State {
 	var paths []string
 	for _, d := range Dirs() {

@@ -4,12 +4,12 @@ package ports
 
 import "os"
 
-// Kill beendet einen Prozess.
+// Kill terminates a process.
 //
-// Windows kennt kein SIGTERM: TerminateProcess ist immer hart. Ein sanftes
-// Beenden gäbe es nur über eine Fensternachricht oder ein Konsolenereignis,
-// und beides trifft Dienste und fensterlose Prozesse nicht zuverlässig.
-// Deshalb ist der Unterschied zwischen "beenden" und "hart" hier keiner.
+// Windows has no SIGTERM: TerminateProcess is always hard. A gentle shutdown
+// would only be possible through a window message or a console event, and
+// neither reliably reaches services or windowless processes. So here there is
+// no difference between "terminate" and "hard".
 func Kill(pid int, hart bool) error {
 	p, err := os.FindProcess(pid)
 	if err != nil {
