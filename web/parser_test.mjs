@@ -20,7 +20,8 @@ function hol(name) {
   return zeilen.slice(iFn, ende + 1).join('\n');
 }
 
-const quelle = ['OPTIONSZEILE', 'kurzText', 'optionenAus', 'jaNeinAus', 'schnellFuer', 'ungezaehmt']
+const quelle = ['OPTIONSZEILE', 'kurzText', 'optionenAus', 'jaNeinAus', 'schnellFuer', 'ungezaehmt',
+  'WAPPEN_ERSATZ', 'streuwert']
   .map(hol).join('\n');
 
 const SCHNELLANTWORT = [
@@ -29,7 +30,7 @@ const SCHNELLANTWORT = [
   { text: '', label: 'Eingabe' }, { text: '', label: 'Esc' },
 ];
 const mod = new Function('SCHNELLANTWORT',
-  quelle + '\nreturn { optionenAus, schnellFuer, ungezaehmt };')(SCHNELLANTWORT);
+  quelle + '\nreturn { optionenAus, schnellFuer, ungezaehmt, streuwert, WAPPEN_ERSATZ };')(SCHNELLANTWORT);
 
 const MARKE = '❯';   // die Auswahlmarke, die Claude Code setzt
 
@@ -75,4 +76,42 @@ for (const [t, soll] of kleid) {
   if (got !== soll) { fehler++; console.log(`  FEHL ${JSON.stringify(t.cmd ?? null)} -> ${got}`); }
   else console.log(`  ok   ${JSON.stringify(t.cmd ?? null)} -> ${got}`);
 }
+
+console.log('  --- Wappen ---');
+// Ohne Fenster gibt es kein getComputedStyle — hier wird der Ersatzvorrat
+// geprueft, also genau das, was ein Skin ohne eigene Zeichen bekommt.
+const zeichen = [...mod.WAPPEN_ERSATZ];
+const fuer = (p) => zeichen[mod.streuwert(p) % zeichen.length];
+
+// Sechs Worktrees desselben Monorepos — genau der Fall, fuer den es das gibt.
+const pfade = [
+  '/w/mono', '/w/mono2', '/w/mono-feature-a', '/w/mono-feature-b',
+  '/w/mono/apps/web', '/w/mono/apps/api',
+];
+const belegt = pfade.map(fuer);
+const doppelt = belegt.length - new Set(belegt).size;
+console.log('  ' + pfade.map((p, i) => `${belegt[i]} ${p}`).join('\n  '));
+if (doppelt > 1) { fehler++; console.log(`  FEHL ${doppelt} Kollisionen unter ${pfade.length} Pfaden`); }
+else console.log(`  ok   ${doppelt} Kollision(en) bei ${pfade.length} Pfaden`);
+
+// Derselbe Pfad muss immer dasselbe Zeichen ergeben.
+if (fuer('/w/mono') !== fuer('/w/mono')) { fehler++; console.log('  FEHL nicht deterministisch'); }
+else console.log('  ok   derselbe Pfad, dasselbe Zeichen');
+
+// Und ueber viele Pfade halbwegs gleichmaessig streuen.
+const eimer = new Map();
+for (let i = 0; i < 2000; i++) {
+  const z = fuer('/repo/projekt-' + i);
+  eimer.set(z, (eimer.get(z) || 0) + 1);
+}
+const werte = [...eimer.values()];
+const schnitt = 2000 / zeichen.length;
+const schiefe = Math.max(...werte) / schnitt;
+if (eimer.size < zeichen.length || schiefe > 1.6) {
+  fehler++;
+  console.log(`  FEHL streut ungleich: ${eimer.size}/${zeichen.length} Zeichen, Spitze ${schiefe.toFixed(2)}x`);
+} else {
+  console.log(`  ok   streut gleichmaessig: alle ${eimer.size} Zeichen, Spitze ${schiefe.toFixed(2)}x`);
+}
+
 process.exit(fehler ? 1 : 0);

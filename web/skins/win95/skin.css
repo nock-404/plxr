@@ -290,3 +290,9 @@ body {
 .dot.eingefroren { color: #000080; }
 .tile[data-status="eingefroren"] { border-style: dotted; }
 #brake[data-an="ja"] { background: #800000; color: #fff; }
+
+/* Wappen: dieser Skin zeichnet Verzeichnisse mit diesen Zeichen. Wer einen
+   eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
+   nichts. */
+:root[data-skin="win95"] { --wappen: "■□▲△●○◆◇★☆♠♣♥♦※¶§"; }
+.wappen { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }

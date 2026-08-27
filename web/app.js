@@ -294,6 +294,8 @@ function skinSetzen(name) {
       if (alt && alt !== neu) alt.remove();
       neu.id = 'skinCss';
       skinLaeuft = null;
+      // Ein anderer Skin bringt andere Wappenzeichen mit.
+      wappenVorrat = null;
       fertig();
     };
     neu.addEventListener('load', uebernehmen, { once: true });
@@ -880,6 +882,57 @@ const zustand = (t) =>
   t.eingefroren ? 'eingefroren' : (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
 const ZEICHEN_VERWAIST = '⚠';
 
+/* Wappen — ein Zeichen je Arbeitsverzeichnis.
+
+   Elf Kacheln, sechs Worktrees desselben Monorepos: die Titel schneiden alle
+   gleich ab, und man liest dreimal, bevor man die richtige findet. Ein Zeichen
+   findet das Auge, ohne zu lesen.
+
+   Errechnet, nicht vergeben: derselbe Pfad ergibt immer dasselbe Zeichen, auf
+   jeder Maschine, ohne dass irgendwo eine Zuordnung gepflegt werden muss.
+
+   Die Zeichen kommen aus dem Skin, nicht von hier. Ein Skin ist eine ganze
+   visuelle Sprache — win95 zeichnet anders als sketch —, und ein neuer Skin
+   soll seine eigenen mitbringen können, ohne dass JavaScript davon weiß. */
+const WAPPEN_ERSATZ = '◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦⌘';
+
+let wappenVorrat = null;
+function wappenZeichen() {
+  // Nach jedem Skinwechsel neu lesen: skinSetzen leert das hier.
+  if (wappenVorrat) return wappenVorrat;
+  const roh = getComputedStyle(document.documentElement).getPropertyValue('--wappen').trim();
+  // Der Wert kommt als CSS-Zeichenkette, also in Anführungszeichen.
+  const sauber = roh.replace(/^["']|["']$/g, '');
+  wappenVorrat = [...(sauber || WAPPEN_ERSATZ)];
+  return wappenVorrat;
+}
+
+/* Kleine, gleichmäßig streuende Streuwertfunktion (FNV-1a). Es geht nicht um
+   Sicherheit, sondern darum, dass zwei benachbarte Pfade — app/web und
+   app/web2 — nicht dasselbe Zeichen bekommen. */
+function streuwert(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+function wappen(pfad) {
+  if (!pfad) return '';
+  const zeichen = wappenZeichen();
+  return zeichen[streuwert(pfad) % zeichen.length];
+}
+
+/* Die Farbe kommt aus demselben Wert, aber aus einer anderen Stelle davon —
+   sonst tragen gleiche Zeichen immer dieselbe Farbe und der zweite Hinweis
+   wäre keiner. */
+function wappenTon(pfad) {
+  if (!pfad) return '';
+  return `hsl(${(streuwert(pfad + '#ton') % 360)} 60% 60%)`;
+}
+
 /* Die Schiene ist der Grund, warum die Session kein Vollbild-Overlay ist: wer
    in einer Session steckt, soll trotzdem sehen, wenn woanders jemand hängt. */
 function zeichneSchiene() {
@@ -916,6 +969,7 @@ function zeichneSchiene() {
         el.dataset.id = t.id;
         el.innerHTML =
           '<span class="rdot dot"></span>' +
+          '<span class="wappen"></span>' +
           '<span class="rtext"><span class="rname"></span><span class="rsub"></span></span>';
         el.addEventListener('click', (ev) => {
           // Mit gedrückter Alt- oder Meta-Taste kommt die Session daneben,
@@ -932,6 +986,9 @@ function zeichneSchiene() {
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
       punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+      const rw = el.querySelector('.wappen');
+      rw.textContent = wappen(t.cwd);
+      rw.style.color = wappenTon(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
       el.querySelector('.rsub').textContent = t.verwaist
         ? 'abgestürzt · wiederaufnehmen'
@@ -980,7 +1037,8 @@ function zeichneRaster() {
       el.className = 'tile';
       el.dataset.id = t.id;
       el.innerHTML =
-        '<div class="thead"><span class="dot"></span><span class="tname"></span><span class="tproj"></span></div>' +
+        '<div class="thead"><span class="dot"></span><span class="wappen"></span>' +
+        '<span class="tname"></span><span class="tproj"></span></div>' +
         '<pre class="tbody"></pre>' +
         '<div class="tfoot"><span class="act"></span><span class="ctx"></span><span class="agent"></span></div>';
       el.addEventListener('click', () => sessionOeffnen(t.id));
@@ -994,6 +1052,10 @@ function zeichneRaster() {
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
     punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+    const w = el.querySelector('.wappen');
+    w.textContent = wappen(t.cwd);
+    w.style.color = wappenTon(t.cwd);
+    w.dataset.tip = t.cwd || '';
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
     el.querySelector('.tbody').textContent = t.preview || '';
