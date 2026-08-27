@@ -16,7 +16,7 @@ func TestCompareIgnoresPrefix(t *testing.T) {
 	}
 	for _, f := range faelle {
 		if got := isNewer(f.fresh, f.old); got != f.will {
-			t.Errorf("neuer(%q,%q) = %v, erwartet %v", f.fresh, f.old, got, f.will)
+			t.Errorf("isNewer(%q,%q) = %v, expected %v", f.fresh, f.old, got, f.will)
 		}
 	}
 }

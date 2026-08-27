@@ -21,14 +21,14 @@ func TestOlderStorageIsAdopted(t *testing.T) {
 
 	liste := Load(root)
 	if len(liste) != 1 || liste[0].Name != "arbeitstag" {
-		t.Fatalf("alte Vorlage ging verloren: %+v", liste)
+		t.Fatalf("old template was lost: %+v", liste)
 	}
 	if _, err := os.Stat(Dir(root)); err != nil {
-		t.Error("neuer Ordner wurde nicht angelegt")
+		t.Error("the new folder was not created")
 	}
 }
 
-// Liegt schon etwas im neuen Ordner, darf die Übernahme nichts überschreiben.
+// If something already sits in the new folder, the migration must not overwrite it.
 func TestNewStorageWins(t *testing.T) {
 	root := t.TempDir()
 	os.MkdirAll(filepath.Join(root, "vorlagen"), 0o755)
@@ -40,7 +40,7 @@ func TestNewStorageWins(t *testing.T) {
 
 	liste := Load(root)
 	if len(liste) != 1 || liste[0].Name != "b" {
-		t.Fatalf("neue Ablage wurde überschrieben: %+v", liste)
+		t.Fatalf("the new storage was overwritten: %+v", liste)
 	}
 }
 
@@ -51,13 +51,13 @@ func TestSaveAndDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(Load(root)) != 1 {
-		t.Fatal("gespeicherte Vorlage fehlt")
+		t.Fatal("the saved template is missing")
 	}
 	if err := Delete(root, "probe"); err != nil {
 		t.Fatal(err)
 	}
 	if len(Load(root)) != 0 {
-		t.Error("gelöschte Vorlage ist noch da")
+		t.Error("the deleted template is still there")
 	}
 }
 
@@ -66,12 +66,12 @@ func TestNameValidation(t *testing.T) {
 	schlecht := []string{"", "Gross", "mit punkt.", "mit/schraeg", `{"json":1}`}
 	for _, n := range gut {
 		if !ValidName(n) {
-			t.Errorf("%q sollte erlaubt sein", n)
+			t.Errorf("%q should be allowed", n)
 		}
 	}
 	for _, n := range schlecht {
 		if ValidName(n) {
-			t.Errorf("%q sollte abgelehnt werden", n)
+			t.Errorf("%q should be rejected", n)
 		}
 	}
 }

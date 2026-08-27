@@ -5,9 +5,9 @@ import (
 	"time"
 )
 
-// Eine Rückfrage soll nur so lange als "braucht dich" gelten, wie sie offen
-// ist. Vorher wurde über zwölf Zeilen gesucht: eine längst beantwortete Frage
-// blieb dadurch im Posteingang stehen, bis die Session endete.
+// A question should only count as "needs you" while it is actually open. The
+// search used to span twelve lines, which left a long-answered question standing
+// in the inbox until the session ended.
 func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 	p := &Profile{
 		Name:    "probe",
@@ -23,42 +23,42 @@ func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 		screen string
 		will   string
 	}{
-		{"Frage steht offen am Prompt",
+		{"question is open at the prompt",
 			"Welche Farbe?\n  1) rot\n  2) blau\nAuswahl> ", Permission},
-		{"Frage beantwortet, Ausgabe folgt",
+		{"question answered, output follows",
 			"Welche Farbe?\n  1) rot\n  2) blau\nAuswahl> 2\nGEWAEHLT: 2", "unknown"},
-		{"y/n steht offen",
+		{"y/n is open",
 			"rm -rf /tmp/x (y/n) ", Permission},
-		{"y/n beantwortet, Shell steht am eigenen Prompt",
+		{"y/n answered, shell sits at its own prompt",
 			"rm -rf /tmp/x (y/n) y\nweg.\nfertig.\n$ ", "unknown"},
-		{"y/n beantwortet, Ausgabe ohne Prompt",
+		{"y/n answered, output without a prompt",
 			"rm -rf /tmp/x (y/n) y\nweg.\nfertig.\nnoch etwas.", "unknown"},
-		{"mehrzeiliges Dialogfeld",
+		{"multi-line dialog box",
 			"Bearbeite Datei\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No", Permission},
-		{"Leerzeilen hinter der Frage zählen nicht",
+		{"blank lines after the question do not count",
 			"Continue?\n\n\n", Permission},
-		{"arbeitet",
+		{"working",
 			"… esc to interrupt", Working},
 	}
 	for _, f := range faelle {
 		if got := p.Classify(f.screen, 9*time.Second); got != f.will {
-			t.Errorf("%s: %q statt %q", f.name, got, f.will)
+			t.Errorf("%s: %q instead of %q", f.name, got, f.will)
 		}
 	}
 }
 
 func TestWaitingAtPrompt(t *testing.T) {
 	ja := []string{"Auswahl> ", "Passwort:", "Weiter?"}
-	// Shell-Prompts sind der Normalzustand, keine Rückfrage.
+	// Shell prompts are the normal state, not a question.
 	nein := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
 	for _, s := range ja {
 		if !waitingAtPrompt(s) {
-			t.Errorf("%q sollte als Prompt gelten", s)
+			t.Errorf("%q should count as a prompt", s)
 		}
 	}
 	for _, s := range nein {
 		if waitingAtPrompt(s) {
-			t.Errorf("%q sollte nicht als Prompt gelten", s)
+			t.Errorf("%q should not count as a prompt", s)
 		}
 	}
 }

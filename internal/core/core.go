@@ -1,8 +1,8 @@
-// Package core ist die Anwendung ohne Oberfläche.
+// Package core is the application without a UI.
 //
-// Er besitzt die PTYs, führt Registry, fleet-Zustand und Agent-Profile
-// zusammen und kennt keinen Transport. Darüber liegen zwei austauschbare
-// Schichten: das Desktop-Fenster (Wails) und ein HTTP-Server für den Browser.
+// It owns the PTYs, brings registry, fleet state and agent profiles
+// together and knows no transport. Two interchangeable layers sit on top:
+// the desktop window (Wails) and an HTTP server for the browser.
 // Deshalb steht hier weder http noch wails im Import.
 package core
 
@@ -37,28 +37,28 @@ import (
 	"plxr/internal/usage"
 )
 
-// Tile ist eine Session plus dem, was die Oberfläche sonst noch anzeigt.
+// Tile is a session plus whatever else the UI displays.
 type Tile struct {
 	session.Session
 	Preview string `json:"preview"`
-	// Frage ist der Teil des Bildschirms, der die Rückfrage enthält — für den
-	// Posteingang, damit man antworten kann, ohne die Session zu öffnen.
+	// Question is the part of the screen holding the pending question — for the
+	// inbox, so it can be answered without opening the session.
 	Question string `json:"frage,omitempty"`
 }
 
-// frageAus schneidet aus dem Bildschirm heraus, was nach einer Rückfrage
+// questionFromScreen cuts out of the screen what looks like a pending
 // aussieht.
 //
-// Ein Agent, der wartet, hat die Frage üblicherweise als Letztes geschrieben,
-// oft mit nummerierten Antwortmöglichkeiten darunter. Wir nehmen ab der
-// letzten Leerzeile vor dem ersten Fragezeichen — das trifft die üblichen
-// Formen, ohne den halben Bildschirm mitzuschleppen.
+// An agent that is waiting has usually written the question last, often with
+// numbered choices below it. We take everything from the last blank line before
+// the first question mark — that catches the usual shapes without dragging half
+// the screen along.
 func questionFromScreen(screen string) string {
 	lines := strings.Split(strings.TrimRight(screen, "\n"), "\n")
 	if len(lines) == 0 {
 		return ""
 	}
-	// Von hinten die letzte Zeile mit Fragezeichen oder Auswahlmarke suchen.
+	// From the back, find the last line with a question mark or a choice marker.
 	end := len(lines)
 	start := -1
 	for i := len(lines) - 1; i >= 0 && i > len(lines)-18; i-- {
@@ -77,7 +77,7 @@ func questionFromScreen(screen string) string {
 		}
 	}
 	if start < 0 {
-		// Keine erkennbare Frage: die letzten Zeilen reichen als Anhaltspunkt.
+		// No recognisable question: the last few lines serve as a hint.
 		start = len(lines) - 6
 		if start < 0 {
 			start = 0
@@ -118,8 +118,8 @@ func newID() string {
 
 // ---- Sessions ----
 
-// Create startet ein Kommando. konto wählt das Claude-Konfigurationsverzeichnis;
-// leer heißt Standardkonto.
+// Create starts a command. account picks the Claude configuration directory;
+// empty means the default account.
 func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.Session, error) {
 	if cwd == "" {
 		cwd, _ = os.UserHomeDir()
@@ -166,13 +166,13 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 	return sess, nil
 }
 
-// totNachlauf ist, wie lange eine beendete Session noch angezeigt wird.
+// deadLinger is how long an ended session stays visible.
 const totNachlauf = 90 * time.Second
 
-// MitschnitteAufraeumen wirft weg, was zu alt oder zu viel ist.
+// PruneRecordings throws away what is too old or too much.
 //
-// Ohne Grenze wächst das Verzeichnis endlos. 30 Tage decken die Frage
-// "wo war das nochmal" ab; wer weiter zurück muss, hat ohnehin das Transkript.
+// Without a limit the directory grows without end. 30 days cover the "where was
+// that again" question; anyone who needs to go further back has the transcript.
 func (c *Core) PruneRecordings() {
 	dir := ptyhost.RecordingDir
 	if dir == "" {
@@ -198,7 +198,7 @@ func (c *Core) PruneRecordings() {
 	}
 }
 
-// aufraeumen entfernt eine beendete Session samt ihrem PTY-Eintrag.
+// cleanup removes an ended session together with its PTY entry.
 func (c *Core) cleanup(id string) {
 	c.reg.Delete(id)
 	c.mu.Lock()
@@ -222,17 +222,17 @@ func (c *Core) Kill(id string, purge bool) {
 	}
 }
 
-// Antworten schickt Text an eine Session, ohne dass ein Terminal offen ist.
+// Answer sends text to a session without a terminal being open.
 //
-// Der Posteingang lebt davon: acht Agenten, drei warten — man will sie
-// abarbeiten, nicht jede einzeln öffnen.
+// The inbox lives off this: eight agents, three waiting — you want to work
+// through them, not open each one separately.
 func (c *Core) Answer(id, text string, roh bool) error {
 	h := c.Host(id)
 	if h == nil {
 		return errors.New("Session läuft nicht")
 	}
-	// Ein Zeilenumbruch schickt die Antwort ab. Bei einer Steuertaste wie
-	// Escape wäre er falsch — die soll für sich allein ankommen.
+	// A line break sends the answer off. For a control key such as Escape that
+	// would be wrong — it has to arrive on its own.
 	if !roh && !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
 		text += "\r"
 	}
@@ -251,17 +251,17 @@ func (c *Core) Host(id string) *ptyhost.Host {
 func (c *Core) Themes() []theme.Theme                        { return theme.Load(c.themes, c.skins) }
 func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Import(raw, c.skins) }
 
-// ThemeLöschen entfernt ein eigenes Theme. Wer drei ausprobiert hat, will sie
-// wieder loswerden — die eingebauten bleiben unantastbar.
+// ThemeDelete removes an own theme. Anyone who tried three of them wants to be
+// rid of them again — the built-in ones stay untouchable.
 func (c *Core) ThemeDelete(name string) error { return theme.Delete(name) }
 
 // ---- Vorlagen ----
 
 func (c *Core) Templates() []template.Template { return template.Load(daemon.Root()) }
 
-// VorlageStarten öffnet alle Sessions einer Vorlage. Fehler bei einzelnen
+// TemplateStart opens every session of a template. Failures on individual
 // werden gesammelt statt abgebrochen — sieben von acht Sessions sind besser
-// als keine, nur weil ein Verzeichnis verschwunden ist.
+// than none just because one directory has gone.
 func (c *Core) TemplateStart(name string) ([]string, error) {
 	for _, v := range c.Templates() {
 		if v.Name != name {
@@ -285,7 +285,7 @@ func (c *Core) TemplateStart(name string) ([]string, error) {
 	return nil, errors.New("keine Vorlage mit diesem Namen")
 }
 
-// VorlageAusLage macht aus dem, was gerade offen ist, eine Vorlage.
+// TemplateFromState turns whatever is open right now into a template.
 func (c *Core) TemplateFromState(name, label string) error {
 	var eintraege []template.Entry
 	for _, s := range c.reg.List() {
@@ -303,7 +303,7 @@ func (c *Core) TemplateFromState(name, label string) error {
 
 func (c *Core) TemplateDelete(name string) error { return template.Delete(daemon.Root(), name) }
 
-// ---- Konten und Archiv ----
+// ---- Accounts and archive ----
 
 func (c *Core) Accounts() []accounts.Account { return accounts.Discover() }
 
@@ -326,7 +326,7 @@ func (c *Core) Search(question string, nurEigene bool) []search.Hit {
 }
 
 // SucheTerminals durchsucht, was je in einem Terminal stand — auch in
-// Sessions, die es längst nicht mehr gibt.
+// sessions that are long gone.
 func (c *Core) SucheTerminals(question string) []search.RecordingHit {
 	names := map[string]search.RecordingHit{}
 	for _, s := range c.reg.List() {
@@ -343,9 +343,9 @@ func (c *Core) ArchiveDelete(id, account string) error {
 	return archive.Delete(e)
 }
 
-// Resume nimmt ein abgelegtes Transkript wieder auf — bei Bedarf unter einem
-// anderen Konto. Dafür muss die Datei erst dorthin gespiegelt werden, weil
-// Claude Code nur unter dem eigenen Konfigurationsverzeichnis sucht.
+// Resume picks an archived transcript back up — under a different account if
+// needed. For that the file has to be mirrored there first, because Claude Code
+// only looks below its own configuration directory.
 func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, error) {
 	e, ok := c.archiveFind(id, fromAccount)
 	if !ok {
@@ -379,10 +379,10 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, ziel)
 }
 
-// Wiederaufnehmen startet eine verwaiste Session neu.
+// ResumeOrphaned restarts an orphaned session.
 //
-// Der Prozess ist weg, aber bei Claude Code steht die Unterhaltung im
-// Transkript — mit --resume geht es dort weiter, wo der Absturz war.
+// The process is gone, but with Claude Code the conversation is in the
+// transcript — with --resume it carries on where the crash happened.
 func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
@@ -394,13 +394,13 @@ func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 	if claudeID != "" {
 		return c.Create(cwd, []string{"claude", "--resume", claudeID}, s.Name, account)
 	}
-	// Kein Transkript: dann eben das Kommando erneut, im selben Verzeichnis.
+	// No transcript: then simply the command again, in the same directory.
 	return c.Create(cwd, cmd, s.Name, account)
 }
 
-// SwitchAccount hängt eine laufende Session auf ein anderes Konto um: Prozess
-// beenden, Transkript spiegeln, unter dem neuen Konto fortsetzen. Das ist der
-// Weg, wenn ein Kontingent aufgebraucht ist.
+// SwitchAccount moves a running session over to another account: end the
+// process, mirror the transcript, carry on under the new account. That is the
+// way out when an allowance has run dry.
 func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
@@ -421,10 +421,10 @@ func (c *Core) Verbrauch(tage int) usage.Report { return usage.Compute(c.Account
 
 // ---- Anbindung an Claude Code ----
 
-// HookStand sagt, ob plxr dort einträgt und welches Verzeichnis gemeint ist.
-// HookStand meldet, ob alle Konten angebunden sind — nicht nur das erste.
-// HookSetzen trägt in alle ein; nur das erste zu prüfen hieße "eingerichtet"
-// anzuzeigen, während zwei Konten stumm bleiben.
+// HookStatus says whether plxr registers there and which directory is meant.
+// HookStatus reports whether all accounts are connected — not just the first.
+// HookSet registers in all of them; checking only the first would mean showing
+// "installed" while two accounts stay silent.
 func (c *Core) HookStatus() map[string]any {
 	konten := c.Accounts()
 	acc, _ := accounts.ByName(konten, "")
@@ -442,8 +442,8 @@ func (c *Core) HookStatus() map[string]any {
 	}
 }
 
-// HookSetzen trägt plxr ein oder aus — in allen gefundenen Konten, denn wer
-// mehrere Zugänge fährt, will den Zustand aus allen sehen.
+// HookSet registers or unregisters plxr — in every account found, because anyone
+// running several of them wants to see the state from all.
 func (c *Core) HookSetzen(an bool) error {
 	konten := c.Accounts()
 	if len(konten) == 0 {
@@ -463,13 +463,13 @@ func (c *Core) Pace() usage.Pace { return usage.ComputePace(c.Accounts()) }
 
 // ---- Fassung ----
 
-// Version wird beim Start aus main gesetzt.
+// Version is set at startup from main.
 var Version = "dev"
 
-// Nach einem Update zeigt Version auf die Fassung, die auf der Platte liegt —
-// nicht auf die, mit der dieser Prozess gestartet ist. Der Daemon läuft
-// bewusst weiter, ihm gehören die Sessions; melden muss er trotzdem, was
-// installiert ist. Sonst bliebe der Hinweis "neue Fassung" stehen und lüde
+// After an update Version points at what sits on disk — not at what this process
+// was started with. The daemon deliberately keeps running, it owns the sessions;
+// but it still has to report what is installed. Otherwise the "new version"
+// notice would stay up and would download
 // dasselbe Paket immer wieder.
 var versionMu sync.RWMutex
 
@@ -481,8 +481,8 @@ func currentVersion() string {
 
 func (c *Core) VersionStatus() update.Status { return update.Check(currentVersion()) }
 
-// UpdateStand ist der Fortschritt einer laufenden Aktualisierung. Die
-// Oberfläche fragt ihn ab, statt auf einen Aufruf zu warten, der Minuten
+// UpdateStatus is the progress of a running update. The UI polls it instead of
+// waiting on a call that can take minutes
 // dauern kann.
 type UpdateStatus struct {
 	Running bool   `json:"laeuft"`
@@ -508,9 +508,9 @@ func setStatus(fn func(*UpdateStatus)) {
 	updateMu.Unlock()
 }
 
-// Update startet die Aktualisierung und kehrt sofort zurück. Der Fortschritt
-// läuft über UpdateFortschritt — ein Aufruf, der bis zum Ende blockiert,
-// lässt die Oberfläche minutenlang tot aussehen.
+// Update starts the update and returns immediately. Progress goes through
+// UpdateProgress — a call that blocks until the end makes the UI look dead for
+// minutes.
 func (c *Core) Update() error {
 	updateMu.Lock()
 	if updateStatus.Running {
@@ -558,10 +558,10 @@ func (c *Core) Update() error {
 	return nil
 }
 
-// NeuStarten startet die getauschte App und beendet diese.
+// Restart starts the swapped-in app and ends this one.
 //
-// Der Daemon läuft weiter — er ist ein eigener Prozess, und die Sessions
-// gehören ihm. Nur das Fenster kommt neu, mit der neuen Fassung. Genau
+// The daemon keeps running — it is a process of its own, and the sessions belong
+// to it. Only the window comes back new, with the new version. That is exactly
 // deshalb bleibt beim Update alles beim Alten.
 func (c *Core) Restart() error {
 	st := c.UpdateFortschritt()
@@ -571,10 +571,10 @@ func (c *Core) Restart() error {
 	return update.Restart(st.Path)
 }
 
-// ---- Regeln und Ports ----
+// ---- Rules and ports ----
 
-// Rules löst auf, welche Anweisungsdateien in einer Session wirken. Ohne
-// Session-ID gilt das übergebene Verzeichnis.
+// Rules resolves which instruction files take effect in a session. Without a
+// session id the directory passed in applies.
 func (c *Core) Rules(sessionID, dir string) []rules.Entry {
 	account := ""
 	if sessionID != "" {
@@ -589,7 +589,7 @@ func (c *Core) Rules(sessionID, dir string) []rules.Entry {
 	return rules.Resolve(dir, acc.Dir)
 }
 
-// Ports listet die belegten Ports und markiert, welche zu plxr-Sessions gehören.
+// Ports lists the occupied ports and marks which belong to plxr sessions.
 func (c *Core) Ports() []ports.Entry {
 	eigene := map[int]bool{}
 	for _, s := range c.reg.List() {
@@ -612,8 +612,8 @@ func (c *Core) KillPort(pid int, hart bool) error {
 
 // ---- Dateien ----
 
-// root liefert das Arbeitsverzeichnis einer Session. Alles, was die Oberfläche
-// an Dateipfaden schickt, wird dagegen geprüft.
+// root returns the working directory of a session. Every file path the UI sends
+// is checked against it.
 func (c *Core) root(sessionID string) (string, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
@@ -639,7 +639,7 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 }
 
 // Vorschlaege hilft beim Eintippen eines Pfades. Bewusst ohne Sessionbezug:
-// gesucht wird ein Verzeichnis, in dem noch keine Session läuft.
+// what is being looked for is a directory with no session running in it yet.
 func (c *Core) Suggestions(eingabe string) []string {
 	return files.Suggestions(eingabe, 40)
 }
@@ -652,16 +652,16 @@ func (c *Core) WriteFile(sessionID, path, text string, status int64) (*files.Con
 	return files.Write(root, path, text, status)
 }
 
-// ---- Zustand zusammenführen ----
+// ---- Merging the state ----
 
-// Snapshot verheiratet Registry, laufende PTYs und den fleet-Zustand.
+// Snapshot marries registry, running PTYs and the fleet state.
 func (c *Core) Snapshot(pathFilter string) []Tile {
 	agents := agent.Load(c.agents)
 	states := fleet.Read(fleet.Dir())
 
 	byPID := map[int]fleet.State{}
 	for _, st := range states {
-		// Nur den jüngsten Eintrag je PID behalten.
+		// Keep only the most recent entry per PID.
 		if old, ok := byPID[st.PID]; !ok || st.UpdatedAt > old.UpdatedAt {
 			byPID[st.PID] = st
 		}
@@ -672,10 +672,10 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		if pathFilter != "" && !strings.HasPrefix(sess.Cwd, pathFilter) {
 			continue
 		}
-		// Beendete Sessions kurz stehen lassen, damit man den Exit-Code noch
-		// sieht, dann wegräumen. Verwaiste bleiben: sie stehen für Arbeit, die
-		// niemand beenden wollte, und verschwinden erst, wenn jemand sie
-		// wegklickt oder fortsetzt.
+		// Leave ended sessions up briefly so the exit code can still be seen,
+		// then clear them away. Orphaned ones stay: they stand for work nobody
+		// meant to end, and only disappear once somebody clicks them away or
+		// resumes them.
 		if !sess.Alive && !sess.Orphaned && sess.EndedAt > 0 &&
 			time.Since(time.UnixMilli(sess.EndedAt)) > totNachlauf {
 			c.cleanup(sess.ID)
@@ -689,13 +689,13 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		st, matched := byPID[sess.PID]
 		useFleet := matched && sess.Alive && prof.Source == "fleet"
 
-		// Einmal rendern, zweimal verwenden — Vorschau und Statuserkennung.
+		// Render once, use twice — preview and status detection.
 		screen := ""
 		if h != nil {
 			screen = h.Tail(18)
 		}
 		if sess.Alive && !useFleet && h != nil {
-			// Kein Selbstauskunft-Hook: Status aus Bildschirm und Ruhe ableiten.
+			// No self-reporting hook: derive the status from screen and quiet time.
 			sess.Status = session.Status(prof.Classify(screen, h.IdleFor()))
 		}
 		if useFleet {
@@ -726,13 +726,13 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 	return out
 }
 
-// checkEdge feuert eine Benachrichtigung, wenn eine Session neu blockiert.
+// checkEdge fires a notification when a session becomes newly blocked.
 //
-// Verglichen wird "blockiert ja/nein", nicht der Status selbst: sonst meldet
-// jeder Wechsel zwischen waiting und permission erneut. Und eine noch nie
-// gesehene Session gilt als vorher nicht blockiert — startet ein Agent sofort
-// mit einer Rückfrage, wäre die erste Beobachtung sonst verschluckt und es
-// käme nie eine Meldung.
+// What gets compared is "blocked yes/no", not the status itself: otherwise every
+// switch between waiting and permission would notify again. And a session never
+// seen before counts as previously unblocked — if an agent starts straight into
+// a question, the first observation would otherwise be swallowed and no
+// notification would ever arrive.
 func (c *Core) checkEdge(sess session.Session) {
 	jetzt := sess.Alive && sess.Status == session.StatusPermission
 
@@ -746,7 +746,7 @@ func (c *Core) checkEdge(sess session.Session) {
 		return
 	}
 	// Ganz frisch gestartete Sessions kurz in Ruhe lassen: Claude Code zeigt
-	// beim ersten Start manchmal einen Vertrauensdialog, der nichts mit der
+	// sometimes shows a trust dialog on first start that has nothing to do with
 	// eigentlichen Arbeit zu tun hat.
 	if time.Since(time.UnixMilli(sess.StartedAt)) < 3*time.Second {
 		return

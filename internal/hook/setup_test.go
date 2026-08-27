@@ -2,10 +2,10 @@ package hook
 
 import "testing"
 
-// Eingetragen wird der Pfad des laufenden Binärs. Heißt es anders als "plxr" —
-// unter Windows "plxr.exe", beim Entwickeln "plxr-test" —, muss plxr den
-// eigenen Eintrag trotzdem wiedererkennen. Sonst meldet es dauerhaft "nicht
-// eingerichtet" und legt bei jedem Klick einen weiteren Eintrag daneben.
+// What gets written is the path of the running binary. If it is named anything
+// other than "plxr" — "plxr.exe" on Windows, "plxr-test" while developing — plxr
+// still has to recognise its own entry. Otherwise it permanently reports "not
+// installed" and adds another entry next to it on every click.
 func TestRecognisesOwnEntry(t *testing.T) {
 	unser := []string{
 		"/Applications/plxr.app/Contents/MacOS/plxr",
@@ -22,12 +22,12 @@ func TestRecognisesOwnEntry(t *testing.T) {
 	}
 	for _, b := range unser {
 		if !isOurCommand(b) {
-			t.Errorf("%q sollte als eigener Eintrag gelten", b)
+			t.Errorf("%q should count as our own entry", b)
 		}
 	}
 	for _, b := range fremd {
 		if isOurCommand(b) {
-			t.Errorf("%q sollte nicht als eigener Eintrag gelten", b)
+			t.Errorf("%q should not count as our own entry", b)
 		}
 	}
 }
@@ -39,7 +39,7 @@ func TestEntryRecognised(t *testing.T) {
 		}},
 	}
 	if !isOurs(entry) {
-		t.Error("Eintrag mit abweichendem Dateinamen wurde nicht erkannt")
+		t.Error("entry with a differing file name was not recognised")
 	}
 	fremd := map[string]any{
 		"hooks": []any{map[string]any{
@@ -47,6 +47,6 @@ func TestEntryRecognised(t *testing.T) {
 		}},
 	}
 	if isOurs(fremd) {
-		t.Error("fremder Eintrag wurde fälschlich als eigener erkannt")
+		t.Error("foreign entry was wrongly taken for our own")
 	}
 }

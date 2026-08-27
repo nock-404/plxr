@@ -37,35 +37,35 @@ func TestSwapReplacesAndCleansUp(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := read(t, ziel); got != "neu" {
-		t.Errorf("am Zielort steht %q", got)
+		t.Errorf("the target holds %q", got)
 	}
 	for _, rest := range []string{ziel + ".alt", ziel + ".neu"} {
 		if _, err := os.Stat(rest); err == nil {
-			t.Errorf("%s liegt noch herum", filepath.Base(rest))
+			t.Errorf("%s is still lying around", filepath.Base(rest))
 		}
 	}
 }
 
-// Wenn die neue Fassung nicht abgelegt werden kann, darf die alte nicht
-// angetastet werden — vorher wurde sie zuerst beiseitegeschoben.
+// If the new version cannot be put in place, the old one must not be touched —
+// previously it was moved aside first.
 func TestSwapLeavesOldAloneWhenSourceMissing(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
 	bundle(t, ziel, "alt")
 
 	if err := swap(filepath.Join(dir, "gibtesnicht.app"), ziel); err == nil {
-		t.Fatal("fehlende Quelle wurde nicht gemeldet")
+		t.Fatal("a missing source was not reported")
 	}
 	if got := read(t, ziel); got != "alt" {
-		t.Errorf("die alte Fassung wurde angetastet: %q", got)
+		t.Errorf("the old version was touched: %q", got)
 	}
 	if _, err := os.Stat(ziel + ".neu"); err == nil {
-		t.Error("halbe Kopie liegt noch herum")
+		t.Error("a half copy is still lying around")
 	}
 }
 
-// Der eigentliche Punkt: solange kopiert wird, muss am Zielort noch die alte
-// Fassung stehen. Sonst wäre die App bei einem Abbruch kaputt.
+// The actual point: while the copy is running the old version has to still be at
+// the target. Otherwise an abort would leave the app broken.
 func TestTargetSurvivesTheCopy(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
@@ -73,13 +73,13 @@ func TestTargetSurvivesTheCopy(t *testing.T) {
 	bundle(t, ziel, "alt")
 	bundle(t, fresh, "neu")
 
-	// Nachbilden, was tauschen tut, und dazwischen nachsehen.
+	// Reproduce what swap does, and look in between.
 	daneben := ziel + ".neu"
 	if err := copyTree(fresh, daneben); err != nil {
 		t.Fatal(err)
 	}
 	if got := read(t, ziel); got != "alt" {
-		t.Errorf("während des Kopierens stand am Zielort %q statt der alten Fassung", got)
+		t.Errorf("during the copy the target held %q instead of the old version", got)
 	}
 	os.RemoveAll(daneben)
 }
