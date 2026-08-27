@@ -17,7 +17,18 @@ type RecordingHit struct {
 	Mod       int64  `json:"mod"`
 	Count     int    `json:"anzahl"`
 	Auszug    string `json:"auszug"`
+
+	/* Danach ist, was nach der Fundstelle im Terminal stand.
+
+	   Der Treffer allein hilft nicht. Dieselbe Fehlermeldung hat man schon
+	   dreimal gesehen; was man sucht, ist was danach kam — der Befehl, der es
+	   damals behoben hat. Der steht ein paar Zeilen weiter unten. */
+	Danach []string `json:"danach,omitempty"`
 }
+
+// AfterLines is how much context follows a hit. Enough for a stack trace plus
+// the command after it, not so much that the list becomes unreadable.
+const AfterLines = 20
 
 // SearchRecordings searches through what was on the terminals.
 //
@@ -43,12 +54,15 @@ func SearchRecordings(dir, question string, names map[string]RecordingHit) []Rec
 		if err != nil || info.Size() == 0 {
 			continue
 		}
-		count, auszug := scanRaw(p, small)
+		count, auszug, danach := scanRaw(p, small)
 		if count == 0 {
 			continue
 		}
 		id := strings.TrimSuffix(filepath.Base(p), ".log")
-		t := RecordingHit{SessionID: id, Mod: info.ModTime().UnixMilli(), Count: count, Auszug: auszug}
+		t := RecordingHit{
+			SessionID: id, Mod: info.ModTime().UnixMilli(),
+			Count: count, Auszug: auszug, Danach: danach,
+		}
 		if bekannt, ok := names[id]; ok {
 			t.Name, t.Cwd = bekannt.Name, bekannt.Cwd
 		}
@@ -63,10 +77,10 @@ func SearchRecordings(dir, question string, names map[string]RecordingHit) []Rec
 
 const maxLine = 1 << 20
 
-func scanRaw(path, small string) (int, string) {
+func scanRaw(path, small string) (int, string, []string) {
 	f, err := os.Open(path)
 	if err != nil {
-		return 0, ""
+		return 0, "", nil
 	}
 	defer f.Close()
 
@@ -80,20 +94,35 @@ func scanRaw(path, small string) (int, string) {
 	sc.Buffer(make([]byte, 0, 64*1024), maxLine)
 	count := 0
 	auszug := ""
+	/* Nach dem ersten Treffer weiter mitlesen: gesucht wird die Fehlermeldung,
+	   gebraucht wird, was danach kam. Nur nach dem ERSTEN — bei fünfhundert
+	   Treffern will niemand fünfhundert Nachspann-Blöcke, und der erste ist der
+	   älteste, also der mit der Geschichte dahinter. */
+	var danach []string
+	sammeln := 0
 	for sc.Scan() {
 		line := sc.Text()
+		if sammeln > 0 {
+			sammeln--
+			if rein := strings.TrimSpace(clean(line, "")); rein != "" {
+				danach = append(danach, rein)
+			}
+		}
 		if !strings.Contains(strings.ToLower(line), small) {
 			continue
 		}
 		count++
 		if auszug == "" {
 			auszug = clean(line, small)
+			sammeln = AfterLines
 		}
+		// Weiterzählen ist billig, weitersuchen nach dem Nachspann nicht mehr
+		// nötig — sobald beides steht, reicht das Zählen bis zur Grenze.
 		if count > 500 {
 			break
 		}
 	}
-	return count, auszug
+	return count, auszug, danach
 }
 
 // clean strips control characters and trims around the match.
