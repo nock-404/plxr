@@ -181,6 +181,26 @@
             <div id="rulesBody" class="ruleslist"></div>
           </div>
 
+          <!-- Wiedergabe: eigenes Terminal ohne Eingabe, über allem. -->
+          <div id="kino" class="ueber" hidden>
+            <div class="ueberbar">
+              <span id="kinoName" class="uebername"></span>
+              <span id="kinoMeta" class="meta"></span>
+              <span class="spacer"></span>
+              <button class="btn" id="kinoClose">ZURÜCK</button>
+            </div>
+            <div class="kinoterm" id="kinoTerm"></div>
+            <div class="kinobar">
+              <button class="btn" id="kinoPlay" data-tip="Abspielen und anhalten (Leertaste)">▶</button>
+              <input type="range" id="kinoRegler" min="0" max="1000" value="0"
+                     data-tip="An eine Stelle springen">
+              <span id="kinoZeit" class="meta">0:00</span>
+              <button class="btn tiny" id="kinoTempo" data-tip="Abspielgeschwindigkeit">1×</button>
+              <button class="btn tiny" id="kinoPausen" data-an="ja"
+                      data-tip="Leerlaufpausen überspringen — sonst sieht man minutenlang nichts">PAUSEN</button>
+            </div>
+          </div>
+
           <div id="viewer" class="ueber" hidden>
             <div class="ueberbar">
               <span id="viewerName" class="uebername"></span>

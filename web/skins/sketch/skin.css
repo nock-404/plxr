@@ -291,3 +291,7 @@ body {
    nichts. */
 :root[data-skin="sketch"] { --wappen: "✎✂✿❀☘✈☂⚑⌂✱❍✚△▢◇☾"; }
 .wappen { transform: rotate(-4deg); display: inline-block; }
+
+/* Wiedergabe */
+.kinobar { border-top: 1px dashed var(--line); }
+.znachspann { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }

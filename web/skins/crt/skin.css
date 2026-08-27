@@ -351,3 +351,7 @@ body {
    nichts. */
 :root[data-skin="crt"] { --wappen: "◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦"; }
 .wappen { text-shadow: 0 0 5px currentColor; }
+
+/* Wiedergabe */
+.kinobar { border-top: 1px solid var(--line); }
+.znachspann { color: var(--dim); border-left: 2px solid var(--line); padding-left: 8px; }

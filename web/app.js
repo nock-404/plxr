@@ -106,6 +106,19 @@ const api = {
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
   themeLoeschen: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  /* Der Strom kommt als Bytes, nicht als JSON — base64 würde ihn verdreifachen.
+     Deshalb an req vorbei, das JSON erwartet. */
+  wiedergabe: async (id, ab = 0) => {
+    const r = await fetch(`${BASE}/api/playback/${encodeURIComponent(id)}?ab=${ab}`,
+      { headers: { 'X-Plxr-Token': TOKEN } });
+    if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+    return {
+      daten: new Uint8Array(await r.arrayBuffer()),
+      groesse: Number(r.headers.get('X-Plxr-Size') || 0),
+      beschnitten: r.headers.get('X-Plxr-Cut') === 'true',
+    };
+  },
+  zeitachse: (id) => req(`/api/playback/${encodeURIComponent(id)}/zeitachse`),
   notbremse: () => req('/api/freeze', { method: 'POST' }),
   auftauen: () => req('/api/unfreeze', { method: 'POST' }),
   konten: () => req('/api/accounts'),
@@ -2060,6 +2073,202 @@ $('#esucheHoch').addEventListener('click', () => editorSpringen(true));
 $('#esucheRunter').addEventListener('click', () => editorSpringen(false));
 $('#esucheZu').addEventListener('click', editorSucheSchliessen);
 
+/* ═════════════════════════ Wiedergabe ═════════════════════════
+
+   Eine Session als Video ansehen, auch eine, die es nicht mehr gibt.
+
+   Nichts wird dafür geparst: der Mitschnitt IST der Bytestrom, der über das
+   Terminal ging. Ein Terminal-Nachbau gibt ihn exakt wieder, samt Farben und
+   neu gezeichneten Vollbildern. Das Tempo kommt aus der Zeitachse daneben.
+
+   Rückwärts springen kann xterm nicht — es gibt kein Zurückspulen. Deshalb
+   bleibt der geholte Strom im Speicher: ein Sprung setzt das Terminal zurück
+   und schreibt alles bis zur Zielstelle in einem Rutsch hinein. Bei den
+   höchstens acht Megabyte, die ein Abruf liefert, dauert das den Bruchteil
+   einer Sekunde. */
+
+const kino = {
+  term: null,
+  fit: null,
+  daten: null,      // Uint8Array des Stroms
+  marken: [],       // [{offset, at}]
+  pos: 0,           // wie weit bereits geschrieben wurde
+  laeuft: false,
+  tempo: 1,
+  pausenUeber: true,
+  timer: null,
+  id: null,
+  beschnitten: false,
+};
+
+const KINO_TEMPI = [1, 2, 4, 8];
+// Ab wann eine Pause übersprungen wird. Darunter merkt man sie kaum, darüber
+// sieht man minutenlang zu, wie nichts passiert.
+const KINO_PAUSE = 1200;
+// Und worauf sie zusammengeschnitten wird, damit die Naht nicht hart wirkt.
+const KINO_REST = 300;
+
+async function kinoOeffnen(id, name, abOffset) {
+  const feld = $('#kino');
+  feld.hidden = false;
+  $('#kinoName').textContent = name || id.slice(0, 8);
+  $('#kinoMeta').textContent = 'lädt …';
+  kino.id = id;
+
+  if (!kino.term) {
+    kino.term = new Terminal({
+      // Ohne das würde ein Tastendruck in eine Aufzeichnung tippen wollen.
+      disableStdin: true,
+      cursorBlink: false,
+      fontFamily: cssVar('term-font', 'ui-monospace, monospace'),
+      fontSize: stil.termSize || 13,
+      theme: xtermFarben(),
+      scrollback: 5000,
+    });
+    kino.fit = new FitAddon.FitAddon();
+    kino.term.loadAddon(kino.fit);
+    kino.term.open($('#kinoTerm'));
+  }
+  kino.term.reset();
+  try { kino.fit.fit(); } catch {}
+
+  try {
+    const [strom, marken] = await Promise.all([
+      api.wiedergabe(id),
+      api.zeitachse(id),
+    ]);
+    kino.daten = strom.daten;
+    kino.beschnitten = strom.beschnitten;
+    kino.marken = marken;
+  } catch (e) {
+    $('#kinoMeta').textContent = '';
+    kinoSchliessen();
+    plxrUI.hinweis(e.message || String(e), 'Keine Aufzeichnung');
+    return;
+  }
+
+  kino.pos = 0;
+  $('#kinoRegler').value = 0;
+  kinoStandZeigen();
+
+  // Von einem Suchtreffer aus: direkt an die Fundstelle.
+  if (abOffset > 0) kinoSpringen(Math.min(abOffset, kino.daten.length));
+  kinoSpielen(true);
+}
+
+function kinoSchliessen() {
+  kinoAnhalten();
+  $('#kino').hidden = true;
+  kino.daten = null;
+  kino.marken = [];
+  kino.id = null;
+}
+
+/* Wie viel Zeit zwischen zwei Stellen im Strom verging. Ohne Zeitachse — ein
+   Mitschnitt von vor ihrer Einführung — wird gleichmäßig abgespielt. */
+function kinoDauer(vonOffset, bisOffset) {
+  if (!kino.marken.length) return 16;   // etwa ein Bild
+  let a = null, b = null;
+  for (const m of kino.marken) {
+    if (m.offset <= vonOffset) a = m;
+    if (m.offset <= bisOffset) b = m;
+  }
+  if (!a || !b) return 16;
+  return Math.max(0, b.at - a.at);
+}
+
+// Die nächste Marke hinter der aktuellen Stelle — bis dorthin wird am Stück
+// geschrieben, danach gewartet.
+function kinoNaechsteMarke(pos) {
+  for (const m of kino.marken) if (m.offset > pos) return m.offset;
+  return kino.daten ? kino.daten.length : pos;
+}
+
+function kinoSchritt() {
+  if (!kino.laeuft || !kino.daten) return;
+  if (kino.pos >= kino.daten.length) { kinoAnhalten(); return; }
+
+  const bis = Math.min(kinoNaechsteMarke(kino.pos), kino.daten.length);
+  kino.term.write(kino.daten.subarray(kino.pos, bis));
+  const vorher = kino.pos;
+  kino.pos = bis;
+  kinoStandZeigen();
+
+  let warten = kinoDauer(vorher, bis) / kino.tempo;
+  if (kino.pausenUeber && warten > KINO_PAUSE) warten = KINO_REST;
+  kino.timer = setTimeout(kinoSchritt, Math.max(0, warten));
+}
+
+function kinoSpielen(an) {
+  kino.laeuft = an;
+  $('#kinoPlay').textContent = an ? '❙❙' : '▶';
+  clearTimeout(kino.timer);
+  if (an) kinoSchritt();
+}
+
+function kinoAnhalten() {
+  kino.laeuft = false;
+  clearTimeout(kino.timer);
+  $('#kinoPlay').textContent = '▶';
+}
+
+/* Springen. xterm kann nicht zurückspulen, also von vorn: Terminal leeren und
+   alles bis zur Zielstelle in einem Rutsch schreiben. */
+function kinoSpringen(ziel) {
+  if (!kino.daten) return;
+  const lief = kino.laeuft;
+  kinoAnhalten();
+  kino.term.reset();
+  kino.pos = Math.max(0, Math.min(ziel, kino.daten.length));
+  if (kino.pos > 0) kino.term.write(kino.daten.subarray(0, kino.pos));
+  kinoStandZeigen();
+  if (lief) kinoSpielen(true);
+}
+
+function kinoStandZeigen() {
+  if (!kino.daten) return;
+  const anteil = kino.daten.length ? kino.pos / kino.daten.length : 0;
+  const regler = $('#kinoRegler');
+  // Nicht setzen, während daran gezogen wird.
+  if (document.activeElement !== regler) regler.value = Math.round(anteil * 1000);
+
+  const gesamt = kino.marken.length > 1
+    ? (kino.marken[kino.marken.length - 1].at - kino.marken[0].at) / 1000
+    : 0;
+  $('#kinoZeit').textContent = gesamt
+    ? `${kinoZeit(gesamt * anteil)} / ${kinoZeit(gesamt)}`
+    : `${Math.round(anteil * 100)} %`;
+  $('#kinoMeta').textContent = kino.beschnitten
+    ? 'nur der Anfang — die Aufzeichnung ist länger als das, was auf einmal geht'
+    : (kino.marken.length ? '' : 'ohne Zeitachse, gleichmäßiges Tempo');
+}
+
+const kinoZeit = (sek) => {
+  const m = Math.floor(sek / 60), s = Math.floor(sek % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
+$('#kinoClose').addEventListener('click', kinoSchliessen);
+$('#kinoPlay').addEventListener('click', () => kinoSpielen(!kino.laeuft));
+$('#kinoRegler').addEventListener('input', (e) => {
+  if (!kino.daten) return;
+  kinoSpringen(Math.round((e.target.value / 1000) * kino.daten.length));
+});
+$('#kinoTempo').addEventListener('click', () => {
+  const i = (KINO_TEMPI.indexOf(kino.tempo) + 1) % KINO_TEMPI.length;
+  kino.tempo = KINO_TEMPI[i];
+  $('#kinoTempo').textContent = `${kino.tempo}×`;
+});
+$('#kinoPausen').addEventListener('click', () => {
+  kino.pausenUeber = !kino.pausenUeber;
+  $('#kinoPausen').dataset.an = kino.pausenUeber ? 'ja' : '';
+});
+document.addEventListener('keydown', (e) => {
+  if ($('#kino').hidden) return;
+  if (e.key === ' ') { e.preventDefault(); kinoSpielen(!kino.laeuft); }
+  if (e.key === 'Escape') { e.preventDefault(); kinoSchliessen(); }
+}, true);
+
 /* ═════════════════════════ Regeln ═════════════════════════ */
 
 const ARTNAME = { global: 'global', projekt: 'projekt', lokal: 'lokal', import: 'import', skill: 'skill', agent: 'agent' };
@@ -2212,11 +2421,26 @@ function archivZeichnen() {
       zeile.querySelector('.zproj').textContent = t.cwd ? t.cwd.split('/').pop() : '';
       zeile.querySelector('.zwert').textContent = t.anzahl + '×';
       zeile.dataset.tip = t.cwd || '';
-      // Läuft die Session noch, führt ein Klick hinein.
-      if (state.tiles.some((x) => x.id === t.sessionId && x.alive)) {
-        zeile.style.cursor = 'pointer';
-        zeile.addEventListener('click', () => sessionOeffnen(t.sessionId));
+
+      /* Was danach kam, ist der eigentliche Fund: dieselbe Fehlermeldung hat
+         man schon dreimal gesehen — gesucht wird der Befehl, der sie damals
+         behoben hat. */
+      if (t.danach?.length) {
+        const nach = document.createElement('pre');
+        nach.className = 'znachspann';
+        nach.textContent = t.danach.join('\n');
+        zeile.appendChild(nach);
       }
+
+      /* Ein Klick spielt die Aufzeichnung ab dieser Stelle ab — auch bei
+         Sessions, die es nicht mehr gibt. Genau dafür liegt der Mitschnitt auf
+         der Platte. */
+      zeile.style.cursor = 'pointer';
+      zeile.addEventListener('click', (e) => {
+        // Auf den Nachspann geklickt heißt lesen, nicht abspielen.
+        if (e.target.closest('.znachspann')) return;
+        kinoOeffnen(t.sessionId, t.name, t.offset || 0);
+      });
       box.appendChild(zeile);
     }
     return;

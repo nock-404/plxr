@@ -289,3 +289,7 @@ body {
    nichts. */
 :root[data-skin="pixel"] { --wappen: "▙▛▜▟▚▞■▲▶◀●◼◈✚✖✦"; }
 .wappen { image-rendering: pixelated; }
+
+/* Wiedergabe */
+.kinobar { border-top: 2px solid var(--line); }
+.znachspann { color: var(--dim); border-left: 2px solid var(--accent); padding-left: 8px; }

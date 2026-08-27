@@ -411,3 +411,9 @@ html, body {
 /* Wappen: ein Zeichen je Arbeitsverzeichnis. Die Lage hier, die Zeichen selbst
    bringt der Skin über --wappen mit. */
 .wappen { flex: 0 0 auto; }
+
+/* Wiedergabe. Layout hier, Aussehen im Skin. */
+.kinoterm { flex: 1; min-height: 0; overflow: hidden; padding: 6px 10px; }
+.kinobar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; flex: 0 0 auto; }
+.kinobar input[type="range"] { flex: 1; }
+.znachspann { margin: 4px 0 0; white-space: pre-wrap; max-height: 9em; overflow: auto; }

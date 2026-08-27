@@ -105,3 +105,71 @@ func TestContextSkipsEmptyLines(t *testing.T) {
 		t.Errorf("empty lines were not skipped: %v", hits[0].Danach)
 	}
 }
+
+/*
+The hit has to carry its byte position, otherwise a click on it can only
+
+	start the playback at zero — you find the error and then get to watch the
+	session from the beginning.
+*/
+func TestHitCarriesItsPosition(t *testing.T) {
+	dir := t.TempDir()
+	vorne := "erste Zeile\nzweite Zeile\n"
+	logfile(t, dir, "abc", vorne+"HIER ist der Fehler\nund danach\n")
+
+	hits := SearchRecordings(dir, "HIER ist", nil)
+	if len(hits) != 1 {
+		t.Fatalf("%d hits", len(hits))
+	}
+	if hits[0].Offset != int64(len(vorne)) {
+		t.Errorf("position %d instead of %d", hits[0].Offset, len(vorne))
+	}
+}
+
+// Terminals write \r\n. Counting the bytes of the stripped line would drift,
+// and every position after the first CRLF would be wrong.
+func TestPositionSurvivesCRLF(t *testing.T) {
+	dir := t.TempDir()
+	vorne := "eins\r\nzwei\r\n"
+	logfile(t, dir, "abc", vorne+"TREFFER\r\n")
+	hits := SearchRecordings(dir, "TREFFER", nil)
+	if hits[0].Offset != int64(len(vorne)) {
+		t.Errorf("position %d instead of %d — CRLF miscounted", hits[0].Offset, len(vorne))
+	}
+}
+
+/*
+A hit early in a large recording used to be invisible: the search seeked to
+
+	the last 8 MB. In a long session the interesting error is usually NOT at the
+	end — that assumption cost exactly what this feature is for.
+*/
+func TestEarlyHitInLargeRecordingIsFound(t *testing.T) {
+	dir := t.TempDir()
+	var b strings.Builder
+	b.WriteString("FRUEHER FEHLER ganz am Anfang\n")
+	// Comfortably past the old 8 MB cutoff.
+	for b.Len() < 10<<20 {
+		b.WriteString("belangloses Rauschen aus dem Build\n")
+	}
+	logfile(t, dir, "gross", b.String())
+
+	hits := SearchRecordings(dir, "FRUEHER FEHLER", nil)
+	if len(hits) != 1 {
+		t.Fatalf("the early hit was not found — %d hits", len(hits))
+	}
+	if hits[0].Offset != 0 {
+		t.Errorf("position %d instead of 0", hits[0].Offset)
+	}
+}
+
+// A terminal that never sends a line break exists — a progress bar. It must not
+// be able to eat all the memory.
+func TestEndlessLineDoesNotEatMemory(t *testing.T) {
+	dir := t.TempDir()
+	logfile(t, dir, "abc", strings.Repeat("x", 4<<20)+"TREFFER")
+	hits := SearchRecordings(dir, "TREFFER", nil)
+	// The hit sits beyond maxLine, so it is not found — but nothing blows up,
+	// and that is what matters here.
+	_ = hits
+}
