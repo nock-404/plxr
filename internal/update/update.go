@@ -142,11 +142,11 @@ func isNewer(a, b string) bool {
 // The swap happens through renames: the old version moves aside, the new one
 // into its place. If something goes wrong the old one comes back — a half
 // overwritten program directory would be the worst outcome.
-func Apply(assetURL string, fortschritt func(read, gesamt int64)) (string, error) {
+func Apply(assetURL string, fortschritt func(read, total int64)) (string, error) {
 	if assetURL == "" {
 		return "", errors.New("keine Adresse für das Archiv")
 	}
-	ziel, err := installTarget()
+	target, err := installTarget()
 	if err != nil {
 		return "", err
 	}
@@ -171,15 +171,15 @@ func Apply(assetURL string, fortschritt func(read, gesamt int64)) (string, error
 		return "", err
 	}
 
-	if err := swap(fresh, ziel); err != nil {
+	if err := swap(fresh, target); err != nil {
 		return "", err
 	}
 
 	// Sign it so the system recognises the app across versions and does not ask
 	// for permissions again on every update. If that fails the app still runs —
 	// it will simply ask again.
-	_ = resign(ziel)
-	return ziel, nil
+	_ = resign(target)
+	return target, nil
 }
 
 // installTarget is what gets replaced: the app bundle on macOS, the file otherwise.
@@ -205,7 +205,7 @@ func installTarget() (string, error) {
 // Resumption goes through Range: bytes already fetched stay where they are.
 func download(url, nach string, fortschritt func(int64, int64)) error {
 	const versuche = 4
-	var letzter error
+	var last error
 
 	for versuch := 0; versuch < versuche; versuch++ {
 		if versuch > 0 {
@@ -229,7 +229,7 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 
 		res, err := (&http.Client{Timeout: 10 * time.Minute}).Do(req)
 		if err != nil {
-			letzter = err
+			last = err
 			continue
 		}
 
@@ -238,7 +238,7 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 		anhaengen := res.StatusCode == http.StatusPartialContent
 		if res.StatusCode != http.StatusOK && !anhaengen {
 			res.Body.Close()
-			letzter = fmt.Errorf("Download antwortet mit %d", res.StatusCode)
+			last = fmt.Errorf("Download antwortet mit %d", res.StatusCode)
 			continue
 		}
 		if !anhaengen {
@@ -258,7 +258,7 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 			return err
 		}
 
-		gesamt := res.ContentLength + bereits
+		total := res.ContentLength + bereits
 		read := bereits
 		buf := make([]byte, 256*1024)
 		var readErr error
@@ -272,7 +272,7 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 				}
 				read += int64(n)
 				if fortschritt != nil {
-					fortschritt(read, gesamt)
+					fortschritt(read, total)
 				}
 			}
 			if err == io.EOF {
@@ -289,9 +289,9 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 		if readErr == nil {
 			return nil
 		}
-		letzter = readErr
+		last = readErr
 	}
-	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", versuche, letzter)
+	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", versuche, last)
 }
 
 func unzip(archiv, nach string) error {
@@ -301,21 +301,21 @@ func unzip(archiv, nach string) error {
 	}
 	defer r.Close()
 	for _, f := range r.File {
-		ziel := filepath.Join(nach, f.Name)
+		target := filepath.Join(nach, f.Name)
 		// Zip slip: an archive must not break out of its target folder.
-		if !strings.HasPrefix(ziel, filepath.Clean(nach)+string(os.PathSeparator)) {
+		if !strings.HasPrefix(target, filepath.Clean(nach)+string(os.PathSeparator)) {
 			return errors.New("Archiv enthält einen Pfad außerhalb des Ziels: " + f.Name)
 		}
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(ziel, 0o755)
+			os.MkdirAll(target, 0o755)
 			continue
 		}
-		os.MkdirAll(filepath.Dir(ziel), 0o755)
+		os.MkdirAll(filepath.Dir(target), 0o755)
 		rc, err := f.Open()
 		if err != nil {
 			return err
 		}
-		out, err := os.OpenFile(ziel, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode())
+		out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode())
 		if err != nil {
 			rc.Close()
 			return err
@@ -331,11 +331,11 @@ func unzip(archiv, nach string) error {
 }
 
 func findApp(dir string) (string, error) {
-	eintraege, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", err
 	}
-	for _, e := range eintraege {
+	for _, e := range entries {
 		if runtime.GOOS == "darwin" && strings.HasSuffix(e.Name(), ".app") {
 			return filepath.Join(dir, e.Name()), nil
 		}
@@ -381,22 +381,22 @@ swap puts the new version in the place of the old one.
 	follow — they take fractions of a second, and in between the old version is
 	still there as .alt.
 */
-func swap(fresh, ziel string) error {
-	daneben := ziel + ".neu"
+func swap(fresh, target string) error {
+	daneben := target + ".neu"
 	os.RemoveAll(daneben)
 	if err := copyTree(fresh, daneben); err != nil {
 		os.RemoveAll(daneben)
 		return errors.New("neue Fassung ließ sich nicht ablegen: " + err.Error())
 	}
 
-	beiseite := ziel + ".alt"
+	beiseite := target + ".alt"
 	os.RemoveAll(beiseite)
-	if err := os.Rename(ziel, beiseite); err != nil {
+	if err := os.Rename(target, beiseite); err != nil {
 		os.RemoveAll(daneben)
 		return errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
 	}
-	if err := os.Rename(daneben, ziel); err != nil {
-		os.Rename(beiseite, ziel) // back to the start
+	if err := os.Rename(daneben, target); err != nil {
+		os.Rename(beiseite, target) // back to the start
 		os.RemoveAll(daneben)
 		return errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
 	}

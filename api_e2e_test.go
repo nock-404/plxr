@@ -144,13 +144,13 @@ func TestSessionCreateListKill(t *testing.T) {
 	frist := time.Now().Add(8 * time.Second)
 	for time.Now().Before(frist) {
 		_, b = ruf(t, s, token, "GET", "/api/sessions", "")
-		var liste []struct {
+		var list []struct {
 			ID    string `json:"id"`
 			Alive bool   `json:"alive"`
 		}
-		json.Unmarshal(b, &liste)
+		json.Unmarshal(b, &list)
 		tot := true
-		for _, x := range liste {
+		for _, x := range list {
 			if x.ID == angelegt.ID && x.Alive {
 				tot = false
 			}

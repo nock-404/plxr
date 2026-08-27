@@ -108,6 +108,28 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/archive", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Archive(r.URL.Query().Get("path")))
 	})
+	/* Playback streams the raw recording. Deliberately not JSON: the bytes are a
+	   terminal stream and would triple in size base64-encoded. The timeline goes
+	   into headers instead, so the body stays exactly what went over the wire. */
+	mux.HandleFunc("GET /api/playback/{id}", func(w http.ResponseWriter, r *http.Request) {
+		from, _ := strconv.ParseInt(r.URL.Query().Get("ab"), 10, 64)
+		pb, err := s.c.Playback(r.PathValue("id"), from)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		marks, _ := json.Marshal(pb.Marks)
+		h := w.Header()
+		h.Set("Content-Type", "application/octet-stream")
+		h.Set("X-Plxr-Size", strconv.FormatInt(pb.Size, 10))
+		h.Set("X-Plxr-From", strconv.FormatInt(pb.From, 10))
+		h.Set("X-Plxr-Cut", strconv.FormatBool(pb.Cut))
+		h.Set("X-Plxr-Marks", string(marks))
+		// Without this the webview cannot read those headers: on a cross-origin
+		// request only the handful of simple ones are visible by default.
+		h.Set("Access-Control-Expose-Headers", "X-Plxr-Size, X-Plxr-From, X-Plxr-Cut, X-Plxr-Marks")
+		w.Write(pb.Data)
+	})
 	mux.HandleFunc("GET /api/search/terminals", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.SucheTerminals(r.URL.Query().Get("q")))
 	})

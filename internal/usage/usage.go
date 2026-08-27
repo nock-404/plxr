@@ -205,9 +205,9 @@ func Compute(accs []accounts.Account, tage int) Report {
 		close(raus)
 	}()
 
-	grenze := ""
+	cutoff := ""
 	if tage > 0 {
-		grenze = time.Now().AddDate(0, 0, -tage).Format("2006-01-02")
+		cutoff = time.Now().AddDate(0, 0, -tage).Format("2006-01-02")
 	}
 
 	b := Report{Files: len(jobs)}
@@ -228,7 +228,7 @@ func Compute(accs []accounts.Account, tage int) Report {
 			projekt = "(unbekannt)"
 		}
 		for t, nachModell := range r.e.Tage {
-			if grenze != "" && t < grenze {
+			if cutoff != "" && t < cutoff {
 				continue
 			}
 			for m, p := range nachModell {
@@ -346,9 +346,9 @@ type Pace struct {
 // andere kann per Definition nichts zum aktuellen Tempo beitragen.
 func ComputePace(accs []accounts.Account) Pace {
 	jetzt := time.Now()
-	grenze5h := jetzt.Add(-5 * time.Hour)
-	grenze1h := jetzt.Add(-time.Hour)
-	grenze2h := jetzt.Add(-2 * time.Hour)
+	cut5h := jetzt.Add(-5 * time.Hour)
+	cut1h := jetzt.Add(-time.Hour)
+	cut2h := jetzt.Add(-2 * time.Hour)
 
 	var t Pace
 	var vorstunde int64
@@ -369,12 +369,12 @@ func ComputePace(accs []accounts.Account) Pace {
 				}
 				info, err := f.Info()
 				// Anything untouched for more than five hours does not count.
-				if err != nil || info.ModTime().Before(grenze5h) {
+				if err != nil || info.ModTime().Before(cut5h) {
 					continue
 				}
 				gesehen[f.Name()] = true
 				path := filepath.Join(pdir, f.Name())
-				f5, f1, f2 := window(path, grenze5h, grenze1h, grenze2h)
+				f5, f1, f2 := window(path, cut5h, cut1h, cut2h)
 				t.Fenster5h += f5
 				t.ProStunde += f1
 				vorstunde += f2
@@ -434,12 +434,12 @@ func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 			continue
 		}
 		u := z.Message.Usage
-		summe := int64(u.Input + u.Output + u.CacheWrite + u.CacheRead)
-		f5 += summe
+		sum := int64(u.Input + u.Output + u.CacheWrite + u.CacheRead)
+		f5 += sum
 		if ts.After(g1) {
-			f1 += summe
+			f1 += sum
 		} else if ts.After(g2) {
-			f2 += summe
+			f2 += sum
 		}
 	}
 	return

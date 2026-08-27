@@ -37,7 +37,7 @@ func Connect() (*Client, error) {
 	return &Client{info: info, http: &http.Client{Timeout: 30 * time.Second}}, nil
 }
 
-func (c *Client) fetch(path string, ziel any) error {
+func (c *Client) fetch(path string, target any) error {
 	req, _ := http.NewRequest("GET", c.info.URL()+path, nil)
 	req.Header.Set("X-Plxr-Token", c.info.Token)
 	res, err := c.http.Do(req)
@@ -49,10 +49,10 @@ func (c *Client) fetch(path string, ziel any) error {
 		b, _ := io.ReadAll(res.Body)
 		return errors.New(strings.TrimSpace(string(b)))
 	}
-	return json.NewDecoder(res.Body).Decode(ziel)
+	return json.NewDecoder(res.Body).Decode(target)
 }
 
-func (c *Client) send(methode, path string, koerper any, ziel any) error {
+func (c *Client) send(methode, path string, koerper any, target any) error {
 	var r io.Reader
 	if koerper != nil {
 		b, _ := json.Marshal(koerper)
@@ -69,8 +69,8 @@ func (c *Client) send(methode, path string, koerper any, ziel any) error {
 		b, _ := io.ReadAll(res.Body)
 		return errors.New(strings.TrimSpace(string(b)))
 	}
-	if ziel != nil && res.StatusCode != http.StatusNoContent {
-		return json.NewDecoder(res.Body).Decode(ziel)
+	if target != nil && res.StatusCode != http.StatusNoContent {
+		return json.NewDecoder(res.Body).Decode(target)
 	}
 	return nil
 }

@@ -185,11 +185,11 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 // line running out into a prompt character with nothing behind it. That is
 // exactly where the cursor then sits.
 func waitingAtPrompt(screen string) bool {
-	letzte := lastNonEmptyLines(screen, 1)
-	if letzte == "" || len(letzte) > 120 {
+	last := lastNonEmptyLines(screen, 1)
+	if last == "" || len(last) > 120 {
 		return false
 	}
-	ohne := strings.TrimRight(letzte, " \t")
+	ohne := strings.TrimRight(last, " \t")
 	if ohne == "" {
 		return false
 	}

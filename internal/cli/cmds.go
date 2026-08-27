@@ -215,21 +215,21 @@ func Attach(c *Client, was string) error {
 	// session again — which keeps running.
 	go func() {
 		buf := make([]byte, 4096)
-		letztes := time.Time{}
+		last := time.Time{}
 		for {
 			n, err := os.Stdin.Read(buf)
 			if err != nil {
 				return
 			}
 			if n == 1 && buf[0] == 0x11 { // Strg-Q
-				if time.Since(letztes) < time.Second {
+				if time.Since(last) < time.Second {
 					conn.Close()
 					return
 				}
-				letztes = time.Now()
+				last = time.Now()
 				continue
 			}
-			letztes = time.Time{}
+			last = time.Time{}
 			if write(map[string]any{"type": "in", "data": string(buf[:n])}) != nil {
 				return
 			}

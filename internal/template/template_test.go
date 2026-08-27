@@ -19,9 +19,9 @@ func TestOlderStorageIsAdopted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	liste := Load(root)
-	if len(liste) != 1 || liste[0].Name != "arbeitstag" {
-		t.Fatalf("old template was lost: %+v", liste)
+	list := Load(root)
+	if len(list) != 1 || list[0].Name != "arbeitstag" {
+		t.Fatalf("old template was lost: %+v", list)
 	}
 	if _, err := os.Stat(Dir(root)); err != nil {
 		t.Error("the new folder was not created")
@@ -38,9 +38,9 @@ func TestNewStorageWins(t *testing.T) {
 	os.WriteFile(filepath.Join(Dir(root), "b.json"),
 		[]byte(`{"name":"b","sessions":[{"cwd":"/tmp"}]}`), 0o644)
 
-	liste := Load(root)
-	if len(liste) != 1 || liste[0].Name != "b" {
-		t.Fatalf("the new storage was overwritten: %+v", liste)
+	list := Load(root)
+	if len(list) != 1 || list[0].Name != "b" {
+		t.Fatalf("the new storage was overwritten: %+v", list)
 	}
 }
 

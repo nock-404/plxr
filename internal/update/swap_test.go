@@ -28,18 +28,18 @@ func read(t *testing.T, path string) string {
 
 func TestSwapReplacesAndCleansUp(t *testing.T) {
 	dir := t.TempDir()
-	ziel := filepath.Join(dir, "plxr.app")
+	target := filepath.Join(dir, "plxr.app")
 	fresh := filepath.Join(dir, "quelle.app")
-	bundle(t, ziel, "alt")
+	bundle(t, target, "alt")
 	bundle(t, fresh, "neu")
 
-	if err := swap(fresh, ziel); err != nil {
+	if err := swap(fresh, target); err != nil {
 		t.Fatal(err)
 	}
-	if got := read(t, ziel); got != "neu" {
+	if got := read(t, target); got != "neu" {
 		t.Errorf("the target holds %q", got)
 	}
-	for _, rest := range []string{ziel + ".alt", ziel + ".neu"} {
+	for _, rest := range []string{target + ".alt", target + ".neu"} {
 		if _, err := os.Stat(rest); err == nil {
 			t.Errorf("%s is still lying around", filepath.Base(rest))
 		}
@@ -50,16 +50,16 @@ func TestSwapReplacesAndCleansUp(t *testing.T) {
 // previously it was moved aside first.
 func TestSwapLeavesOldAloneWhenSourceMissing(t *testing.T) {
 	dir := t.TempDir()
-	ziel := filepath.Join(dir, "plxr.app")
-	bundle(t, ziel, "alt")
+	target := filepath.Join(dir, "plxr.app")
+	bundle(t, target, "alt")
 
-	if err := swap(filepath.Join(dir, "gibtesnicht.app"), ziel); err == nil {
+	if err := swap(filepath.Join(dir, "gibtesnicht.app"), target); err == nil {
 		t.Fatal("a missing source was not reported")
 	}
-	if got := read(t, ziel); got != "alt" {
+	if got := read(t, target); got != "alt" {
 		t.Errorf("the old version was touched: %q", got)
 	}
-	if _, err := os.Stat(ziel + ".neu"); err == nil {
+	if _, err := os.Stat(target + ".neu"); err == nil {
 		t.Error("a half copy is still lying around")
 	}
 }
@@ -68,17 +68,17 @@ func TestSwapLeavesOldAloneWhenSourceMissing(t *testing.T) {
 // the target. Otherwise an abort would leave the app broken.
 func TestTargetSurvivesTheCopy(t *testing.T) {
 	dir := t.TempDir()
-	ziel := filepath.Join(dir, "plxr.app")
+	target := filepath.Join(dir, "plxr.app")
 	fresh := filepath.Join(dir, "quelle.app")
-	bundle(t, ziel, "alt")
+	bundle(t, target, "alt")
 	bundle(t, fresh, "neu")
 
 	// Reproduce what swap does, and look in between.
-	daneben := ziel + ".neu"
+	daneben := target + ".neu"
 	if err := copyTree(fresh, daneben); err != nil {
 		t.Fatal(err)
 	}
-	if got := read(t, ziel); got != "alt" {
+	if got := read(t, target); got != "alt" {
 		t.Errorf("during the copy the target held %q instead of the old version", got)
 	}
 	os.RemoveAll(daneben)

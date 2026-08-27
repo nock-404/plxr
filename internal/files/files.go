@@ -227,14 +227,14 @@ func Suggestions(eingabe string, max int) []string {
 		dir = "."
 	}
 
-	eintraege, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return []string{}
 	}
 
 	small := strings.ToLower(rumpf)
 	out := []string{}
-	for _, e := range eintraege {
+	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}

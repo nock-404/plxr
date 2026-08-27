@@ -49,10 +49,10 @@ func Install(configDir string, entfernen bool) (string, error) {
 
 	changed := false
 	for _, ev := range Events {
-		liste, _ := hooks[ev].([]any)
-		fresh := make([]any, 0, len(liste))
+		list, _ := hooks[ev].([]any)
+		fresh := make([]any, 0, len(list))
 		vorhanden := false
-		for _, entry := range liste {
+		for _, entry := range list {
 			if isOurs(entry) {
 				changed = true
 				if entfernen {
@@ -158,9 +158,9 @@ func Installed(configDir string) bool {
 	}
 	hooks, _ := einst["hooks"].(map[string]any)
 	for _, ev := range Events {
-		liste, _ := hooks[ev].([]any)
+		list, _ := hooks[ev].([]any)
 		gefunden := false
-		for _, e := range liste {
+		for _, e := range list {
 			if isOurs(e) {
 				gefunden = true
 				break

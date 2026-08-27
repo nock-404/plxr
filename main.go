@@ -186,14 +186,14 @@ func selbstUpdate() error {
 	}
 	fmt.Printf("neue Fassung %s (aktuell %s), %.1f MB\n", st.Latest, version, float64(st.Size)/(1<<20))
 
-	letzte := -1
-	ort, err := update.Apply(st.AssetURL, func(read, gesamt int64) {
-		if gesamt <= 0 {
+	last := -1
+	ort, err := update.Apply(st.AssetURL, func(read, total int64) {
+		if total <= 0 {
 			return
 		}
-		p := int(read * 100 / gesamt)
-		if p != letzte && p%5 == 0 {
-			letzte = p
+		p := int(read * 100 / total)
+		if p != last && p%5 == 0 {
+			last = p
 			fmt.Printf("\r  laden … %d%%", p)
 		}
 	})

@@ -207,13 +207,13 @@ func Delete(e Entry) error { return os.Remove(e.Path) }
 //
 // Without this an account switch fails: Claude Code looks for transcripts only
 // below its own configuration directory.
-func Mirror(e Entry, ziel accounts.Account) (string, error) {
+func Mirror(e Entry, target accounts.Account) (string, error) {
 	folder := filepath.Base(filepath.Dir(e.Path))
-	zielDir := filepath.Join(ziel.ProjectsDir(), folder)
-	if err := os.MkdirAll(zielDir, 0o755); err != nil {
+	targetDir := filepath.Join(target.ProjectsDir(), folder)
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return "", err
 	}
-	targetPath := filepath.Join(zielDir, filepath.Base(e.Path))
+	targetPath := filepath.Join(targetDir, filepath.Base(e.Path))
 
 	// Schon aktuell? Dann nichts tun.
 	if zi, err := os.Stat(targetPath); err == nil {

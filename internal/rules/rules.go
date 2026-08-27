@@ -148,14 +148,14 @@ func imports(p string, tiefe int) []string {
 		if !strings.HasPrefix(line, "@") || len(line) < 2 {
 			continue
 		}
-		ziel := strings.Fields(line[1:])[0]
-		if strings.HasPrefix(ziel, "~/") {
+		target := strings.Fields(line[1:])[0]
+		if strings.HasPrefix(target, "~/") {
 			home, _ := os.UserHomeDir()
-			ziel = filepath.Join(home, ziel[2:])
-		} else if !filepath.IsAbs(ziel) {
-			ziel = filepath.Join(dir, ziel)
+			target = filepath.Join(home, target[2:])
+		} else if !filepath.IsAbs(target) {
+			target = filepath.Join(dir, target)
 		}
-		out = append(out, ziel)
+		out = append(out, target)
 	}
 	return out
 }

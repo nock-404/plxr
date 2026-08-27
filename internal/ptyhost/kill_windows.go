@@ -65,8 +65,8 @@ func afterStart(p *os.Process) any {
 // There is no gentle shutdown here: Windows has no SIGTERM, and
 // TerminateJobObject is always hard. The soft path would be 0x03 into the input
 // pipe — which is what the UI does when the user wants to cancel.
-func killProcess(p *os.Process, plattform any) {
-	if j, ok := plattform.(*jobObject); ok && j != nil {
+func killProcess(p *os.Process, platform any) {
+	if j, ok := platform.(*jobObject); ok && j != nil {
 		if windows.TerminateJobObject(j.handle, 1) == nil {
 			windows.CloseHandle(j.handle)
 			return
@@ -78,4 +78,4 @@ func killProcess(p *os.Process, plattform any) {
 
 // killProcessHard exists on Windows only for completeness: TerminateJobObject
 // is hard anyway, a second attempt changes nothing.
-func killProcessHard(p *os.Process, plattform any) { killProcess(p, plattform) }
+func killProcessHard(p *os.Process, platform any) { killProcess(p, platform) }

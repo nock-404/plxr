@@ -178,21 +178,26 @@ func (c *Core) PruneRecordings() {
 	if dir == "" {
 		return
 	}
-	eintraege, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
 	}
-	grenze := time.Now().AddDate(0, 0, -30)
-	lebt := map[string]bool{}
+	cutoff := time.Now().AddDate(0, 0, -30)
+	// A live session keeps both its recording and its timeline index. Guarding
+	// only the .log would delete the index out from under a session that has
+	// been running for over a month — and playback would lose its timing for
+	// exactly the long sessions where it matters most.
+	alive := map[string]bool{}
 	for _, s := range c.reg.List() {
-		lebt[s.ID+".log"] = true
+		alive[s.ID+".log"] = true
+		alive[s.ID+".idx"] = true
 	}
-	for _, e := range eintraege {
-		if lebt[e.Name()] {
+	for _, e := range entries {
+		if alive[e.Name()] {
 			continue
 		}
 		info, err := e.Info()
-		if err == nil && info.ModTime().Before(grenze) {
+		if err == nil && info.ModTime().Before(cutoff) {
 			os.Remove(filepath.Join(dir, e.Name()))
 		}
 	}
@@ -287,17 +292,17 @@ func (c *Core) TemplateStart(name string) ([]string, error) {
 
 // TemplateFromState turns whatever is open right now into a template.
 func (c *Core) TemplateFromState(name, label string) error {
-	var eintraege []template.Entry
+	var entries []template.Entry
 	for _, s := range c.reg.List() {
 		if !s.Alive {
 			continue
 		}
-		eintraege = append(eintraege, template.Entry{
+		entries = append(entries, template.Entry{
 			Cwd: s.Cwd, Cmd: s.Cmd, Name: s.Name, Account: s.Account,
 		})
 	}
 	return template.Save(daemon.Root(), template.Template{
-		Name: name, Label: label, Sessions: eintraege,
+		Name: name, Label: label, Sessions: entries,
 	})
 }
 
@@ -358,14 +363,14 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 		return nil, errors.New("Arbeitsverzeichnis gibt es nicht mehr: " + e.Cwd)
 	}
 
-	ziel := toAccount
-	if ziel == "" {
-		ziel = e.Account
+	target := toAccount
+	if target == "" {
+		target = e.Account
 	}
-	if ziel != e.Account {
-		acc, ok := accounts.ByName(c.Accounts(), ziel)
+	if target != e.Account {
+		acc, ok := accounts.ByName(c.Accounts(), target)
 		if !ok {
-			return nil, errors.New("Konto gibt es nicht: " + ziel)
+			return nil, errors.New("Konto gibt es nicht: " + target)
 		}
 		if _, err := archive.Mirror(e, acc); err != nil {
 			return nil, errors.New("Transkript ließ sich nicht ins Zielkonto kopieren: " + err.Error())
@@ -376,7 +381,7 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	if name == "" {
 		name = e.Project
 	}
-	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, ziel)
+	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, target)
 }
 
 // ResumeOrphaned restarts an orphaned session.
@@ -410,9 +415,9 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 	if claudeID == "" {
 		return nil, errors.New("für diese Session ist keine Claude-Session-ID bekannt — läuft dort überhaupt Claude Code?")
 	}
-	quelle := s.Account
+	source := s.Account
 	c.Kill(sessionID, true)
-	return c.Resume(claudeID, quelle, toAccount)
+	return c.Resume(claudeID, source, toAccount)
 }
 
 // ---- Verbrauch ----
@@ -530,12 +535,12 @@ func (c *Core) Update() error {
 	updateMu.Unlock()
 
 	go func() {
-		ort, err := update.Apply(st.AssetURL, func(read, gesamt int64) {
-			if gesamt <= 0 {
+		ort, err := update.Apply(st.AssetURL, func(read, total int64) {
+			if total <= 0 {
 				return
 			}
 			setStatus(func(u *UpdateStatus) {
-				u.Percent = int(read * 100 / gesamt)
+				u.Percent = int(read * 100 / total)
 				if u.Percent >= 100 {
 					u.Phase = "tauscht aus"
 				}
@@ -569,6 +574,13 @@ func (c *Core) Restart() error {
 		return errors.New("nichts eingesetzt")
 	}
 	return update.Restart(st.Path)
+}
+
+// Playback hands out a recording plus its timeline, so the UI can replay a
+// session — including sessions that no longer exist. The recording is the raw
+// terminal stream; a terminal emulator reproduces it exactly.
+func (c *Core) Playback(id string, from int64) (*search.Playback, error) {
+	return search.ReadPlayback(ptyhost.RecordingDir, id, from)
 }
 
 // ---- Rules and ports ----
@@ -737,12 +749,12 @@ func (c *Core) checkEdge(sess session.Session) {
 	jetzt := sess.Alive && sess.Status == session.StatusPermission
 
 	c.mu.Lock()
-	vorher, gesehen := c.lastStatus[sess.ID]
+	before, gesehen := c.lastStatus[sess.ID]
 	c.lastStatus[sess.ID] = sess.Status
 	c.mu.Unlock()
 
-	warVorher := gesehen && vorher == session.StatusPermission
-	if !jetzt || warVorher {
+	wasBefore := gesehen && before == session.StatusPermission
+	if !jetzt || wasBefore {
 		return
 	}
 	// Ganz frisch gestartete Sessions kurz in Ruhe lassen: Claude Code zeigt

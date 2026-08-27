@@ -50,12 +50,13 @@ type Host struct {
 
 	// recording is the file the whole stream runs into — including what falls
 	// off the front of the ring buffer.
-	recording   *os.File
-	geschrieben int64
+	recording *os.File
+	timeline  *timeline
+	written   int64
 
 	// platform holds whatever only one specific system needs — on Windows for
 	// instance the job object through which the whole process group ends.
-	plattform any
+	platform any
 
 	Done chan struct{}
 }
@@ -100,7 +101,7 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	}
 	if c.Process != nil {
 		h.PID = c.Process.Pid
-		h.plattform = afterStart(c.Process)
+		h.platform = afterStart(c.Process)
 	}
 	// Open the recording. If that fails everything carries on — just without a
 	// recording. A terminal that refuses to start because a disk is full would
@@ -111,6 +112,7 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 				os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 			if err == nil {
 				h.recording = f
+				h.timeline = openTimeline(filepath.Join(RecordingDir, id+".idx"))
 			}
 		}
 	}
@@ -176,9 +178,12 @@ func (h *Host) pump() {
 			copy(chunk, b[:n])
 			h.mu.Lock()
 			h.last = time.Now()
-			if h.recording != nil && h.geschrieben < MaxRecording {
+			if h.recording != nil && h.written < MaxRecording {
+				// Mark BEFORE the write: the mark points at the offset this
+				// chunk starts at, which is what playback needs to seek to.
+				h.timeline.mark(h.written, h.last)
 				if n, err := h.recording.Write(chunk); err == nil {
-					h.geschrieben += int64(n)
+					h.written += int64(n)
 				}
 			}
 			h.buf = append(h.buf, chunk...)
@@ -217,6 +222,7 @@ func (h *Host) pump() {
 		h.recording.Close()
 		h.recording = nil
 	}
+	h.timeline.close()
 	h.mu.Unlock()
 	h.pty.Close()
 	close(h.Done)
@@ -337,7 +343,7 @@ func (h *Host) Kill() {
 	if h.cmd.Process == nil {
 		return
 	}
-	killProcess(h.cmd.Process, h.plattform)
+	killProcess(h.cmd.Process, h.platform)
 
 	go func() {
 		frist := time.Now().Add(KillGrace)
@@ -348,7 +354,7 @@ func (h *Host) Kill() {
 			time.Sleep(100 * time.Millisecond)
 		}
 		if h.Alive() {
-			killProcessHard(h.cmd.Process, h.plattform)
+			killProcessHard(h.cmd.Process, h.platform)
 		}
 	}()
 }
