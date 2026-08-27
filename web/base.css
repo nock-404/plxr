@@ -385,3 +385,12 @@ html, body {
 /* Verbrauchstempo in der Statuszeile. */
 .tempo { flex: 0 0 auto; cursor: default; }
 .tempo[hidden] { display: none !important; }
+
+/* Kurzhinweis. Liegt frei über allem, misst sich selbst aus und wird von
+   ui.js platziert — das Aussehen bringt der Skin mit. */
+.tipp {
+  position: fixed; z-index: 60; pointer-events: none;
+  max-width: 320px; white-space: pre-line;
+  padding: 4px 8px;
+}
+.tipp[hidden] { display: none !important; }

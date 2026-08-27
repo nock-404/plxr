@@ -26,7 +26,7 @@
     const knopf = $$('.auswahlKnopf', wurzel);
     const text = $$('.auswahlText', wurzel);
     const liste = $$('.auswahlListe', wurzel);
-    if (sel.title) knopf.title = sel.title;
+    if (sel.dataset.tip) knopf.dataset.tip = sel.dataset.tip;
 
     const zeichnen = () => {
       text.textContent = sel.options[sel.selectedIndex]?.textContent || '';
@@ -256,8 +256,67 @@
     };
   }
 
+  /* Eigene Kurzhinweise statt title="".
+     Ein title-Attribut lässt das Betriebssystem eine graue Kachel zeichnen —
+     mitten in einer Oberfläche, die sonst nichts vom System übernimmt. Sie
+     erscheint verzögert, ignoriert jeden Skin und lässt sich nicht platzieren.
+     Deshalb data-tip: gleicher Zweck, aber gezeichnet wie alles andere. */
+  let tippEl = null;
+  let tippTimer = null;
+
+  function tippZeigen(ziel) {
+    const text = ziel.dataset.tip;
+    if (!text) return;
+    if (!tippEl) {
+      tippEl = document.createElement('div');
+      tippEl.className = 'tipp';
+      document.body.appendChild(tippEl);
+    }
+    tippEl.textContent = text;
+    tippEl.hidden = false;
+
+    // Erst messen, dann setzen: sonst schiebt ein langer Hinweis am Rand
+    // das Fenster auf.
+    const k = ziel.getBoundingClientRect();
+    const t = tippEl.getBoundingClientRect();
+    let x = k.left + k.width / 2 - t.width / 2;
+    x = Math.max(6, Math.min(x, window.innerWidth - t.width - 6));
+    // Unter das Element, es sei denn dort ist kein Platz mehr.
+    const y = k.bottom + 8 + t.height > window.innerHeight ? k.top - t.height - 8 : k.bottom + 8;
+    tippEl.style.left = Math.round(x) + 'px';
+    tippEl.style.top = Math.round(Math.max(6, y)) + 'px';
+  }
+
+  function tippWeg() {
+    clearTimeout(tippTimer);
+    if (tippEl) tippEl.hidden = true;
+  }
+
+  function tippBinden() {
+    const einstieg = (e) => {
+      const ziel = e.target.closest?.('[data-tip]');
+      if (!ziel) return;
+      clearTimeout(tippTimer);
+      tippTimer = setTimeout(() => tippZeigen(ziel), 400);
+    };
+    document.addEventListener('mouseover', einstieg);
+    document.addEventListener('mouseout', (e) => {
+      if (e.target.closest?.('[data-tip]')) tippWeg();
+    });
+    // Beim Klicken und beim Rollen stört der Hinweis nur.
+    document.addEventListener('mousedown', tippWeg, true);
+    document.addEventListener('scroll', tippWeg, true);
+    // Tastaturbedienung: beim Fokussieren sofort, ohne Verzögerung.
+    document.addEventListener('focusin', (e) => {
+      const ziel = e.target.closest?.('[data-tip]');
+      if (ziel) tippZeigen(ziel);
+    });
+    document.addEventListener('focusout', tippWeg);
+  }
+
   window.plxrUI = {
     farbwahl,
+    tippBinden,
     auswahlAlle() { document.querySelectorAll('select').forEach(auswahl); },
     // Versalien wie im übrigen Markup: crt setzt text-transform, die anderen
     // Skins nicht — kleines "ja" neben großem "ABBRECHEN" fiel sofort auf.

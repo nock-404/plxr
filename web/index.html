@@ -28,8 +28,8 @@
     <div class="griff"></div>
 
     <div class="tools">
-      <button class="btn icon" id="settingsBtn" title="Einstellungen">⚙</button>
-      <button class="btn" id="vorlagenBtn" title="Gespeicherte Arbeitsumgebungen">VORLAGEN</button>
+      <button class="btn icon" id="settingsBtn" data-tip="Einstellungen">⚙</button>
+      <button class="btn" id="vorlagenBtn" data-tip="Gespeicherte Arbeitsumgebungen">VORLAGEN</button>
       <button class="btn primary" id="newBtn">+ NEU</button>
     </div>
   </header>
@@ -92,10 +92,10 @@
         <div class="listbar">
           <span class="prompt">suche&gt;</span>
           <input id="archSearch" spellcheck="false" placeholder="Titel und Projekt — Eingabetaste sucht im Volltext">
-          <button class="btn" id="archFullText" title="In allen Claude-Unterhaltungen suchen">UNTERHALTUNGEN</button>
-          <button class="btn" id="archTerminals" title="In allem, was je in einem Terminal stand">TERMINALS</button>
+          <button class="btn" id="archFullText" data-tip="In allen Claude-Unterhaltungen suchen">UNTERHALTUNGEN</button>
+          <button class="btn" id="archTerminals" data-tip="In allem, was je in einem Terminal stand">TERMINALS</button>
           <span class="spacer"></span>
-          <select id="archAccount" title="Unter welchem Konto fortsetzen"></select>
+          <select id="archAccount" data-tip="Unter welchem Konto fortsetzen"></select>
           <span id="archInfo" class="meta"></span>
         </div>
         <div class="listbody" id="archList"></div>
@@ -126,7 +126,7 @@
           <span class="prompt">verbrauch&gt;</span>
           <span id="usageInfo" class="meta"></span>
           <span class="spacer"></span>
-          <select id="usageRange" title="Zeitraum">
+          <select id="usageRange" data-tip="Zeitraum">
             <option value="7">letzte 7 Tage</option>
             <option value="30" selected>letzte 30 Tage</option>
             <option value="0">alles</option>
@@ -140,10 +140,10 @@
           <span id="sessTitle" class="sesstitle"></span>
           <span id="sessMeta" class="meta"></span>
           <span class="spacer"></span>
-          <button class="btn" id="filesToggle" title="Dateibaum">DATEIEN</button>
-          <button class="btn" id="rulesToggle" title="Welche CLAUDE.md, Skills und Agenten hier wirken">REGELN</button>
-          <button class="btn" id="splitAdd" title="Weitere Session daneben legen">TEILEN</button>
-          <select id="sessAccount" title="Konto wechseln"></select>
+          <button class="btn" id="filesToggle" data-tip="Dateibaum">DATEIEN</button>
+          <button class="btn" id="rulesToggle" data-tip="Welche CLAUDE.md, Skills und Agenten hier wirken">REGELN</button>
+          <button class="btn" id="splitAdd" data-tip="Weitere Session daneben legen">TEILEN</button>
+          <select id="sessAccount" data-tip="Konto wechseln"></select>
           <button class="btn" id="sessKill">BEENDEN</button>
         </div>
 
@@ -151,7 +151,7 @@
           <aside class="files" id="files" hidden>
             <div class="filesbar">
               <span id="filesRoot" class="filesroot"></span>
-              <button class="btn tiny" id="noiseToggle" title="Versteckte und ignorierte Einträge">·*</button>
+              <button class="btn tiny" id="noiseToggle" data-tip="Versteckte und ignorierte Einträge">·*</button>
             </div>
             <div class="filetree" id="filetree"></div>
           </aside>
@@ -164,9 +164,9 @@
             <span class="prompt">suchen&gt;</span>
             <input id="sucheFeld" spellcheck="false" placeholder="im Terminal suchen">
             <span id="sucheStand" class="meta"></span>
-            <button class="btn tiny" id="sucheHoch" title="vorheriger Treffer (Shift+Enter)">↑</button>
-            <button class="btn tiny" id="sucheRunter" title="nächster Treffer (Enter)">↓</button>
-            <button class="btn tiny" id="sucheZu" title="schließen (Esc)">✕</button>
+            <button class="btn tiny" id="sucheHoch" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
+            <button class="btn tiny" id="sucheRunter" data-tip="nächster Treffer (Enter)">↓</button>
+            <button class="btn tiny" id="sucheZu" data-tip="schließen (Esc)">✕</button>
           </div>
 
           <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
@@ -193,9 +193,9 @@
               <span class="prompt">suchen&gt;</span>
               <input id="esucheFeld" spellcheck="false" placeholder="in der Datei suchen">
               <span id="esucheStand" class="meta"></span>
-              <button class="btn tiny" id="esucheHoch" title="vorheriger Treffer (Shift+Enter)">↑</button>
-              <button class="btn tiny" id="esucheRunter" title="nächster Treffer (Enter)">↓</button>
-              <button class="btn tiny" id="esucheZu" title="schließen (Esc)">✕</button>
+              <button class="btn tiny" id="esucheHoch" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
+              <button class="btn tiny" id="esucheRunter" data-tip="nächster Treffer (Enter)">↓</button>
+              <button class="btn tiny" id="esucheZu" data-tip="schließen (Esc)">✕</button>
             </div>
             <div class="viewerwrap">
               <div id="viewerMarks" class="viewermarks" aria-hidden="true"></div>
@@ -248,7 +248,7 @@
 
     <div class="feld">
       <span class="feldname">aussehen</span>
-      <select id="themeSel" title="Theme"></select>
+      <select id="themeSel" data-tip="Theme"></select>
     </div>
 
     <div class="feld">

@@ -266,3 +266,6 @@ body {
 .stilschalter:hover { background: var(--line); color: var(--accent); }
 .paneclose:hover { color: var(--blocked); }
 .farbtupfer:hover { box-shadow: 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent), -3px 0 0 0 var(--accent), 3px 0 0 0 var(--accent); }
+
+/* Kurzhinweis */
+.tipp { border: 2px solid var(--accent); background: var(--panel); color: var(--fg); image-rendering: pixelated; }

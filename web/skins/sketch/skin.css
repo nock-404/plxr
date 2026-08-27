@@ -268,3 +268,6 @@ body {
 .stilschalter:hover { background: #efe9d8; }
 .paneclose:hover { color: var(--blocked); }
 .farbtupfer:hover { border-color: var(--accent); }
+
+/* Kurzhinweis */
+.tipp { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }

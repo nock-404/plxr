@@ -74,8 +74,12 @@ async function req(pfad, opts = {}) {
   } catch (e) {
     // Netzwerkfehler heißt hier: der Daemon ist weg. Nicht dem Aufrufer
     // aufbürden, sondern die Wiederverbindung anstoßen.
+    //
+    // Und nicht den Wortlaut der Webview durchreichen: die sagt je nach
+    // System "Load failed" oder "Failed to fetch". Das stand dem Nutzer dann
+    // englisch und ohne Zusammenhang im Dialog und erklärte nichts.
     neuVerbinden();
-    throw e;
+    throw new Error('Keine Verbindung zum Daemon — wird neu aufgebaut.');
   }
   if (r.status === 403) { neuVerbinden(); throw new Error('Token abgelaufen'); }
   if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
@@ -212,7 +216,34 @@ function zeigeVerbindung(ok) {
   if (ok === verbindungOk) return;
   verbindungOk = ok;
   document.documentElement.dataset.offline = ok ? '' : 'ja';
-  if (!ok) $('#counts').textContent = 'Verbindung verloren, versuche erneut …';
+  if (!ok) {
+    $('#counts').textContent = 'Verbindung verloren, versuche erneut …';
+    return;
+  }
+  /* Steht die Verbindung wieder, muss der Satz sofort weg. Ihn nur bis zum
+     nächsten Zustands-Update stehen zu lassen hieß: läuft gerade nichts, was
+     eine Meldung auslöst, klebt "Verbindung verloren" endlos im Kopf, obwohl
+     alles wieder geht. */
+  zeichneAlles(state.tiles);
+  ansichtAuffrischen();
+}
+
+/* Was gerade offen ist, noch einmal laden. Eine Ansicht, die während des
+   Ausfalls "nicht erreichbar" angezeigt hat, heilt sonst nicht von selbst —
+   der Nutzer müsste sie von Hand neu öffnen und weiß das nicht. */
+function ansichtAuffrischen() {
+  const nach = [
+    ['#viewPorts', () => ansichtLaden('#portsList', '#portsInfo', portsLaden)],
+    ['#viewUsage', () => ansichtLaden('#usageBody', '#usageInfo', verbrauchLaden)],
+    ['#viewArchive', () => ansichtLaden('#archList', '#archInfo', archivLaden)],
+  ];
+  for (const [sel, laden] of nach) {
+    if (!$(sel)?.hidden) laden();
+  }
+  if (!$('#settings').hidden) {
+    themesLaden($('#themeSel').value).catch(() => {});
+    hookStandZeigen();
+  }
 }
 
 let neuTimer = null;
@@ -642,8 +673,8 @@ async function ansichtLaden(box, info, laden) {
   } catch (e) {
     if (info) $(info).textContent = '';
     leerZeigen($(box), 'nicht erreichbar',
-      `Der Daemon antwortet gerade nicht (${e.message || e}). ` +
-      'Er wird im Hintergrund neu gestartet — diese Ansicht noch einmal öffnen.');
+      'Der Daemon antwortet gerade nicht. Er wird im Hintergrund neu ' +
+      'gestartet — sobald er da ist, füllt sich die Ansicht von selbst.');
   }
 }
 
@@ -727,7 +758,7 @@ function inboxZeichnen() {
       for (const a of SCHNELLANTWORT) {
         const b = document.createElement('button');
         b.textContent = a.label;
-        b.title = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
+        b.dataset.tip = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
         b.addEventListener('click', () => antworten(t.id, a.text, a.text === '\u001b'));
         schnell.appendChild(b);
       }
@@ -841,7 +872,7 @@ function zeichneSchiene() {
       el.querySelector('.rsub').textContent = t.verwaist
         ? 'abgestürzt · wiederaufnehmen'
         : [t.alive ? WORT[st] : 'beendet', t.agent].filter(Boolean).join(' · ');
-      el.title = `${t.name} — ${t.cwd}`;
+      el.dataset.tip = `${t.name} — ${t.cwd}`;
     }
   }
 
@@ -1920,7 +1951,7 @@ $('#rulesToggle').addEventListener('click', async () => {
     zeile.querySelector('.rtitle').textContent = e.name;
     zeile.querySelector('.rdesc').textContent = e.description || '';
     zeile.querySelector('.rpath').textContent = e.path;
-    zeile.title = e.path;
+    zeile.dataset.tip = e.path;
     box.appendChild(zeile);
   }
 });
@@ -2039,7 +2070,7 @@ function archivZeichnen() {
       zeile.querySelector('.zauszug').textContent = t.auszug;
       zeile.querySelector('.zproj').textContent = t.cwd ? t.cwd.split('/').pop() : '';
       zeile.querySelector('.zwert').textContent = t.anzahl + '×';
-      zeile.title = t.cwd || '';
+      zeile.dataset.tip = t.cwd || '';
       // Läuft die Session noch, führt ein Klick hinein.
       if (state.tiles.some((x) => x.id === t.sessionId && x.alive)) {
         zeile.style.cursor = 'pointer';
@@ -2074,7 +2105,7 @@ function archivZeichnen() {
       zeile.querySelector('.zauszug').textContent = t.auszug;
       zeile.querySelector('.zproj').textContent = t.project;
       zeile.querySelector('.zwert').textContent = t.anzahl + '×';
-      zeile.title = t.cwd;
+      zeile.dataset.tip = t.cwd;
       zeile.querySelector('button').addEventListener('click', (ev) => {
         ev.stopPropagation();
         fortsetzen(t.sessionId, t.account);
@@ -2123,7 +2154,7 @@ function archivZeichnen() {
     zeile.querySelector('.zproj').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
     zeile.querySelector('.zklein').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
     zeile.querySelector('.zwert').textContent = (e.size / 1024).toFixed(0) + ' kB';
-    zeile.title = e.cwd;
+    zeile.dataset.tip = e.cwd;
 
     zeile.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -2475,7 +2506,7 @@ async function vorlagenOeffnen() {
     zeile.querySelector('.rname').textContent = v.label;
     zeile.querySelector('.meta').textContent =
       `${v.sessions.length} ${v.sessions.length === 1 ? 'Session' : 'Sessions'}`;
-    zeile.title = v.sessions.map((e) => e.cwd).join('\n');
+    zeile.dataset.tip = v.sessions.map((e) => e.cwd).join('\n');
 
     zeile.addEventListener('click', async (ev) => {
       if (ev.target.dataset.t === 'weg') return;
@@ -2581,6 +2612,9 @@ api.env().then((e) => {
 })();
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-DE'); }, 1000);
+
+// Eigene Kurzhinweise anmelden — title="" wäre eine Kachel vom System.
+plxrUI.tippBinden();
 
 pfadHilfe($('#pathFilter'), filterUebernehmen);
 pfadHilfe($('#newCwd'));

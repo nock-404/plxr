@@ -275,3 +275,6 @@ body {
 .paneclose:hover { color: var(--blocked); }
 .farbtupfer:hover { border-color: var(--accent); }
 .btn:hover { background: #d4d0c8; }
+
+/* Kurzhinweis */
+.tipp { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
