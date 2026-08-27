@@ -701,6 +701,56 @@ const SCHNELLANTWORT = [
   { text: '\u001b', label: 'Esc' },
 ];
 
+/* Die Knöpfe trugen „1 / 2 / y / n". Was hinter der 2 steckt, stand drei Zeilen
+   darüber — man musste die Frage lesen, um zu wissen, was man drückt. Die
+   Auswahlzeilen stehen aber im erkannten Fragetext; von dort lassen sie sich
+   herausschneiden und auf die Knöpfe schreiben.
+
+   Getroffen werden die Formen, die die CLIs tatsächlich benutzen:
+   „1) rot", „2. Nein", „❯ 1. Yes" — mit oder ohne Auswahlmarke davor. */
+const OPTIONSZEILE = /^[\s>❯▶*·-]*(\d{1,2})\s*[).:\]]\s+(.{1,60}?)\s*$/;
+
+function optionenAus(frage) {
+  if (!frage) return null;
+  const out = [];
+  const gesehen = new Set();
+  for (const zeile of String(frage).split('\n')) {
+    const m = OPTIONSZEILE.exec(zeile);
+    if (!m) continue;
+    const [, taste, text] = m;
+    if (gesehen.has(taste)) continue;      // dieselbe Ziffer nur einmal
+    gesehen.add(taste);
+    out.push({ text: taste, label: `${taste} · ${kurzText(text)}` });
+    if (out.length >= 5) break;            // mehr passt nicht auf eine Karte
+  }
+  // Eine einzelne Ziffer ist keine Auswahl, sondern meistens eine Zeilennummer.
+  return out.length >= 2 ? out : null;
+}
+
+// Der Optionstext kann eine ganze Erklärung sein — auf dem Knopf zählt der Anfang.
+function kurzText(t) {
+  const sauber = t.replace(/\s+/g, ' ').trim();
+  return sauber.length > 22 ? sauber.slice(0, 21) + '…' : sauber;
+}
+
+/* Ja/Nein-Fragen tragen keine Nummern, aber dieselbe Not: „y" sagt nicht, wozu. */
+function jaNeinAus(frage) {
+  if (!/\(y\/n\)|\[y\/N\]|\[Y\/n\]/i.test(frage || '')) return null;
+  return [
+    { text: 'y', label: 'y · ja' },
+    { text: 'n', label: 'n · nein' },
+  ];
+}
+
+function schnellFuer(frage) {
+  const eigene = optionenAus(frage) || jaNeinAus(frage);
+  if (!eigene) return SCHNELLANTWORT;
+  // Bestätigen und Abbrechen gehören immer dazu.
+  return [...eigene,
+    { text: '', label: 'Eingabe' },
+    { text: '\u001b', label: 'Esc' }];
+}
+
 async function zeigeInbox() {
   nurZeigen('#viewInbox');
   zeichneSchiene();
@@ -754,14 +804,6 @@ function inboxZeichnen() {
         feld.value = '';
       });
 
-      const schnell = karte.querySelector('.postschnell');
-      for (const a of SCHNELLANTWORT) {
-        const b = document.createElement('button');
-        b.textContent = a.label;
-        b.dataset.tip = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
-        b.addEventListener('click', () => antworten(t.id, a.text, a.text === '\u001b'));
-        schnell.appendChild(b);
-      }
       box.appendChild(karte);
     }
 
@@ -770,6 +812,22 @@ function inboxZeichnen() {
     const frage = karte.querySelector('.postfrage');
     const neu = t.frage || t.activity || '(keine Frage erkannt)';
     if (frage.textContent !== neu) frage.textContent = neu;
+
+    /* Nur neu bauen, wenn sich die Frage geändert hat: die Karte wird im
+       Sekundentakt aufgefrischt, und wer gerade auf einen Knopf zielt, soll
+       ihn nicht unter dem Zeiger verlieren. */
+    const schnell = karte.querySelector('.postschnell');
+    if (schnell.dataset.fuer !== neu) {
+      schnell.dataset.fuer = neu;
+      schnell.innerHTML = '';
+      for (const a of schnellFuer(t.frage)) {
+        const b = document.createElement('button');
+        b.textContent = a.label;
+        b.dataset.tip = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
+        b.addEventListener('click', () => antworten(t.id, a.text, a.text === '\u001b'));
+        schnell.appendChild(b);
+      }
+    }
   }
   for (const el of [...box.querySelectorAll('.postkarte')]) {
     if (!gesehen.has(el.dataset.id)) el.remove();
@@ -896,6 +954,14 @@ function seit(ms) {
   return Math.floor(s / 3600) + 'h';
 }
 
+/* Läuft die Session mit übergangenen Rückfragen? Dann fragt sie nicht mehr,
+   bevor sie etwas tut — und das soll man sehen, ohne die Kommandozeile zu
+   lesen. Geprüft wird der Anfang des Schalters, damit auch die Kurzform und
+   ein angehängtes Gleichheitszeichen greifen. */
+function ungezaehmt(t) {
+  return (t.cmd || []).some((a) => /^--dangerously-skip-permissions\b/.test(a));
+}
+
 function zeichneRaster() {
   const raster = $('#viewGrid');
   const gesehen = new Set();
@@ -916,6 +982,9 @@ function zeichneRaster() {
     }
     const st = zustand(t);
     el.dataset.status = st;
+    /* Warnkleid: eine Session mit übergangenen Rückfragen sieht sonst aus wie
+       jede andere — vier ruhige Ränder, einer nicht. */
+    el.dataset.ungezaehmt = ungezaehmt(t) ? 'ja' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
     punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');

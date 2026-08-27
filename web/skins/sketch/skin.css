@@ -271,3 +271,12 @@ body {
 
 /* Kurzhinweis */
 .tipp { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
+
+/* Warnkleid: übergangene Rückfragen */
+.tile[data-ungezaehmt="ja"]::before {
+  border: 2px solid var(--blocked);
+  border-radius: 12px 4px 10px 5px;
+  background: repeating-linear-gradient(48deg,
+    color-mix(in srgb, var(--blocked) 10%, transparent) 0 7px,
+    transparent 7px 16px);
+}

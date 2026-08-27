@@ -394,3 +394,10 @@ html, body {
   padding: 4px 8px;
 }
 .tipp[hidden] { display: none !important; }
+
+/* Warnkleid. Die Lage hier, das Aussehen im Skin — ein gelb-schwarzes Band
+   gehört zu win95 anders als zu sketch. */
+.tile[data-ungezaehmt="ja"] { position: relative; }
+.tile[data-ungezaehmt="ja"]::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+}

@@ -332,3 +332,11 @@ body {
 
 /* Kurzhinweis */
 .tipp { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* Warnkleid: übergangene Rückfragen */
+.tile[data-ungezaehmt="ja"]::before {
+  border: 1px solid var(--blocked);
+  background: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--blocked) 14%, transparent) 0 6px,
+    transparent 6px 14px);
+}
