@@ -101,7 +101,7 @@ const api = {
   fenster: WAILS,
 
   env: () => (WAILS ? Native.Env() : Promise.resolve({ platform: 'web', titlebarInset: false })),
-  ordnerWaehlen: () => (WAILS ? Native.PickDirectory() : Promise.resolve('')),
+  pickDirectory: () => (WAILS ? Native.PickDirectory() : Promise.resolve('')),
 
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
@@ -465,14 +465,14 @@ const STYLE_COLORS = [
   ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
 ];
 
-const styleState = { changes: {}, waehler: {}, fontSize: 0, termSize: 0 };
+const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0 };
 
 function buildStyleEditor() {
   const box = $('#styleEditor');
   // Schon gebaut: nur die Werte auffrischen. Sonst zeigen die Tupfer nach
   // einem Themewechsel weiter die alten Farben.
   if (box.children.length) {
-    for (const [key] of STYLE_COLORS) styleState.waehler[key]?.set(currentColor(key));
+    for (const [key] of STYLE_COLORS) styleState.pickers[key]?.set(currentColor(key));
     return;
   }
 
@@ -484,7 +484,7 @@ function buildStyleEditor() {
     const field = row.querySelector('.farbwert');
     field.value = currentColor(key);
     box.appendChild(row);
-    styleState.waehler[key] = plxrUI.colorPicker(field, (wert) => {
+    styleState.pickers[key] = plxrUI.colorPicker(field, (wert) => {
       styleState.changes[key] = wert;
       document.documentElement.style.setProperty('--' + key, wert);
       if (key.startsWith('term-')) forEachPane((p) => { p.term.options.theme = xtermTheme(); });
@@ -1162,14 +1162,14 @@ function pathComplete(field, onPick) {
       b.className = 'selectRow';
       b.textContent = pfad;
       if (i === picked) b.dataset.picked = 'ja';
-      b.addEventListener('mousedown', (e) => { e.preventDefault(); waehlen(pfad); });
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(pfad); });
       list.appendChild(b);
     });
     stellen();
     list.hidden = false;
   };
 
-  const waehlen = (pfad) => {
+  const pick = (pfad) => {
     // Trenner anhängen: der nächste Tastendruck sucht dann schon darin.
     field.value = pfad.endsWith('/') ? pfad : pfad + '/';
     zu();
@@ -1207,7 +1207,7 @@ function pathComplete(field, onPick) {
       list.children[picked]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter' && picked >= 0) {
       e.preventDefault();
-      waehlen(treffer[picked]);
+      pick(treffer[picked]);
     } else if (e.key === 'Escape') {
       zu();
     }
@@ -1534,8 +1534,8 @@ function findInTerminal(backwards, vonVorn) {
   if (!q) { $('#findCount').textContent = ''; try { p.search.clearDecorations(); } catch {} return; }
 
   // Zähler anmelden, sobald es die Fläche zum ersten Mal betrifft.
-  if (!p.zaehlerAn) {
-    p.zaehlerAn = true;
+  if (!p.counterBound) {
+    p.counterBound = true;
     try {
       p.search.onDidChangeResults((r) => {
         $('#findCount').textContent = !r || !r.resultCount
@@ -2093,7 +2093,7 @@ const player = {
   daten: null,      // Uint8Array des Stroms
   marken: [],       // [{offset, at}]
   pos: 0,           // wie weit bereits geschrieben wurde
-  laeuft: false,
+  running: false,
   tempo: 1,
   skipIdle: true,
   timer: null,
@@ -2185,7 +2185,7 @@ function playerNextMark(pos) {
 }
 
 function playerStep() {
-  if (!player.laeuft || !player.daten) return;
+  if (!player.running || !player.daten) return;
   if (player.pos >= player.daten.length) { playerPause(); return; }
 
   const bis = Math.min(playerNextMark(player.pos), player.daten.length);
@@ -2200,14 +2200,14 @@ function playerStep() {
 }
 
 function playerPlay(an) {
-  player.laeuft = an;
+  player.running = an;
   $('#playerPlay').textContent = an ? '❙❙' : '▶';
   clearTimeout(player.timer);
   if (an) playerStep();
 }
 
 function playerPause() {
-  player.laeuft = false;
+  player.running = false;
   clearTimeout(player.timer);
   $('#playerPlay').textContent = '▶';
 }
@@ -2216,7 +2216,7 @@ function playerPause() {
    alles bis zur Zielstelle in einem Rutsch schreiben. */
 function playerSeek(ziel) {
   if (!player.daten) return;
-  const lief = player.laeuft;
+  const lief = player.running;
   playerPause();
   player.term.reset();
   player.pos = Math.max(0, Math.min(ziel, player.daten.length));
@@ -2249,7 +2249,7 @@ const playerClock = (sek) => {
 };
 
 $('#playerClose').addEventListener('click', closePlayer);
-$('#playerPlay').addEventListener('click', () => playerPlay(!player.laeuft));
+$('#playerPlay').addEventListener('click', () => playerPlay(!player.running));
 $('#playerSeek').addEventListener('input', (e) => {
   if (!player.daten) return;
   playerSeek(Math.round((e.target.value / 1000) * player.daten.length));
@@ -2265,7 +2265,7 @@ $('#playerSkipIdle').addEventListener('click', () => {
 });
 document.addEventListener('keydown', (e) => {
   if ($('#player').hidden) return;
-  if (e.key === ' ') { e.preventDefault(); playerPlay(!player.laeuft); }
+  if (e.key === ' ') { e.preventDefault(); playerPlay(!player.running); }
   if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
 }, true);
 
@@ -2675,7 +2675,7 @@ async function loadUsage() {
    veröffentlicht. Deshalb wird nicht behauptet, wann Schluss ist, sondern
    gezeigt, wie schnell es gerade geht und ob das Tempo steigt. */
 
-const TREND = { steigt: '↑', faellt: '↓', gleich: '·' };
+const TREND = { steigt: '↑', falling: '↓', gleich: '·' };
 
 function tokShort(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
@@ -2939,7 +2939,7 @@ $('#newCancel').addEventListener('click', () => { $('#dialog').hidden = true; })
 if (api.fenster) {
   $('#pickDir').hidden = false;
   $('#pickDir').addEventListener('click', async () => {
-    const d = await api.ordnerWaehlen();
+    const d = await api.pickDirectory();
     if (d) $('#newCwd').value = d;
   });
 }
@@ -3045,7 +3045,7 @@ connect()
     checkVersion(true);
     // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
     api.updateStand().then((st) => {
-      if (st.laeuft) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
+      if (st.running) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
     setInterval(checkVersion, VERSION_INTERVAL);
   })
