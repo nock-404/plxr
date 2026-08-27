@@ -14,9 +14,12 @@ func logfile(t *testing.T, dir, id, content string) {
 	}
 }
 
-/* The hit alone does not help. The same error has been seen three times
-   already; what is wanted is what came after it — the command that fixed it
-   back then. */
+/*
+The hit alone does not help. The same error has been seen three times
+
+	already; what is wanted is what came after it — the command that fixed it
+	back then.
+*/
 func TestSearchReturnsWhatCameAfter(t *testing.T) {
 	dir := t.TempDir()
 	logfile(t, dir, "abc", strings.Join([]string{

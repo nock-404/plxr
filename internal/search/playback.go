@@ -81,3 +81,20 @@ func ReadPlayback(dir, id string, from int64) (*Playback, error) {
 		HasIdx: len(marks) > 0,
 	}, nil
 }
+
+// ReadTimeline hands out the marks of a recording on their own.
+func ReadTimeline(dir, id string) ([]ptyhost.Mark, error) {
+	if dir == "" || filepath.Base(id) != id || id == "" {
+		return nil, errors.New("unzulässige Kennung")
+	}
+	if _, err := os.Stat(filepath.Join(dir, id+".log")); err != nil {
+		return nil, errors.New("für diese Session gibt es keine Aufzeichnung")
+	}
+	// A recording from before the timeline existed simply has none. That is not
+	// an error — the caller then plays back at a constant rate.
+	marks := ptyhost.ReadTimeline(filepath.Join(dir, id+".idx"))
+	if marks == nil {
+		marks = []ptyhost.Mark{}
+	}
+	return marks, nil
+}

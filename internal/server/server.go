@@ -118,17 +118,34 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
-		marks, _ := json.Marshal(pb.Marks)
 		h := w.Header()
 		h.Set("Content-Type", "application/octet-stream")
 		h.Set("X-Plxr-Size", strconv.FormatInt(pb.Size, 10))
 		h.Set("X-Plxr-From", strconv.FormatInt(pb.From, 10))
 		h.Set("X-Plxr-Cut", strconv.FormatBool(pb.Cut))
-		h.Set("X-Plxr-Marks", string(marks))
 		// Without this the webview cannot read those headers: on a cross-origin
 		// request only the handful of simple ones are visible by default.
-		h.Set("Access-Control-Expose-Headers", "X-Plxr-Size, X-Plxr-From, X-Plxr-Cut, X-Plxr-Marks")
+		h.Set("Access-Control-Expose-Headers", "X-Plxr-Size, X-Plxr-From, X-Plxr-Cut")
 		w.Write(pb.Data)
+	})
+	/* Die Zeitachse getrennt vom Strom.
+
+	   Sie steckte in einer Kopfzeile. Das ging bei kurzen Sessions gut und
+	   scheitert ab einer halben Stunde: Chromium deckelt Kopfzeilen bei rund
+	   256 KB, und eine halbe Stunde ergibt schon 571 KB. Schlimmer als der
+	   Fehler wäre gewesen, wie er ankommt — die Oberfläche deutet einen
+	   gescheiterten fetch als "Daemon weg" und läuft in die
+	   Wiederverbindungsschleife.
+
+	   Getrennt hat noch einen zweiten Vorteil: der Strom wird in Stücken
+	   geholt, die Zeitachse nur einmal. */
+	mux.HandleFunc("GET /api/playback/{id}/zeitachse", func(w http.ResponseWriter, r *http.Request) {
+		marks, err := s.c.Timeline(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		writeJSON(w, marks)
 	})
 	mux.HandleFunc("GET /api/search/terminals", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.SucheTerminals(r.URL.Query().Get("q")))

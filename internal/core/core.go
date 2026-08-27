@@ -581,6 +581,12 @@ func (c *Core) Restart() error {
 	return update.Restart(st.Path)
 }
 
+// Timeline hands out only the marks of a recording. Separate from Playback,
+// because the stream is fetched in chunks while the timeline is needed once.
+func (c *Core) Timeline(id string) ([]ptyhost.Mark, error) {
+	return search.ReadTimeline(ptyhost.RecordingDir, id)
+}
+
 // Playback hands out a recording plus its timeline, so the UI can replay a
 // session — including sessions that no longer exist. The recording is the raw
 // terminal stream; a terminal emulator reproduces it exactly.

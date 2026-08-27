@@ -30,11 +30,29 @@ const markInterval = 120 * time.Millisecond
 // so seeking stays reasonably precise inside a long burst.
 const markBytes = 32 << 10
 
+/*
+markBudget is how many marks may be written before the interval doubles.
+
+	The byte rule caps bursts. The time rule did not cap anything: a TUI that
+	redraws its spinner produces marks for hours on end without the recording
+	growing much. Measured out, an eight-hour Claude Code session yields 240000
+	marks — a 3.7 MB index next to a recording of a few hundred kilobytes. The
+	index would be larger than what it indexes.
+
+	So the interval doubles every budget's worth of marks. A short session keeps
+	its fine granularity, where it matters; a long one gets coarser exactly where
+	nobody seeks to the second any more. The growth is logarithmic instead of
+	linear: eight hours end up under 100 KB.
+*/
+const markBudget = 2048
+
 // timeline writes the marks belonging to one recording.
 type timeline struct {
 	f          *os.File
 	lastAt     time.Time
 	lastOffset int64
+	count      int
+	interval   time.Duration
 }
 
 func openTimeline(path string) *timeline {
@@ -42,7 +60,7 @@ func openTimeline(path string) *timeline {
 	if err != nil {
 		return nil
 	}
-	return &timeline{f: f}
+	return &timeline{f: f, interval: markInterval}
 }
 
 // mark notes that the log has reached offset at time now — if it is worth it.
@@ -51,7 +69,7 @@ func (t *timeline) mark(offset int64, now time.Time) {
 		return
 	}
 	if !t.lastAt.IsZero() &&
-		now.Sub(t.lastAt) < markInterval &&
+		now.Sub(t.lastAt) < t.interval &&
 		offset-t.lastOffset < markBytes {
 		return
 	}
@@ -62,6 +80,10 @@ func (t *timeline) mark(offset int64, now time.Time) {
 		return
 	}
 	t.lastAt, t.lastOffset = now, offset
+	t.count++
+	if t.count%markBudget == 0 {
+		t.interval *= 2
+	}
 }
 
 func (t *timeline) close() {

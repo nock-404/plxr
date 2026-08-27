@@ -82,3 +82,49 @@ func TestTimelineTruncated(t *testing.T) {
 		t.Errorf("%d marks from a truncated index, expected 2", n)
 	}
 }
+
+/*
+A TUI that redraws its spinner produces marks for hours without the recording
+
+	growing much. Unchecked that yields an index larger than what it indexes.
+*/
+func TestTimelineStaysBoundedOverHours(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "x.idx")
+	tl := openTimeline(p)
+	start := time.Now()
+
+	// Eight hours of a session that writes a little every 120 ms.
+	var offset int64
+	for ms := 0; ms < 8*60*60*1000; ms += 120 {
+		offset += 40 // a redrawn spinner line, not much
+		tl.mark(offset, start.Add(time.Duration(ms)*time.Millisecond))
+	}
+	tl.close()
+
+	info, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Without the brake this was 3.7 MB.
+	if info.Size() > 400<<10 {
+		t.Errorf("index is %d KB after eight hours — too large", info.Size()>>10)
+	}
+	marks := ReadTimeline(p)
+	if len(marks) < 1000 {
+		t.Errorf("only %d marks over eight hours — too coarse to seek", len(marks))
+	}
+
+	// The beginning has to stay fine-grained: that is where people seek.
+	if len(marks) > 2 {
+		erste := marks[1].At - marks[0].At
+		if erste > 300 {
+			t.Errorf("the first marks are already %d ms apart", erste)
+		}
+	}
+	// And the marks have to stay in order, otherwise seeking lands wrong.
+	for i := 1; i < len(marks); i++ {
+		if marks[i].At < marks[i-1].At || marks[i].Offset < marks[i-1].Offset {
+			t.Fatalf("mark %d runs backwards: %+v after %+v", i, marks[i], marks[i-1])
+		}
+	}
+}
