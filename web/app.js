@@ -106,6 +106,8 @@ const api = {
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
   themeLoeschen: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  notbremse: () => req('/api/freeze', { method: 'POST' }),
+  auftauen: () => req('/api/unfreeze', { method: 'POST' }),
   konten: () => req('/api/accounts'),
   vorlagen: () => req('/api/vorlagen'),
   vorlageStarten: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
@@ -863,7 +865,7 @@ $('#railUsage').addEventListener('click', zeigeVerbrauch);
 
 /* ═════════════════════════ Schiene ═════════════════════════ */
 
-const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·' };
+const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', eingefroren: '❙❙' };
 const WORT = {
   working: 'arbeitet', waiting: 'wartet', permission: 'braucht dich',
   dead: 'beendet', unknown: 'läuft',
@@ -871,7 +873,11 @@ const WORT = {
 
 /* Verwaist ist kein Status vom Daemon, sondern ein Vermerk: die Session lief
    noch, als der Daemon endete. Für die Anzeige zählt er trotzdem wie einer. */
-const zustand = (t) => (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
+/* Eingefroren schlägt jeden gemeldeten Status. Eine gestoppte Session schreibt
+   nichts mehr — der Hook meldet weiter "arbeitet", die Ruhe-Heuristik sagt
+   irgendwann "unbekannt", und beides wäre gelogen. */
+const zustand = (t) =>
+  t.eingefroren ? 'eingefroren' : (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
 const ZEICHEN_VERWAIST = '⚠';
 
 /* Die Schiene ist der Grund, warum die Session kein Vollbild-Overlay ist: wer
@@ -1507,6 +1513,7 @@ const KUERZEL = [
   ['t', () => $('#newBtn').click(),                     'neue Session'],
   ['w', () => state.aktiv && paneSchliessen(state.aktiv), 'Fläche schließen'],
   ['f', () => ($('#viewer').hidden ? sucheOeffnen() : editorSucheOeffnen()), 'suchen'],
+  ['.', notbremse,                                        'Notbremse'],
   ['d', () => $('#splitAdd').click(),                    'teilen'],
   [',', einstellungenOeffnen,                            'Einstellungen'],
   ['0', () => schriftAendern(0),                         'Schrift zurücksetzen'],
@@ -2704,6 +2711,40 @@ setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-
 
 // Eigene Kurzhinweise anmelden — title="" wäre eine Kachel vom System.
 plxrUI.tippBinden();
+
+/* Notbremse.
+
+   Der Fall, für den es sie gibt: in einer Kachel steht ein Befehl, der nicht
+   laufen darf, und man hat zwei Sekunden. Welche der vier Sessions es war,
+   klärt man danach — deshalb hält ein Griff alle an. Nichts geht dabei
+   verloren; die Sessions stehen still und laufen später genau dort weiter.
+
+   Bewusst ohne Rückfrage: eine Sicherheitsabfrage vor der Notbremse wäre
+   dasselbe wie keine Notbremse. Rückgängig macht sie der zweite Klick. */
+async function notbremse() {
+  const knopf = $('#brake');
+  if (knopf.dataset.an === 'ja') {
+    try {
+      const r = await api.auftauen();
+      knopf.dataset.an = '';
+      knopf.textContent = 'STOPP';
+      document.documentElement.dataset.eingefroren = '';
+      $('#counts').textContent = `${r.fortgesetzt} fortgesetzt`;
+    } catch (e) { plxrUI.hinweis(e.message || String(e), 'Nicht fortgesetzt'); }
+    return;
+  }
+  try {
+    const r = await api.notbremse();
+    if (!r.betroffen) { plxrUI.hinweis('Es läuft gerade nichts.', 'Nichts anzuhalten'); return; }
+    knopf.dataset.an = 'ja';
+    knopf.textContent = 'WEITER';
+    document.documentElement.dataset.eingefroren = 'ja';
+    $('#counts').textContent = r.eingefroren === r.betroffen
+      ? `${r.eingefroren} angehalten`
+      : `${r.eingefroren} von ${r.betroffen} angehalten — der Rest ließ sich nicht stoppen`;
+  } catch (e) { plxrUI.hinweis(e.message || String(e), 'Notbremse fehlgeschlagen'); }
+}
+$('#brake').addEventListener('click', notbremse);
 
 pfadHilfe($('#pathFilter'), filterUebernehmen);
 pfadHilfe($('#newCwd'));

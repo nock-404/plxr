@@ -79,3 +79,16 @@ func killProcess(p *os.Process, platform any) {
 // killProcessHard exists on Windows only for completeness: TerminateJobObject
 // is hard anyway, a second attempt changes nothing.
 func killProcessHard(p *os.Process, platform any) { killProcess(p, platform) }
+
+/*
+Windows has no SIGSTOP. What comes closest is suspending every thread of
+
+	every process in the job — NtSuspendProcess is undocumented, and walking the
+	threads by hand is a race against threads being created while we walk.
+
+	Until that is built and tested on real hardware, freezing reports that it did
+	not happen. Claiming an emergency brake that does not brake would be worse
+	than not offering one: the user lets go of the mouse and the migration runs.
+*/
+func freezeProcess(p *os.Process) bool { return false }
+func resumeProcess(p *os.Process) bool { return false }

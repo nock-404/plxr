@@ -139,6 +139,30 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("DELETE /api/archive/{id}", s.archiveDelete)
 	mux.HandleFunc("POST /api/archive/{id}/resume", s.archiveResume)
+	/* Emergency brake. Not a DELETE: nothing is lost here, the session is only
+	   suspended and carries on where it stood. */
+	mux.HandleFunc("POST /api/sessions/{id}/freeze", func(w http.ResponseWriter, r *http.Request) {
+		ok := s.c.Freeze(r.PathValue("id"))
+		if !ok {
+			http.Error(w, "Einfrieren ist auf diesem System nicht möglich", http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /api/sessions/{id}/unfreeze", func(w http.ResponseWriter, r *http.Request) {
+		if !s.c.Unfreeze(r.PathValue("id")) {
+			http.Error(w, "Fortsetzen fehlgeschlagen", http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("POST /api/freeze", func(w http.ResponseWriter, r *http.Request) {
+		frozen, total := s.c.FreezeAll()
+		writeJSON(w, map[string]int{"eingefroren": frozen, "betroffen": total})
+	})
+	mux.HandleFunc("POST /api/unfreeze", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]int{"fortgesetzt": s.c.UnfreezeAll()})
+	})
 	mux.HandleFunc("POST /api/sessions/{id}/account", s.switchAccount)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := s.c.ResumeOrphaned(r.PathValue("id"))

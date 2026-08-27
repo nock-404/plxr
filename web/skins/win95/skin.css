@@ -285,3 +285,8 @@ body {
   background: repeating-linear-gradient(45deg, #ffd800 0 10px, #000 10px 20px);
   opacity: .16;
 }
+
+/* Eingefroren */
+.dot.eingefroren { color: #000080; }
+.tile[data-status="eingefroren"] { border-style: dotted; }
+#brake[data-an="ja"] { background: #800000; color: #fff; }

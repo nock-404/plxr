@@ -28,3 +28,29 @@ func killProcessHard(p *os.Process, _ any) {
 		_ = p.Signal(syscall.SIGKILL)
 	}
 }
+
+/*
+freezeProcess suspends the whole group, resumeProcess lets it go again.
+
+	The emergency brake: `prisma migrate reset --force` appears in a tile and
+	there are two seconds to react. Terminating would lose the session, and
+	Ctrl-C only reaches whatever currently reads from the terminal — not the
+	grandchild that is already writing. SIGSTOP cannot be caught, ignored or
+	handled, and it reaches everything in the group at once.
+
+	The stopped process stays alive with everything it holds open. It carries on
+	exactly where it was on SIGCONT.
+*/
+func freezeProcess(p *os.Process) bool {
+	if err := syscall.Kill(-p.Pid, syscall.SIGSTOP); err != nil {
+		return p.Signal(syscall.SIGSTOP) == nil
+	}
+	return true
+}
+
+func resumeProcess(p *os.Process) bool {
+	if err := syscall.Kill(-p.Pid, syscall.SIGCONT); err != nil {
+		return p.Signal(syscall.SIGCONT) == nil
+	}
+	return true
+}

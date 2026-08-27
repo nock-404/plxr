@@ -37,12 +37,13 @@ type Host struct {
 	pty pty.Pty
 	cmd *pty.Cmd
 
-	mu    sync.Mutex
-	buf   []byte
-	subs  map[chan []byte]struct{}
-	alive bool
-	exit  int
-	last  time.Time // last output — the basis of the quiet heuristic
+	mu     sync.Mutex
+	buf    []byte
+	subs   map[chan []byte]struct{}
+	alive  bool
+	frozen bool
+	exit   int
+	last   time.Time // last output — the basis of the quiet heuristic
 
 	// Cache for the rendered preview, see tailLines.
 	tailLen   int
@@ -358,6 +359,48 @@ func (h *Host) Kill() {
 		}
 	}()
 }
+
+/*
+Freeze suspends the session, Resume lets it go again.
+
+	Unlike Kill nothing is lost: the process keeps everything it holds open and
+	carries on exactly where it stood. That is the point of the emergency brake —
+	a command appears in a tile that must not run, and there is no time to read
+	it properly first.
+
+	Returns whether it worked. On Windows it does not yet, and saying so is
+	better than a brake that does not brake.
+*/
+func (h *Host) Freeze() bool {
+	if h.cmd.Process == nil {
+		return false
+	}
+	ok := freezeProcess(h.cmd.Process)
+	if ok {
+		h.mu.Lock()
+		h.frozen = true
+		h.mu.Unlock()
+	}
+	return ok
+}
+
+func (h *Host) Resume() bool {
+	if h.cmd.Process == nil {
+		return false
+	}
+	ok := resumeProcess(h.cmd.Process)
+	if ok {
+		h.mu.Lock()
+		h.frozen = false
+		h.mu.Unlock()
+	}
+	return ok
+}
+
+// Frozen reports whether this session is suspended. A frozen session writes
+// nothing, so the quiet heuristic would otherwise call it idle after a few
+// seconds — and the tile would look calm while it is in fact stopped.
+func (h *Host) Frozen() bool { h.mu.Lock(); defer h.mu.Unlock(); return h.frozen }
 
 // KillGrace is the time between the polite and the hard termination.
 var KillGrace = 2 * time.Second

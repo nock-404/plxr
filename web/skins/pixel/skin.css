@@ -278,3 +278,8 @@ body {
     transparent 4px 8px);
   image-rendering: pixelated;
 }
+
+/* Eingefroren */
+.dot.eingefroren { color: var(--waiting); }
+.tile[data-status="eingefroren"] { border-style: dashed; opacity: .8; }
+#brake[data-an="ja"] { background: var(--blocked); color: var(--bg); }

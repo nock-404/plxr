@@ -212,3 +212,54 @@ func TestUIServedWithoutToken(t *testing.T) {
 		}
 	}
 }
+
+/*
+The emergency brake. Unlike terminating, nothing may be lost here: the
+
+	session has to still be there afterwards and carry on where it stood.
+*/
+func TestFreezeAndUnfreeze(t *testing.T) {
+	s, token := aufbauen(t)
+
+	res, b := ruf(t, s, token, "POST", "/api/sessions",
+		`{"cwd":"`+t.TempDir()+`","cmd":["/bin/sh","-c","while :; do echo tick; sleep 0.2; done"]}`)
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("create: %d — %s", res.StatusCode, b)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	json.Unmarshal(b, &created)
+	time.Sleep(600 * time.Millisecond)
+
+	res, b = ruf(t, s, token, "POST", "/api/freeze", "")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("freeze: %d — %s", res.StatusCode, b)
+	}
+	var frozen struct {
+		Frozen   int `json:"eingefroren"`
+		Affected int `json:"betroffen"`
+	}
+	json.Unmarshal(b, &frozen)
+	if frozen.Frozen < 1 || frozen.Frozen != frozen.Affected {
+		t.Fatalf("froze %d of %d", frozen.Frozen, frozen.Affected)
+	}
+
+	// The session has to still be alive — frozen is not dead.
+	_, b = ruf(t, s, token, "GET", "/api/sessions", "")
+	if !strings.Contains(string(b), `"eingefroren":true`) {
+		t.Error("the snapshot does not report the session as frozen")
+	}
+	if !strings.Contains(string(b), `"alive":true`) {
+		t.Error("a frozen session must not count as ended")
+	}
+
+	res, b = ruf(t, s, token, "POST", "/api/unfreeze", "")
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("unfreeze: %d — %s", res.StatusCode, b)
+	}
+	if !strings.Contains(string(b), `"fortgesetzt":1`) {
+		t.Errorf("unfreeze reported: %s", b)
+	}
+	ruf(t, s, token, "DELETE", "/api/sessions/"+created.ID, "")
+}

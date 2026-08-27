@@ -401,3 +401,9 @@ html, body {
 .tile[data-ungezaehmt="ja"]::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
 }
+
+/* Eingefroren. Der Zustand muss über die ganze Oberfläche gehen, nicht nur
+   über einen Punkt: wenn alles steht, soll das Fenster auch so aussehen. */
+:root[data-eingefroren="ja"] .grid,
+:root[data-eingefroren="ja"] .pane { filter: saturate(.25); }
+.dot.eingefroren { letter-spacing: -1px; }

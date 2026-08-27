@@ -41,6 +41,11 @@ import (
 type Tile struct {
 	session.Session
 	Preview string `json:"preview"`
+	// Frozen says the session is suspended. Without it the quiet heuristic
+	// would call a stopped session idle after a few seconds, and the tile
+	// would look calm while nothing is moving at all.
+	Frozen bool `json:"eingefroren,omitempty"`
+
 	// Question is the part of the screen holding the pending question — for the
 	// inbox, so it can be answered without opening the session.
 	Question string `json:"frage,omitempty"`
@@ -583,6 +588,64 @@ func (c *Core) Playback(id string, from int64) (*search.Playback, error) {
 	return search.ReadPlayback(ptyhost.RecordingDir, id, from)
 }
 
+/*
+Freeze and Resume, one session or all of them.
+
+	FreezeAll is the emergency brake: something appears in a tile that must not
+	run, and there is no time to work out which of four sessions it belongs to.
+	One grab stops all of them; afterwards there is time to look.
+
+	Returns how many were actually stopped — a UI that reports "all frozen" while
+	two kept running would be worse than none at all.
+*/
+func (c *Core) Freeze(id string) bool {
+	if h := c.Host(id); h != nil {
+		return h.Freeze()
+	}
+	return false
+}
+
+func (c *Core) Unfreeze(id string) bool {
+	if h := c.Host(id); h != nil {
+		return h.Resume()
+	}
+	return false
+}
+
+func (c *Core) FreezeAll() (frozen, total int) {
+	c.mu.Lock()
+	hosts := make([]*ptyhost.Host, 0, len(c.hosts))
+	for _, h := range c.hosts {
+		hosts = append(hosts, h)
+	}
+	c.mu.Unlock()
+	for _, h := range hosts {
+		if !h.Alive() || h.Frozen() {
+			continue
+		}
+		total++
+		if h.Freeze() {
+			frozen++
+		}
+	}
+	return
+}
+
+func (c *Core) UnfreezeAll() (resumed int) {
+	c.mu.Lock()
+	hosts := make([]*ptyhost.Host, 0, len(c.hosts))
+	for _, h := range c.hosts {
+		hosts = append(hosts, h)
+	}
+	c.mu.Unlock()
+	for _, h := range hosts {
+		if h.Frozen() && h.Resume() {
+			resumed++
+		}
+	}
+	return
+}
+
 // ---- Rules and ports ----
 
 // Rules resolves which instruction files take effect in a session. Without a
@@ -706,7 +769,8 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		if h != nil {
 			screen = h.Tail(18)
 		}
-		if sess.Alive && !useFleet && h != nil {
+		frozen := h != nil && h.Frozen()
+		if sess.Alive && !useFleet && h != nil && !frozen {
 			// No self-reporting hook: derive the status from screen and quiet time.
 			sess.Status = session.Status(prof.Classify(screen, h.IdleFor()))
 		}
@@ -728,7 +792,7 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 			}
 		}
 
-		t := Tile{Session: sess, Preview: screen}
+		t := Tile{Session: sess, Preview: screen, Frozen: frozen}
 		if sess.Alive && sess.Status == session.StatusPermission {
 			t.Question = questionFromScreen(screen)
 		}

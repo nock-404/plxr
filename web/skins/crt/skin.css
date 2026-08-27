@@ -340,3 +340,8 @@ body {
     color-mix(in srgb, var(--blocked) 14%, transparent) 0 6px,
     transparent 6px 14px);
 }
+
+/* Eingefroren */
+.dot.eingefroren { color: var(--waiting); text-shadow: 0 0 6px var(--waiting); }
+.tile[data-status="eingefroren"] { border-style: dashed; }
+#brake[data-an="ja"] { background: var(--blocked); color: var(--bg); }
