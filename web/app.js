@@ -1309,15 +1309,15 @@ function addPane(id) {
     allowProposedApi: true,
     macOptionIsMeta: true,
     // Without this nothing can be selected with the mouse in tmux and vim on
-    // auswählen — die Anwendung im Terminal verschluckt die Mausereignisse.
+    // macOS — the application inside the terminal swallows the mouse events.
     macOptionClickForcesSelection: true,
     rightClickSelectsWord: true,
     scrollSensitivity: 3,
-    // Rettet die dunkleren Skins: zu dunkle Vordergrundfarben werden
+    // Saves the darker skins: foreground colours that are too dark get
     // aufgehellt, bis sie lesbar sind.
     minimumContrastRatio: 4.5,
-    // Sonst zeichnet xterm fetten Text in der hellen Farbvariante und die
-    // Palette des Skins zerfällt.
+    // Otherwise xterm draws bold text in the bright colour variant and the
+    // skin's palette falls apart.
     drawBoldTextInBrightColors: false,
     theme: xtermTheme(),
   });
@@ -1329,20 +1329,20 @@ function addPane(id) {
   const search = new SearchAddon.SearchAddon();
   term.loadAddon(search);
 
-  // Anklickbare Adressen. Ohne das muss man jede URL von Hand abtippen.
+  // Clickable addresses. Without this every URL has to be typed out by hand.
   term.loadAddon(new WebLinksAddon.WebLinksAddon((_, url) => {
     if (api.fenster) Native.OpenURL?.(url); else window.open(url, '_blank', 'noopener');
   }));
 
   // Zeichenbreiten nach Unicode 11, inklusive zusammengesetzter Emoji —
-  // ohne das rutscht ab dem ersten Familien-Emoji die ganze Zeile.
+  // without it the whole line shifts from the first family emoji onwards.
   try {
     term.loadAddon(new UnicodeGraphemesAddon.UnicodeGraphemesAddon());
     term.unicode.activeVersion = '11';
   } catch {}
 
-  // Serialisierung: sichert den Bildschirm für "Ausgabe kopieren" und für
-  // das Wiederherstellen beim Umbau der Flächen.
+  // Serialisation: captures the screen for "copy output" and for restoring
+  // it when the panes are rearranged.
   let serial = null;
   try {
     serial = new SerializeAddon.SerializeAddon();
@@ -1351,9 +1351,9 @@ function addPane(id) {
 
   term.open(el.querySelector('.pterm'));
 
-  /* WebGL erst nach open(). Bei Kontextverlust — etwa wenn das System die
-     Grafikkarte umschaltet — muss die Erweiterung weg, sonst bleibt die
-     Fläche schwarz. */
+  /* WebGL only after open(). On context loss — when the system switches
+     graphics cards, say — the addon has to go, otherwise the pane stays
+     black. */
   try {
     const webgl = new WebglAddon.WebglAddon();
     webgl.onContextLoss(() => { try { webgl.dispose(); } catch {} });
@@ -1362,29 +1362,28 @@ function addPane(id) {
 
   term.onData((d) => api.tippen(id, d));
 
-  /* Tastenkürzel im Terminal.
+  /* Keyboard shortcuts inside the terminal.
 
-     Der Konflikt, den jedes Terminal lösen muss: Strg+C ist das Abbruch-
-     signal, nicht "Kopieren". Die verbreitete Lösung — iTerm2, Windows
-     Terminal, GNOME — ist Strg+Shift+C zum Kopieren, und auf macOS Cmd+C,
-     weil Cmd dort ohnehin frei ist. Beides ist hier belegt.
+     The conflict every terminal has to resolve: Ctrl+C is the interrupt
+     signal, not "copy". The common answer — iTerm2, Windows Terminal, GNOME —
+     is Ctrl+Shift+C for copying, and on macOS Cmd+C, because Cmd is free
+     there anyway. Both are bound here.
 
-     Rückgabe false heißt: xterm.js soll die Taste NICHT an die Session
-     schicken. */
+     Returning false means: xterm.js must NOT send the key to the session. */
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     const cmd = e.metaKey && !e.ctrlKey;
     const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
 
-    /* Kopieren und Einfügen.
+    /* Copy and paste.
 
-       Auf macOS erledigt das native Bearbeiten-Menü ⌘C und ⌘V — und zwar
-       zuerst, weil NSMenu Vorrang vor allem anderen hat. Wer hier zusätzlich
-       selbst einfügt, fügt zweimal ein. Also übernimmt der eigene Handler
-       dort nur Strg+Shift, und ⌘C/⌘V bleiben dem System überlassen.
+       On macOS the native Edit menu handles ⌘C and ⌘V — and it does so first,
+       because NSMenu takes precedence over everything else. Pasting again
+       here would paste twice. So our own handler only takes Ctrl+Shift there,
+       and ⌘C/⌘V are left to the system.
 
-       Auf Windows und Linux gibt es kein solches Menü; dort ist Strg+Shift
-       der einzige Weg. */
+       Windows and Linux have no such menu; there Ctrl+Shift is the only
+       way. */
     const eigenesKopieren = MAC ? strgUmschalt : (cmd || strgUmschalt);
 
     if (eigenesKopieren && e.key.toLowerCase() === 'c' && term.hasSelection()) {
@@ -1404,11 +1403,11 @@ function addPane(id) {
     return true;
   });
 
-  /* Absichtlich KEIN Kopieren bei jeder Auswahländerung.
+  /* Deliberately NO copy on every selection change.
 
-     Unter X11 gibt es dafür einen zweiten Puffer, die Primary Selection.
-     macOS und Windows haben den nicht — dort würde jedes Ziehen mit der Maus
-     überschreiben, was der Nutzer vorher kopiert hatte. ⌘C reicht. */
+     X11 has a second buffer for that, the primary selection. macOS and Windows
+     do not — there every drag of the mouse would overwrite what the user had
+     copied before. ⌘C is enough. */
 
   const eintrag = { id, term, fit, search, serial, el };
   panes.set(id, eintrag);
@@ -1434,9 +1433,9 @@ function addPane(id) {
   loadFileTree(t);
 }
 
-/* FitAddon rundet die Zeilenzahl auf. Passt die letzte Zeile nicht mehr ganz
-   in die Fläche, ragt sie unten heraus und wird angeschnitten — also so lange
-   eine wegnehmen, bis es wirklich passt. */
+/* FitAddon rounds the row count up. If the last row no longer fits the pane it
+   sticks out at the bottom and gets clipped — so take one away until it really
+   fits. */
 function paneRefit(p) {
   try {
     p.fit.fit();
@@ -1452,8 +1451,8 @@ function paneRefit(p) {
 }
 
 function paneActivate(id) {
-  // Beim Markieren von Text feuert mousedown ständig — ohne diese Sperre
-  // baut sich der Dateibaum bei jedem Zug neu auf.
+  // While selecting text mousedown fires constantly — without this guard
+  // the file tree rebuilds on every drag.
   if (state.aktiv === id && panes.has(id)) return;
   state.aktiv = id;
   for (const p of paneList()) p.el.dataset.aktiv = p.id === id ? 'ja' : 'nein';
@@ -1525,15 +1524,15 @@ function closeFind() {
   p?.term.focus();
 }
 
-/* Beim Tippen soll vom Anfang gesucht werden, nicht vom letzten Treffer aus.
-   Sonst landet man bei „err" drei Treffer weiter als erwartet. */
+/* While typing, search from the start rather than from the last hit.
+   Otherwise "err" lands three hits further along than expected. */
 function findInTerminal(backwards, vonVorn) {
   const p = panes.get(state.aktiv);
   if (!p) return;
   const q = $('#findInput').value;
   if (!q) { $('#findCount').textContent = ''; try { p.search.clearDecorations(); } catch {} return; }
 
-  // Zähler anmelden, sobald es die Fläche zum ersten Mal betrifft.
+  // Register the counter the first time this pane needs it.
   if (!p.counterBound) {
     p.counterBound = true;
     try {
@@ -1544,10 +1543,10 @@ function findInTerminal(backwards, vonVorn) {
       });
     } catch {}
   }
-  /* Bei neuem Suchwort von vorn: clearDecorations nimmt nur die Markierungen
-     weg — den Startpunkt für den nächsten Treffer bildet die Auswahl im
-     Terminal, und die muss deshalb mit weg. Sonst zählt eine frische Suche
-     mitten im Text weiter. */
+  /* A new search term starts over: clearDecorations only removes the
+     highlights — the starting point for the next hit is the selection in the
+     terminal, so that has to go as well. Otherwise a fresh search carries on
+     from the middle of the text. */
   if (vonVorn) {
     try { p.search.clearDecorations(); } catch {}
     try { p.term.clearSelection(); } catch {}
@@ -1555,7 +1554,7 @@ function findInTerminal(backwards, vonVorn) {
 
   const opt = {
     decorations: {
-      // Farben aus dem Skin, damit die Treffer nicht wie ein Fremdkörper
+      // Colours from the skin, so the hits do not sit in the terminal like
       // aussehen.
       matchBackground: cssVar('dim', '#666'),
       activeMatchBackground: cssVar('accent', '#fc0'),
@@ -1564,8 +1563,8 @@ function findInTerminal(backwards, vonVorn) {
     },
   };
   const gefunden = backwards ? p.search.findPrevious(q, opt) : p.search.findNext(q, opt);
-  // Der Zähler kommt über onDidChangeResults; nur wenn der ausbleibt, hier
-  // wenigstens sagen, dass nichts da ist.
+  // The counter arrives through onDidChangeResults; only if that fails to come
+  // do we at least say here that there is nothing.
   if (!gefunden) $('#findCount').textContent = 'nichts gefunden';
 }
 
@@ -1578,11 +1577,11 @@ $('#findPrev').addEventListener('click', () => findInTerminal(true));
 $('#findNext').addEventListener('click', () => findInTerminal(false));
 $('#findClose').addEventListener('click', closeFind);
 
-/* ═════════════════════════ Tastenkürzel ═════════════════════════
+/* ═════════════════════════ Keyboard shortcuts ═════════════════════════
 
-   Bewusst nur, was sich überall durchgesetzt hat. Nicht abgefangen werden
-   Cmd+Q, Cmd+M, Cmd+H und die Bewegung zwischen Fenstern — die gehören dem
-   System, und ein Programm, das sie schluckt, fühlt sich falsch an. */
+   Deliberately only what has become universal. Cmd+Q, Cmd+M, Cmd+H and moving
+   between windows are not intercepted — those belong to the system, and a
+   program that swallows them feels wrong. */
 
 const SHORTCUTS = [
   ['t', () => $('#newBtn').click(),                     'neue Session'],
@@ -1608,7 +1607,7 @@ document.addEventListener('keydown', (e) => {
   const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
   if (!cmd && !strgUmschalt) return;
 
-  // Cmd+1..9 springt zur Session an dieser Stelle in der Schiene.
+  // Cmd+1..9 jumps to the session at that position in the rail.
   if (cmd && /^[1-9]$/.test(e.key)) {
     const alle = [...$('#railList').querySelectorAll('.railitem[data-id]')];
     const ziel = alle[parseInt(e.key, 10) - 1];
@@ -1619,17 +1618,17 @@ document.addEventListener('keydown', (e) => {
   const treffer = SHORTCUTS.find(([taste]) => taste === e.key.toLowerCase());
   if (!treffer) return;
 
-  /* In einem Eingabefeld gelten die üblichen Bearbeitungskürzel weiter.
-     Aber Achtung: xterm.js hält den Fokus auf einer versteckten textarea in
-     .xterm — ohne diese Ausnahme gilt JEDES fokussierte Terminal als
-     Eingabefeld, und ⌘T, ⌘W, ⌘D und die Schriftgröße sind tot. */
+  /* Inside an input field the usual editing shortcuts keep working. But note:
+     xterm.js keeps the focus on a hidden textarea inside .xterm — without this
+     exception EVERY focused terminal counts as an input field, and ⌘T, ⌘W, ⌘D
+     and the font size are dead. */
   const el = document.activeElement;
   const imTerminal = !!el?.closest?.('.xterm');
   const inInput = !imTerminal && /^(INPUT|TEXTAREA)$/.test(el?.tagName || '');
-  // ⌘F darf ins Textfeld des Editors durch: dort ist es die Dateisuche.
+  // ⌘F may pass into the editor's text field: there it is the file search.
   const imEditor = el?.id === 'viewerBody';
   if (inInput && e.key !== ',' && !(imEditor && e.key.toLowerCase() === 'f')) return;
-  // ⌘F wird im Terminal schon vom xterm-Handler behandelt — sonst feuert es doppelt.
+  // In the terminal ⌘F is already handled by the xterm handler — otherwise it fires twice.
   if (imTerminal && e.key.toLowerCase() === 'f') return;
   e.preventDefault();
   treffer[1]();
@@ -1639,7 +1638,7 @@ $('#filesToggle').addEventListener('click', () => {
   const f = $('#files');
   f.hidden = !f.hidden;
   $('#filesToggle').classList.toggle('on', !f.hidden);
-  // Beim Aufklappen muss der Baum geladen werden: solange die Leiste zu war,
+  // On opening, the tree has to be loaded: while the panel was closed,
   // hat dateibaumLaden nichts getan.
   if (!f.hidden) {
     const t = state.tiles.find((x) => x.id === state.aktiv);
@@ -1648,7 +1647,7 @@ $('#filesToggle').addEventListener('click', () => {
   for (const p of paneList()) paneRefit(p);
 });
 
-/* Fläche teilen: eine zweite Session danebenlegen. */
+/* Split the pane: put a second session alongside. */
 $('#splitAdd').addEventListener('click', () => {
   const frei = state.tiles.filter((t) => !state.panes.includes(t.id));
   if (!frei.length) { plxrUI.notice('Es gibt keine weitere Session.', 'Nichts zum Teilen'); return; }
@@ -1669,8 +1668,8 @@ $('#splitAdd').addEventListener('click', () => {
 });
 $('#splitCancel').addEventListener('click', () => { $('#splitPick').hidden = true; });
 
-/* Jeder Dialog schließt mit Escape und mit einem Klick daneben. Ein Fenster,
-   aus dem nur ein bestimmter Knopf herausführt, ist eine Falle. */
+/* Every dialog closes with Escape and with a click beside it. A window that
+   only one particular button leads out of is a trap. */
 const DIALOGE = ['#settings', '#splitPick', '#vorlagen', '#dialog'];
 for (const d of DIALOGE) {
   $(d).addEventListener('mousedown', (e) => { if (e.target === $(d)) $(d).hidden = true; });
@@ -1687,15 +1686,15 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('resize', () => { for (const p of paneList()) paneRefit(p); });
 
-/* Ein verborgener Tab bekommt weder requestAnimationFrame noch Rückmeldung vom
-   ResizeObserver — beide hängen am Zeichenschritt, den Chrome dort anhält. Wer
-   die Oberfläche im Hintergrundtab öffnet, hätte danach Terminals in
-   Vorgabegröße in einer viel größeren Fläche. Beim Sichtbarwerden nachmessen,
-   denn eine Größenänderung, die den Beobachter weckt, gibt es dann nicht. */
+/* A hidden tab receives neither requestAnimationFrame nor callbacks from the
+   ResizeObserver — both hang off the rendering step, which Chrome suspends
+   there. Opening the UI in a background tab would leave terminals at their
+   default size inside a much larger pane. So refit on becoming visible, because
+   there is no size change to wake the observer. */
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   for (const p of paneList()) paneRefit(p);
-  // Wer das Fenster nach vorne holt, soll einen wartenden Hinweis sofort sehen.
+  // Whoever brings the window forward should see a waiting notice at once.
   checkVersion();
 });
 window.addEventListener('focus', () => checkVersion());
@@ -1719,9 +1718,9 @@ async function fillAccounts(sel) {
   } catch {}
 }
 
-/* Ist ein Kontingent aufgebraucht, muss dieselbe Unterhaltung unter einem
-   anderen Zugang weiterlaufen. plxr kopiert dafür das Transkript ins Zielkonto
-   und startet die Session dort mit --resume neu. */
+/* When an allowance has run dry, the same conversation has to carry on under a
+   different account. plxr copies the transcript into the target account and
+   restarts the session there with --resume. */
 $('#sessAccount').addEventListener('change', async (e) => {
   const ziel = e.target.value;
   const t = state.tiles.find((x) => x.id === state.aktiv);
@@ -1807,10 +1806,10 @@ async function renderMarkLayer(box, dir, tiefe, sid) {
   }
 }
 
-/* Der Betrachter ist auch ein Editor. Gespeichert wird nur auf Zuruf, und der
-   Stand der Datei wandert mit: hat inzwischen jemand anderes geschrieben — ein
-   Agent in genau dieser Session zum Beispiel —, lehnt der Daemon ab, statt die
-   fremde Änderung zu überschreiben. */
+/* The viewer is an editor too. Saving happens on request only, and the state of
+   the file travels along: if somebody else has written in the meantime — an
+   agent in this very session, for instance — the daemon refuses rather than
+   overwriting the other change. */
 
 const datei = { sid: null, pfad: null, mod: 0, original: '', binary: false };
 
@@ -1836,8 +1835,8 @@ async function openFile(e, sid) {
 
     const field = $('#viewerBody');
     field.value = datei.original;
-    // Gekürzt heißt: wir haben nicht die ganze Datei. Wer das speichert,
-    // schneidet den Rest ab.
+    // Truncated means: we do not have the whole file. Saving that would
+    // cut off the rest.
     field.readOnly = c.binary || c.truncated;
     $('#viewerSave').hidden = field.readOnly;
     setDirty(false);
@@ -1853,7 +1852,7 @@ $('#viewerBody').addEventListener('input', () => {
   setDirty($('#viewerBody').value !== datei.original);
 });
 
-// Tabulator gehört in den Text, nicht auf den nächsten Knopf.
+// Tab belongs in the text, not on the next button.
 $('#viewerBody').addEventListener('keydown', (e) => {
   if (e.key !== 'Tab') return;
   e.preventDefault();
@@ -1900,10 +1899,10 @@ async function closeViewer() {
 }
 $('#viewerClose').addEventListener('click', closeViewer);
 
-/* ── Suche im Datei-Editor ──
-   Ein <textarea> bringt keine Suche mit, und im Fenster gibt es keine
-   Browserleiste, die einspringt. Also eine eigene — dieselbe Leiste wie im
-   Terminal, damit sie in jedem Skin ohne Zutun richtig aussieht. */
+/* ── Find inside the file editor ──
+   A <textarea> brings no search of its own, and the window has no browser bar
+   to step in. So we build one — the same bar as in the terminal, so it looks
+   right in every skin without further work. */
 const fileFind = { treffer: [], index: -1, source: null };
 
 function openFindInFile() {
@@ -1926,7 +1925,7 @@ function closeFindInFile() {
   $('#viewerBody').focus();
 }
 
-// Alle Fundstellen auf einmal, sonst kann der Zähler nicht stimmen.
+// All hits at once, otherwise the counter cannot be right.
 function editorCollectHits() {
   const text = $('#viewerBody').value;
   const q = $('#findInFileInput').value;
@@ -1952,13 +1951,13 @@ function editorShowCount() {
 
 function editorJump(backwards) {
   const body = $('#viewerBody');
-  // Wer beim offenen Suchfeld weitertippt, ändert den Text unter den Treffern.
+  // Typing on with the find field open changes the text under the hits.
   if (body.value !== fileFind.source) editorCollectHits();
   const q = $('#findInFileInput').value;
   if (!q || !fileFind.treffer.length) { editorShowCount(); return; }
 
   if (fileFind.index === -1) {
-    // Der erste Sprung geht von der Stelle aus, an der der Cursor steht.
+    // The first jump starts from where the cursor sits.
     const ab = body.selectionStart;
     const i = fileFind.treffer.findIndex((p) => p >= ab);
     fileFind.index = backwards
@@ -1976,9 +1975,9 @@ function editorJump(backwards) {
   renderMarks();
 }
 
-/* Ein Textfeld scrollt nur zur Auswahl, wenn es den Fokus hat — und den soll
-   das Suchfeld behalten. Also selbst rechnen: bei wrap="off" ist jede
-   Textzeile genau eine sichtbare Zeile, das geht exakt auf. */
+/* A text field only scrolls to the selection when it has the focus — and the
+   find field should keep that. So compute it ourselves: with wrap="off" every
+   line of text is exactly one visible line, which works out exactly. */
 function editorScrollTo(pos) {
   const body = $('#viewerBody');
   const st = getComputedStyle(body);
@@ -2004,9 +2003,9 @@ function charWidth(st) {
   return breite;
 }
 
-/* Die Markierungsebene übernimmt Schrift und Ränder zur Laufzeit vom Textfeld:
-   jeder Skin setzt dort andere Werte, und schon ein Pixel Abweichung verschiebt
-   jede Hervorhebung gegen den Text darunter. */
+/* The highlight layer takes font and margins from the text field at runtime:
+   every skin sets different values there, and a single pixel of drift shifts
+   every highlight against the text below. */
 function markLayerGeometry() {
   const st = getComputedStyle($('#viewerBody'));
   const lage = $('#viewerMarks').style;
@@ -2020,8 +2019,8 @@ function markLayerGeometry() {
 const HTML_ZEICHEN = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
 const htmlSicher = (t) => t.replace(/[&<>]/g, (z) => HTML_ZEICHEN[z]);
 
-// Über einer gewissen Größe kostet das Neuzeichnen mehr, als die Hervorhebung
-// nützt — dann bleibt es beim Zähler und beim Springen.
+// Past a certain size redrawing costs more than the highlight is worth —
+// then the counter and the jumping have to do.
 const MARK_GRENZE = 2 << 20;
 
 function renderMarks() {
@@ -2043,16 +2042,16 @@ function renderMarks() {
     ab = p + q.length;
   });
   teile.push(htmlSicher(text.slice(ab)));
-  /* Ein Leerzeichen zum Schluss: endet die Datei mit einem Zeilenumbruch, hält
-     das Textfeld dafür noch eine leere Zeile vor, ein <div> nicht. Ohne den
-     Ausgleich rollen beide Lagen unterschiedlich weit, und am Dateiende säße
-     jede Hervorhebung eine Zeile zu hoch. */
+  /* A trailing space: if the file ends with a line break the text field keeps an
+     empty line for it, a <div> does not. Without that compensation the two
+     layers scroll different distances, and at the end of the file every
+     highlight would sit one line too high. */
   teile.push(' ');
   lage.innerHTML = teile.join('');
   markLayerScroll();
 }
 
-// Beide Lagen müssen denselben Ausschnitt zeigen.
+// Both layers have to show the same section.
 function markLayerScroll() {
   const body = $('#viewerBody');
   const lage = $('#viewerMarks');
@@ -2073,19 +2072,18 @@ $('#findInFilePrev').addEventListener('click', () => editorJump(true));
 $('#findInFileNext').addEventListener('click', () => editorJump(false));
 $('#findInFileClose').addEventListener('click', closeFindInFile);
 
-/* ═════════════════════════ Wiedergabe ═════════════════════════
+/* ═════════════════════════ Playback ═════════════════════════
 
-   Eine Session als Video ansehen, auch eine, die es nicht mehr gibt.
+   Watching a session like a video, including one that no longer exists.
 
-   Nichts wird dafür geparst: der Mitschnitt IST der Bytestrom, der über das
-   Terminal ging. Ein Terminal-Nachbau gibt ihn exakt wieder, samt Farben und
-   neu gezeichneten Vollbildern. Das Tempo kommt aus der Zeitachse daneben.
+   Nothing is parsed for this: the recording IS the byte stream that went over
+   the terminal. A terminal emulator reproduces it exactly, colours and redrawn
+   full screens included. The pace comes from the timeline beside it.
 
-   Rückwärts springen kann xterm nicht — es gibt kein Zurückspulen. Deshalb
-   bleibt der geholte Strom im Speicher: ein Sprung setzt das Terminal zurück
-   und schreibt alles bis zur Zielstelle in einem Rutsch hinein. Bei den
-   höchstens acht Megabyte, die ein Abruf liefert, dauert das den Bruchteil
-   einer Sekunde. */
+   xterm cannot seek backwards — there is no rewind. So the fetched stream stays
+   in memory: a jump resets the terminal and writes everything up to the target
+   in one go. At the eight megabytes a request delivers at most, that takes a
+   fraction of a second. */
 
 const player = {
   term: null,
@@ -2102,10 +2100,10 @@ const player = {
 };
 
 const PLAYER_SPEEDS = [1, 2, 4, 8];
-// Ab wann eine Pause übersprungen wird. Darunter merkt man sie kaum, darüber
-// sieht man minutenlang zu, wie nichts passiert.
+// From when on a gap gets skipped. Below this it is barely noticeable, above
+// it you watch nothing happen for minutes.
 const PLAYER_IDLE_GAP = 1200;
-// Und worauf sie zusammengeschnitten wird, damit die Naht nicht hart wirkt.
+// And what it gets cut down to, so the seam does not feel abrupt.
 const PLAYER_IDLE_KEEP = 300;
 
 async function openPlayer(id, name, abOffset) {
@@ -2117,7 +2115,7 @@ async function openPlayer(id, name, abOffset) {
 
   if (!player.term) {
     player.term = new Terminal({
-      // Ohne das würde ein Tastendruck in eine Aufzeichnung tippen wollen.
+      // Without this a keystroke would try to type into a recording.
       disableStdin: true,
       cursorBlink: false,
       fontFamily: cssVar('term-font', 'ui-monospace, monospace'),
@@ -2151,7 +2149,7 @@ async function openPlayer(id, name, abOffset) {
   $('#playerSeek').value = 0;
   playerShowPosition();
 
-  // Von einem Suchtreffer aus: direkt an die Fundstelle.
+  // Coming from a search hit: straight to the spot.
   if (abOffset > 0) playerSeek(Math.min(abOffset, player.daten.length));
   playerPlay(true);
 }
@@ -2164,10 +2162,10 @@ function closePlayer() {
   player.id = null;
 }
 
-/* Wie viel Zeit zwischen zwei Stellen im Strom verging. Ohne Zeitachse — ein
-   Mitschnitt von vor ihrer Einführung — wird gleichmäßig abgespielt. */
+/* How much time passed between two points in the stream. Without a timeline —
+   a recording from before it existed — playback runs at a constant rate. */
 function playerGap(vonOffset, bisOffset) {
-  if (!player.marken.length) return 16;   // etwa ein Bild
+  if (!player.marken.length) return 16;   // roughly one frame
   let a = null, b = null;
   for (const m of player.marken) {
     if (m.offset <= vonOffset) a = m;
@@ -2177,7 +2175,7 @@ function playerGap(vonOffset, bisOffset) {
   return Math.max(0, b.at - a.at);
 }
 
-// Die nächste Marke hinter der aktuellen Stelle — bis dorthin wird am Stück
+// The next mark past the current position — everything up to there is written
 // geschrieben, danach gewartet.
 function playerNextMark(pos) {
   for (const m of player.marken) if (m.offset > pos) return m.offset;
@@ -2212,8 +2210,8 @@ function playerPause() {
   $('#playerPlay').textContent = '▶';
 }
 
-/* Springen. xterm kann nicht zurückspulen, also von vorn: Terminal leeren und
-   alles bis zur Zielstelle in einem Rutsch schreiben. */
+/* Seeking. xterm cannot rewind, so start over: clear the terminal and write
+   everything up to the target in one go. */
 function playerSeek(ziel) {
   if (!player.daten) return;
   const lief = player.running;
@@ -2229,7 +2227,7 @@ function playerShowPosition() {
   if (!player.daten) return;
   const anteil = player.daten.length ? player.pos / player.daten.length : 0;
   const regler = $('#playerSeek');
-  // Nicht setzen, während daran gezogen wird.
+  // Do not set it while it is being dragged.
   if (document.activeElement !== regler) regler.value = Math.round(anteil * 1000);
 
   const gesamt = player.marken.length > 1
@@ -2307,8 +2305,8 @@ $('#rulesToggle').addEventListener('click', async () => {
 });
 $('#rulesClose').addEventListener('click', () => { $('#rulesPane').hidden = true; });
 
-/* Eine leere Liste ohne Erklärung ist ein Fehlerzustand, der wie ein Fehler
-   aussieht. Jede Liste sagt, warum sie leer ist. */
+/* An empty list without an explanation is a state that looks like a failure.
+   Every list says why it is empty. */
 function showEmpty(box, titel, text) {
   box.innerHTML = '';
   const d = document.createElement('div');
@@ -2321,9 +2319,9 @@ function showEmpty(box, titel, text) {
 
 /* ═════════════════════════ Archiv ═════════════════════════ */
 
-/* Die abgelegten Transkripte sind der Grund, warum es plxr gibt: sie liegen
-   über Dutzende Projektordner verstreut, und der eingebaute Picker zeigt
-   standardmäßig nur das aktuelle Verzeichnis. */
+/* The archived transcripts are a large part of why plxr exists: they lie
+   scattered across dozens of project folders, and the built-in picker shows
+   only the current directory by default. */
 
 const archiv = { alle: [], search: '', treffer: null, terminals: null };
 
@@ -2347,9 +2345,9 @@ $('#archSearch').addEventListener('keydown', (e) => { if (e.key === 'Enter') ful
 $('#archFullText').addEventListener('click', fullTextSearch);
 $('#archTerminals').addEventListener('click', searchTerminals);
 
-/* Die zweite Suchart: nicht was der Assistent geschrieben hat, sondern was im
-   Terminal stand. Fehlermeldungen, Ausgaben von Testläufen, Stapelspuren —
-   alles, was tmux beim Neustart verliert. */
+/* The second kind of search: not what the assistant wrote but what stood in the
+   terminal. Error messages, test run output, stack traces — everything tmux
+   loses on restart. */
 async function searchTerminals() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
@@ -2363,9 +2361,9 @@ async function searchTerminals() {
   }
 }
 
-/* Die Titelsuche findet nur, was im Titel steht. Die eigentliche Frage ist
-   aber meist "wo hab ich das mal gemacht" — dafür muss durch alle Nachrichten
-   gegangen werden. Dauert ein paar Sekunden, deshalb auf Zuruf. */
+/* Searching titles finds only what is in the title. The actual question is
+   usually "where did I do that once" — and for that every message has to be
+   walked. Takes a few seconds, hence on request. */
 async function fullTextSearch() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
@@ -2422,9 +2420,9 @@ function renderArchive() {
       row.querySelector('.hitValue').textContent = t.anzahl + '×';
       row.dataset.tip = t.cwd || '';
 
-      /* Was danach kam, ist der eigentliche Fund: dieselbe Fehlermeldung hat
-         man schon dreimal gesehen — gesucht wird der Befehl, der sie damals
-         behoben hat. */
+      /* What came after is the actual find: the same error has been seen three
+         times already — what is wanted is the command that fixed it back
+         then. */
       if (t.danach?.length) {
         const nach = document.createElement('pre');
         nach.className = 'hitAfter';
@@ -2432,12 +2430,11 @@ function renderArchive() {
         row.appendChild(nach);
       }
 
-      /* Ein Klick spielt die Aufzeichnung ab dieser Stelle ab — auch bei
-         Sessions, die es nicht mehr gibt. Genau dafür liegt der Mitschnitt auf
-         der Platte. */
+      /* A click plays the recording from this spot — including for sessions that
+         no longer exist. That is exactly why the recording sits on disk. */
       row.style.cursor = 'pointer';
       row.addEventListener('click', (e) => {
-        // Auf den Nachspann geklickt heißt lesen, nicht abspielen.
+        // Clicking the context means reading, not playing.
         if (e.target.closest('.hitAfter')) return;
         openPlayer(t.sessionId, t.name, t.offset || 0);
       });
@@ -2543,9 +2540,9 @@ function renderArchive() {
 
 /* ═════════════════════════ Ports ═════════════════════════ */
 
-/* Vergessene Dev-Server: ein Nuxt auf 3000, das seit Tagen läuft und den
-   nächsten Start blockiert. Was zu einer plxr-Session gehört, wird eingefärbt
-   — das darf man nicht versehentlich abschießen. */
+/* Forgotten dev servers: a Nuxt on 3000 that has been running for days and
+   blocks the next start. Whatever belongs to a plxr session is coloured — that
+   must not be shot down by accident. */
 
 async function loadPorts() {
   $('#portsInfo').textContent = 'liest …';
@@ -2591,10 +2588,10 @@ $('#portsReload').addEventListener('click', loadPorts);
 
 /* ═════════════════════════ Verbrauch ═════════════════════════ */
 
-/* Gezählt wird aus den Transkripten, nicht über eine API: der Verbrauch steht
-   in jeder Assistenten-Zeile und ist damit vollständig und rückwirkend
-   auswertbar. Die Cache-Lesungen dominieren alles andere um Größenordnungen,
-   deshalb stehen sie getrennt und nicht in einer Summe versteckt. */
+/* Counted from the transcripts, not through an API: the spend sits in every
+   assistant line and is therefore complete and analysable after the fact. Cache
+   reads dominate everything else by orders of magnitude, so they stand apart
+   rather than hidden inside a total. */
 
 function tok(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
@@ -2665,15 +2662,15 @@ async function loadUsage() {
   block('nach Konto', b.nachKonto, 8);
 }
 
-/* ═════════════════════════ Verbrauchstempo ═════════════════════════
+/* ═════════════════════════ Spending pace ═════════════════════════
 
-   Claude rechnet in rollenden Fenstern — fünf Stunden und eine Woche. Wer
-   mehrere Agenten gleichzeitig fährt, reißt das Fünf-Stunden-Fenster, ohne es
-   kommen zu sehen. Hier steht das Tempo, bevor es zu spät ist.
+   Claude works in rolling windows — five hours and a week. Running several
+   agents at once blows the five-hour window without seeing it coming. Here is
+   the pace, before it is too late.
 
-   Die absolute Grenze kennt plxr nicht — die hängt am Abo und wird nirgends
-   veröffentlicht. Deshalb wird nicht behauptet, wann Schluss ist, sondern
-   gezeigt, wie schnell es gerade geht und ob das Tempo steigt. */
+   plxr does not know the absolute limit — that depends on the plan and is
+   published nowhere. So it does not claim when the end comes, it shows how fast
+   things are going right now and whether the pace is rising. */
 
 const TREND = { steigt: '↑', falling: '↓', gleich: '·' };
 
@@ -2701,8 +2698,8 @@ async function checkPace() {
     'Claude rechnet in rollenden Fenstern. Wird es eng, hilft ein Kontowechsel ' +
     'in der Kopfzeile der Session.';
 
-  // Ab drei Milliarden je Stunde wird es bei den üblichen Abos knapp — das
-  // ist eine Erfahrungsmarke, keine amtliche Grenze.
+  // Past three billion an hour it gets tight on the common plans — that is a
+  // mark from experience, not an official limit.
   el.dataset.warnung = t.proStunde > 3e9 && t.trend !== 'faellt' ? 'ja' : '';
 }
 
@@ -2710,16 +2707,16 @@ async function checkPace() {
 
 let versionStatus = null;
 
-/* Wie oft nachgesehen wird.
+/* How often we look.
 
-   Vorher einmal beim Start und dann stündlich — wer eine neue Fassung
-   veröffentlicht hatte, sah bis zu einer Stunde lang nichts davon und musste
-   das Fenster neu starten. Jetzt alle zehn Minuten, und zusätzlich sobald das
-   Fenster wieder nach vorne kommt: das ist der Moment, in dem jemand hinsieht.
+   Previously once at startup and then hourly — anyone who had published a new
+   version saw nothing of it for up to an hour and had to restart the window.
+   Now every ten minutes, and additionally as soon as the window comes forward
+   again: that is the moment somebody looks.
 
-   Die Sperre darunter deckelt beides zusammen. GitHub lässt ohne Anmeldung
-   sechzig Abfragen pro Stunde zu; ohne Deckel könnte häufiges Fensterwechseln
-   die aufbrauchen, und dann meldet die Prüfung nur noch Fehler. */
+   The throttle below caps both together. GitHub allows sixty unauthenticated
+   requests an hour; without a cap, switching windows often could use those up,
+   and then the check reports nothing but errors. */
 const VERSION_INTERVAL = 10 * 60 * 1000;
 const VERSION_THROTTLE = 2 * 60 * 1000;
 let versionCheckedAt = 0;
@@ -2747,9 +2744,9 @@ $('#updateHide').addEventListener('click', () => {
 $('#updateNotes').addEventListener('click', () => {
   plxrUI.notice(versionStatus?.notizen || 'keine Anmerkungen zu dieser Fassung', 'Was ist neu');
 });
-/* Der Ablauf, den man erwartet: Hinweis, Klick, Ladebalken, Neustart. Die
-   Sessions merken davon nichts — sie gehören dem Daemon, und der läuft
-   weiter. Nur das Fenster kommt neu. */
+/* The flow you expect: notice, click, progress bar, restart. The sessions
+   notice none of it — they belong to the daemon, and it keeps running. Only the
+   window comes back new. */
 $('#updateGo').addEventListener('click', async () => {
   const ja = await plxrUI.confirm(
     'Der Daemon läuft weiter, alle Sessions bleiben. Nur das Fenster startet neu.',
@@ -2784,7 +2781,7 @@ function updateVerfolgen() {
     try {
       st = await api.updateStand();
     } catch {
-      return; // Verbindung kurz weg — beim nächsten Versuch wieder da
+      return; // connection briefly gone — back on the next attempt
     }
     $('#updateFill').style.width = st.prozent + '%';
     $('#updateText').textContent =
@@ -2797,12 +2794,12 @@ function updateVerfolgen() {
 
     $('#updateText').textContent = 'fertig — startet neu';
     $('#updateFill').style.width = '100%';
-    // Kurz stehen lassen, damit man sieht, dass es geklappt hat.
+    // Leave it up briefly so it is visible that it worked.
     setTimeout(async () => {
       try {
         await api.neuStarten();
-        // Die neue Fassung läuft jetzt. Dieses Fenster verabschiedet sich —
-        // der Daemon bleibt, deshalb merken die Sessions davon nichts.
+        // The new version is running now. This window bows out —
+        // the daemon stays, so the sessions notice nothing.
         if (WAILS) Native.Quit();
       } catch {
         $('#updateText').textContent = 'eingesetzt — plxr von Hand neu starten';
@@ -2813,8 +2810,8 @@ function updateVerfolgen() {
 
 /* ═════════════════════════ Neue Session ═════════════════════════ */
 
-/* Was gestartet wird. Die Shell steht vorn: plxr ist ein Terminal, in dem
-   auch Agenten laufen — nicht umgekehrt. */
+/* What gets started. The shell comes first: plxr is a terminal that also runs
+   agents — not the other way round. */
 const STARTBAR = [
   { id: 'shell', label: 'Shell', cmd: null },  // cmd kommt vom Daemon
   { id: 'claude', label: 'Claude Code', cmd: ['claude'] },
@@ -2855,11 +2852,11 @@ function chosenCommand() {
   return STARTBAR.find((w) => w.id === id).cmd;
 }
 
-/* ═════════════════════════ Vorlagen ═════════════════════════
+/* ═════════════════════════ Templates ═════════════════════════
 
-   Morgens drei Sessions in drei Verzeichnissen mit drei Konten — jeden Tag
-   dieselbe Handbewegung. Eine Vorlage macht daraus einen Klick, und sie
-   entsteht aus dem, was gerade offen ist. */
+   Three sessions in three directories under three accounts every morning — the
+   same set of motions every day. A template turns that into one click, and it
+   is built from whatever is open right now. */
 
 $('#templatesBtn').addEventListener('click', openTemplates);
 $('#templatesCancel').addEventListener('click', () => { $('#templates').hidden = true; });
@@ -2960,9 +2957,8 @@ $('#newForm').addEventListener('submit', async (e) => {
 
 /* ═════════════════════════ Start ═════════════════════════ */
 
-/* Zuerst das zuletzt benutzte Theme aus dem Zwischenspeicher anlegen, dann
-   erst mit dem Daemon reden — so ist die Oberfläche nie ungestylt, auch wenn
-   er gerade nicht da ist. */
+/* Apply the last used theme from the cache first, only then talk to the
+   daemon — that way the UI is never unstyled, even when the daemon is away. */
 (function themeAusSpeicher() {
   try {
     const roh = localStorage.getItem('plxr.themeCache');
@@ -2976,8 +2972,8 @@ plxrUI.replaceSelects();
 
 fetch('/logo.svg').then((r) => r.text()).then((svg) => { $('#mark').innerHTML = svg; }).catch(() => {});
 
-/* Die Fensterknöpfe von macOS schweben bei eingelassener Titelleiste über dem
-   Inhalt. Das Gerüst weiß das nicht von allein, also sagt Go, wo es läuft. */
+/* With an inset title bar the macOS window buttons float above the content. The
+   page cannot know that by itself, so Go says which system it runs on. */
 api.env().then((e) => {
   document.documentElement.dataset.platform = e.platform;
   if (e.titlebarInset) document.documentElement.dataset.titlebarInset = 'yes';
@@ -2995,18 +2991,18 @@ api.env().then((e) => {
 
 setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-DE'); }, 1000);
 
-// Eigene Kurzhinweise anmelden — title="" wäre eine Kachel vom System.
+// Register our own tooltips — title="" would be a box from the system.
 plxrUI.tippBinden();
 
-/* Notbremse.
+/* Emergency brake.
 
-   Der Fall, für den es sie gibt: in einer Kachel steht ein Befehl, der nicht
-   laufen darf, und man hat zwei Sekunden. Welche der vier Sessions es war,
-   klärt man danach — deshalb hält ein Griff alle an. Nichts geht dabei
-   verloren; die Sessions stehen still und laufen später genau dort weiter.
+   The case it exists for: a command that must not run appears in a tile, and
+   there are two seconds. Which of the four sessions it was gets sorted out
+   afterwards — so one grab stops them all. Nothing is lost doing it; the
+   sessions stand still and later carry on exactly where they were.
 
-   Bewusst ohne Rückfrage: eine Sicherheitsabfrage vor der Notbremse wäre
-   dasselbe wie keine Notbremse. Rückgängig macht sie der zweite Klick. */
+   Deliberately without a confirmation: a safety prompt in front of an emergency
+   brake is the same as no brake at all. The second click undoes it. */
 async function emergencyBrake() {
   const button = $('#brake');
   if (button.dataset.an === 'ja') {
@@ -3043,7 +3039,7 @@ connect()
   .then(() => {
     api.aufZustand(renderAll);
     checkVersion(true);
-    // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
+    // If an update was still running in the last window, keep following it here.
     api.updateStand().then((st) => {
       if (st.running) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
