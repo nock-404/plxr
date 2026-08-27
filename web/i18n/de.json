@@ -161,5 +161,7 @@
   "update.progress": "lädt … {pct}%",
   "templates.saveAskOne": "{n} laufende Session wird gesichert: Verzeichnis, Kommando und Konto.",
   "templates.saveAskMany": "{n} laufende Sessions werden gesichert: Verzeichnis, Kommando und Konto.",
-  "brake.partial": "{done} von {total} angehalten — der Rest ließ sich nicht stoppen"
+  "brake.partial": "{done} von {total} angehalten — der Rest ließ sich nicht stoppen",
+  "settings.language": "sprache",
+  "settings.languageTip": "Sprache der Oberfläche"
 }

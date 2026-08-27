@@ -509,6 +509,7 @@ async function openSettings() {
     t('settings.themeHint');
   buildStyleEditor();
   showDeleteButton();
+  fillLanguages();
   try {
     const v = await api.version();
     $('#settingsVersion').textContent =
@@ -519,6 +520,46 @@ async function openSettings() {
   showHookStatus();
 }
 $('#settingsBtn').addEventListener('click', openSettings);
+
+/* The language picker.
+
+   The names stand in their own language — "Deutsch", not "German". Anyone
+   looking for their language recognises it that way even when the interface is
+   currently in one they cannot read. That is exactly the situation the picker
+   exists for.
+
+   Switching needs no reload: the table is fetched and the markup translated
+   again. Anything already rendered from JavaScript is redrawn by the next
+   state update, which arrives once a second. */
+async function fillLanguages() {
+  const sel = $('#langSel');
+  if (!sel.options.length) {
+    for (const l of SPRACHEN) {
+      const o = document.createElement('option');
+      o.value = l;
+      // Der Name steht in der Sprache selbst — deshalb aus deren Tabelle.
+      o.textContent = l === sprache ? t('_meta.name') : NAMEN[l] || l;
+      sel.appendChild(o);
+    }
+  }
+  sel.value = sprache;
+  plxrUI.replaceSelects();
+}
+
+// Kurz genug, um sie hier zu halten: eine zweite Abfrage je Sprache nur für
+// den Anzeigenamen wäre Aufwand ohne Gegenwert.
+const NAMEN = { en: 'English', de: 'Deutsch' };
+
+$('#langSel').addEventListener('change', async (e) => {
+  const gewuenscht = e.target.value;
+  try { localStorage.setItem('plxr.lang', gewuenscht); } catch {}
+  await spracheLaden(gewuenscht);
+  markupUebersetzen();
+  // Was aus JavaScript kam, zeichnet der nächste Zustandsstrom neu; die
+  // Ansichten, die auf Zuruf laden, hier anstoßen.
+  refreshView();
+  showHookStatus();
+});
 
 /* ═════════════════════════ Adjusting the style ═════════════════════════
 

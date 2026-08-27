@@ -161,5 +161,7 @@
   "dialog.sureTitle": "Are you sure?",
   "dialog.noticeTitle": "Notice",
   "dialog.promptTitle": "Input",
-  "common.yes": "YES"
+  "common.yes": "YES",
+  "settings.language": "language",
+  "settings.languageTip": "Language of the interface"
 }
