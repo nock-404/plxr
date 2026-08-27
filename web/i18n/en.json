@@ -163,5 +163,8 @@
   "dialog.promptTitle": "Input",
   "common.yes": "YES",
   "settings.language": "language",
-  "settings.languageTip": "Language of the interface"
+  "settings.languageTip": "Language of the interface",
+  "settings.tabLook": "look",
+  "settings.tabColors": "colours",
+  "settings.tabAgents": "agents"
 }

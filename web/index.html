@@ -265,35 +265,53 @@
   <div class="card wide">
     <b class="cardTitle" data-i18n="settings.title">settings</b>
 
-    <div class="field">
-      <span class="fieldName" data-i18n="settings.language">language</span>
-      <select id="langSel" data-i18n-tip="settings.languageTip"></select>
+    <!-- Reiter statt einer langen Spalte. Der Stil-Editor allein ist zwölf
+         Farbfelder und zwei Regler; darunter verschwand alles andere unter
+         dem Falz. -->
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab on" data-tab="look" role="tab"
+              aria-selected="true" data-i18n="settings.tabLook">look</button>
+      <button type="button" class="tab" data-tab="colors" role="tab"
+              aria-selected="false" data-i18n="settings.tabColors">colours</button>
+      <button type="button" class="tab" data-tab="agents" role="tab"
+              aria-selected="false" data-i18n="settings.tabAgents">agents</button>
     </div>
 
-    <div class="field">
-      <span class="fieldName" data-i18n="settings.appearance">appearance</span>
-      <select id="themeSel" data-i18n-tip="settings.themeTip"></select>
+    <div class="tabbody" data-tab="look">
+      <div class="field">
+        <span class="fieldName" data-i18n="settings.language">language</span>
+        <select id="langSel" data-i18n-tip="settings.languageTip"></select>
+      </div>
+
+      <div class="field">
+        <span class="fieldName" data-i18n="settings.appearance">appearance</span>
+        <select id="themeSel" data-i18n-tip="settings.themeTip"></select>
+      </div>
     </div>
 
-    <div class="field">
-      <span class="fieldName" data-i18n="settings.style">adjust the style</span>
-      <div class="style" id="styleEditor"></div>
-      <span class="rowInline">
-        <span id="themeHint" class="notice"></span>
-        <button type="button" class="btn" id="themeDelete" hidden data-i18n="common.delete">DELETE</button>
-        <button type="button" class="btn" id="styleReset" data-i18n="settings.reset">RESET</button>
-        <button type="button" class="btn" id="styleSave" data-i18n="common.save">SAVE</button>
-        <button type="button" class="btn" id="themeImportBtn" data-i18n="settings.import">IMPORT</button>
-        <input type="file" id="themeFile" accept=".json,application/json" hidden>
-      </span>
+    <div class="tabbody" data-tab="colors" hidden>
+      <div class="field">
+        <span class="fieldName" data-i18n="settings.style">adjust the style</span>
+        <div class="style" id="styleEditor"></div>
+        <span class="rowInline">
+          <span id="themeHint" class="notice"></span>
+          <button type="button" class="btn" id="themeDelete" hidden data-i18n="common.delete">DELETE</button>
+          <button type="button" class="btn" id="styleReset" data-i18n="settings.reset">RESET</button>
+          <button type="button" class="btn" id="styleSave" data-i18n="common.save">SAVE</button>
+          <button type="button" class="btn" id="themeImportBtn" data-i18n="settings.import">IMPORT</button>
+          <input type="file" id="themeFile" accept=".json,application/json" hidden>
+        </span>
+      </div>
     </div>
 
-    <div class="field">
-      <span class="fieldName" data-i18n="settings.claudeCode">claude code</span>
-      <span class="rowInline">
-        <span id="hookHint" class="notice"></span>
-        <button type="button" class="btn" id="hookBtn"></button>
-      </span>
+    <div class="tabbody" data-tab="agents" hidden>
+      <div class="field">
+        <span class="fieldName" data-i18n="settings.claudeCode">claude code</span>
+        <span class="rowInline">
+          <span id="hookHint" class="notice"></span>
+          <button type="button" class="btn" id="hookBtn"></button>
+        </span>
+      </div>
     </div>
 
     <div class="dialogFoot">

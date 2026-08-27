@@ -507,6 +507,7 @@ async function openSettings() {
   plxrUI.replaceSelects();
   $('#themeHint').textContent =
     t('settings.themeHint');
+  tabWaehlen('look');
   buildStyleEditor();
   showDeleteButton();
   fillLanguages();
@@ -520,6 +521,29 @@ async function openSettings() {
   showHookStatus();
 }
 $('#settingsBtn').addEventListener('click', openSettings);
+
+/* Reiter im Einstellungsfenster.
+
+   Der Stil-Editor allein sind zwölf Farbfelder und zwei Regler. Darunter ist
+   alles andere unter den Falz gerutscht — die Anbindung von Claude Code hat
+   man schlicht nicht mehr gesehen.
+
+   Bewusst kein Zustand, der irgendwo gespeichert wird: wer die Einstellungen
+   öffnet, will fast immer dasselbe, und ein Fenster, das sich an den letzten
+   Reiter erinnert, zeigt beim nächsten Mal den falschen. */
+function tabWaehlen(welcher) {
+  for (const b of document.querySelectorAll('#settings .tab')) {
+    b.classList.toggle('on', b.dataset.tab === welcher);
+    b.setAttribute('aria-selected', b.dataset.tab === welcher ? 'true' : 'false');
+  }
+  for (const k of document.querySelectorAll('#settings .tabbody')) {
+    k.hidden = k.dataset.tab !== welcher;
+  }
+}
+
+for (const b of document.querySelectorAll('#settings .tab')) {
+  b.addEventListener('click', () => tabWaehlen(b.dataset.tab));
+}
 
 /* The language picker.
 

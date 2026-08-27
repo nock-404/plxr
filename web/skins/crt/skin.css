@@ -354,3 +354,8 @@ body {
 /* Playback */
 .playbar { border-top: 1px solid var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px solid var(--line); padding-left: 8px; }
+
+/* Settings tabs */
+.tab { background: none; border: 1px solid var(--line); border-bottom: 0; color: var(--dim); padding: 4px 12px; }
+.tab.on { color: var(--accent); border-color: var(--accent); }
+.tabs { border-bottom: 1px solid var(--line); }

@@ -419,3 +419,10 @@ html, body {
 .playbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; flex: 0 0 auto; }
 .playbar input[type="range"] { flex: 1; }
 .hitAfter { margin: 4px 0 0; white-space: pre-wrap; max-height: 9em; overflow: auto; }
+
+/* Tabs in the settings window. Placement here, appearance in the skin —
+   a raised plastic tab belongs to win95 differently than to sketch. */
+.tabs { display: flex; gap: 2px; flex: 0 0 auto; }
+.tab { flex: 0 0 auto; cursor: pointer; font: inherit; }
+.tabbody { display: flex; flex-direction: column; gap: 14px; }
+.tabbody[hidden] { display: none !important; }

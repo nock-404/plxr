@@ -292,3 +292,8 @@ body {
 /* Playback */
 .playbar { border-top: 2px solid var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px solid var(--accent); padding-left: 8px; }
+
+/* Settings tabs */
+.tab { background: var(--panel); border: 2px solid var(--line); border-bottom: 0; color: var(--dim); padding: 3px 10px; }
+.tab.on { color: var(--accent); border-color: var(--accent); background: var(--bg); }
+.tabs { border-bottom: 2px solid var(--line); }

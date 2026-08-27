@@ -294,3 +294,8 @@ body {
 /* Playback */
 .playbar { border-top: 1px dashed var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }
+
+/* Settings tabs */
+.tab { background: none; border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 7px 0 0; color: var(--dim); padding: 4px 14px; }
+.tab.on { color: var(--accent); border-color: var(--accent); transform: rotate(-.4deg); }
+.tabs { border-bottom: 1px dashed var(--line); }
