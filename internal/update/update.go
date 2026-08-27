@@ -171,17 +171,9 @@ func Anwenden(assetURL string, fortschritt func(gelesen, gesamt int64)) (string,
 		return "", err
 	}
 
-	beiseite := ziel + ".alt"
-	os.RemoveAll(beiseite)
-	if err := os.Rename(ziel, beiseite); err != nil {
-		return "", errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
+	if err := tauschen(neu, ziel); err != nil {
+		return "", err
 	}
-	if err := kopieren(neu, ziel); err != nil {
-		os.RemoveAll(ziel)
-		os.Rename(beiseite, ziel) // zurück auf Anfang
-		return "", errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
-	}
-	os.RemoveAll(beiseite)
 
 	// Signieren, damit das System die App über Fassungen hinweg wiedererkennt
 	// und nicht bei jedem Update erneut nach Berechtigungen fragt. Schlägt das
@@ -374,4 +366,40 @@ func NeuStarten(ort string) error {
 	}
 	c := exec.Command(ort)
 	return c.Start()
+}
+
+/*
+tauschen setzt die neue Fassung an den Platz der alten.
+
+	Naheliegend wäre: alte Fassung beiseiteschieben und die neue an ihren Platz
+	kopieren. Dann steht am Zielort aber sekundenlang ein halb kopiertes Bündel.
+	Stirbt der Daemon in dieser Zeit — Absturz, Strom weg, erzwungenes Beenden —,
+	ist die App kaputt, und niemand rollt zurück: das passiert nur, wenn das
+	Kopieren einen Fehler meldet, nicht wenn der Prozess einfach endet.
+
+	Deshalb wird zuerst vollständig daneben kopiert. Erst wenn das steht, folgen
+	zwei Umbenennungen — die dauern Sekundenbruchteile, und dazwischen liegt die
+	alte Fassung noch als .alt bereit.
+*/
+func tauschen(neu, ziel string) error {
+	daneben := ziel + ".neu"
+	os.RemoveAll(daneben)
+	if err := kopieren(neu, daneben); err != nil {
+		os.RemoveAll(daneben)
+		return errors.New("neue Fassung ließ sich nicht ablegen: " + err.Error())
+	}
+
+	beiseite := ziel + ".alt"
+	os.RemoveAll(beiseite)
+	if err := os.Rename(ziel, beiseite); err != nil {
+		os.RemoveAll(daneben)
+		return errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
+	}
+	if err := os.Rename(daneben, ziel); err != nil {
+		os.Rename(beiseite, ziel) // zurück auf Anfang
+		os.RemoveAll(daneben)
+		return errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
+	}
+	os.RemoveAll(beiseite)
+	return nil
 }

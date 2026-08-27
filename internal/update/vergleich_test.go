@@ -3,7 +3,10 @@ package update
 import "testing"
 
 func TestVergleichOhnePrefix(t *testing.T) {
-	faelle := []struct{ neu, alt string; will bool }{
+	faelle := []struct {
+		neu, alt string
+		will     bool
+	}{
 		{"0.3.7", "0.3.6", true},
 		{"0.3.6", "0.3.6", false},
 		{"0.3.6", "v0.3.6", false},
