@@ -1,15 +1,15 @@
-// Package daemon trennt den Prozess, der die Terminals hält, von dem, der sie
+// Package daemon separates the process that holds the terminals from the one
 // anzeigt.
 //
-// Das ist der Kern der Sache: solange die PTYs Kinder des Fensters sind,
-// stirbt beim Schließen alles mit. Der Daemon läuft eigenständig weiter, das
-// Fenster ist nur ein Client — und es dürfen mehrere sein.
+// That is the heart of it: as long as the PTYs are children of the window,
+// closing it takes everything down. The daemon keeps running on its own, the
+// window is just a client — and there may be several of them.
 //
-// Kommuniziert wird über HTTP/WebSocket auf 127.0.0.1 mit zufälligem Port.
-// Ein Unix-Socket wäre schöner, kann aber kein WebSocket aus einer Webview
-// und existiert auf Windows so nicht. Gegen fremden Zugriff schützt ein
-// Token: der Port ist nur lokal erreichbar, aber jeder lokale Prozess könnte
-// sonst mitreden.
+// Communication runs over HTTP/WebSocket on 127.0.0.1 with a random port. A Unix
+// socket would be nicer, but it cannot carry a WebSocket out of a webview and
+// does not exist in that form on Windows. A token guards against foreign access:
+// the port is reachable only locally, but otherwise any local process could join
+// the conversation.
 package daemon
 
 import (
@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-// Info ist das, was in ~/.plxr/daemon.json steht.
+// Info is what sits in ~/.plxr/daemon.json.
 type Info struct {
 	Port  int    `json:"port"`
 	Token string `json:"token"`
@@ -38,12 +38,12 @@ type Info struct {
 
 func (i Info) URL() string { return fmt.Sprintf("http://127.0.0.1:%d", i.Port) }
 
-// Root ist das Verzeichnis, in dem plxr seinen Zustand ablegt.
+// Root is the directory plxr stores its state in.
 //
-// Über PLXR_HOME umlenkbar. Das ist kein Luxus: ohne die Möglichkeit teilen
-// sich ein Entwicklungsstand und eine Installation denselben Daemon und
-// dieselbe Datei mit Port und Token — der eine beendet dem anderen die
-// Sitzung, und man sucht Fehler in Dateien, die gar nicht ausgeliefert werden.
+// Redirectable through PLXR_HOME. That is not a luxury: without it a development
+// build and an installation share the same daemon and the same file with port
+// and token — one ends the other's session, and you end up hunting bugs in files
+// that are not the ones being served.
 func Root() string {
 	if d := os.Getenv("PLXR_HOME"); d != "" {
 		return d
@@ -62,8 +62,8 @@ func newToken() string {
 
 // ---- Seite des Daemons ----
 
-// Listen öffnet einen Port, den nur diese Maschine erreicht, und hinterlegt
-// die Zugangsdaten für Clients.
+// Listen opens a port only this machine can reach and leaves the credentials
+// behind for clients.
 func Listen() (net.Listener, Info, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -88,7 +88,7 @@ func write(i Info) error {
 	}
 	b, _ := json.MarshalIndent(i, "", "  ")
 	tmp := infoPath() + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o600); err != nil { // 0600: enthält das Token
+	if err := os.WriteFile(tmp, b, 0o600); err != nil { // 0600: contains the token
 		return err
 	}
 	return os.Rename(tmp, infoPath())
@@ -96,25 +96,24 @@ func write(i Info) error {
 
 func Forget() { os.Remove(infoPath()) }
 
-// Guard schützt alles, was Daten liefert oder Prozesse anfasst.
+// Guard protects everything that serves data or touches processes.
 //
-// Die Oberfläche selbst — HTML, CSS, Schriften, xterm.js — bleibt offen. Nicht
-// aus Bequemlichkeit: ein <link rel="stylesheet"> kann keinen Header
-// mitschicken, und die Dateien enthalten nichts, was schützenswert wäre. Alles
-// unter /api und /ws braucht dagegen das Token.
-/* CORS macht das Fenster überhaupt erst arbeitsfähig.
+// The UI itself — HTML, CSS, fonts, xterm.js — stays open. Not out of
+// convenience: a <link rel="stylesheet"> cannot send a header along, and the
+// files contain nothing worth protecting. Everything under /api and /ws, by
+// contrast, needs the token.
+/* CORS is what makes the window able to work at all.
 
-   Die Wails-Seite wird nicht vom Daemon ausgeliefert, sondern aus dem
-   App-Bündel — ihre Herkunft heißt "wails://wails" bzw. "http://wails.localhost".
-   Jeder fetch an den Daemon ist damit ein Cross-Origin-Aufruf, und weil wir das
-   Token in einer eigenen Kopfzeile schicken, schickt die Webview vorher ein
-   OPTIONS. Ohne Antwort darauf scheitert JEDER Aufruf aus dem Fenster — die
-   Oberfläche blieb leer und meldete nur "Verbindung verloren". Im Browser fiel
-   es nie auf: dort ist es dieselbe Herkunft.
+   The Wails page is not served by the daemon but comes out of the app bundle —
+   its origin reads "wails://wails" or "http://wails.localhost". Every fetch to
+   the daemon is therefore a cross-origin call, and because we send the token in
+   a header of our own, the webview sends an OPTIONS first. Without an answer to
+   that, EVERY call from the window fails — the UI stayed empty and only reported
+   "connection lost". In the browser it never showed: there it is the same origin.
 
-   Die Herkunft wird zurückgespiegelt statt "*" gesetzt, und das Token bleibt
-   die eigentliche Absicherung: der Daemon lauscht nur auf 127.0.0.1, und ohne
-   gültiges Token kommt jede Anfrage mit 403 zurück. */
+   The origin is reflected back rather than set to "*", and the token remains the
+   actual safeguard: the daemon listens on 127.0.0.1 only, and without a valid
+   token every request comes back with 403. */
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if o := r.Header.Get("Origin"); o != "" {
@@ -125,9 +124,9 @@ func CORS(next http.Handler) http.Handler {
 			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			h.Set("Access-Control-Max-Age", "600")
 		}
-		// Der Vorabflug trägt nie ein Token — Browser schicken bei OPTIONS
-		// grundsätzlich keine eigenen Kopfzeilen mit. Er muss deshalb vor der
-		// Token-Prüfung beantwortet werden, sonst bleibt es bei 403.
+		// The preflight never carries a token — browsers never send custom headers
+		// on OPTIONS. It therefore has to be answered before the token check,
+		// otherwise it stays at 403.
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -146,7 +145,7 @@ func Guard(token string, next http.Handler) http.Handler {
 		}
 		got := r.Header.Get("X-Plxr-Token")
 		if got == "" {
-			// WebSockets können keine eigenen Header setzen.
+			// WebSockets cannot set headers of their own.
 			got = r.URL.Query().Get("token")
 		}
 		if subtle.ConstantTimeCompare([]byte(got), want) != 1 {
@@ -174,9 +173,9 @@ func Read() (Info, error) {
 	return i, nil
 }
 
-// alive prüft, ob hinter den hinterlegten Daten wirklich unser Daemon sitzt.
-// Nur den Port anzupingen reicht nicht — nach einem Absturz kann ihn längst
-// ein anderes Programm belegen.
+// alive checks whether our daemon really sits behind the recorded details.
+// Pinging the port alone is not enough — after a crash another program may long
+// since have taken it.
 func alive(i Info) bool {
 	req, err := http.NewRequest("GET", i.URL()+"/api/health", nil)
 	if err != nil {
@@ -197,7 +196,7 @@ func alive(i Info) bool {
 	return strings.HasPrefix(string(buf[:n]), "plxr")
 }
 
-// Ensure liefert einen laufenden Daemon: entweder den vorhandenen oder einen
+// Ensure returns a running daemon: either the existing one or a
 // frisch gestarteten.
 func Ensure() (Info, error) {
 	if i, err := Read(); err == nil && alive(i) {
@@ -210,7 +209,7 @@ func Ensure() (Info, error) {
 	}
 	cmd := exec.Command(exe, "daemon")
 	cmd.Stdout, cmd.Stderr = nil, nil
-	detach(cmd) // eigene Prozessgruppe, damit er das Fenster überlebt
+	detach(cmd) // a process group of its own, so it outlives the window
 	if err := cmd.Start(); err != nil {
 		return Info{}, err
 	}

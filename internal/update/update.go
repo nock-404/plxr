@@ -1,8 +1,8 @@
 // Package update holt neue Fassungen von GitHub Releases.
 //
-// Der Ablauf ist bewusst schlicht: Version vergleichen, Archiv laden, App
+// The flow is deliberately plain: compare versions, download the archive, swap
 // daneben auspacken, tauschen, neu starten. Kein Hintergrunddienst, kein
-// stiller Austausch — der Nutzer entscheidet.
+// no silent swap — the user decides.
 package update
 
 import (
@@ -21,7 +21,7 @@ import (
 	"time"
 )
 
-// Repo ist das Projekt, aus dem Fassungen kommen.
+// Repo is the project the versions come from.
 const Repo = "mg-pr/plxr"
 
 type Release struct {
@@ -48,7 +48,7 @@ type Status struct {
 	Error     string `json:"fehler,omitempty"`
 }
 
-// assetName ist der Name, den das CI je Plattform hochlädt.
+// assetName is the name CI uploads per platform.
 func assetName() string {
 	switch runtime.GOOS {
 	case "darwin":
@@ -60,10 +60,10 @@ func assetName() string {
 	}
 }
 
-// Prüfen fragt GitHub nach der neuesten Fassung.
+// Check asks GitHub for the latest version.
 func Check(aktuell string) Status {
-	// Ohne führendes "v", genau wie Neueste. Sonst stand im Update-Balken
-	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — einmal mit, einmal ohne.
+	// Without a leading "v", exactly like Latest. Otherwise the update bar read
+	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — once with, once without.
 	st := Status{Current: strings.TrimPrefix(aktuell, "v")}
 
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
@@ -105,13 +105,13 @@ func Check(aktuell string) Status {
 	return st
 }
 
-// neuer vergleicht zwei Versionen der Form 1.2.3 stellenweise.
+// isNewer compares two versions of the form 1.2.3 component by component.
 func isNewer(a, b string) bool {
 	if a == "" || b == "" || a == b {
 		return false
 	}
 	if b == "dev" {
-		return false // aus dem Quelltext gebaut, nicht überschreiben
+		return false // built from source, do not overwrite
 	}
 	teile := func(v string) []int {
 		var out []int
@@ -137,11 +137,11 @@ func isNewer(a, b string) bool {
 	return false
 }
 
-// Anwenden lädt das Archiv und tauscht die laufende Anwendung aus.
+// Apply downloads the archive and swaps out the running application.
 //
-// Getauscht wird über ein Umbenennen: die alte Fassung wandert zur Seite, die
-// neue an ihren Platz. Geht dabei etwas schief, kommt die alte zurück — ein
-// halb überschriebenes Programmverzeichnis wäre der schlimmste Ausgang.
+// The swap happens through renames: the old version moves aside, the new one
+// into its place. If something goes wrong the old one comes back — a half
+// overwritten program directory would be the worst outcome.
 func Apply(assetURL string, fortschritt func(read, gesamt int64)) (string, error) {
 	if assetURL == "" {
 		return "", errors.New("keine Adresse für das Archiv")
@@ -175,14 +175,14 @@ func Apply(assetURL string, fortschritt func(read, gesamt int64)) (string, error
 		return "", err
 	}
 
-	// Signieren, damit das System die App über Fassungen hinweg wiedererkennt
-	// und nicht bei jedem Update erneut nach Berechtigungen fragt. Schlägt das
-	// fehl, ist die App trotzdem lauffähig — es fragt dann eben wieder.
+	// Sign it so the system recognises the app across versions and does not ask
+	// for permissions again on every update. If that fails the app still runs —
+	// it will simply ask again.
 	_ = resign(ziel)
 	return ziel, nil
 }
 
-// installOrt ist das, was ersetzt wird: auf macOS das App-Bündel, sonst die Datei.
+// installTarget is what gets replaced: the app bundle on macOS, the file otherwise.
 func installTarget() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -197,19 +197,19 @@ func installTarget() (string, error) {
 	return exe, nil
 }
 
-// laden holt das Archiv und nimmt einen Abbruch nicht als Ende hin.
+// download fetches the archive and does not take an abort for an answer.
 //
-// Ein Download über mehrere Megabyte reißt gelegentlich ab — das ist keine
-// Ausnahme, sondern der Normalfall bei schlechter Leitung. Wer dann aufgibt,
-// hat einen Updater, der auf gutem WLAN funktioniert und sonst nicht.
-// Wiederaufgenommen wird über Range: schon geladene Bytes bleiben liegen.
+// A download of several megabytes tears off occasionally — that is not an
+// exception but the normal case on a poor line. Giving up then leaves you with
+// an updater that works on good WiFi and nowhere else.
+// Resumption goes through Range: bytes already fetched stay where they are.
 func download(url, nach string, fortschritt func(int64, int64)) error {
 	const versuche = 4
 	var letzter error
 
 	for versuch := 0; versuch < versuche; versuch++ {
 		if versuch > 0 {
-			// Kurz warten, aber nicht ewig: zwei Sekunden, dann vier, dann acht.
+			// Wait a little, but not forever: two seconds, then four, then eight.
 			time.Sleep(time.Duration(1<<versuch) * time.Second)
 		}
 
@@ -233,8 +233,8 @@ func download(url, nach string, fortschritt func(int64, int64)) error {
 			continue
 		}
 
-		// 206 heißt: Fortsetzung angenommen. 200 heißt: von vorn — dann muss
-		// die halbe Datei weg, sonst hängen zwei Anfänge aneinander.
+		// 206 means: continuation accepted. 200 means: from the start — then the
+		// half file has to go, otherwise two beginnings end up stitched together.
 		anhaengen := res.StatusCode == http.StatusPartialContent
 		if res.StatusCode != http.StatusOK && !anhaengen {
 			res.Body.Close()
@@ -302,7 +302,7 @@ func unzip(archiv, nach string) error {
 	defer r.Close()
 	for _, f := range r.File {
 		ziel := filepath.Join(nach, f.Name)
-		// Zip-Slip: ein Archiv darf nicht aus seinem Zielordner ausbrechen.
+		// Zip slip: an archive must not break out of its target folder.
 		if !strings.HasPrefix(ziel, filepath.Clean(nach)+string(os.PathSeparator)) {
 			return errors.New("Archiv enthält einen Pfad außerhalb des Ziels: " + f.Name)
 		}
@@ -348,8 +348,8 @@ func findApp(dir string) (string, error) {
 
 func copyTree(von, nach string) error {
 	if runtime.GOOS == "darwin" {
-		// ditto erhält Bündelstruktur, Rechte und erweiterte Attribute —
-		// eine einfache Kopie zerstört die Signatur.
+		// ditto preserves bundle structure, permissions and extended attributes —
+		// a plain copy destroys the signature.
 		return exec.Command("ditto", von, nach).Run()
 	}
 	daten, err := os.ReadFile(von)
@@ -359,7 +359,7 @@ func copyTree(von, nach string) error {
 	return os.WriteFile(nach, daten, 0o755)
 }
 
-// NeuStarten startet die getauschte Anwendung und beendet die laufende.
+// Restart starts the swapped-in application and ends the running one.
 func Restart(ort string) error {
 	if runtime.GOOS == "darwin" {
 		return exec.Command("open", "-n", ort).Start()
@@ -369,17 +369,17 @@ func Restart(ort string) error {
 }
 
 /*
-tauschen setzt die neue Fassung an den Platz der alten.
+swap puts the new version in the place of the old one.
 
-	Naheliegend wäre: alte Fassung beiseiteschieben und die neue an ihren Platz
-	kopieren. Dann steht am Zielort aber sekundenlang ein halb kopiertes Bündel.
-	Stirbt der Daemon in dieser Zeit — Absturz, Strom weg, erzwungenes Beenden —,
-	ist die App kaputt, und niemand rollt zurück: das passiert nur, wenn das
-	Kopieren einen Fehler meldet, nicht wenn der Prozess einfach endet.
+	The obvious approach would be: move the old version aside and copy the new one
+	into its place. But then a half-copied bundle sits at the target for seconds.
+	If the daemon dies in that time — crash, power loss, forced termination — the
+	app is broken and nobody rolls back: that only happens when the copy reports an
+	error, not when the process simply ends.
 
-	Deshalb wird zuerst vollständig daneben kopiert. Erst wenn das steht, folgen
-	zwei Umbenennungen — die dauern Sekundenbruchteile, und dazwischen liegt die
-	alte Fassung noch als .alt bereit.
+	So it is copied next to it in full first. Only once that stands do two renames
+	follow — they take fractions of a second, and in between the old version is
+	still there as .alt.
 */
 func swap(fresh, ziel string) error {
 	daneben := ziel + ".neu"
@@ -396,7 +396,7 @@ func swap(fresh, ziel string) error {
 		return errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
 	}
 	if err := os.Rename(daneben, ziel); err != nil {
-		os.Rename(beiseite, ziel) // zurück auf Anfang
+		os.Rename(beiseite, ziel) // back to the start
 		os.RemoveAll(daneben)
 		return errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
 	}
