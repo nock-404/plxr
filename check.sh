@@ -32,6 +32,7 @@ schritt "go vet" go vet ./...
 schritt "bindungen" python3 bindungen.py
 schritt "js-parser" node web/parser_test.mjs
 schritt "js-aufrufe" node aufrufe.mjs web/app.js web/ui.js
+schritt "i18n" node web/i18n_test.mjs
 
 printf '%-16s' "go test"
 go test ./... >/dev/null || { echo "FEHLER"; go test ./...; exit 1; }

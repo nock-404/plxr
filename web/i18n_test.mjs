@@ -15,9 +15,17 @@ for (const f of readdirSync('web/i18n')) {
 }
 
 const quellen = ['web/app.js', 'web/ui.js', 'web/index.html'].map((f) => readFileSync(f, 'utf8')).join('\n');
+/* Ein Schluessel gilt als benutzt, wenn sein Name irgendwo in Anfuehrungszeichen
+   im Quelltext steht. Praeziser waere, nur t('…') zu zaehlen — aber dann faellt
+   t(bedingung ? 'a' : 'b') durch, und ein Test, der bei richtigem Code Alarm
+   schlaegt, wird abgeschaltet statt gelesen. */
+/* Gezaehlt wird, was in einem t(…)-Aufruf in Anfuehrungszeichen steht — samt
+   der Faelle mit Verzweigung, t(bedingung ? 'a' : 'b'). Nur t('…') zu matchen
+   liesse die durchfallen; alle punktierten Zeichenketten zu nehmen faengt die
+   Schluessel von localStorage mit. */
 const benutzt = new Set([
-  ...[...quellen.matchAll(/\bt\(\s*'([\w.]+)'/g)].map((m) => m[1]),
-  ...[...quellen.matchAll(/\bt\(\s*"([\w.]+)"/g)].map((m) => m[1]),
+  ...[...quellen.matchAll(/\bt\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)/g)]
+    .flatMap((m) => [...m[1].matchAll(/['"]([\w.]+)['"]/g)].map((k) => k[1])),
   ...[...quellen.matchAll(/data-i18n(?:-tip|-ph)?="([\w.]+)"/g)].map((m) => m[1]),
 ]);
 

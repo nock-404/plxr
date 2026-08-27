@@ -130,7 +130,7 @@ async function connect() {
   } else {
     try { TOKEN = sessionStorage.getItem('plxr.token') || ''; } catch {}
   }
-  if (!TOKEN) throw new Error('kein Token — plxr über die App oder `plxr --browser` öffnen');
+  if (!TOKEN) throw new Error(t('err.noToken'));
 }
 
 const wsURL = (p) =>
@@ -148,7 +148,7 @@ async function req(pfad, opts = {}) {
     // system it says "Load failed" or "Failed to fetch". That then stood in the
     // dialog without any context and explained nothing.
     reconnect();
-    throw new Error('Keine Verbindung zum Daemon — wird neu aufgebaut.');
+    throw new Error(t('err.daemonGone'));
   }
   if (r.status === 403) { reconnect(); throw new Error('Token abgelaufen'); }
   if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
@@ -488,12 +488,12 @@ $('#themeSel').addEventListener('change', () => {
 $('#themeDelete').addEventListener('click', async () => {
   const t = currentTheme();
   if (!t?.eigen) return;
-  if (!(await plxrUI.confirm(t.label, 'Eigenes Theme löschen?'))) return;
+  if (!(await plxrUI.confirm(t.label, t('theme.deleteAsk')))) return;
   try {
     await api.themeDelete(t.name);
     await loadThemes();
   } catch (e) {
-    plxrUI.notice(e.message || String(e), 'Nicht gelöscht');
+    plxrUI.notice(e.message || String(e), t('theme.notDeleted'));
   }
 });
 
@@ -506,13 +506,13 @@ async function openSettings() {
   $('#settings').hidden = false;
   plxrUI.replaceSelects();
   $('#themeHint').textContent =
-    'Änderungen greifen sofort. Speichern legt ein eigenes Theme an.';
+    t('settings.themeHint');
   buildStyleEditor();
   showDeleteButton();
   try {
     const v = await api.version();
     $('#settingsVersion').textContent =
-      `plxr ${v.aktuell}` + (v.available ? ` · ${v.latest} verfügbar` : ' · aktuell');
+      `plxr ${v.aktuell}` + (v.available ? ` · ${t('version.available', { v: v.latest })}` : ' · aktuell');
   } catch {
     $('#settingsVersion').textContent = '';
   }
@@ -527,8 +527,8 @@ $('#settingsBtn').addEventListener('click', openSettings);
    happens on request, as an own theme alongside the shipped ones. */
 
 const STYLE_COLORS = [
-  ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', 'Nebensächliches'],
-  ['accent', 'Hervorhebung'], ['panel', 'Flächen'], ['line', 'Linien'],
+  ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', t('style.dim')],
+  ['accent', 'Hervorhebung'], ['panel', t('style.panel')], ['line', 'Linien'],
   ['working', 'arbeitet'], ['waiting', 'wartet'],
   ['blocked', 'braucht dich'], ['dead', 'beendet'],
   ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
@@ -560,10 +560,10 @@ function buildStyleEditor() {
     });
   }
 
-  box.appendChild(numberRow('Schriftgröße Oberfläche', 'fontSize', 11, 28, () => {
+  box.appendChild(numberRow(t('style.fontUi'), 'fontSize', 11, 28, () => {
     document.documentElement.style.setProperty('--size', styleState.fontSize + 'px');
   }));
-  box.appendChild(numberRow('Schriftgröße Terminal', 'termSize', 9, 24, () => {
+  box.appendChild(numberRow(t('style.fontTerm'), 'termSize', 9, 24, () => {
     forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
   }));
   box.appendChild(toggleRow('Zeilenraster', 'scan'));
@@ -644,7 +644,7 @@ $('#styleReset').addEventListener('click', () => {
 $('#styleSave').addEventListener('click', async () => {
   const basis = currentTheme();
   const name = await plxrUI.prompt(
-    'Unter welchem Namen? Kleinbuchstaben und Bindestriche.',
+    t('theme.nameAsk'),
     'Eigenes Theme speichern', (basis?.name || 'mein') + '-eigen');
   if (!name) return;
 
@@ -669,7 +669,7 @@ $('#styleSave').addEventListener('click', async () => {
     await api.themeImport(JSON.stringify(theme));
     await loadThemes(sauber);
     styleState.changes = {};
-    plxrUI.notice(`„${name}" steht jetzt in der Liste und liegt unter ~/.plxr/themes.`, 'Gespeichert');
+    plxrUI.notice(t('theme.saved', { name }), 'Gespeichert');
   } catch (e) {
     plxrUI.notice(e.message || String(e), 'Nicht gespeichert');
   }
@@ -681,11 +681,11 @@ async function showHookStatus() {
     const st = await api.hookStand();
     const mehrere = (st.konten || 1) > 1 ? ` (${st.konten} Konten)` : '';
     $('#hookHint').textContent = st.eingerichtet
-      ? `Sessions melden ihren Zustand${mehrere} — Status und Modell stehen fest statt geraten.`
+      ? t('hook.connectedHint', { accounts: mehrere })
       : st.fehlen?.length
-        ? `Ohne Anbindung wird der Status geschätzt. Es fehlt: ${st.fehlen.join(', ')}.`
-        : 'Ohne Anbindung wird der Status aus der Bildschirmausgabe geschätzt.';
-    $('#hookBtn').textContent = st.eingerichtet ? 'LÖSEN' : 'EINRICHTEN';
+        ? t('hook.missingHint', { missing: st.fehlen.join(', ') })
+        : t('hook.notConnected');
+    $('#hookBtn').textContent = st.eingerichtet ? t('hook.detach') : 'EINRICHTEN';
     $('#hookBtn').dataset.an = st.eingerichtet ? 'ja' : 'nein';
   } catch {
     $('#hookHint').textContent = 'Zustand unbekannt.';
@@ -699,11 +699,11 @@ $('#hookBtn').addEventListener('click', async () => {
     await api.setHook(!an);
     await showHookStatus();
     plxrUI.notice(
-      an ? 'plxr ist aus den Claude-Code-Einstellungen entfernt.'
+      an ? t('hook.removed')
          : 'Eingetragen. Neue Sessions melden ihren Zustand ab sofort.\nVorhandene Hooks blieben unangetastet.',
       'Claude Code');
   } catch (e) {
-    plxrUI.notice(e.message || String(e), 'Nicht geändert');
+    plxrUI.notice(e.message || String(e), t('err.notChanged'));
   }
 });
 
@@ -758,9 +758,8 @@ async function loadView(box, info, load) {
     await load();
   } catch (e) {
     if (info) $(info).textContent = '';
-    showEmpty($(box), 'nicht erreichbar',
-      'Der Daemon antwortet gerade nicht. Er wird im Hintergrund neu ' +
-      'gestartet — sobald er da ist, füllt sich die Ansicht von selbst.');
+    showEmpty($(box), t('view.unreachable'),
+      t('view.unreachableHint'));
   }
 }
 
@@ -858,8 +857,7 @@ function renderInbox() {
 
   if (!list.length) {
     showEmpty(box, 'niemand wartet',
-      'Keine Session hängt gerade an einer Rückfrage. Sobald eine wartet, ' +
-      'steht sie hier mit ihrer Frage — antworten ohne sie zu öffnen.');
+      t('inbox.emptyHint'));
     return;
   }
 
@@ -876,7 +874,7 @@ function renderInbox() {
       card.innerHTML =
         '<div class="inboxHead"><span class="dot permission">◉</span>' +
         '<b class="inboxName"></b><span class="inboxPath"></span>' +
-        '<button class="btn tiny" data-t="oeffnen">ÖFFNEN</button></div>' +
+        `<button class="btn tiny" data-t="oeffnen">${t('inbox.open')}</button></div>` +
         '<pre class="inboxQuestion"></pre>' +
         '<div class="inboxReply"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
         '<span class="inboxQuick"></span></div>';
@@ -897,7 +895,7 @@ function renderInbox() {
     card.querySelector('.inboxName').textContent = t.title || t.name;
     card.querySelector('.inboxPath').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
     const confirm = card.querySelector('.inboxQuestion');
-    const neu = t.confirm || t.activity || '(keine Frage erkannt)';
+    const neu = t.confirm || t.activity || t('inbox.noQuestion');
     if (confirm.textContent !== neu) confirm.textContent = neu;
 
     /* Only rebuild when the question changed: the card refreshes every second,
@@ -953,7 +951,7 @@ $('#railUsage').addEventListener('click', showUsage);
 const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', eingefroren: '❙❙' };
 const WORT = {
   working: 'arbeitet', waiting: 'wartet', permission: 'braucht dich',
-  dead: 'beendet', unknown: 'läuft',
+  dead: 'beendet', unknown: t('state.running'),
 };
 
 /* Orphaned is not a status from the daemon but a note: the session was still
@@ -1074,7 +1072,7 @@ function renderRail() {
       rw.style.color = crestHue(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
       el.querySelector('.rsub').textContent = t.verwaist
-        ? 'abgestürzt · wiederaufnehmen'
+        ? t('state.crashed')
         : [t.alive ? WORT[st] : 'beendet', t.agent].filter(Boolean).join(' · ');
       el.dataset.tip = `${t.name} — ${t.cwd}`;
     }
@@ -1143,7 +1141,7 @@ function renderGrid() {
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
     el.querySelector('.tbody').textContent = t.preview || '';
     el.querySelector('.act').textContent = t.verwaist
-      ? 'Daemon abgestürzt — Klick nimmt die Unterhaltung wieder auf'
+      ? t('tile.crashedHint')
       : (t.alive ? (t.activity || t.last_message || '') : `beendet (${t.exit_code})`);
     el.querySelector('.agent').textContent = t.agent_label || t.agent || '';
     el.querySelector('.ctx').textContent =
@@ -1170,7 +1168,7 @@ function renderAll(tiles) {
   if (connectionOk) {
     $('#counts').textContent =
       `${state.tiles.length} ${state.tiles.length === 1 ? 'Session' : 'Sessions'} · ` +
-      `${laufen} ${laufen === 1 ? 'läuft' : 'laufen'}` +
+      `${laufen} ${laufen === 1 ? t('state.running') : 'laufen'}` +
       (blockiert ? ` · ${blockiert} wartet auf dich` : '') +
       (verwaist ? ` · ${verwaist} vom Absturz betroffen` : '');
   }
@@ -1314,7 +1312,7 @@ function openSession(id) {
 function addPane(id) {
   if (panes.has(id)) { paneActivate(id); return; }
   if (state.panes.length >= MAX_PANES) {
-    plxrUI.notice(`Mehr als ${MAX_PANES} Flächen werden unübersichtlich.`, 'Genug geteilt');
+    plxrUI.notice(t('pane.tooMany', { n: MAX_PANES }), 'Genug geteilt');
     return;
   }
   const t = state.tiles.find((x) => x.id === id);
@@ -1322,7 +1320,7 @@ function addPane(id) {
   if (t.verwaist) {
     // The daemon ended while the session was running. With Claude Code the
     // Unterhaltung im Transkript — von dort geht es weiter.
-    plxrUI.confirm(`${t.name} lief noch, als der Daemon endete.\n${t.cwd}`, 'Wiederaufnehmen?')
+    plxrUI.confirm(t('session.resumeAsk', { name: t.name, cwd: t.cwd }), 'Wiederaufnehmen?')
       .then(async (ja) => {
         if (!ja) return;
         try {
@@ -1337,7 +1335,7 @@ function addPane(id) {
   if (!t.alive) {
     // A dead PTY has no stream any more — the pane would stay empty.
     plxrUI.notice(
-      `${t.name} ist beendet (Code ${t.exit_code}).\nIm Archiv lässt sich die Unterhaltung fortsetzen.`,
+      t('session.endedHint', { name: t.name, code: t.exit_code }),
       'Nicht mehr aktiv');
     return;
   }
@@ -1350,7 +1348,7 @@ function addPane(id) {
   const el = document.createElement('div');
   el.className = 'pane';
   el.dataset.id = id;
-  el.innerHTML = '<span class="panelabel"></span><button class="paneclose" title="Fläche schließen">✕</button><div class="pterm"></div>';
+  el.innerHTML = `<span class="panelabel"></span><button class="paneclose" data-tip="${t('pane.closeTip')}">✕</button><div class="pterm"></div>`;
   el.querySelector('.panelabel').textContent = t.agent_label || t.agent || t.name;
   el.querySelector('.paneclose').addEventListener('click', (ev) => { ev.stopPropagation(); closePane(id); });
   el.addEventListener('mousedown', () => paneActivate(id));
@@ -1490,7 +1488,7 @@ function addPane(id) {
   const aufDaten = (daten) => term.write(daten);
   const aufEnde = (grund) => {
     term.write(grund === 'leitung'
-      ? '\r\n[plxr] Verbindung zum Daemon verloren — wird neu aufgebaut …\r\n'
+      ? `\r\n[plxr] ${t('pane.lostLine')}\r\n`
       : '\r\n[plxr] Prozess beendet.\r\n');
   };
   attachments.set(id, { aufDaten, aufEnde, beiNeu: () => term.write('\r\n[plxr] wieder verbunden.\r\n') });
@@ -1654,14 +1652,14 @@ $('#findClose').addEventListener('click', closeFind);
 
 const SHORTCUTS = [
   ['t', () => $('#newBtn').click(),                     'neue Session'],
-  ['w', () => state.aktiv && closePane(state.aktiv), 'Fläche schließen'],
+  ['w', () => state.aktiv && closePane(state.aktiv), t('pane.closeTip')],
   ['f', () => ($('#viewer').hidden ? openFind() : openFindInFile()), 'suchen'],
   ['.', emergencyBrake,                                        'Notbremse'],
   ['d', () => $('#splitAdd').click(),                    'teilen'],
   [',', openSettings,                            'Einstellungen'],
-  ['0', () => changeFontSize(0),                         'Schrift zurücksetzen'],
-  ['+', () => changeFontSize(1),                         'Schrift größer'],
-  ['=', () => changeFontSize(1),                         'Schrift größer'],
+  ['0', () => changeFontSize(0),                         t('key.fontReset')],
+  ['+', () => changeFontSize(1),                         t('key.fontBigger')],
+  ['=', () => changeFontSize(1),                         t('key.fontBigger')],
   ['-', () => changeFontSize(-1),                        'Schrift kleiner'],
 ];
 
@@ -1719,7 +1717,7 @@ $('#filesToggle').addEventListener('click', () => {
 /* Split the pane: put a second session alongside. */
 $('#splitAdd').addEventListener('click', () => {
   const frei = state.tiles.filter((t) => !state.panes.includes(t.id));
-  if (!frei.length) { plxrUI.notice('Es gibt keine weitere Session.', 'Nichts zum Teilen'); return; }
+  if (!frei.length) { plxrUI.notice(t('split.noOther'), 'Nichts zum Teilen'); return; }
   const box = $('#splitList');
   box.innerHTML = '';
   for (const t of frei) {
@@ -1795,7 +1793,7 @@ $('#sessAccount').addEventListener('change', async (e) => {
   const t = state.tiles.find((x) => x.id === state.aktiv);
   if (!t || t.account === ziel) return;
   const weiter = await plxrUI.confirm(
-    `Der Prozess wird beendet und mit --resume unter ${ziel} neu gestartet.`, 'Konto wechseln?');
+    t('session.switchAsk', { account: ziel }), 'Konto wechseln?');
   if (!weiter) { e.target.value = t.account || ''; return; }
   try {
     const neu = await api.kontoWechseln(state.aktiv, ziel);
@@ -1842,7 +1840,7 @@ async function loadFileTree(t) {
 async function renderMarkLayer(box, dir, tiefe, sid) {
   const entries = await api.ordner(sid, dir);
   if (tiefe === 0 && (!entries || !entries.length)) {
-    showEmpty(box, 'leerer ordner', 'Hier liegt nichts, was angezeigt werden könnte.');
+    showEmpty(box, 'leerer ordner', t('file.nothingHere'));
     return;
   }
   for (const e of entries || []) {
@@ -1898,9 +1896,9 @@ async function openFile(e, sid) {
 
     $('#viewerName').textContent = e.name;
     $('#viewerMeta').textContent = c.binary
-      ? 'binär, nicht anzeigbar'
+      ? t('file.binary')
       : `${c.lines} Zeilen · ${(c.size / 1024).toFixed(1)} kB` +
-        (c.truncated ? ' · gekürzt, Speichern gesperrt' : '');
+        (c.truncated ? t('file.truncated') : '');
 
     const field = $('#viewerBody');
     field.value = datei.original;
@@ -1913,7 +1911,7 @@ async function openFile(e, sid) {
     $('#rulesPane').hidden = true;
     $('#viewer').hidden = false;
   } catch (err) {
-    plxrUI.notice(err.message || String(err), 'Datei nicht lesbar');
+    plxrUI.notice(err.message || String(err), t('file.unreadable'));
   }
 }
 
@@ -1960,7 +1958,7 @@ async function closeViewer() {
   $('#findInFile').hidden = true;
   if (!$('#viewerDirty').hidden) {
     const weg = await plxrUI.confirm(
-      'Die Änderungen an ' + $('#viewerName').textContent + ' gehen verloren.', 'Ohne Speichern schließen?');
+      t('file.discardHint', { name: $('#viewerName').textContent }), t('file.discardAsk'));
     if (!weg) return;
   }
   setDirty(false);
@@ -2179,7 +2177,7 @@ async function openPlayer(id, name, abOffset) {
   const field = $('#player');
   field.hidden = false;
   $('#playerName').textContent = name || id.slice(0, 8);
-  $('#playerMeta').textContent = 'lädt …';
+  $('#playerMeta').textContent = t('common.loading');
   player.id = id;
 
   if (!player.term) {
@@ -2306,8 +2304,8 @@ function playerShowPosition() {
     ? `${playerClock(gesamt * anteil)} / ${playerClock(gesamt)}`
     : `${Math.round(anteil * 100)} %`;
   $('#playerMeta').textContent = player.beschnitten
-    ? 'nur der Anfang — die Aufzeichnung ist länger als das, was auf einmal geht'
-    : (player.marken.length ? '' : 'ohne Zeitachse, gleichmäßiges Tempo');
+    ? t('player.cut')
+    : (player.marken.length ? '' : t('player.noTimeline'));
 }
 
 const playerClock = (sek) => {
@@ -2345,17 +2343,16 @@ $('#rulesToggle').addEventListener('click', async () => {
   if (!state.aktiv) return;
   $('#viewer').hidden = true;
   $('#rulesPane').hidden = false;
-  $('#rulesMeta').textContent = 'lädt …';
+  $('#rulesMeta').textContent = t('common.loading');
   const list = await api.regeln(state.aktiv);
   $('#rulesMeta').textContent = list.length === 1
-    ? 'Eine Datei wirkt hier · Ist-Zustand, nicht der von damals'
-    : `${list.length} Dateien wirken hier · Ist-Zustand, nicht der von damals`;
+    ? t('rules.oneFile')
+    : t('rules.nFiles', { n: list.length });
   const box = $('#rulesBody');
   box.innerHTML = '';
   if (!list.length) {
-    showEmpty(box, 'keine regeln',
-      'In diesem Verzeichnis und darüber liegt keine CLAUDE.md, kein Skill und ' +
-      'kein Agent. Der Assistent arbeitet hier ohne zusätzliche Anweisungen.');
+    showEmpty(box, t('rules.none'),
+      t('rules.noneHint'));
     return;
   }
   for (const e of list) {
@@ -2395,7 +2392,7 @@ function showEmpty(box, titel, text) {
 const archiv = { alle: [], search: '', treffer: null, terminals: null };
 
 async function loadArchive() {
-  $('#archInfo').textContent = 'lädt …';
+  $('#archInfo').textContent = t('common.loading');
   await fillAccounts('#archAccount');
   archiv.alle = await api.archiv(state.filter);
   archiv.treffer = null;
@@ -2467,12 +2464,11 @@ function renderArchive() {
   if (archiv.terminals) {
     const wonach = $('#archSearch').value.trim();
     $('#archInfo').textContent = archiv.terminals.length === 1
-      ? `Ein Terminal enthält „${wonach}"`
+      ? t('archive.oneTerminal', { q: wonach })
       : `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
     if (!archiv.terminals.length) {
       showEmpty(box, 'nichts im terminal',
-        `„${wonach}" kam in keiner Terminalausgabe vor. Aufgezeichnet wird ab ` +
-        'dem Start dieser Fassung — Älteres steht nicht zur Verfügung.');
+        t('archive.noTerminalHit', { q: wonach }));
       return;
     }
     for (const t of archiv.terminals) {
@@ -2515,12 +2511,11 @@ function renderArchive() {
   if (archiv.treffer) {
     const wonach = $('#archSearch').value.trim();
     $('#archInfo').textContent = archiv.treffer.length === 1
-      ? `Eine Session enthält „${wonach}"`
+      ? t('archive.oneSession', { q: wonach })
       : `${archiv.treffer.length} Sessions enthalten „${wonach}"`;
     if (!archiv.treffer.length) {
       showEmpty(box, 'nichts gefunden',
-        `Kein Transkript enthält „${wonach}". Gesucht wird in dem, was du und der ` +
-        'Assistent geschrieben habt — nicht in Werkzeugausgaben.');
+        t('archive.noFullTextHit', { q: wonach }));
       return;
     }
     for (const t of archiv.treffer) {
@@ -2560,13 +2555,13 @@ function renderArchive() {
 
   if (!list.length) {
     if (archiv.alle.length) {
-      showEmpty(box, 'kein treffer im titel',
+      showEmpty(box, t('archive.noTitleHit'),
         'Eingabetaste durchsucht stattdessen den vollen Text aller Transkripte.');
     } else if (state.filter) {
       showEmpty(box, 'nichts unter diesem pfad',
-        `Unter ${state.filter} liegt kein Transkript. Filter oben leeren zeigt alle.`);
+        t('archive.filtered', { path: state.filter }));
     } else {
-      showEmpty(box, 'noch kein archiv',
+      showEmpty(box, t('archive.none'),
         'Hier erscheinen abgelegte Claude-Code-Unterhaltungen, sobald welche existieren.');
     }
     return;
@@ -2579,7 +2574,7 @@ function renderArchive() {
       '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
       '<span class="hitSmall"></span><span class="hitValue"></span>' +
       '<span class="hitAction"><button class="btn" data-t="auf">FORTSETZEN</button>' +
-      '<button class="btn" data-t="weg">LÖSCHEN</button></span>';
+      `<button class="btn" data-t="weg">${t('common.delete')}</button></span>`;
     row.querySelector('.hitDate').textContent = shortDate(e.mod);
     row.querySelector('.hitTitle').textContent = e.title || '(ohne Titel)';
     row.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
@@ -2593,14 +2588,14 @@ function renderArchive() {
     });
     row.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
       ev.stopPropagation();
-      const weg = await plxrUI.confirm(`${e.title || e.id}\n${e.cwd}`, 'Transkript löschen?');
+      const weg = await plxrUI.confirm(`${e.title || e.id}\n${e.cwd}`, t('archive.deleteAsk'));
       if (!weg) return;
       try {
         await api.archiveDelete(e.id, e.account);
         archiv.alle = archiv.alle.filter((x) => x.id !== e.id);
         renderArchive();
       } catch (err) {
-        plxrUI.notice(err.message || String(err), 'Löschen fehlgeschlagen');
+        plxrUI.notice(err.message || String(err), t('archive.deleteFailed'));
       }
     });
     box.appendChild(row);
@@ -2623,9 +2618,8 @@ async function loadPorts() {
   const box = $('#portsList');
   box.innerHTML = '';
   if (!list.length) {
-    showEmpty(box, 'kein port belegt',
-      'Kein Prozess lauscht gerade auf einem TCP-Port. Hier tauchen vergessene ' +
-      'Dev-Server auf, die den nächsten Start blockieren.');
+    showEmpty(box, t('ports.none'),
+      t('ports.noneHint'));
     return;
   }
   for (const p of list) {
@@ -2719,9 +2713,8 @@ async function loadUsage() {
   };
 
   if (!b.nachTag.length) {
-    showEmpty(box, 'kein verbrauch',
-      'In diesem Zeitraum wurde nichts gezählt. Gerechnet wird aus den ' +
-      'Transkripten — ohne abgelegte Unterhaltungen bleibt die Rechnung leer.');
+    showEmpty(box, t('usage.none'),
+      t('usage.noneHint'));
     return;
   }
 
@@ -2761,11 +2754,11 @@ async function checkPace() {
     `${tokShort(t.proStunde)}/h ${TREND[t.trend] || ''} · 5h ${tokShort(t.fenster5h)}` +
     (t.aktive ? ` · ${t.aktive} aktiv` : '');
   el.title =
-    `Verbrauch der letzten Stunde, hochgerechnet: ${t.proStunde.toLocaleString('de-DE')} Token\n` +
-    `In den letzten fünf Stunden: ${t.fenster5h.toLocaleString('de-DE')}\n` +
-    `${t.aktive} Sessions haben in der letzten Stunde etwas verbraucht.\n\n` +
-    'Claude rechnet in rollenden Fenstern. Wird es eng, hilft ein Kontowechsel ' +
-    'in der Kopfzeile der Session.';
+    t('pace.tooltip', {
+      hour: t.proStunde.toLocaleString(sprache),
+      window5h: t.fenster5h.toLocaleString(sprache),
+      active: t.aktive,
+    });
 
   // Past three billion an hour it gets tight on the common plans — that is a
   // mark from experience, not an official limit.
@@ -2800,7 +2793,7 @@ async function checkVersion(erzwingen) {
     if (!st.available) { $('#updateBar').hidden = true; return; }
     if (localStorage.getItem('plxr.updateIgnoriert') === st.latest) return;
     $('#updateText').textContent =
-      `Fassung ${st.latest} ist da (du hast ${st.aktuell})` +
+      t('update.banner', { latest: st.latest, current: st.aktuell }) +
       (st.resize ? ` · ${(st.resize / (1 << 20)).toFixed(1)} MB` : '');
     $('#updateBar').hidden = false;
   } catch {}
@@ -2811,14 +2804,14 @@ $('#updateHide').addEventListener('click', () => {
   $('#updateBar').hidden = true;
 });
 $('#updateNotes').addEventListener('click', () => {
-  plxrUI.notice(versionStatus?.notizen || 'keine Anmerkungen zu dieser Fassung', 'Was ist neu');
+  plxrUI.notice(versionStatus?.notizen || t('update.noNotes'), t('update.notesTitle'));
 });
 /* The flow you expect: notice, click, progress bar, restart. The sessions
    notice none of it — they belong to the daemon, and it keeps running. Only the
    window comes back new. */
 $('#updateGo').addEventListener('click', async () => {
   const ja = await plxrUI.confirm(
-    'Der Daemon läuft weiter, alle Sessions bleiben. Nur das Fenster startet neu.',
+    t('update.confirm'),
     'Fassung ' + (versionStatus?.latest || '') + ' installieren?');
   if (!ja) return;
 
@@ -2854,7 +2847,7 @@ function updateVerfolgen() {
     }
     $('#updateFill').style.width = st.prozent + '%';
     $('#updateText').textContent =
-      st.phase === 'lädt' ? `lädt … ${st.prozent}%` : st.phase;
+      st.phase === t('update.loading') ? t('update.progress', { pct: st.prozent }) : st.phase;
 
     if (!st.fertig) return;
     clearInterval(tick);
@@ -2940,8 +2933,7 @@ async function openTemplates() {
   if (!list.length) {
     const d = document.createElement('div');
     d.className = 'emptyNote';
-    d.innerHTML = '<b>noch keine vorlage</b><span>„Lage speichern" macht aus den ' +
-      'gerade offenen Sessions eine Vorlage.</span>';
+    d.innerHTML = `<b>${t('templates.none')}</b><span>${t('templates.noneHint')}</span>`;
     box.appendChild(d);
     return;
   }
@@ -2961,7 +2953,7 @@ async function openTemplates() {
       $('#templates').hidden = true;
       try {
         const r = await api.templateStart(v.name);
-        if (r.teilweise) plxrUI.notice(r.teilweise, 'Nicht alles ließ sich starten');
+        if (r.teilweise) plxrUI.notice(r.teilweise, t('templates.startFailed'));
       } catch (e) {
         plxrUI.notice(e.message || String(e), 'Nicht gestartet');
       }
@@ -2969,9 +2961,9 @@ async function openTemplates() {
 
     row.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
       ev.stopPropagation();
-      if (!(await plxrUI.confirm(v.label, 'Vorlage löschen?'))) return;
+      if (!(await plxrUI.confirm(v.label, t('templates.deleteAsk')))) return;
       try { await api.templateDelete(v.name); openTemplates(); }
-      catch (e) { plxrUI.notice(e.message || String(e), 'Nicht gelöscht'); }
+      catch (e) { plxrUI.notice(e.message || String(e), t('theme.notDeleted')); }
     });
     box.appendChild(row);
   }
@@ -2979,10 +2971,10 @@ async function openTemplates() {
 
 $('#templatesSave').addEventListener('click', async () => {
   const offen = state.tiles.filter((t) => t.alive).length;
-  if (!offen) { plxrUI.notice('Es läuft keine Session, die sich sichern ließe.', 'Nichts zu speichern'); return; }
+  if (!offen) { plxrUI.notice(t('templates.nothingToSave'), t('templates.nothingToSaveTitle')); return; }
   const label = await plxrUI.prompt(
-    `${offen} laufende ${offen === 1 ? 'Session wird' : 'Sessions werden'} gesichert: ` +
-    'Verzeichnis, Kommando und Konto.', 'Wie soll die Vorlage heißen?', 'Arbeitstag');
+    t(offen === 1 ? 'templates.saveAskOne' : 'templates.saveAskMany', { n: offen }),
+    t('templates.nameAsk'), 'Arbeitstag');
   if (!label) return;
   const name = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   try {
@@ -3086,13 +3078,13 @@ async function emergencyBrake() {
   }
   try {
     const r = await api.emergencyBrake();
-    if (!r.betroffen) { plxrUI.notice('Es läuft gerade nichts.', 'Nichts anzuhalten'); return; }
+    if (!r.betroffen) { plxrUI.notice(t('brake.nothingRunning'), 'Nichts anzuhalten'); return; }
     button.dataset.an = 'ja';
     button.textContent = t('header.brakeRelease');
     document.documentElement.dataset.eingefroren = 'ja';
     $('#counts').textContent = r.eingefroren === r.betroffen
       ? `${r.eingefroren} angehalten`
-      : `${r.eingefroren} von ${r.betroffen} angehalten — der Rest ließ sich nicht stoppen`;
+      : t('brake.partial', { done: r.eingefroren, total: r.betroffen });
   } catch (e) { plxrUI.notice(e.message || String(e), 'Notbremse fehlgeschlagen'); }
 }
 $('#brake').addEventListener('click', emergencyBrake);
