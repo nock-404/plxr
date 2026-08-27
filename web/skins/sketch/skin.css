@@ -299,3 +299,16 @@ body {
 .tab { background: none; border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 7px 0 0; color: var(--dim); padding: 4px 14px; }
 .tab.on { color: var(--accent); border-color: var(--accent); transform: rotate(-.4deg); }
 .tabs { border-bottom: 1px dashed var(--line); }
+
+/* Raumzustand */
+/* Das Papier nimmt einen Ton an, als läge Licht darauf. */
+:root[data-raum="working"] .fx::after {
+  background: radial-gradient(120% 90% at 50% 0%,
+    color-mix(in srgb, var(--working) 7%, transparent), transparent 70%);
+}
+:root[data-raum="waiting"] .fx::after {
+  background: radial-gradient(120% 90% at 50% 0%,
+    color-mix(in srgb, var(--blocked) 12%, transparent), transparent 70%);
+  animation: sketchPuls 3s ease-in-out infinite;
+}
+@keyframes sketchPuls { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }

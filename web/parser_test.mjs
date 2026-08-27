@@ -114,4 +114,24 @@ if (buckets.size < glyphs.length || skew > 1.6) {
   console.log(`  ok   streut gleichmaessig: alle ${buckets.size} Zeichen, Spitze ${skew.toFixed(2)}x`);
 }
 
+
+console.log('  --- Raumzustand ---');
+// Nur drei Zustaende, und "jemand wartet" schlaegt alles andere: aus dem
+// Augenwinkel sind feinere Abstufungen nicht mehr unterscheidbar.
+const lage = ({ laufen, blockiert, verwaist }) =>
+  blockiert || verwaist ? 'waiting' : (laufen ? 'working' : 'idle');
+
+const roomCases = [
+  [{ laufen: 0, blockiert: 0, verwaist: 0 }, 'idle',    'nichts laeuft'],
+  [{ laufen: 3, blockiert: 0, verwaist: 0 }, 'working', 'drei arbeiten'],
+  [{ laufen: 3, blockiert: 1, verwaist: 0 }, 'waiting', 'einer fragt'],
+  [{ laufen: 0, blockiert: 0, verwaist: 2 }, 'waiting', 'verwaist zaehlt wie wartend'],
+  [{ laufen: 5, blockiert: 2, verwaist: 1 }, 'waiting', 'wartend schlaegt arbeitend'],
+];
+for (const [zustand, want, name] of roomCases) {
+  const got = lage(zustand);
+  if (got !== want) { failures++; console.log(`  FEHL ${name}: ${got} statt ${want}`); }
+  else console.log(`  ok   ${name} -> ${got}`);
+}
+
 process.exit(failures ? 1 : 0);

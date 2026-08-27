@@ -426,3 +426,20 @@ html, body {
 .tab { flex: 0 0 auto; cursor: pointer; font: inherit; }
 .tabbody { display: flex; flex-direction: column; gap: 14px; }
 .tabbody[hidden] { display: none !important; }
+
+/* Raumzustand: the whole surface carries the overall state.
+
+   Only the mechanics live here — the effect layer gets a place to work in and
+   an animation that respects the system setting. What it looks like is the
+   skin's business: the crt breathes at the edge, sketch tints the paper, win95
+   colours the desktop.
+
+   Three states on <html data-raum>: working, waiting, idle. Plus --busy,
+   --waiting-count and --session-count as numbers to compute with. */
+.fx::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Anyone who has asked the system for calm gets colour, not movement. */
+  .fx::after { animation: none !important; }
+}

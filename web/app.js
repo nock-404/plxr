@@ -522,6 +522,38 @@ async function openSettings() {
 }
 $('#settingsBtn').addEventListener('click', openSettings);
 
+/* Raumzustand — der ganze Raum sagt, was los ist.
+
+   Ein farbiger Punkt je Kachel funktioniert nur, wenn man hinsieht. Wer aber
+   in einer Datei liest oder in einem anderen Fenster arbeitet, sieht ihn nicht.
+   Deshalb trägt die Oberfläche selbst den Gesamtzustand: die Skins hängen ihre
+   Mittel daran — der crt lässt den Rand atmen, sketch das Papier, win95 färbt
+   den Schreibtisch. Was das JavaScript liefert, ist nur die Tatsache.
+
+   Bewusst nur DREI Zustände. Fünf feine Abstufungen kann man nicht mehr aus
+   dem Augenwinkel unterscheiden, und ein Raum, der ständig etwas anderes
+   flüstert, wird zu Rauschen:
+
+     working   irgendwer arbeitet
+     waiting   jemand braucht dich — das ist der einzige, der drängt
+     idle      alles fertig, es ist ruhig
+
+   Zusätzlich die reine Zahl, damit ein Skin die Stärke daran binden kann:
+   drei laufende Agenten dürfen mehr Unruhe machen als einer. */
+function raumzustand({ laufen, blockiert, verwaist, gesamt }) {
+  const w = document.documentElement;
+  const lage = blockiert || verwaist ? 'waiting' : (laufen ? 'working' : 'idle');
+  if (w.dataset.raum !== lage) w.dataset.raum = lage;
+
+  // Als CSS-Variable, damit ein Skin daran rechnen kann statt zu raten.
+  const setz = (k, v) => {
+    if (w.style.getPropertyValue(k) !== String(v)) w.style.setProperty(k, String(v));
+  };
+  setz('--busy', laufen);
+  setz('--waiting-count', blockiert + verwaist);
+  setz('--session-count', gesamt);
+}
+
 /* Reiter im Einstellungsfenster.
 
    Der Stil-Editor allein sind zwölf Farbfelder und zwei Regler. Darunter ist
@@ -1227,6 +1259,7 @@ function renderAll(tiles) {
   // A counter on the rail, so that even from inside a session you can see
   // dass jemand wartet.
   const wartet = blockiert;
+  raumzustand({ laufen, blockiert, verwaist, gesamt: state.tiles.length });
   $('#inboxCount').textContent = wartet || '';
   $('#railInbox').dataset.status = wartet ? 'permission' : '';
   if (!$('#viewInbox').hidden) renderInbox();
