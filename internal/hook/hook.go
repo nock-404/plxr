@@ -1,13 +1,13 @@
-// Package hook schreibt den Zustand einer Claude-Code-Session mit.
+// Package hook records the state of a Claude Code session.
 //
-// Claude Code kann bei bestimmten Ereignissen ein Programm aufrufen und ihm
-// den Vorgang als JSON auf die Standardeingabe legen. plxr klinkt sich dort
-// ein und legt je Session eine kleine Datei ab. Das ist der Unterschied
-// zwischen "wir raten aus dem Bildschirminhalt" und "die Session sagt es uns":
-// ob sie arbeitet, ob sie an einer Rückfrage hängt, welches Modell läuft und
-// wie voll der Kontext ist, steht dann fest statt geschätzt.
+// On certain events Claude Code can call a program and hand it the payload as
+// JSON on standard input. plxr hooks in there and writes a small file per
+// session. That is the difference between "we guess from the screen contents"
+// and "the session tells us": whether it is working, whether it is stuck on a
+// question, which model is running and how full the context is — all of it known
+// rather than estimated.
 //
-// Aufgerufen wird das über `plxr hook`, eingerichtet über `plxr setup-hook`.
+// It is invoked through `plxr hook` and installed through `plxr setup-hook`.
 package hook
 
 import (
@@ -24,10 +24,10 @@ import (
 	"time"
 )
 
-// StateDir ist, wo die Zustandsdateien liegen.
+// StateDir is where the state files live.
 func StateDir() string { return filepath.Join(daemon.Root(), "state") }
 
-// Vorgang ist der Teil der Hook-Nachricht, den wir brauchen.
+// Payload is the part of the hook message that we need.
 type Payload struct {
 	SessionID  string         `json:"session_id"`
 	Event      string         `json:"hook_event_name"`
@@ -43,7 +43,7 @@ type Payload struct {
 	Permission string         `json:"permission_mode"`
 }
 
-// Zustand ist, was plxr später liest.
+// State is what plxr reads later on.
 type State struct {
 	SessionID   string `json:"session_id"`
 	Project     string `json:"project"`
@@ -66,7 +66,7 @@ type State struct {
 
 var validID = regexp.MustCompile(`^[\w-]+$`)
 
-// Lauf liest eine Hook-Nachricht und schreibt den Zustand fort.
+// Run reads a hook message and carries the state forward.
 func Run(r *os.File) error {
 	var v Payload
 	if err := json.NewDecoder(r).Decode(&v); err != nil {
@@ -75,7 +75,7 @@ func Run(r *os.File) error {
 	if v.SessionID == "" || !validID.MatchString(v.SessionID) {
 		return errors.New("keine brauchbare Session-ID")
 	}
-	// Unteragenten haben eigene Vorgänge, sind aber keine eigenen Sessions.
+	// Subagents have events of their own but are not sessions of their own.
 	if v.AgentID != "" {
 		return nil
 	}
@@ -176,7 +176,7 @@ func str(m map[string]any, k string) string {
 	return ""
 }
 
-// werkzeug beschreibt in einer Zeile, was die Session gerade tut.
+// describeTool describes in one line what the session is doing right now.
 func describeTool(name string, in map[string]any) string {
 	if name == "" {
 		return ""
@@ -214,11 +214,11 @@ func describeTool(name string, in map[string]any) string {
 	return trunc(name, 70)
 }
 
-// ausTranskript holt Titel, Branch, Modell und Kontextgröße.
+// fromTranscript pulls title, branch, model and context size.
 //
-// Gelesen wird nur das Ende: dort stehen die jeweils aktuellen Werte, und ein
-// Transkript kann viele Megabyte groß sein — ein Hook, der bei jedem
-// Werkzeugaufruf alles liest, würde die Session spürbar bremsen.
+// Only the end is read: that is where the current values are, and a transcript
+// can be many megabytes — a hook that reads everything on every tool call would
+// noticeably slow the session down.
 func fromTranscript(path string, z *State) {
 	if path == "" {
 		return
@@ -251,7 +251,7 @@ func fromTranscript(path string, z *State) {
 	for sc.Scan() {
 		lines = append(lines, sc.Text())
 	}
-	// Von hinten: die letzten Werte gelten.
+	// From the back: the last values win.
 	for i := len(lines) - 1; i >= 0; i-- {
 		var e struct {
 			Type      string `json:"type"`
@@ -291,11 +291,11 @@ func fromTranscript(path string, z *State) {
 	}
 }
 
-// claudeProzess sucht im Elternbaum den Claude-Code-Prozess.
+// claudeProcess looks up the tree of parents for the Claude Code process.
 //
-// Der Hook läuft als Enkel der Session; über die eigene Elternkette findet
-// sich der eigentliche Prozess samt Terminal. Darüber ordnet plxr den Zustand
-// später einer laufenden Session zu.
+// The hook runs as a grandchild of the session; walking its own chain of
+// parents finds the actual process together with its terminal. plxr uses that to
+// match the state to a running session later.
 func claudeProcess() (int, string) {
 	pid := os.Getppid()
 	for tiefe := 0; tiefe < 6 && pid > 1; tiefe++ {

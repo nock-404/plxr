@@ -51,7 +51,7 @@ func word(status string) string {
 	return "läuft"
 }
 
-// Ls listet die Sessions.
+// Ls lists the sessions.
 func Ls(c *Client) error {
 	list, err := c.Sessions()
 	if err != nil {
@@ -81,7 +81,7 @@ func trunc(s string, n int) string {
 	return string([]rune(s)[:n-1]) + "…"
 }
 
-// New startet eine Session.
+// New starts a session.
 func New(c *Client, cwd string, cmd []string) error {
 	if cwd == "" || cwd == "." {
 		cwd, _ = os.Getwd()
@@ -103,7 +103,7 @@ func New(c *Client, cwd string, cmd []string) error {
 	return nil
 }
 
-// Kill beendet eine Session.
+// Kill terminates a session.
 func Kill(c *Client, was string) error {
 	t, err := c.Find(was)
 	if err != nil {
@@ -116,7 +116,7 @@ func Kill(c *Client, was string) error {
 	return nil
 }
 
-// Ports zeigt die belegten Ports.
+// Ports shows the occupied ports.
 func Ports(c *Client) error {
 	var list []struct {
 		PID     int    `json:"pid"`
@@ -138,10 +138,10 @@ func Ports(c *Client) error {
 	return nil
 }
 
-// Attach hängt das aufrufende Terminal an eine Session.
+// Attach attaches the calling terminal to a session.
 //
-// Der lokale Bildschirm geht dafür in den Rohmodus: Tastendrücke müssen
-// unverändert durchgereicht werden, sonst käme etwa Strg-C bei der Session nie
+// The local screen goes into raw mode for that: keystrokes have to be passed
+// through unchanged, otherwise Ctrl-C would never reach the session
 // an, sondern beendet plxr.
 func Attach(c *Client, was string) error {
 	t, err := c.Find(was)
@@ -158,10 +158,10 @@ func Attach(c *Client, was string) error {
 	}
 	defer conn.Close()
 
-	// gorilla/websocket verträgt genau einen Schreiber. Hier schreiben drei
-	// Goroutinen: Größenmeldung, Tastatureingabe und der Aufbau. Ohne diesen
-	// Riegel reicht es, das Fenster zu ziehen während man tippt — und der
-	// Panic reißt den Prozess mit, bevor das Terminal wiederhergestellt ist.
+	// gorilla/websocket tolerates exactly one writer. Three goroutines write
+	// here: resize reporting, keyboard input and the setup. Without this latch
+	// it is enough to drag the window while typing — and the panic takes the
+	// process with it before the terminal has been restored.
 	var writeMu sync.Mutex
 	write := func(v any) error {
 		writeMu.Lock()
@@ -175,10 +175,9 @@ func Attach(c *Client, was string) error {
 		if old, err = term.MakeRaw(fd); err != nil {
 			return err
 		}
-		// Zweifach abgesichert: das defer für den geordneten Weg, das recover
-		// für den ungeordneten. Eine Shell, die im Rohmodus zurückbleibt, ist
-		// für den Nutzer schlimmer als jeder Fehler darin — sie zeigt nichts
-		// mehr an, was er tippt.
+		// Guarded twice: the defer for the orderly path, the recover for the
+		// disorderly one. A shell left behind in raw mode is worse for the user
+		// than any error that caused it — it no longer shows anything they type.
 		defer term.Restore(fd, old)
 		defer func() {
 			if r := recover(); r != nil {
@@ -196,7 +195,7 @@ func Attach(c *Client, was string) error {
 		report(h, w)
 	}
 
-	// Größenänderungen des lokalen Fensters weiterreichen.
+	// Forward size changes of the local window.
 	stopp := watchResize(fd, report)
 	defer stopp()
 
@@ -212,8 +211,8 @@ func Attach(c *Client, was string) error {
 		}
 	}()
 
-	// Eingabe hineinreichen. Strg-Q zweimal hintereinander löst das Terminal
-	// wieder von der Session — die läuft weiter.
+	// Feed input in. Ctrl-Q twice in a row detaches the terminal from the
+	// session again — which keeps running.
 	go func() {
 		buf := make([]byte, 4096)
 		letztes := time.Time{}
@@ -245,7 +244,7 @@ func Attach(c *Client, was string) error {
 	return nil
 }
 
-// Hilfe beschreibt die Kommandos.
+// Help describes the commands.
 func Help() {
 	fmt.Print(`plxr — Leitstand für Coding-CLI-Sessions
 

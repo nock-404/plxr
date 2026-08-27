@@ -1,11 +1,11 @@
-// Package agent erkennt, welches Coding-CLI in einer Session läuft, und leitet
-// daraus den Status ab.
+// Package agent detects which coding CLI runs in a session and derives the
+// status from it.
 //
-// Claude Code kann seinen Zustand selbst melden: `plxr setup-hook` klinkt sich
-// in dessen Ereignisse ein, und der Status steht danach fest statt geraten.
-// Jedes andere CLI hat so etwas nicht, deshalb wird dort aus dem
-// Bildschirminhalt und der Ausgabe-Ruhe geschlossen. Profile liegen als JSON
-// vor (eingebaut plus ~/.plxr/agents), damit ein neues CLI ohne Neubau
+// Claude Code can report its own state: `plxr setup-hook` hooks into its events,
+// and after that the status is known rather than guessed. No other CLI has
+// anything like it, so there the status is inferred from the screen contents and
+// from how long the output has been quiet. Profiles are JSON (built in plus
+// ~/.plxr/agents), so a new CLI needs no rebuild
 // dazukommt.
 package agent
 
@@ -24,21 +24,21 @@ import (
 type Profile struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
-	// Source: "fleet" nutzt den gemeldeten Zustand, "screen" schließt aus der
+	// Source: "fleet" uses the reported state, "screen" infers from the
 	// Bildschirmausgabe.
 	Source string `json:"source"`
-	// Match sind Teilstrings, die auf das Kommando passen müssen.
+	// Match are substrings that have to match the command.
 	Match []string `json:"match"`
-	// Blocked erkennt "wartet auf eine Entscheidung" im sichtbaren Text.
+	// Blocked recognises "waiting for a decision" in the visible text.
 	Blocked []string `json:"blocked"`
 	// Working erkennt "arbeitet gerade", z.B. einen Spinner.
 	Working []string `json:"working"`
-	// IdleSeconds: so lange keine Ausgabe, dann gilt IdleStatus.
+	// IdleSeconds: after this long without output, IdleStatus applies.
 	IdleSeconds float64 `json:"idle_seconds"`
-	// IdleStatus ist der Zustand bei Ruhe. Voreinstellung ist "unknown", also
-	// schlicht "läuft": ein Dev-Server, der alle paar Sekunden eine Zeile
-	// ausgibt, wartet nicht auf den Menschen — er tut einfach seine Arbeit.
-	// Nur Werkzeuge, die tatsächlich an einer Eingabeaufforderung stehen
+	// IdleStatus is the state while quiet. The default is "unknown", meaning
+	// plainly "running": a dev server printing a line every few seconds is not
+	// waiting for a person — it is simply doing its job.
+	// Only tools that genuinely sit at an input prompt
 	// bleiben, setzen hier "waiting".
 	IdleStatus string `json:"idle_status"`
 
@@ -70,7 +70,7 @@ func compileAll(pats []string) []*regexp.Regexp {
 	return out
 }
 
-// Set ist die geladene Sammlung inklusive Rückfallprofil.
+// Set is the loaded collection including the fallback profile.
 type Set struct {
 	profiles []Profile
 	fallback Profile
@@ -124,7 +124,7 @@ func Load(builtin fs.FS) *Set {
 
 func (s *Set) All() []Profile { return append([]Profile{s.fallback}, s.profiles...) }
 
-// Match sucht das Profil zum gestarteten Kommando.
+// Match finds the profile for the command that was started.
 func (s *Set) Match(argv []string) Profile {
 	if len(argv) == 0 {
 		return s.fallback
@@ -140,7 +140,7 @@ func (s *Set) Match(argv []string) Profile {
 	return s.fallback
 }
 
-// Status ist bewusst dieselbe Menge, die auch der fleet-Hook schreibt.
+// Status is deliberately the same set the fleet hook writes.
 const (
 	Working    = "working"
 	Waiting    = "waiting"
@@ -148,24 +148,24 @@ const (
 	Unknown    = "unknown"
 )
 
-// Classify leitet den Status aus dem sichtbaren Text und der Ausgabe-Ruhe ab.
-// Reihenfolge zählt: eine Rückfrage schlägt alles, danach ein Spinner, dann
+// Classify derives the status from the visible text and from output quiet time.
+// Order matters: a pending question beats everything, then a spinner, then
 // entscheidet, wie lange nichts mehr kam.
 func (p *Profile) Classify(screen string, idle time.Duration) string {
 	tail := lastLines(screen, 12)
 
-	/* Eine Rückfrage blockiert nur, solange sie das Letzte auf dem Schirm ist:
-	   steht Ausgabe darunter, wurde sie beantwortet. Über zwölf Zeilen zu
-	   suchen ließ eine erledigte Frage ewig als "braucht dich" stehen — der
-	   Posteingang zeigte Sessions, die längst weiterliefen. Drei Zeilen reichen
-	   auch für mehrzeilige Dialogfelder: deren Auswahl steht immer unten. */
+	/* A question only blocks while it is the last thing on screen: if there is
+	   output below it, it has been answered. Searching across twelve lines left a
+	   settled question standing as "needs you" forever — the inbox showed sessions
+	   that had long moved on. Three lines are enough for multi-line dialog boxes
+	   too: their choices always sit at the bottom. */
 	unten := lastNonEmptyLines(screen, 3)
 	amPrompt := waitingAtPrompt(screen)
 	for _, re := range p.blockedRe {
-		// Entweder die Rückfrage steht ganz unten — dann ist sie offen —,
-		// oder der Schirm endet auf einem Prompt, der auf Eingabe wartet.
-		// Der zweite Fall fängt "Frage / Auswahlliste / Eingabe>" ab, wo der
-		// Fragetext ein paar Zeilen über dem Cursor steht.
+		// Either the question sits right at the bottom — then it is open — or the
+		// screen ends on a prompt waiting for input. The second case catches
+		// "question / list of choices / input>", where the question text sits a
+		// few lines above the cursor.
 		if re.MatchString(unten) || (amPrompt && re.MatchString(tail)) {
 			return Permission
 		}
@@ -181,9 +181,9 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 	return Working
 }
 
-// wartetAmPrompt sagt, ob der Schirm auf einer Eingabeaufforderung endet:
-// eine kurze Zeile, die auf ein Prompt-Zeichen ausläuft und hinter der nichts
-// mehr steht. Genau dort sitzt dann der Cursor.
+// waitingAtPrompt reports whether the screen ends on an input prompt: a short
+// line running out into a prompt character with nothing behind it. That is
+// exactly where the cursor then sits.
 func waitingAtPrompt(screen string) bool {
 	letzte := lastNonEmptyLines(screen, 1)
 	if letzte == "" || len(letzte) > 120 {
@@ -193,9 +193,9 @@ func waitingAtPrompt(screen string) bool {
 	if ohne == "" {
 		return false
 	}
-	// Absichtlich ohne '$', '#' und '%': das sind Shell-Prompts. Eine Shell,
-	// die dort steht, wartet zwar auf Eingabe, aber das ist ihr Normalzustand
-	// und keine Rückfrage — sonst meldete der Posteingang jede stille Shell.
+	// Deliberately without '$', '#' and '%': those are shell prompts. A shell
+	// sitting there is indeed waiting for input, but that is its normal state
+	// and not a question — otherwise the inbox would report every quiet shell.
 	switch ohne[len(ohne)-1] {
 	case '>', ':', '?':
 		return true
@@ -203,9 +203,9 @@ func waitingAtPrompt(screen string) bool {
 	return false
 }
 
-// letzteZeilen liefert die letzten n Zeilen mit Inhalt. Leerzeilen am Ende
-// fallen weg — sonst schöbe ein Zeilenumbruch die Rückfrage aus dem Fenster,
-// obwohl sie noch offen ist.
+// lastNonEmptyLines returns the last n lines with content. Trailing blank lines
+// are dropped — otherwise a line break would push the question out of the
+// window even though it is still open.
 func lastNonEmptyLines(s string, n int) string {
 	lines := strings.Split(s, "\n")
 	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {

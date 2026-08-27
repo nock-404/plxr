@@ -1,11 +1,11 @@
-// Package usage rechnet den Tokenverbrauch aus den Transkripten aus.
+// Package usage computes token spend from the transcripts.
 //
-// Bewusst nicht über eine API: der Verbrauch steht in jeder Assistenten-Zeile
-// des Transkripts, ist damit lokal, vollständig und rückwirkend auswertbar.
-// Ein Endpunkt könnte begrenzen, sich ändern oder wegfallen.
+// Deliberately not through an API: the spend sits in every assistant line of the
+// transcript, which makes it local, complete and analysable after the fact. An
+// endpoint could rate-limit, change or disappear.
 //
-// Weil das über tausende Dateien geht, wird je Datei gemerkt, was zuletzt
-// herauskam; solange Größe und Änderungszeit gleich bleiben, wird sie nicht
+// Because this walks thousands of files, the last result is remembered per file;
+// as long as size and modification time stay the same, it is not
 // erneut gelesen.
 package usage
 
@@ -40,7 +40,7 @@ func (p *Item) add(o Item) {
 	p.Messages += o.Messages
 }
 
-// Gesamt ist alles, was gezählt wurde — für eine grobe Größenordnung.
+// Total is everything that was counted — for a rough order of magnitude.
 func (p Item) Total() int64 { return p.In + p.Out + p.CacheWrite + p.CacheRead }
 
 type Line struct {
@@ -60,8 +60,8 @@ type Report struct {
 
 // ---- Zwischenspeicher ----
 
-// eintrag hält, was aus einer Datei herauskam. Die Modelle liegen je Tag, nicht
-// als Gesamtsumme: sonst lässt sich ein Zeitraum nicht nach Modell aufteilen.
+// entry holds what came out of one file. The models are kept per day, not as a
+// grand total: otherwise a period cannot be broken down by model.
 type entry struct {
 	Version int                        `json:"version"`
 	Size    int64                      `json:"groesse"`
@@ -70,7 +70,7 @@ type entry struct {
 	Projekt string                     `json:"projekt"`
 }
 
-// speicherVersion invalidiert alte Zwischenspeicher, wenn sich die Form ändert.
+// cacheVersion invalidates older caches when the shape changes.
 const cacheVersion = 2
 
 type speicher struct {
@@ -124,7 +124,7 @@ type rawLine struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// Rechnen wertet alle Transkripte aus. tage begrenzt auf die letzten n Tage
+// Compute evaluates all transcripts. days limits it to the last n days
 // (0 = alles).
 func Compute(accs []accounts.Account, tage int) Report {
 	start := time.Now()
@@ -148,8 +148,8 @@ func Compute(accs []accounts.Account, tage int) Report {
 				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
 					continue
 				}
-				// Dieselbe Session liegt in mehreren Konten. Doppelt zählen
-				// würde den Verbrauch verdreifachen.
+				// The same session sits in several accounts. Counting it twice
+				// would triple the spend.
 				if gesehen[f.Name()] {
 					continue
 				}
@@ -247,8 +247,8 @@ func Compute(accs []accounts.Account, tage int) Report {
 	b.ByDay = sorted(tag, true)
 	b.ByProject = sorted(proj, false)
 	b.ByModel = sorted(mod, false)
-	// Bei gespiegelten Transkripten wäre die Kontoaufteilung Zufall: dieselbe
-	// Session liegt in mehreren Konten, gezählt wird sie beim erstbesten.
+	// With mirrored transcripts the split by account would be arbitrary: the
+	// same session sits in several accounts and is counted at the first one.
 	// Dann lieber nichts zeigen als etwas Falsches.
 	b.ByAccount = sorted(account, false)
 	if len(b.ByAccount) < 2 {
@@ -258,7 +258,7 @@ func Compute(accs []accounts.Account, tage int) Report {
 	return b
 }
 
-// sortiert gibt die Zeilen aus; nachSchlüssel absteigend (für Tage), sonst
+// sorted emits the lines; byKey descending (for days), otherwise
 // nach Menge absteigend.
 func sorted(m map[string]*Item, byKey bool) []Line {
 	out := make([]Line, 0, len(m))
@@ -324,25 +324,25 @@ func readAll(path string) entry {
 
 // ---- Verbrauchstempo ----
 
-// Tempo beschreibt, wie schnell gerade Kontingent verbraucht wird.
+// Pace describes how fast the allowance is being spent right now.
 //
-// Claude-Abos rechnen in rollenden Fenstern — fünf Stunden und eine Woche.
-// Wer acht Agenten gleichzeitig fährt, reißt das Fünf-Stunden-Fenster, ohne
-// es kommen zu sehen. Die Zahlen dafür stehen in den Transkripten; hier
-// werden sie auf ein Tempo hochgerechnet.
+// Claude plans work in rolling windows — five hours and a week. Anyone running
+// eight agents at once blows the five-hour window without seeing it coming. The
+// numbers for that are in the transcripts; here they are extrapolated into a
+// rate.
 type Pace struct {
-	// Fenster5h ist der Verbrauch der letzten fünf Stunden.
+	// Window5h is the spend of the last five hours.
 	Fenster5h int64 `json:"fenster5h"`
-	// ProStunde ist das Tempo der letzten Stunde, hochgerechnet.
+	// PerHour is the rate of the last hour, extrapolated.
 	ProStunde int64 `json:"proStunde"`
-	// Aktive ist die Zahl der Sessions, die in der letzten Stunde etwas
-	// verbraucht haben — das erklärt das Tempo.
+	// Active is the number of sessions that spent something in the last hour —
+	// that is what explains the rate.
 	Aktive int `json:"aktive"`
-	// Trend ist "steigt", "faellt" oder "gleich", verglichen mit der Stunde davor.
+	// Trend is "steigt", "faellt" or "gleich", compared with the hour before.
 	Trend string `json:"trend"`
 }
 
-// TempoRechnen wertet nur die zuletzt geänderten Transkripte aus — alles
+// ComputePace only evaluates the most recently changed transcripts — everything
 // andere kann per Definition nichts zum aktuellen Tempo beitragen.
 func ComputePace(accs []accounts.Account) Pace {
 	jetzt := time.Now()
@@ -368,7 +368,7 @@ func ComputePace(accs []accounts.Account) Pace {
 					continue
 				}
 				info, err := f.Info()
-				// Wer seit über fünf Stunden nicht angefasst wurde, zählt nicht.
+				// Anything untouched for more than five hours does not count.
 				if err != nil || info.ModTime().Before(grenze5h) {
 					continue
 				}
@@ -399,7 +399,7 @@ func ComputePace(accs []accounts.Account) Pace {
 	return t
 }
 
-// zeitfenster liest eine Datei von hinten und summiert drei Zeiträume.
+// window reads a file from the back and sums three periods.
 func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -407,7 +407,7 @@ func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 	}
 	defer f.Close()
 
-	// Nur das Ende lesen: ältere Einträge liegen per Definition außerhalb.
+	// Read only the end: older entries lie outside by definition.
 	info, err := f.Stat()
 	if err != nil {
 		return
