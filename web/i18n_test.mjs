@@ -69,6 +69,33 @@ if (ungenutzt.length) {
   for (const k of ungenutzt.slice(0, 8)) console.log(`      ${k}`);
 }
 
+/* Und: steht noch deutscher Text fest verdrahtet im Quelltext?
+
+   Die erste Runde suchte nach Umlauten und Artikeln — "Session wartet auf
+   dich" hat weder das eine noch das andere und blieb monatelang stehen.
+   Deshalb hier eine Wortliste, die auf die Sprache zielt, nicht auf ihre
+   Sonderzeichen. */
+const DEUTSCH = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine)\b|[äöüßÄÖÜ]/;
+const jsQuellen = ['web/app.js', 'web/ui.js'].map((f) => [f, readFileSync(f, 'utf8')]);
+const deutscheReste = [];
+for (const [datei, src] of jsQuellen) {
+  const ohneKommentar = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+  for (const m of ohneKommentar.matchAll(/'([^'\\\n]{6,})'|"([^"\\\n]{6,})"/g)) {
+    const txt = m[1] || m[2];
+    // Selektoren, Schluessel, Kopfzeilen und Klassennamen sind kein Text.
+    if (/^[\w.#\[\]=-]+$/.test(txt) || txt.startsWith('X-') || txt.includes('/')) continue;
+    // Naives Paaren von Anfuehrungszeichen erwischt auch Code zwischen zwei
+    // Zeichenketten. Was wie Code aussieht, ist keiner.
+    if (/=>|&&|\|\||\$\{|\bdata-\w+=/.test(txt)) continue;
+    if (DEUTSCH.test(txt)) deutscheReste.push(`${datei}: ${txt.slice(0, 60)}`);
+  }
+}
+if (deutscheReste.length) {
+  fehler = 1;
+  console.log(`  ${deutscheReste.length} deutsche Texte stehen noch fest im Quelltext:`);
+  for (const r of deutscheReste.slice(0, 10)) console.log(`      ${r}`);
+}
+
 if (!fehler) {
   console.log(`  ${benutzt.size} Schluessel, ${Object.keys(tabellen).length} Sprachen, vollstaendig`);
 }
