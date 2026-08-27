@@ -10,12 +10,12 @@ import (
 	wr "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App ist bewusst dünn.
+// App is deliberately thin.
 //
-// Seit der Daemon eigenständig läuft, redet die Oberfläche direkt mit ihm über
-// HTTP und WebSocket. Hier bleibt nur, was eine Webseite von sich aus nicht
-// kann: wissen, wo der Daemon sitzt, auf welchem System sie läuft, und den
-// Ordnerdialog des Betriebssystems öffnen.
+// Since the daemon runs on its own, the UI talks to it directly over HTTP and
+// WebSocket. What remains here is only what a web page cannot do by itself: know
+// where the daemon sits, which system it runs on, and open the folder dialog of
+// the operating system.
 type App struct {
 	ctx  context.Context
 	info daemon.Info
@@ -31,10 +31,10 @@ type DaemonInfo struct {
 	PID   int    `json:"pid"`
 }
 
-// Daemon liefert Adresse und Token — und stellt dabei sicher, dass wirklich
-// einer läuft. Die Oberfläche ruft das auch nach einem Verbindungsabriss auf:
-// ist der alte Daemon weg, wird hier ein neuer gestartet, statt dass das
-// Fenster mit einer toten Fehlermeldung stehen bleibt.
+// Daemon returns address and token — and makes sure one is actually running.
+// The UI calls this after a dropped connection as well: if the old daemon is
+// gone, a new one is started here instead of leaving the window stuck on a dead
+// error message.
 func (a *App) Daemon() DaemonInfo {
 	if info, err := daemon.Ensure(); err == nil {
 		a.info = info
@@ -42,11 +42,11 @@ func (a *App) Daemon() DaemonInfo {
 	return DaemonInfo{URL: a.info.URL(), Token: a.info.Token, PID: a.info.PID}
 }
 
-// Env sagt der Oberfläche, auf welchem System sie sitzt.
+// Env tells the UI which system it is sitting on.
 //
-// Nötig, weil macOS die Fensterknöpfe bei eingelassener Titelleiste ÜBER den
-// Inhalt legt — ohne freien Platz links sitzt die Ampel auf dem Schriftzug.
-// Windows und Linux haben eine eigene Leiste und brauchen den Platz nicht.
+// Needed because with an inset title bar macOS puts the window buttons ON TOP of
+// the content — without free space on the left the traffic lights sit on the
+// wordmark. Windows and Linux have a bar of their own and need no such space.
 type Env struct {
 	Platform      string `json:"platform"`
 	Arch          string `json:"arch"`
@@ -62,11 +62,11 @@ func (a *App) Env() Env {
 	}
 }
 
-// Beenden schließt dieses Fenster.
+// Quit closes this window.
 //
-// Nach einem Update startet die neue Fassung, und die alte muss weichen —
-// aber nur das Fenster. Der Daemon läuft weiter, deshalb überstehen die
-// Sessions den Wechsel.
+// After an update the new version starts and the old one has to give way — but
+// only the window. The daemon keeps running, which is why the sessions survive
+// the changeover.
 func (a *App) Quit() {
 	go func() {
 		time.Sleep(400 * time.Millisecond)
@@ -74,10 +74,10 @@ func (a *App) Quit() {
 	}()
 }
 
-// OpenURL öffnet eine Adresse im Standardbrowser.
+// OpenURL opens an address in the default browser.
 //
-// Nötig, weil ein Klick auf eine URL im Terminal sonst versuchen würde, sie
-// IM Fenster zu öffnen — und damit die Anwendung durch eine fremde Seite
+// Needed because otherwise a click on a URL in the terminal would try to open it
+// IN the window — replacing the application with a foreign page
 // ersetzt.
 func (a *App) OpenURL(url string) {
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
@@ -85,8 +85,8 @@ func (a *App) OpenURL(url string) {
 	}
 }
 
-// PickDirectory öffnet den Ordnerdialog des Systems. Das ist der eine Ort, an
-// dem sich die Desktop-App spürbar besser anfühlt als der Browser.
+// PickDirectory opens the system's folder dialog. This is the one place where
+// the desktop app feels noticeably better than the browser.
 func (a *App) PickDirectory() string {
 	dir, err := wr.OpenDirectoryDialog(a.ctx, wr.OpenDialogOptions{
 		Title: "Verzeichnis für die Session",

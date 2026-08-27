@@ -5,13 +5,13 @@ type Status string
 
 const (
 	StatusWorking    Status = "working"    // Agent arbeitet
-	StatusWaiting    Status = "waiting"    // Agent wartet auf eine Eingabe
+	StatusWaiting    Status = "waiting"    // agent is waiting for input
 	StatusPermission Status = "permission" // agent is stuck on a question
 	StatusDead       Status = "dead"       // Prozess beendet
 	StatusUnknown    Status = "unknown"    // running, but reporting nothing
 )
 
-// Blocking sagt, ob dieser Status den Menschen braucht.
+// Blocking reports whether this status needs a person.
 func (s Status) Blocking() bool {
 	return s == StatusPermission || s == StatusWaiting
 }

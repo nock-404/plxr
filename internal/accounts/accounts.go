@@ -1,8 +1,8 @@
-// Package accounts verwaltet mehrere Claude-Code-Konten auf einer Maschine.
+// Package accounts manages several Claude Code accounts on one machine.
 //
 // Claude Code legt alles unter einem Konfigurationsverzeichnis ab — normal
 // ~/.claude, redirectable via CLAUDE_CONFIG_DIR. Anyone with several accounts
-// deshalb mit unterschiedlichen Verzeichnissen. Dieses Paket findet sie.
+// therefore starts with different directories. This package finds them.
 package accounts
 
 import (
@@ -51,7 +51,7 @@ func Discover() []Account {
 			continue
 		}
 		n := e.Name()
-		// ".claude", ".claude2", ".claude3" — aber nichts mit Bindestrich,
+		// ".claude", ".claude2", ".claude3" — but nothing with a hyphen,
 		// etwa Hilfsverzeichnisse anderer Werkzeuge.
 		if !strings.HasPrefix(n, ".claude") || strings.Contains(n, "-") {
 			continue

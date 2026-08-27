@@ -10,31 +10,31 @@ import (
 )
 
 // Windows kennt keine Prozessgruppen im Unix-Sinn. TerminateProcess trifft
-// genau eine PID — startet die Session `npm run dev`, überlebt der node-Enkel
-// und hält seinen Port. Das Gegenstück heißt Job Object: ein Behälter, dem
-// Prozesse zugeordnet werden und der sie gemeinsam beendet.
+// exactly one PID — if the session starts `npm run dev`, the node grandchild
+// survives and keeps holding its port. The counterpart is called a job object: a
+// container that processes are assigned to and that terminates them together.
 //
-// UNGETESTET auf echter Hardware. Der Aufbau folgt der Dokumentation von
-// Microsoft, und jeder Schritt fällt einzeln auf das einfache Beenden zurück,
-// damit ein Fehler hier höchstens den alten Zustand herstellt statt einen
+// UNTESTED on real hardware. The setup follows Microsoft's documentation, and
+// every step falls back individually to the plain terminate, so a failure here
+// at worst restores the old behaviour instead of
 // schlechteren.
 
 type jobObject struct{ handle windows.Handle }
 
-// nachStart legt ein Job Object an und ordnet den eben gestarteten Prozess zu.
+// afterStart creates a job object and assigns the just-started process to it.
 //
-// Zwischen Start und Zuordnung liegt ein kurzer Moment, in dem ein Kind
-// entkommen könnte. Sauberer wäre CREATE_SUSPENDED und ein Resume danach, doch
-// go-pty gibt den Thread-Handle nicht heraus. Für ein CLI, das in den ersten
-// Millisekunden noch nichts abspaltet, ist das vertretbar.
+// Between start and assignment there is a brief window in which a child could
+// escape. CREATE_SUSPENDED with a resume afterwards would be cleaner, but go-pty
+// does not hand out the thread handle. For a CLI that forks nothing in its first
+// milliseconds this is acceptable.
 func afterStart(p *os.Process) any {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return nil
 	}
 
-	// Ohne diese Grenze stirbt der Behälter, sobald plxr endet — und nimmt
-	// alle Sessions mit. Genau das soll er nicht.
+	// Without this limit the container dies as soon as plxr ends — taking all
+	// sessions with it. That is precisely what it must not do.
 	var info windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION
 	info.BasicLimitInformation.LimitFlags = windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
 	if _, err := windows.SetInformationJobObject(
@@ -60,11 +60,11 @@ func afterStart(p *os.Process) any {
 	return &jobObject{handle: job}
 }
 
-// killProcess beendet den Behälter samt allem darin.
+// killProcess terminates the container along with everything inside it.
 //
-// Ein sanftes Beenden gibt es hier nicht: Windows kennt kein SIGTERM, und
-// TerminateJobObject ist immer hart. Der weiche Weg wäre 0x03 in die
-// Eingabe-Pipe — das macht die Oberfläche, wenn der Nutzer abbrechen will.
+// There is no gentle shutdown here: Windows has no SIGTERM, and
+// TerminateJobObject is always hard. The soft path would be 0x03 into the input
+// pipe — which is what the UI does when the user wants to cancel.
 func killProcess(p *os.Process, plattform any) {
 	if j, ok := plattform.(*jobObject); ok && j != nil {
 		if windows.TerminateJobObject(j.handle, 1) == nil {
@@ -76,6 +76,6 @@ func killProcess(p *os.Process, plattform any) {
 	_ = p.Kill()
 }
 
-// killProcessHart gibt es unter Windows nur der Vollständigkeit halber:
-// TerminateJobObject ist ohnehin hart, ein zweiter Anlauf ändert nichts.
+// killProcessHard exists on Windows only for completeness: TerminateJobObject
+// is hard anyway, a second attempt changes nothing.
 func killProcessHard(p *os.Process, plattform any) { killProcess(p, plattform) }

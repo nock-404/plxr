@@ -7,22 +7,22 @@ import (
 	"syscall"
 )
 
-// nachStart hat unter Unix nichts zu tun: go-pty startet das Kind mit eigener
-// Session, damit ist die Prozessgruppe schon da.
+// afterStart has nothing to do on Unix: go-pty starts the child with a session
+// of its own, so the process group is already there.
 func afterStart(*os.Process) any { return nil }
 
-// killProcess beendet die gesamte Prozessgruppe. Die Gruppen-ID ist gleich der
-// Prozess-ID; das negative Vorzeichen adressiert die Gruppe. Ohne das
-// überlebt etwa der node-Enkel von `npm run dev` und hält seinen Port.
+// killProcess terminates the entire process group. The group id equals the
+// process id; the negative sign addresses the group. Without it the node
+// grandchild of `npm run dev` survives and keeps holding its port.
 func killProcess(p *os.Process, _ any) {
 	if err := syscall.Kill(-p.Pid, syscall.SIGTERM); err != nil {
-		// Keine eigene Gruppe oder schon weg: dann eben nur den Prozess.
+		// No group of its own, or already gone: then just the process.
 		_ = p.Signal(syscall.SIGTERM)
 	}
 }
 
-// killProcessHart lässt nicht mit sich reden. Auch hier zuerst die Gruppe:
-// sonst überlebt, was die Session gestartet hat.
+// killProcessHard does not negotiate. The group comes first here as well:
+// otherwise whatever the session started survives.
 func killProcessHard(p *os.Process, _ any) {
 	if err := syscall.Kill(-p.Pid, syscall.SIGKILL); err != nil {
 		_ = p.Signal(syscall.SIGKILL)
