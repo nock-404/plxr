@@ -30,14 +30,14 @@
     <div class="tools">
       <button class="btn" id="brake" data-tip="Alle Sessions sofort anhalten (nichts geht verloren)">STOPP</button>
       <button class="btn icon" id="settingsBtn" data-tip="Einstellungen">⚙</button>
-      <button class="btn" id="vorlagenBtn" data-tip="Gespeicherte Arbeitsumgebungen">VORLAGEN</button>
+      <button class="btn" id="templatesBtn" data-tip="Gespeicherte Arbeitsumgebungen">VORLAGEN</button>
       <button class="btn primary" id="newBtn">+ NEU</button>
     </div>
   </header>
 
   <div class="updatebar" id="updateBar" hidden>
     <span id="updateText"></span>
-    <span class="progress" id="updateBalken" hidden><i id="updateFuellung"></i></span>
+    <span class="progress" id="updateProgress" hidden><i id="updateFill"></i></span>
     <span class="spacer"></span>
     <button class="btn" id="updateNotes">WAS IST NEU</button>
     <button class="btn primary" id="updateGo">INSTALLIEREN</button>
@@ -47,7 +47,7 @@
   <div class="statusrow">
     <span id="counts"></span>
     <span class="spacer"></span>
-    <span id="tempo" class="pace" hidden></span>
+    <span id="pace" class="pace" hidden></span>
     <span id="boot" class="boot"></span>
     <span id="clock"></span>
   </div>
@@ -161,13 +161,13 @@
           <div class="panes" id="panes"></div>
 
           <!-- Suche im Scrollback der aktiven Fläche. -->
-          <div class="find" id="suche" hidden>
+          <div class="find" id="find" hidden>
             <span class="prompt">suchen&gt;</span>
-            <input id="sucheFeld" spellcheck="false" placeholder="im Terminal suchen">
-            <span id="sucheStand" class="meta"></span>
-            <button class="btn tiny" id="sucheHoch" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
-            <button class="btn tiny" id="sucheRunter" data-tip="nächster Treffer (Enter)">↓</button>
-            <button class="btn tiny" id="sucheZu" data-tip="schließen (Esc)">✕</button>
+            <input id="findInput" spellcheck="false" placeholder="im Terminal suchen">
+            <span id="findCount" class="meta"></span>
+            <button class="btn tiny" id="findPrev" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
+            <button class="btn tiny" id="findNext" data-tip="nächster Treffer (Enter)">↓</button>
+            <button class="btn tiny" id="findClose" data-tip="schließen (Esc)">✕</button>
           </div>
 
           <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
@@ -182,21 +182,21 @@
           </div>
 
           <!-- Wiedergabe: eigenes Terminal ohne Eingabe, über allem. -->
-          <div id="kino" class="overlay" hidden>
+          <div id="player" class="overlay" hidden>
             <div class="overlayBar">
-              <span id="kinoName" class="overlayName"></span>
-              <span id="kinoMeta" class="meta"></span>
+              <span id="playerName" class="overlayName"></span>
+              <span id="playerMeta" class="meta"></span>
               <span class="spacer"></span>
-              <button class="btn" id="kinoClose">ZURÜCK</button>
+              <button class="btn" id="playerClose">ZURÜCK</button>
             </div>
-            <div class="playterm" id="kinoTerm"></div>
+            <div class="playterm" id="playerTerm"></div>
             <div class="playbar">
-              <button class="btn" id="kinoPlay" data-tip="Abspielen und anhalten (Leertaste)">▶</button>
-              <input type="range" id="kinoRegler" min="0" max="1000" value="0"
+              <button class="btn" id="playerPlay" data-tip="Abspielen und anhalten (Leertaste)">▶</button>
+              <input type="range" id="playerSeek" min="0" max="1000" value="0"
                      data-tip="An eine Stelle springen">
-              <span id="kinoZeit" class="meta">0:00</span>
-              <button class="btn tiny" id="kinoTempo" data-tip="Abspielgeschwindigkeit">1×</button>
-              <button class="btn tiny" id="kinoPausen" data-an="ja"
+              <span id="playerTime" class="meta">0:00</span>
+              <button class="btn tiny" id="playerSpeed" data-tip="Abspielgeschwindigkeit">1×</button>
+              <button class="btn tiny" id="playerSkipIdle" data-an="ja"
                       data-tip="Leerlaufpausen überspringen — sonst sieht man minutenlang nichts">PAUSEN</button>
             </div>
           </div>
@@ -210,13 +210,13 @@
               <button class="btn" id="viewerSave" hidden>SPEICHERN</button>
               <button class="btn" id="viewerClose">ZURÜCK</button>
             </div>
-            <div class="find findInFile" id="esuche" hidden>
+            <div class="find findInFile" id="findInFile" hidden>
               <span class="prompt">suchen&gt;</span>
-              <input id="esucheFeld" spellcheck="false" placeholder="in der Datei suchen">
-              <span id="esucheStand" class="meta"></span>
-              <button class="btn tiny" id="esucheHoch" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
-              <button class="btn tiny" id="esucheRunter" data-tip="nächster Treffer (Enter)">↓</button>
-              <button class="btn tiny" id="esucheZu" data-tip="schließen (Esc)">✕</button>
+              <input id="findInFileInput" spellcheck="false" placeholder="in der Datei suchen">
+              <span id="findInFileCount" class="meta"></span>
+              <button class="btn tiny" id="findInFilePrev" data-tip="vorheriger Treffer (Shift+Enter)">↑</button>
+              <button class="btn tiny" id="findInFileNext" data-tip="nächster Treffer (Enter)">↓</button>
+              <button class="btn tiny" id="findInFileClose" data-tip="schließen (Esc)">✕</button>
             </div>
             <div class="viewerwrap">
               <div id="viewerMarks" class="viewermarks" aria-hidden="true"></div>
@@ -245,9 +245,9 @@
     </div>
     <div class="field">
       <span class="fieldName">was starten</span>
-      <div class="choice" id="newWahl"></div>
+      <div class="choice" id="newCmdChoice"></div>
     </div>
-    <div class="field" id="newCmdFeld" hidden>
+    <div class="field" id="newCmdInput" hidden>
       <span class="fieldName">kommando</span>
       <input id="newCmd" spellcheck="false">
     </div>
@@ -274,12 +274,12 @@
 
     <div class="field">
       <span class="fieldName">stil anpassen</span>
-      <div class="style" id="stilEditor"></div>
+      <div class="style" id="styleEditor"></div>
       <span class="rowInline">
         <span id="themeHint" class="notice"></span>
-        <button type="button" class="btn" id="themeLoeschen" hidden>LÖSCHEN</button>
-        <button type="button" class="btn" id="stilReset">ZURÜCKSETZEN</button>
-        <button type="button" class="btn" id="stilSpeichern">SPEICHERN</button>
+        <button type="button" class="btn" id="themeDelete" hidden>LÖSCHEN</button>
+        <button type="button" class="btn" id="styleReset">ZURÜCKSETZEN</button>
+        <button type="button" class="btn" id="styleSave">SPEICHERN</button>
         <button type="button" class="btn" id="themeImportBtn">IMPORTIEREN</button>
         <input type="file" id="themeFile" accept=".json,application/json" hidden>
       </span>
@@ -302,15 +302,15 @@
 </div>
 
 <!-- Vorlagen: mehrere Sessions auf einen Schlag -->
-<div id="vorlagen" class="backdrop" hidden>
+<div id="templates" class="backdrop" hidden>
   <div class="card">
     <b class="cardTitle">vorlagen</b>
     <p class="notice">Eine Vorlage öffnet mehrere Sessions auf einmal — dieselben
       Verzeichnisse, dieselben Konten, dieselben Kommandos wie beim Speichern.</p>
-    <div id="vorlagenListe" class="splitList"></div>
+    <div id="templatesList" class="splitList"></div>
     <div class="cardButtons">
-      <button type="button" class="btn" id="vorlagenCancel">SCHLIESSEN</button>
-      <button type="button" class="btn primary" id="vorlagenSpeichern">LAGE SPEICHERN</button>
+      <button type="button" class="btn" id="templatesCancel">SCHLIESSEN</button>
+      <button type="button" class="btn primary" id="templatesSave">LAGE SPEICHERN</button>
     </div>
   </div>
 </div>

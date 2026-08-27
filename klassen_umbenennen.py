@@ -75,13 +75,49 @@ def js_ersetzen(text, karte):
     return muster.sub(tausch, text)
 
 
+def id_ersetzen(text, karte, ist_js):
+    """Element-IDs: id="x" im HTML, '#x' als Selektor im JavaScript.
+
+    IDs sind eindeutiger als Klassen — sie stehen selten mitten in einem Satz.
+    Trotzdem gilt dieselbe Regel: nur im Zusammenhang ersetzen, nie im Fließtext.
+    """
+    text = re.sub(
+        r'(\bid=")([A-Za-z][A-Za-z0-9]*)(")',
+        lambda m: m.group(1) + karte.get(m.group(2), m.group(2)) + m.group(3),
+        text,
+    )
+    if ist_js:
+        text = re.sub(
+            r"(\$\(['\"]#)([A-Za-z][A-Za-z0-9]*)",
+            lambda m: m.group(1) + karte.get(m.group(2), m.group(2)),
+            text,
+        )
+        # getElementById und querySelector('#…') kommen auch vor
+        text = re.sub(
+            r"(getElementById\(['\"])([A-Za-z][A-Za-z0-9]*)",
+            lambda m: m.group(1) + karte.get(m.group(2), m.group(2)),
+            text,
+        )
+        text = re.sub(
+            r"(querySelector(?:All)?\(['\"]#)([A-Za-z][A-Za-z0-9]*)",
+            lambda m: m.group(1) + karte.get(m.group(2), m.group(2)),
+            text,
+        )
+    return text
+
+
 def main():
     karte = json.loads(sys.argv[1])
+    modus = 'klassen'
+    if karte.get('__modus'):
+        modus = karte.pop('__modus')
     geaendert = 0
     for p in sys.argv[2:]:
         pfad = Path(p)
         alt = pfad.read_text()
-        if pfad.suffix == '.css':
+        if modus == 'ids':
+            neu = id_ersetzen(alt, karte, pfad.suffix in ('.js', '.mjs'))
+        elif pfad.suffix == '.css':
             neu = css_ersetzen(alt, karte)
         elif pfad.suffix == '.html':
             neu = html_ersetzen(alt, karte)

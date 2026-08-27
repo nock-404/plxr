@@ -11,7 +11,7 @@ Geprüft wird beides:
   * JS erzeugt eine Klasse, die kein Stylesheet kennt  -> ungestylt
   * ein Skin kennt eine Klasse weniger als die anderen -> dort fehlt Gestaltung
 """
-import re, sys, glob, os
+import re, sys, glob, os, pathlib
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 
@@ -116,8 +116,37 @@ def main():
             print(f'  {name}: {len(fehlt)} Klassen, die andere Skins gestalten:')
             print('      ' + ' '.join('.' + x for x in fehlt))
 
+    fehler |= ids_pruefen()
+
     if not fehler:
-        print('  Klassen stimmen überein')
+        print('  Klassen und IDs stimmen überein')
     return fehler
+
+
+def ids_pruefen():
+    """Ruft das JavaScript eine Element-ID, die es im HTML nicht gibt?
+
+    $('#gibtsnicht') liefert null, und der nächste Zugriff darauf wirft — oder,
+    schlimmer, steht hinter einem ?. und tut wortlos nichts. Genau so wäre bei
+    der Umbenennung der Neustart nach einem Update verschwunden. Der Abgleich
+    kostet nichts und fängt die ganze Klasse.
+    """
+    import re
+    html = pathlib.Path('web/index.html').read_text()
+    vorhanden = set(re.findall(r'\bid="([A-Za-z][A-Za-z0-9]*)"', html))
+
+    js = ''
+    for f in ('web/app.js', 'web/ui.js'):
+        js += pathlib.Path(f).read_text()
+    gerufen = set(re.findall(r"""\$\(['"]#([A-Za-z][A-Za-z0-9]*)""", js))
+    gerufen |= set(re.findall(r"""getElementById\(['"]([A-Za-z][A-Za-z0-9]*)""", js))
+    gerufen |= set(re.findall(r"""querySelector(?:All)?\(['"]#([A-Za-z][A-Za-z0-9]*)""", js))
+
+    fehlt = sorted(gerufen - vorhanden)
+    if fehlt:
+        print(f'  {len(fehlt)} IDs werden gerufen, stehen aber in keinem HTML:')
+        print('      ' + ' '.join('#' + x for x in fehlt))
+        return 1
+    return 0
 
 sys.exit(main())

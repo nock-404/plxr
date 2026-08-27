@@ -377,7 +377,7 @@ function xtermFarben() {
 /* Löschen gibt es nur für eigene Themes: die eingebauten stecken in der
    Anwendung und wären nach dem nächsten Update ohnehin wieder da. */
 function loeschKnopfZeigen(t) {
-  $('#themeLoeschen').hidden = !(t || aktuellesTheme())?.eigen;
+  $('#themeDelete').hidden = !(t || aktuellesTheme())?.eigen;
 }
 
 function aktuellesTheme() {
@@ -416,7 +416,7 @@ $('#themeSel').addEventListener('change', () => {
   themeAnwenden(aktuellesTheme());
 });
 
-$('#themeLoeschen').addEventListener('click', async () => {
+$('#themeDelete').addEventListener('click', async () => {
   const t = aktuellesTheme();
   if (!t?.eigen) return;
   if (!(await plxrUI.frage(t.label, 'Eigenes Theme löschen?'))) return;
@@ -468,7 +468,7 @@ const STILFARBEN = [
 const stil = { aenderungen: {}, waehler: {}, fontSize: 0, termSize: 0 };
 
 function stilEditorBauen() {
-  const box = $('#stilEditor');
+  const box = $('#styleEditor');
   // Schon gebaut: nur die Werte auffrischen. Sonst zeigen die Tupfer nach
   // einem Themewechsel weiter die alten Farben.
   if (box.children.length) {
@@ -562,17 +562,17 @@ function schalterZeile(name, welcher) {
 
 const fuerAlleFlaechen = (fn) => { for (const p of paneListe()) { try { fn(p); } catch {} } };
 
-$('#stilReset').addEventListener('click', () => {
+$('#styleReset').addEventListener('click', () => {
   stil.aenderungen = {};
   stil.fontSize = 0;
   stil.termSize = 0;
   document.documentElement.style.cssText = '';
   themeAnwenden(aktuellesTheme());
-  $('#stilEditor').innerHTML = '';
+  $('#styleEditor').innerHTML = '';
   setTimeout(stilEditorBauen, 300);
 });
 
-$('#stilSpeichern').addEventListener('click', async () => {
+$('#styleSave').addEventListener('click', async () => {
   const basis = aktuellesTheme();
   const name = await plxrUI.eingabe(
     'Unter welchem Namen? Kleinbuchstaben und Bindestriche.',
@@ -1513,13 +1513,13 @@ $('#sessKill').addEventListener('click', async () => {
 
 function sucheOeffnen() {
   if (!state.aktiv) return;
-  $('#suche').hidden = false;
-  $('#sucheFeld').focus();
-  $('#sucheFeld').select();
+  $('#find').hidden = false;
+  $('#findInput').focus();
+  $('#findInput').select();
 }
 
 function sucheSchliessen() {
-  $('#suche').hidden = true;
+  $('#find').hidden = true;
   const p = panes.get(state.aktiv);
   try { p?.suche.clearDecorations(); } catch {}
   p?.term.focus();
@@ -1530,15 +1530,15 @@ function sucheSchliessen() {
 function suchen(rueckwaerts, vonVorn) {
   const p = panes.get(state.aktiv);
   if (!p) return;
-  const q = $('#sucheFeld').value;
-  if (!q) { $('#sucheStand').textContent = ''; try { p.suche.clearDecorations(); } catch {} return; }
+  const q = $('#findInput').value;
+  if (!q) { $('#findCount').textContent = ''; try { p.suche.clearDecorations(); } catch {} return; }
 
   // Zähler anmelden, sobald es die Fläche zum ersten Mal betrifft.
   if (!p.zaehlerAn) {
     p.zaehlerAn = true;
     try {
       p.suche.onDidChangeResults((r) => {
-        $('#sucheStand').textContent = !r || !r.resultCount
+        $('#findCount').textContent = !r || !r.resultCount
           ? 'nichts gefunden'
           : `${r.resultIndex + 1} von ${r.resultCount}`;
       });
@@ -1566,17 +1566,17 @@ function suchen(rueckwaerts, vonVorn) {
   const gefunden = rueckwaerts ? p.suche.findPrevious(q, opt) : p.suche.findNext(q, opt);
   // Der Zähler kommt über onDidChangeResults; nur wenn der ausbleibt, hier
   // wenigstens sagen, dass nichts da ist.
-  if (!gefunden) $('#sucheStand').textContent = 'nichts gefunden';
+  if (!gefunden) $('#findCount').textContent = 'nichts gefunden';
 }
 
-$('#sucheFeld').addEventListener('input', () => suchen(false, true));
-$('#sucheFeld').addEventListener('keydown', (e) => {
+$('#findInput').addEventListener('input', () => suchen(false, true));
+$('#findInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); suchen(e.shiftKey); }
   if (e.key === 'Escape') { e.preventDefault(); sucheSchliessen(); }
 });
-$('#sucheHoch').addEventListener('click', () => suchen(true));
-$('#sucheRunter').addEventListener('click', () => suchen(false));
-$('#sucheZu').addEventListener('click', sucheSchliessen);
+$('#findPrev').addEventListener('click', () => suchen(true));
+$('#findNext').addEventListener('click', () => suchen(false));
+$('#findClose').addEventListener('click', sucheSchliessen);
 
 /* ═════════════════════════ Tastenkürzel ═════════════════════════
 
@@ -1679,7 +1679,7 @@ for (const d of DIALOGE) {
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   for (const d of DIALOGE) if (!$(d).hidden) { $(d).hidden = true; return; }
-  if (!$('#suche').hidden) { sucheSchliessen(); return; }
+  if (!$('#find').hidden) { sucheSchliessen(); return; }
   if (!$('#viewer').hidden) { viewerSchliessen(); return; }
   if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
   if (state.panes.length) zeigeRaster();
@@ -1889,7 +1889,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function viewerSchliessen() {
-  $('#esuche').hidden = true;
+  $('#findInFile').hidden = true;
   if (!$('#viewerDirty').hidden) {
     const weg = await plxrUI.frage(
       'Die Änderungen an ' + $('#viewerName').textContent + ' gehen verloren.', 'Ohne Speichern schließen?');
@@ -1907,18 +1907,18 @@ $('#viewerClose').addEventListener('click', viewerSchliessen);
 const esuche = { treffer: [], index: -1, quelle: null };
 
 function editorSucheOeffnen() {
-  const feld = $('#esucheFeld');
+  const feld = $('#findInFileInput');
   const body = $('#viewerBody');
   const markiert = body.value.slice(body.selectionStart, body.selectionEnd);
   if (markiert && !markiert.includes('\n')) feld.value = markiert;
-  $('#esuche').hidden = false;
+  $('#findInFile').hidden = false;
   feld.focus();
   feld.select();
   editorTrefferSammeln();
 }
 
 function editorSucheSchliessen() {
-  $('#esuche').hidden = true;
+  $('#findInFile').hidden = true;
   $('#viewerMarks').textContent = '';
   esuche.treffer = [];
   esuche.index = -1;
@@ -1929,7 +1929,7 @@ function editorSucheSchliessen() {
 // Alle Fundstellen auf einmal, sonst kann der Zähler nicht stimmen.
 function editorTrefferSammeln() {
   const text = $('#viewerBody').value;
-  const q = $('#esucheFeld').value;
+  const q = $('#findInFileInput').value;
   esuche.quelle = text;
   esuche.treffer = [];
   esuche.index = -1;
@@ -1944,8 +1944,8 @@ function editorTrefferSammeln() {
 }
 
 function editorStandZeigen() {
-  const stand = $('#esucheStand');
-  if (!$('#esucheFeld').value) { stand.textContent = ''; return; }
+  const stand = $('#findInFileCount');
+  if (!$('#findInFileInput').value) { stand.textContent = ''; return; }
   if (!esuche.treffer.length) { stand.textContent = 'nichts gefunden'; return; }
   stand.textContent = `${Math.max(esuche.index, 0) + 1} von ${esuche.treffer.length}`;
 }
@@ -1954,7 +1954,7 @@ function editorSpringen(rueckwaerts) {
   const body = $('#viewerBody');
   // Wer beim offenen Suchfeld weitertippt, ändert den Text unter den Treffern.
   if (body.value !== esuche.quelle) editorTrefferSammeln();
-  const q = $('#esucheFeld').value;
+  const q = $('#findInFileInput').value;
   if (!q || !esuche.treffer.length) { editorStandZeigen(); return; }
 
   if (esuche.index === -1) {
@@ -2027,8 +2027,8 @@ const MARK_GRENZE = 2 << 20;
 function markierungenZeichnen() {
   const body = $('#viewerBody');
   const lage = $('#viewerMarks');
-  const q = $('#esucheFeld').value;
-  if ($('#esuche').hidden || !q || !esuche.treffer.length || body.value.length > MARK_GRENZE) {
+  const q = $('#findInFileInput').value;
+  if ($('#findInFile').hidden || !q || !esuche.treffer.length || body.value.length > MARK_GRENZE) {
     lage.textContent = '';
     return;
   }
@@ -2062,16 +2062,16 @@ function markMitscrollen() {
 
 $('#viewerBody').addEventListener('scroll', markMitscrollen);
 $('#viewerBody').addEventListener('input', () => {
-  if (!$('#esuche').hidden) { editorTrefferSammeln(); markierungenZeichnen(); }
+  if (!$('#findInFile').hidden) { editorTrefferSammeln(); markierungenZeichnen(); }
 });
-$('#esucheFeld').addEventListener('input', () => { editorTrefferSammeln(); editorSpringen(false); });
-$('#esucheFeld').addEventListener('keydown', (e) => {
+$('#findInFileInput').addEventListener('input', () => { editorTrefferSammeln(); editorSpringen(false); });
+$('#findInFileInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); editorSpringen(e.shiftKey); }
   else if (e.key === 'Escape') { e.preventDefault(); editorSucheSchliessen(); }
 });
-$('#esucheHoch').addEventListener('click', () => editorSpringen(true));
-$('#esucheRunter').addEventListener('click', () => editorSpringen(false));
-$('#esucheZu').addEventListener('click', editorSucheSchliessen);
+$('#findInFilePrev').addEventListener('click', () => editorSpringen(true));
+$('#findInFileNext').addEventListener('click', () => editorSpringen(false));
+$('#findInFileClose').addEventListener('click', editorSucheSchliessen);
 
 /* ═════════════════════════ Wiedergabe ═════════════════════════
 
@@ -2109,10 +2109,10 @@ const KINO_PAUSE = 1200;
 const KINO_REST = 300;
 
 async function kinoOeffnen(id, name, abOffset) {
-  const feld = $('#kino');
+  const feld = $('#player');
   feld.hidden = false;
-  $('#kinoName').textContent = name || id.slice(0, 8);
-  $('#kinoMeta').textContent = 'lädt …';
+  $('#playerName').textContent = name || id.slice(0, 8);
+  $('#playerMeta').textContent = 'lädt …';
   kino.id = id;
 
   if (!kino.term) {
@@ -2127,7 +2127,7 @@ async function kinoOeffnen(id, name, abOffset) {
     });
     kino.fit = new FitAddon.FitAddon();
     kino.term.loadAddon(kino.fit);
-    kino.term.open($('#kinoTerm'));
+    kino.term.open($('#playerTerm'));
   }
   kino.term.reset();
   try { kino.fit.fit(); } catch {}
@@ -2141,14 +2141,14 @@ async function kinoOeffnen(id, name, abOffset) {
     kino.beschnitten = strom.beschnitten;
     kino.marken = marken;
   } catch (e) {
-    $('#kinoMeta').textContent = '';
+    $('#playerMeta').textContent = '';
     kinoSchliessen();
     plxrUI.hinweis(e.message || String(e), 'Keine Aufzeichnung');
     return;
   }
 
   kino.pos = 0;
-  $('#kinoRegler').value = 0;
+  $('#playerSeek').value = 0;
   kinoStandZeigen();
 
   // Von einem Suchtreffer aus: direkt an die Fundstelle.
@@ -2158,7 +2158,7 @@ async function kinoOeffnen(id, name, abOffset) {
 
 function kinoSchliessen() {
   kinoAnhalten();
-  $('#kino').hidden = true;
+  $('#player').hidden = true;
   kino.daten = null;
   kino.marken = [];
   kino.id = null;
@@ -2201,7 +2201,7 @@ function kinoSchritt() {
 
 function kinoSpielen(an) {
   kino.laeuft = an;
-  $('#kinoPlay').textContent = an ? '❙❙' : '▶';
+  $('#playerPlay').textContent = an ? '❙❙' : '▶';
   clearTimeout(kino.timer);
   if (an) kinoSchritt();
 }
@@ -2209,7 +2209,7 @@ function kinoSpielen(an) {
 function kinoAnhalten() {
   kino.laeuft = false;
   clearTimeout(kino.timer);
-  $('#kinoPlay').textContent = '▶';
+  $('#playerPlay').textContent = '▶';
 }
 
 /* Springen. xterm kann nicht zurückspulen, also von vorn: Terminal leeren und
@@ -2228,17 +2228,17 @@ function kinoSpringen(ziel) {
 function kinoStandZeigen() {
   if (!kino.daten) return;
   const anteil = kino.daten.length ? kino.pos / kino.daten.length : 0;
-  const regler = $('#kinoRegler');
+  const regler = $('#playerSeek');
   // Nicht setzen, während daran gezogen wird.
   if (document.activeElement !== regler) regler.value = Math.round(anteil * 1000);
 
   const gesamt = kino.marken.length > 1
     ? (kino.marken[kino.marken.length - 1].at - kino.marken[0].at) / 1000
     : 0;
-  $('#kinoZeit').textContent = gesamt
+  $('#playerTime').textContent = gesamt
     ? `${kinoZeit(gesamt * anteil)} / ${kinoZeit(gesamt)}`
     : `${Math.round(anteil * 100)} %`;
-  $('#kinoMeta').textContent = kino.beschnitten
+  $('#playerMeta').textContent = kino.beschnitten
     ? 'nur der Anfang — die Aufzeichnung ist länger als das, was auf einmal geht'
     : (kino.marken.length ? '' : 'ohne Zeitachse, gleichmäßiges Tempo');
 }
@@ -2248,23 +2248,23 @@ const kinoZeit = (sek) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
-$('#kinoClose').addEventListener('click', kinoSchliessen);
-$('#kinoPlay').addEventListener('click', () => kinoSpielen(!kino.laeuft));
-$('#kinoRegler').addEventListener('input', (e) => {
+$('#playerClose').addEventListener('click', kinoSchliessen);
+$('#playerPlay').addEventListener('click', () => kinoSpielen(!kino.laeuft));
+$('#playerSeek').addEventListener('input', (e) => {
   if (!kino.daten) return;
   kinoSpringen(Math.round((e.target.value / 1000) * kino.daten.length));
 });
-$('#kinoTempo').addEventListener('click', () => {
+$('#playerSpeed').addEventListener('click', () => {
   const i = (KINO_TEMPI.indexOf(kino.tempo) + 1) % KINO_TEMPI.length;
   kino.tempo = KINO_TEMPI[i];
-  $('#kinoTempo').textContent = `${kino.tempo}×`;
+  $('#playerSpeed').textContent = `${kino.tempo}×`;
 });
-$('#kinoPausen').addEventListener('click', () => {
+$('#playerSkipIdle').addEventListener('click', () => {
   kino.pausenUeber = !kino.pausenUeber;
-  $('#kinoPausen').dataset.an = kino.pausenUeber ? 'ja' : '';
+  $('#playerSkipIdle').dataset.an = kino.pausenUeber ? 'ja' : '';
 });
 document.addEventListener('keydown', (e) => {
-  if ($('#kino').hidden) return;
+  if ($('#player').hidden) return;
   if (e.key === ' ') { e.preventDefault(); kinoSpielen(!kino.laeuft); }
   if (e.key === 'Escape') { e.preventDefault(); kinoSchliessen(); }
 }, true);
@@ -2687,7 +2687,7 @@ function tokKurz(n) {
 async function tempoPruefen() {
   let t;
   try { t = await api.tempo(); } catch { return; }
-  const el = $('#tempo');
+  const el = $('#pace');
   if (!t.proStunde && !t.fenster5h) { el.hidden = true; return; }
 
   el.hidden = false;
@@ -2759,7 +2759,7 @@ $('#updateGo').addEventListener('click', async () => {
   $('#updateGo').disabled = true;
   $('#updateNotes').hidden = true;
   $('#updateHide').hidden = true;
-  $('#updateBalken').hidden = false;
+  $('#updateProgress').hidden = false;
 
   try {
     await api.aktualisieren();
@@ -2772,7 +2772,7 @@ $('#updateGo').addEventListener('click', async () => {
 
 function updateFehler(text) {
   $('#updateText').textContent = 'fehlgeschlagen: ' + text;
-  $('#updateBalken').hidden = true;
+  $('#updateProgress').hidden = true;
   $('#updateGo').disabled = false;
   $('#updateNotes').hidden = false;
   $('#updateHide').hidden = false;
@@ -2786,7 +2786,7 @@ function updateVerfolgen() {
     } catch {
       return; // Verbindung kurz weg — beim nächsten Versuch wieder da
     }
-    $('#updateFuellung').style.width = st.prozent + '%';
+    $('#updateFill').style.width = st.prozent + '%';
     $('#updateText').textContent =
       st.phase === 'lädt' ? `lädt … ${st.prozent}%` : st.phase;
 
@@ -2796,7 +2796,7 @@ function updateVerfolgen() {
     if (st.fehler) { updateFehler(st.fehler); return; }
 
     $('#updateText').textContent = 'fertig — startet neu';
-    $('#updateFuellung').style.width = '100%';
+    $('#updateFill').style.width = '100%';
     // Kurz stehen lassen, damit man sieht, dass es geklappt hat.
     setTimeout(async () => {
       try {
@@ -2825,7 +2825,7 @@ const STARTBAR = [
 let shellCmd = null;
 
 async function wahlFuellen() {
-  const box = $('#newWahl');
+  const box = $('#newCmdChoice');
   if (box.children.length) return;
   try { shellCmd = (await api.shell()).cmd; } catch { shellCmd = ['/bin/sh', '-l']; }
   const zuletzt = localStorage.getItem('plxr.startart') || 'shell';
@@ -2842,14 +2842,14 @@ async function wahlFuellen() {
 }
 
 function wahlSetzen(id) {
-  for (const b of $('#newWahl').children) b.dataset.gewaehlt = b.dataset.id === id ? 'ja' : 'nein';
-  $('#newCmdFeld').hidden = id !== 'eigenes';
+  for (const b of $('#newCmdChoice').children) b.dataset.gewaehlt = b.dataset.id === id ? 'ja' : 'nein';
+  $('#newCmdInput').hidden = id !== 'eigenes';
   localStorage.setItem('plxr.startart', id);
   if (id === 'eigenes') $('#newCmd').focus();
 }
 
 function gewaehltesKommando() {
-  const id = [...$('#newWahl').children].find((b) => b.dataset.gewaehlt === 'ja')?.dataset.id || 'shell';
+  const id = [...$('#newCmdChoice').children].find((b) => b.dataset.gewaehlt === 'ja')?.dataset.id || 'shell';
   if (id === 'shell') return shellCmd || [];
   if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
   return STARTBAR.find((w) => w.id === id).cmd;
@@ -2861,12 +2861,12 @@ function gewaehltesKommando() {
    dieselbe Handbewegung. Eine Vorlage macht daraus einen Klick, und sie
    entsteht aus dem, was gerade offen ist. */
 
-$('#vorlagenBtn').addEventListener('click', vorlagenOeffnen);
-$('#vorlagenCancel').addEventListener('click', () => { $('#vorlagen').hidden = true; });
+$('#templatesBtn').addEventListener('click', vorlagenOeffnen);
+$('#templatesCancel').addEventListener('click', () => { $('#templates').hidden = true; });
 
 async function vorlagenOeffnen() {
-  $('#vorlagen').hidden = false;
-  const box = $('#vorlagenListe');
+  $('#templates').hidden = false;
+  const box = $('#templatesList');
   box.innerHTML = '';
   let liste = [];
   try { liste = await api.vorlagen(); } catch {}
@@ -2892,7 +2892,7 @@ async function vorlagenOeffnen() {
 
     zeile.addEventListener('click', async (ev) => {
       if (ev.target.dataset.t === 'weg') return;
-      $('#vorlagen').hidden = true;
+      $('#templates').hidden = true;
       try {
         const r = await api.vorlageStarten(v.name);
         if (r.teilweise) plxrUI.hinweis(r.teilweise, 'Nicht alles ließ sich starten');
@@ -2911,7 +2911,7 @@ async function vorlagenOeffnen() {
   }
 }
 
-$('#vorlagenSpeichern').addEventListener('click', async () => {
+$('#templatesSave').addEventListener('click', async () => {
   const offen = state.tiles.filter((t) => t.alive).length;
   if (!offen) { plxrUI.hinweis('Es läuft keine Session, die sich sichern ließe.', 'Nichts zu speichern'); return; }
   const label = await plxrUI.eingabe(
@@ -3045,7 +3045,7 @@ connect()
     fassungPruefen(true);
     // Lief beim letzten Fenster noch ein Update, hier weiter verfolgen.
     api.updateStand().then((st) => {
-      if (st.laeuft) { $('#updateBar').hidden = false; $('#updateBalken').hidden = false; updateVerfolgen(); }
+      if (st.laeuft) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
     setInterval(fassungPruefen, FASSUNG_INTERVALL);
   })
