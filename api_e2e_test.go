@@ -73,7 +73,7 @@ func ruf(t *testing.T, s *httptest.Server, token, methode, path string, koerper 
 
 // Jeder Aufruf, den die Oberfläche macht, muss aus dem Fenster heraus gehen —
 // also mit Herkunft und erlaubter Token-Kopfzeile.
-func TestAlleAnsichtenAusDemFenster(t *testing.T) {
+func TestEveryViewFromTheWindow(t *testing.T) {
 	s, token := aufbauen(t)
 
 	paths := []string{
@@ -112,7 +112,7 @@ func TestAlleAnsichtenAusDemFenster(t *testing.T) {
 }
 
 // Eine Session von der Oberfläche aus anlegen, sehen und wieder beenden.
-func TestSessionAnlegenSehenBeenden(t *testing.T) {
+func TestSessionCreateListKill(t *testing.T) {
 	s, token := aufbauen(t)
 
 	res, b := ruf(t, s, token, "POST", "/api/sessions",
@@ -165,7 +165,7 @@ func TestSessionAnlegenSehenBeenden(t *testing.T) {
 }
 
 // Eigene Themes anlegen und löschen, eingebaute bleiben geschützt.
-func TestThemesAnlegenUndLoeschen(t *testing.T) {
+func TestThemesCreateAndDelete(t *testing.T) {
 	s, token := aufbauen(t)
 
 	res, b := ruf(t, s, token, "POST", "/api/themes",
@@ -190,7 +190,7 @@ func TestThemesAnlegenUndLoeschen(t *testing.T) {
 }
 
 // Ohne Token kommt nichts durch — auch nicht mit gültiger Herkunft.
-func TestOhneTokenNichts(t *testing.T) {
+func TestNothingWithoutToken(t *testing.T) {
 	s, _ := aufbauen(t)
 	for _, p := range []string{"/api/sessions", "/api/themes", "/api/ports"} {
 		res, _ := ruf(t, s, "", "GET", p, "")
@@ -202,7 +202,7 @@ func TestOhneTokenNichts(t *testing.T) {
 
 // Die Oberfläche selbst muss ohne Token kommen: ein <link> kann keine
 // Kopfzeile mitschicken.
-func TestOberflaecheOhneTokenAusgeliefert(t *testing.T) {
+func TestUIServedWithoutToken(t *testing.T) {
 	s, _ := aufbauen(t)
 	for _, p := range []string{"/", "/app.js", "/ui.js", "/base.css", "/skins/crt/skin.css"} {
 		res, b := ruf(t, s, "", "GET", p, "")

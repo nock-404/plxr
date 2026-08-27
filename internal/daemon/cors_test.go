@@ -14,7 +14,7 @@ Das Fenster lädt seine Seite aus dem App-Bündel, nicht vom Daemon. Jeder
 	Seite und Daemon dieselbe Herkunft haben. Genau so ist es einmal
 	durchgerutscht.
 */
-func TestVorabflugWirdBeantwortet(t *testing.T) {
+func TestPreflightIsAnswered(t *testing.T) {
 	h := CORS(Guard("geheim", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("plxr"))
 	})))
@@ -40,7 +40,7 @@ func TestVorabflugWirdBeantwortet(t *testing.T) {
 }
 
 // Der Vorabflug darf beantwortet werden, ohne dass er das Tor öffnet.
-func TestVorabflugOeffnetNichtDieTuer(t *testing.T) {
+func TestPreflightDoesNotOpenTheDoor(t *testing.T) {
 	h := CORS(Guard("geheim", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Error("Anfrage ohne Token ist durchgekommen")
 	})))
@@ -55,7 +55,7 @@ func TestVorabflugOeffnetNichtDieTuer(t *testing.T) {
 }
 
 // Statische Dateien bleiben offen — ein <link> kann keine Kopfzeile mitschicken.
-func TestStatischesBleibtErreichbar(t *testing.T) {
+func TestStaticFilesStayReachable(t *testing.T) {
 	h := CORS(Guard("geheim", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("css"))
 	})))

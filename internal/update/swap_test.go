@@ -26,7 +26,7 @@ func read(t *testing.T, path string) string {
 	return string(b)
 }
 
-func TestTauschErsetztUndRaeumtAuf(t *testing.T) {
+func TestSwapReplacesAndCleansUp(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
 	fresh := filepath.Join(dir, "quelle.app")
@@ -48,7 +48,7 @@ func TestTauschErsetztUndRaeumtAuf(t *testing.T) {
 
 // Wenn die neue Fassung nicht abgelegt werden kann, darf die alte nicht
 // angetastet werden — vorher wurde sie zuerst beiseitegeschoben.
-func TestTauschLaesstAlteInRuheWennQuelleFehlt(t *testing.T) {
+func TestSwapLeavesOldAloneWhenSourceMissing(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
 	bundle(t, ziel, "alt")
@@ -66,7 +66,7 @@ func TestTauschLaesstAlteInRuheWennQuelleFehlt(t *testing.T) {
 
 // Der eigentliche Punkt: solange kopiert wird, muss am Zielort noch die alte
 // Fassung stehen. Sonst wäre die App bei einem Abbruch kaputt.
-func TestZielortBleibtWaehrendDesKopierensBestehen(t *testing.T) {
+func TestTargetSurvivesTheCopy(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
 	fresh := filepath.Join(dir, "quelle.app")

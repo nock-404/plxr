@@ -2,7 +2,7 @@ package update
 
 import "testing"
 
-func TestVergleichOhnePrefix(t *testing.T) {
+func TestCompareIgnoresPrefix(t *testing.T) {
 	faelle := []struct {
 		fresh, old string
 		will       bool

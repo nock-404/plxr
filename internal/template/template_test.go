@@ -8,7 +8,7 @@ import (
 
 // Earlier versions stored templates under the German directory name. After the
 // rename they must still show up — otherwise an update silently loses them.
-func TestAeltereAblageWirdUebernommen(t *testing.T) {
+func TestOlderStorageIsAdopted(t *testing.T) {
 	root := t.TempDir()
 	old := filepath.Join(root, "vorlagen")
 	if err := os.MkdirAll(old, 0o755); err != nil {
@@ -29,7 +29,7 @@ func TestAeltereAblageWirdUebernommen(t *testing.T) {
 }
 
 // Liegt schon etwas im neuen Ordner, darf die Übernahme nichts überschreiben.
-func TestNeueAblageGewinnt(t *testing.T) {
+func TestNewStorageWins(t *testing.T) {
 	root := t.TempDir()
 	os.MkdirAll(filepath.Join(root, "vorlagen"), 0o755)
 	os.WriteFile(filepath.Join(root, "vorlagen", "a.json"),
@@ -44,7 +44,7 @@ func TestNeueAblageGewinnt(t *testing.T) {
 	}
 }
 
-func TestSpeichernUndLoeschen(t *testing.T) {
+func TestSaveAndDelete(t *testing.T) {
 	root := t.TempDir()
 	v := Template{Name: "probe", Label: "Probe", Sessions: []Entry{{Cwd: "/tmp"}}}
 	if err := Save(root, v); err != nil {
@@ -61,7 +61,7 @@ func TestSpeichernUndLoeschen(t *testing.T) {
 	}
 }
 
-func TestNamenPruefung(t *testing.T) {
+func TestNameValidation(t *testing.T) {
 	gut := []string{"arbeitstag", "a-b-c", "x1"}
 	schlecht := []string{"", "Gross", "mit punkt.", "mit/schraeg", `{"json":1}`}
 	for _, n := range gut {

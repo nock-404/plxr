@@ -8,7 +8,7 @@ import (
 // Eine Rückfrage soll nur so lange als "braucht dich" gelten, wie sie offen
 // ist. Vorher wurde über zwölf Zeilen gesucht: eine längst beantwortete Frage
 // blieb dadurch im Posteingang stehen, bis die Session endete.
-func TestRueckfrageNurSolangeOffen(t *testing.T) {
+func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 	p := &Profile{
 		Name:    "probe",
 		Blocked: []string{`\(y/n\)`, `Do you want`, `❯\s*1\.\s*Yes`, `Enter to confirm`, `\?\s*$`},
@@ -47,7 +47,7 @@ func TestRueckfrageNurSolangeOffen(t *testing.T) {
 	}
 }
 
-func TestWartetAmPrompt(t *testing.T) {
+func TestWaitingAtPrompt(t *testing.T) {
 	ja := []string{"Auswahl> ", "Passwort:", "Weiter?"}
 	// Shell-Prompts sind der Normalzustand, keine Rückfrage.
 	nein := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
