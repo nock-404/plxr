@@ -68,7 +68,7 @@
       // Open upwards when there is no room below.
       const platz = window.innerHeight - button.getBoundingClientRect().bottom;
       wurzel.dataset.richtung = platz < Math.min(320, list.scrollHeight + 16) ? 'tall' : 'runter';
-      const g = $$('[data-gewaehlt]', list);
+      const g = $$('[data-picked]', list);
       if (g) g.scrollIntoView({ block: 'nearest' });
     };
     const zu = () => { list.hidden = true; delete wurzel.dataset.offen; };

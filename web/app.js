@@ -1282,7 +1282,7 @@ function renderGrid() {
     el.dataset.status = st;
     /* Warning coat: a session with permission prompts skipped otherwise looks
        like every other one — four calm borders, one not. */
-    el.dataset.isUntamed = isUntamed(t) ? 'ja' : '';
+    el.dataset.untamed = isUntamed(t) ? 'ja' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
     punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');

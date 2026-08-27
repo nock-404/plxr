@@ -240,8 +240,8 @@ body {
 .selectList { background: var(--bg); border: 1px solid var(--accent); }
 .selectRow { color: var(--fg); letter-spacing: .06em; text-shadow: inherit; }
 .selectRow:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
-.selectRow[data-gewaehlt] { color: var(--accent); }
-.selectRow[data-gewaehlt]::before { content: '› '; }
+.selectRow[data-picked] { color: var(--accent); }
+.selectRow[data-picked]::before { content: '› '; }
 .selectGroup { color: var(--dead); font-size: .68em; letter-spacing: .22em; text-transform: uppercase; }
 
 /* ---------- Scrollbalken ---------- */
@@ -289,7 +289,7 @@ body {
 /* Auswahl im Startdialog. */
 .choiceButton { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
 .choiceButton:hover { border-color: var(--accent); color: var(--accent); }
-.choiceButton[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
+.choiceButton[data-picked="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .78em; text-transform: none; letter-spacing: .04em; }
@@ -335,7 +335,7 @@ body {
 .tip { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-ungezaehmt="ja"]::before {
+.tile[data-untamed="ja"]::before {
   border: 1px solid var(--blocked);
   background: repeating-linear-gradient(45deg,
     color-mix(in srgb, var(--blocked) 14%, transparent) 0 6px,

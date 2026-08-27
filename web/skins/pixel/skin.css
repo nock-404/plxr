@@ -178,7 +178,7 @@ body {
 .selectList { background: var(--panel); padding: var(--px); }
 .selectRow { color: var(--fg); font-size: .8em; padding: 7px 10px; }
 .selectRow:hover { background: var(--line); color: var(--accent); }
-.selectRow[data-gewaehlt] { color: var(--accent); }
+.selectRow[data-picked] { color: var(--accent); }
 .selectGroup { color: var(--dead); font-size: .68em; padding: 8px 10px 3px; }
 
 /* ---------- Scrollbalken ---------- */
@@ -226,7 +226,7 @@ body {
 /* Auswahl im Startdialog. */
 .choiceButton { background: var(--panel); color: var(--dim); font-size: .8em; padding: 7px 12px;
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
-.choiceButton[data-gewaehlt="ja"] { background: var(--accent); color: var(--bg); }
+.choiceButton[data-picked="ja"] { background: var(--accent); color: var(--bg); }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .68em; text-transform: none; }
@@ -273,7 +273,7 @@ body {
 .tip { border: 2px solid var(--accent); background: var(--panel); color: var(--fg); image-rendering: pixelated; }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-ungezaehmt="ja"]::before {
+.tile[data-untamed="ja"]::before {
   border: 2px solid var(--blocked);
   background: repeating-linear-gradient(45deg,
     color-mix(in srgb, var(--blocked) 22%, transparent) 0 4px,

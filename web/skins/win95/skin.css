@@ -182,7 +182,7 @@ body {
 .selectList { padding: 2px; }
 .selectRow { color: var(--dk); }
 .selectRow:hover { background: var(--accent); color: #fff; }
-.selectRow[data-gewaehlt] { font-weight: bold; }
+.selectRow[data-picked] { font-weight: bold; }
 .selectGroup { color: var(--dim); font-weight: bold; font-size: .9em; }
 
 /* ---------- Scrollbars: with the dithered track of the era ---------- */
@@ -237,7 +237,7 @@ body {
 
 /* Auswahl im Startdialog. */
 .choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.choiceButton[data-gewaehlt="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.choiceButton[data-picked="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dk); font-size: .92em; text-transform: none; }
@@ -282,7 +282,7 @@ body {
 .tip { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-ungezaehmt="ja"]::before {
+.tile[data-untamed="ja"]::before {
   border: 3px solid #000;
   background: repeating-linear-gradient(45deg, #ffd800 0 10px, #000 10px 20px);
   opacity: .16;

@@ -400,8 +400,8 @@ html, body {
 
 /* Warning coat. Placement here, appearance in the skin — a yellow-and-black
    band belongs differently to win95 than to sketch. */
-.tile[data-ungezaehmt="ja"] { position: relative; }
-.tile[data-ungezaehmt="ja"]::before {
+.tile[data-untamed="ja"] { position: relative; }
+.tile[data-untamed="ja"]::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
 }
 

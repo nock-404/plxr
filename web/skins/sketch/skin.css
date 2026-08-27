@@ -180,7 +180,7 @@ body {
 
 .selectRow { color: var(--fg); }
 .selectRow:hover { background: #efe9d8; color: var(--accent); }
-.selectRow[data-gewaehlt] { color: var(--accent); }
+.selectRow[data-picked] { color: var(--accent); }
 .selectGroup { color: var(--dim); font-size: .8em; }
 
 /* ---------- Scrollbalken: Bleistiftstrich am Rand ---------- */
@@ -230,7 +230,7 @@ body {
 
 /* Auswahl im Startdialog. */
 .choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
-.choiceButton[data-gewaehlt="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.choiceButton[data-picked="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .85em; text-transform: none; }
@@ -276,7 +276,7 @@ body {
 .tip { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-ungezaehmt="ja"]::before {
+.tile[data-untamed="ja"]::before {
   border: 2px solid var(--blocked);
   border-radius: 12px 4px 10px 5px;
   background: repeating-linear-gradient(48deg,

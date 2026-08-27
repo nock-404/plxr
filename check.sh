@@ -23,6 +23,7 @@ schritt() {
 schritt "javascript" node --check web/app.js
 schritt "javascript ui" node --check web/ui.js
 schritt "klassen" python3 klassen.py
+schritt "merkmale" python3 merkmale.py
 # Ohne diese Regeln lässt sich das Fenster nicht bewegen. Beim Neuschreiben von
 # base.css sind sie schon einmal spurlos verschwunden.
 schritt "fenstergriff" grep -q -- '--wails-draggable: drag' web/base.css
