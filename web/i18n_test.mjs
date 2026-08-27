@@ -17,14 +17,14 @@ for (const f of readdirSync('web/i18n')) {
 const quellen = ['web/app.js', 'web/ui.js', 'web/index.html'].map((f) => readFileSync(f, 'utf8')).join('\n');
 /* Ein Schluessel gilt als benutzt, wenn sein Name irgendwo in Anfuehrungszeichen
    im Quelltext steht. Praeziser waere, nur t('…') zu zaehlen — aber dann faellt
-   t(bedingung ? 'a' : 'b') durch, und ein Test, der bei richtigem Code Alarm
+   tr(bedingung ? 'a' : 'b') durch, und ein Test, der bei richtigem Code Alarm
    schlaegt, wird abgeschaltet statt gelesen. */
-/* Gezaehlt wird, was in einem t(…)-Aufruf in Anfuehrungszeichen steht — samt
-   der Faelle mit Verzweigung, t(bedingung ? 'a' : 'b'). Nur t('…') zu matchen
+/* Gezaehlt wird, was in einem tr(…)-Aufruf in Anfuehrungszeichen steht — samt
+   der Faelle mit Verzweigung, tr(bedingung ? 'a' : 'b'). Nur tr('…') zu matchen
    liesse die durchfallen; alle punktierten Zeichenketten zu nehmen faengt die
    Schluessel von localStorage mit. */
 const benutzt = new Set([
-  ...[...quellen.matchAll(/\bt\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)/g)]
+  ...[...quellen.matchAll(/\btr\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)/g)]
     .flatMap((m) => [...m[1].matchAll(/['"]([\w.]+)['"]/g)].map((k) => k[1])),
   ...[...quellen.matchAll(/data-i18n(?:-tip|-ph)?="([\w.]+)"/g)].map((m) => m[1]),
 ]);
@@ -94,6 +94,22 @@ if (deutscheReste.length) {
   fehler = 1;
   console.log(`  ${deutscheReste.length} deutsche Texte stehen noch fest im Quelltext:`);
   for (const r of deutscheReste.slice(0, 10)) console.log(`      ${r}`);
+}
+
+/* Wird die Uebersetzungsfunktion verdeckt?
+
+   Sie hiess erst t(). In dieser Datei heisst aber fast jede Kachel in fast
+   jeder Schleife ebenfalls t — und `for (const t of list)` verdeckt die
+   Funktion lautlos. `t('inbox.open')` ruft dann ein Objekt als Funktion auf und
+   wirft, aber erst wenn genau diese Schleife laeuft. Deshalb heisst sie jetzt
+   tr(), und jeder verbliebene t('…')-Aufruf ist entweder ein Rest oder genau
+   dieser Fehler. */
+const verdeckt = [...jsQuellen]
+  .flatMap(([datei, src]) => [...src.matchAll(/(?<![.\w$])t\(\s*['"]/g)].map(() => datei));
+if (verdeckt.length) {
+  fehler = 1;
+  console.log(`  ${verdeckt.length} Aufruf(e) von t('…') — die Funktion heisst tr()`);
+  for (const d of [...new Set(verdeckt)]) console.log(`      ${d}`);
 }
 
 if (!fehler) {

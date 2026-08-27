@@ -192,5 +192,6 @@
   "brake.notResumed": "Not resumed",
   "brake.halted": "{n} halted",
   "pace.active": "{n} active",
-  "update.installAsk": "Install version {v}?"
+  "update.installAsk": "Install version {v}?",
+  "version.current": "up to date"
 }

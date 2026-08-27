@@ -192,5 +192,6 @@
   "brake.notResumed": "Nicht fortgesetzt",
   "brake.halted": "{n} angehalten",
   "pace.active": "{n} aktiv",
-  "update.installAsk": "Fassung {v} installieren?"
+  "update.installAsk": "Fassung {v} installieren?",
+  "version.current": "aktuell"
 }

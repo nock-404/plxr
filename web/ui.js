@@ -320,14 +320,14 @@
     replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
     // Capitals as in the rest of the markup: crt sets text-transform, the other
     // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.
-    confirm: (text, titel = window.t ? window.t('dialog.sureTitle') : 'Are you sure?') =>
-      dialog(titel, text, [{ text: window.t ? window.t('common.cancel') : 'CANCEL', wert: false }, { text: window.t ? window.t('common.yes') : 'YES', wert: true, haupt: true }]),
-    notice: (text, titel = window.t ? window.t('dialog.noticeTitle') : 'Notice') =>
+    confirm: (text, titel = window.tr ? window.tr('dialog.sureTitle') : 'Are you sure?') =>
+      dialog(titel, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', wert: false }, { text: window.tr ? window.tr('common.yes') : 'YES', wert: true, haupt: true }]),
+    notice: (text, titel = window.tr ? window.tr('dialog.noticeTitle') : 'Notice') =>
       dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
 
     /* Ask for a piece of text. Like confirm(), only with an input field — and here
        Enter may confirm, because nothing destructive hangs off it. */
-    prompt(text, titel = window.t ? window.t('dialog.promptTitle') : 'Input', vorgabe = '') {
+    prompt(text, titel = window.tr ? window.tr('dialog.promptTitle') : 'Input', vorgabe = '') {
       return new Promise((fertig) => {
         if (offen) offen.remove();
         const d = document.createElement('div');
