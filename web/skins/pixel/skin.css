@@ -1,12 +1,12 @@
-/* Skin: Pixel — 8-Bit-Konsolenmenü.
-   Rahmen sind gestufte Schatten statt Linien, damit sie wie gesetzte Blöcke
-   aussehen und nicht wie CSS-Borders. Nichts wird weich, nichts verläuft. */
+/* Skin: Pixel — 8-bit console menu.
+   Frames are stepped shadows rather than lines, so they look like placed blocks
+   and not like CSS borders. Nothing is soft, nothing gradients. */
 
 @font-face { font-family: 'PressStart'; src: url('/vendor/pressstart.woff2') format('woff2'); font-display: swap; }
 
 :root {
-  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
-     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
   --term-bg: #0f0f1b; --term-fg: #e8e8f0;
   --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #8b8fb0;
   --accent: #ffd23f; --line: #3a3f6b;
@@ -16,7 +16,7 @@
 
 body {
   font-family: 'PressStart', ui-monospace, monospace;
-  /* Über --size im Stil-Editor verstellbar. */
+  /* Adjustable through --size in the style editor. */
   font-size: var(--size, 10px); line-height: 1.6;
   image-rendering: pixelated;
   background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px, var(--bg);
@@ -188,9 +188,9 @@ body {
 *::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
-   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
-   dass kein Skin sie wieder verliert. */
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in klassen.py makes sure no skin loses
+   them again. */
 .dialogText { color: var(--fg); font-size: .85em; line-height: 1.7; }
 .boot { color: var(--dim); }
 .notice { color: var(--dim); font-size: .72em; text-transform: none; line-height: 1.7; }
@@ -199,9 +199,9 @@ body {
 .emptyNote { color: var(--dim); font-size: .8em; line-height: 1.8; }
 .emptyNote b { color: var(--accent); display: block; margin-bottom: 8px; font-weight: normal; }
 
-/* --- Vom Absturz betroffen ---
-   Der Daemon endete, während die Session lief. Kein normales Ende: der
-   Eintrag bleibt stehen und lässt sich mit einem Klick wieder aufnehmen. */
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
 .dot.verwaist { color: var(--blocked); animation: verwaistblink 1.4s steps(2) infinite; }
 .railitem[data-status="verwaist"] { color: var(--blocked); }
 .railitem[data-status="verwaist"] .rsub { color: var(--blocked); opacity: .8; }
@@ -209,9 +209,9 @@ body {
 .tile[data-status="verwaist"] .tfoot .act { color: var(--blocked); opacity: 1; }
 @keyframes verwaistblink { 50% { opacity: .3 } }
 
-/* ---------- Nachgezogen: Flächen und Kleinteile ----------
-   Diese Klassen gestalteten bisher nur einzelne Skins. Der Abgleich in
-   klassen.py sorgt dafür, dass keiner sie wieder verliert. */
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in klassen.py makes sure none
+   loses them again. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
@@ -228,7 +228,7 @@ body {
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
 .choiceButton[data-gewaehlt="ja"] { background: var(--accent); color: var(--bg); }
 
-/* Stil-Editor und Farbwahl. */
+/* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .68em; text-transform: none; }
 .styleNumber { color: var(--fg); font-size: .7em; }
 .styleNumber button { color: var(--accent); }
@@ -261,16 +261,16 @@ body {
 .pace { color: var(--dim); }
 .pace[data-warnung="ja"] { color: var(--blocked); }
 
-/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+/* Hover states: whatever is clickable should show it. */
 .choiceButton:hover { background: var(--line); color: var(--accent); }
 .styleToggle:hover { background: var(--line); color: var(--accent); }
 .paneclose:hover { color: var(--blocked); }
 .swatch:hover { box-shadow: 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent), -3px 0 0 0 var(--accent), 3px 0 0 0 var(--accent); }
 
-/* Kurzhinweis */
+/* Tooltip */
 .tip { border: 2px solid var(--accent); background: var(--panel); color: var(--fg); image-rendering: pixelated; }
 
-/* Warnkleid: übergangene Rückfragen */
+/* Warning coat: permission prompts skipped */
 .tile[data-ungezaehmt="ja"]::before {
   border: 2px solid var(--blocked);
   background: repeating-linear-gradient(45deg,
@@ -279,17 +279,16 @@ body {
   image-rendering: pixelated;
 }
 
-/* Eingefroren */
+/* Frozen */
 .dot.eingefroren { color: var(--waiting); }
 .tile[data-status="eingefroren"] { border-style: dashed; opacity: .8; }
 #brake[data-an="ja"] { background: var(--blocked); color: var(--bg); }
 
-/* Wappen: dieser Skin zeichnet Verzeichnisse mit diesen Zeichen. Wer einen
-   eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
-   nichts. */
-:root[data-skin="pixel"] { --wappen: "▙▛▜▟▚▞■▲▶◀●◼◈✚✖✦"; }
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="pixel"] { --crest: "▙▛▜▟▚▞■▲▶◀●◼◈✚✖✦"; }
 .crest { image-rendering: pixelated; }
 
-/* Wiedergabe */
+/* Playback */
 .playbar { border-top: 2px solid var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px solid var(--accent); padding-left: 8px; }

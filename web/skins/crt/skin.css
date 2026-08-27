@@ -1,12 +1,12 @@
-/* Skin: CRT — Phosphorröhre.
-   Bernstein auf fast schwarz, Pixelschrift, weicher Schimmer, dezentes
-   Zeilenraster. Farben kommen aus dem Theme, die Form von hier. */
+/* Skin: CRT — phosphor tube.
+   Amber on near-black, pixel type, a soft glow, restrained scanlines. Colours
+   come from the theme, the shape from here. */
 
 @font-face { font-family: 'VT323'; src: url('/vendor/vt323.woff2') format('woff2'); font-display: swap; }
 
 :root {
-  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
-     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
   --term-bg: #0b0906; --term-fg: #ffb000;
   --bg: #0b0906; --fg: #ffb000; --dim: #8a5f12; --accent: #ffcf5c;
   --panel: #14100a; --line: #3a2a10;
@@ -15,16 +15,16 @@
 
 body {
   font-family: 'VT323', ui-monospace, Menlo, monospace;
-  /* Über --size im Stil-Editor verstellbar. */
+  /* Adjustable through --size in the style editor. */
   font-size: var(--size, 19px);
-  /* Weicher Schimmer statt hartem Halo: bei voller Deckkraft verwischt der
-     Text mit sich selbst und wird schlechter lesbar. */
+  /* A soft glow rather than a hard halo: at full opacity the text smears into
+     itself and gets harder to read. */
   text-shadow: 0 0 3px color-mix(in srgb, currentColor 45%, transparent);
 }
 :root[data-glow="off"] body { text-shadow: none; }
 
-/* Zeilenraster bewusst dezent: bei einem Viertel Schwarz auf jeder dritten
-   Zeile zerhackt es den Text, statt nach Röhre auszusehen. */
+/* Scanlines deliberately restrained: at a quarter black on every third line
+   they chop the text up instead of looking like a tube. */
 .fx {
   background:
     repeating-linear-gradient(to bottom, rgba(0,0,0,.09) 0 1px, transparent 1px 4px),
@@ -111,7 +111,7 @@ body {
 .tile:hover { border-color: var(--accent); transform: translateY(-2px); }
 .tile[data-status="permission"] { border-color: var(--blocked); }
 .tile[data-status="dead"] { opacity: .5; }
-/* Eckwinkel wie an einem Messgerät. */
+/* Corner brackets like on a measuring instrument. */
 .tile::before, .tile::after {
   content: ''; position: absolute; width: 8px; height: 8px;
   border-color: var(--accent); opacity: 0; transition: opacity .12s;
@@ -250,9 +250,9 @@ body {
 *::-webkit-scrollbar-thumb { background: var(--dim); border: 2px solid var(--bg); }
 *::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
-   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
-   dass kein Skin sie wieder verliert. */
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in klassen.py makes sure no skin loses
+   them again. */
 .dialogText { color: var(--fg); font-size: .92em; }
 .boot { color: var(--dim); }
 .notice { color: var(--dim); font-size: .8em; text-transform: none; letter-spacing: 0; line-height: 1.4; }
@@ -262,9 +262,9 @@ body {
 .emptyNote b { color: var(--accent); font-weight: normal; display: block; margin-bottom: 6px;
           letter-spacing: .18em; text-transform: uppercase; font-size: .82em; }
 
-/* --- Vom Absturz betroffen ---
-   Der Daemon endete, während die Session lief. Kein normales Ende: der
-   Eintrag bleibt stehen und lässt sich mit einem Klick wieder aufnehmen. */
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
 .dot.verwaist { color: var(--blocked); animation: verwaistblink 1.4s steps(2) infinite; }
 .railitem[data-status="verwaist"] { color: var(--blocked); }
 .railitem[data-status="verwaist"] .rsub { color: var(--blocked); opacity: .8; }
@@ -272,9 +272,9 @@ body {
 .tile[data-status="verwaist"] .tfoot .act { color: var(--blocked); opacity: 1; }
 @keyframes verwaistblink { 50% { opacity: .3 } }
 
-/* ---------- Nachgezogen: Flächen und Kleinteile ----------
-   Diese Klassen gestalteten bisher nur einzelne Skins. Der Abgleich in
-   klassen.py sorgt dafür, dass keiner sie wieder verliert. */
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in klassen.py makes sure none
+   loses them again. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
@@ -291,7 +291,7 @@ body {
 .choiceButton:hover { border-color: var(--accent); color: var(--accent); }
 .choiceButton[data-gewaehlt="ja"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }
 
-/* Stil-Editor und Farbwahl. */
+/* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .78em; text-transform: none; letter-spacing: .04em; }
 .styleNumber { color: var(--fg); font-size: .8em; }
 .styleNumber button { color: var(--dim); }
@@ -327,13 +327,13 @@ body {
 .pace { color: var(--dim); }
 .pace[data-warnung="ja"] { color: var(--blocked); }
 
-/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+/* Hover states: whatever is clickable should show it. */
 .styleToggle:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Kurzhinweis */
+/* Tooltip */
 .tip { border: 1px solid var(--accent); background: var(--bg); color: var(--accent); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 30%, transparent); }
 
-/* Warnkleid: übergangene Rückfragen */
+/* Warning coat: permission prompts skipped */
 .tile[data-ungezaehmt="ja"]::before {
   border: 1px solid var(--blocked);
   background: repeating-linear-gradient(45deg,
@@ -341,17 +341,16 @@ body {
     transparent 6px 14px);
 }
 
-/* Eingefroren */
+/* Frozen */
 .dot.eingefroren { color: var(--waiting); text-shadow: 0 0 6px var(--waiting); }
 .tile[data-status="eingefroren"] { border-style: dashed; }
 #brake[data-an="ja"] { background: var(--blocked); color: var(--bg); }
 
-/* Wappen: dieser Skin zeichnet Verzeichnisse mit diesen Zeichen. Wer einen
-   eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
-   nichts. */
-:root[data-skin="crt"] { --wappen: "◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦"; }
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="crt"] { --crest: "◆●■▲▼◗◖✦✚✳❖⬢⬣◈☗♦"; }
 .crest { text-shadow: 0 0 5px currentColor; }
 
-/* Wiedergabe */
+/* Playback */
 .playbar { border-top: 1px solid var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px solid var(--line); padding-left: 8px; }

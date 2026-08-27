@@ -914,7 +914,7 @@ let crestGlyphs = null;
 function crestGlyphSet() {
   // Re-read after every skin change: setSkin clears this.
   if (crestGlyphs) return crestGlyphs;
-  const roh = getComputedStyle(document.documentElement).getPropertyValue('--wappen').trim();
+  const roh = getComputedStyle(document.documentElement).getPropertyValue('--crest').trim();
   // The value arrives as a CSS string, so in quotes.
   const sauber = roh.replace(/^["']|["']$/g, '');
   crestGlyphs = [...(sauber || CREST_FALLBACK)];

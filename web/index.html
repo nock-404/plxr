@@ -23,8 +23,8 @@
       <input id="pathFilter" spellcheck="false" placeholder="Pfad, auf den gefiltert wird">
     </div>
 
-    <!-- Freie Fläche zwischen Pfadfeld und Werkzeugen: hier greift man das
-         Fenster. Ohne sie gibt es bei eingelassener Titelleiste keinen Griff. -->
+    <!-- Free space between the path field and the tools: this is where the window
+         is grabbed. Without it an inset title bar leaves no handle at all. -->
     <div class="draghandle"></div>
 
     <div class="tools">
@@ -54,8 +54,8 @@
 
   <div class="body">
 
-    <!-- Die Schiene bleibt immer stehen, auch in einer Session. Sonst
-         verliert man beim Hineinschauen den Rest der Herde aus dem Blick. -->
+    <!-- The rail always stays, even inside a session. Otherwise looking into one
+         loses sight of the rest of the herd. -->
     <nav class="rail">
       <button class="railitem railhome" id="railHome">
         <span class="rdot">⊞</span><span class="rname">Übersicht</span>
@@ -157,10 +157,10 @@
             <div class="filetree" id="filetree"></div>
           </aside>
 
-          <!-- Terminalflächen entstehen zur Laufzeit: ihre Zahl ändert sich. -->
+          <!-- Terminal panes are created at runtime: their number changes. -->
           <div class="panes" id="panes"></div>
 
-          <!-- Suche im Scrollback der aktiven Fläche. -->
+          <!-- Find in the scrollback of the active pane. -->
           <div class="find" id="find" hidden>
             <span class="prompt">suchen&gt;</span>
             <input id="findInput" spellcheck="false" placeholder="im Terminal suchen">
@@ -170,7 +170,7 @@
             <button class="btn tiny" id="findClose" data-tip="schließen (Esc)">✕</button>
           </div>
 
-          <!-- Regeln und Dateibetrachter legen sich über die ganze Aufteilung. -->
+          <!-- Rules and the file viewer lie across the whole layout. -->
           <div id="rulesPane" class="overlay" hidden>
             <div class="overlayBar">
               <span class="overlayName">Regeln</span>
@@ -181,7 +181,7 @@
             <div id="rulesBody" class="ruleslist"></div>
           </div>
 
-          <!-- Wiedergabe: eigenes Terminal ohne Eingabe, über allem. -->
+          <!-- Playback: its own terminal without input, above everything. -->
           <div id="player" class="overlay" hidden>
             <div class="overlayBar">
               <span id="playerName" class="overlayName"></span>
@@ -301,7 +301,7 @@
   </div>
 </div>
 
-<!-- Vorlagen: mehrere Sessions auf einen Schlag -->
+<!-- Templates: several sessions in one go -->
 <div id="templates" class="backdrop" hidden>
   <div class="card">
     <b class="cardTitle">vorlagen</b>
@@ -315,7 +315,7 @@
   </div>
 </div>
 
-<!-- Session für die geteilte Fläche wählen -->
+<!-- Pick the session for the split pane -->
 <div id="splitPick" class="backdrop" hidden>
   <div class="card">
     <b class="cardTitle">welche session daneben?</b>

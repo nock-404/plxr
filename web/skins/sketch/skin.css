@@ -1,14 +1,14 @@
-/* Skin: Sketch — Notizbuch.
-   Die "gezeichneten" Rahmen entstehen aus asymmetrischen Eckradien plus einer
-   zweiten, leicht versetzten Linie. Das reicht, damit keine Kante wie eine
-   Kante aussieht, ohne eine Zeichenbibliothek zu laden. */
+/* Skin: Sketch — notebook.
+   The "drawn" frames come from asymmetric corner radii plus a second, slightly
+   offset line. That is enough to keep no edge looking like an edge, without
+   loading a drawing library. */
 
 @font-face { font-family: 'Caveat'; src: url('/vendor/caveat.woff2') format('woff2'); font-display: swap; }
 @font-face { font-family: 'SpaceMono'; src: url('/vendor/spacemono.woff2') format('woff2'); font-display: swap; }
 
 :root {
-  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
-     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
   --term-bg: #2b2b2b; --term-fg: #e8e4d8;
   --bg: #f6f3e9; --panel: #fffdf6; --fg: #2b2b2b; --dim: #8a8578;
   --accent: #1b6ca8; --line: #cfc9b8;
@@ -17,7 +17,7 @@
 
 body {
   font-family: 'Caveat', 'Bradley Hand', cursive;
-  /* Über --size im Stil-Editor verstellbar. */
+  /* Adjustable through --size in the style editor. */
   font-size: var(--size, 21px);
   background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px, var(--bg);
 }
@@ -26,7 +26,7 @@ body {
               radial-gradient(circle at 80% 90%, rgba(0,0,0,.03), transparent 60%);
 }
 
-/* Ein handgezogener Rahmen: unregelmäßige Radien, zweite Linie leicht versetzt. */
+/* A hand-drawn frame: irregular radii, a second line slightly offset. */
 .tile, .btn, .selectButton, .selectList, .card,
 .filter input, .listbar input, .card input {
   border: 2px solid var(--fg);
@@ -147,7 +147,7 @@ body {
 .frow.noise { color: var(--dead); }
 .fchev, .ficon { color: var(--dim); }
 
-/* Das Terminal bleibt dunkel: Bernstein auf Papier liest sich nicht. */
+/* The terminal stays dark: amber on paper does not read. */
 .pterm { background: var(--term-bg); border: 2px solid var(--fg); border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
 .panelabel { background: var(--bg); color: var(--dim); font-size: .8em; }
 .paneclose { background: var(--bg); color: var(--dim); }
@@ -193,9 +193,9 @@ body {
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--fg); }
 
-/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
-   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
-   dass kein Skin sie wieder verliert. */
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in klassen.py makes sure no skin loses
+   them again. */
 .dialogText { color: var(--fg); }
 .boot { color: var(--dim); }
 .notice { color: var(--dim); font-size: .85em; text-transform: none; line-height: 1.5; }
@@ -204,9 +204,9 @@ body {
 .emptyNote { color: var(--dim); }
 .emptyNote b { color: var(--accent); display: block; margin-bottom: 6px; font-size: 1.1em; }
 
-/* --- Vom Absturz betroffen ---
-   Der Daemon endete, während die Session lief. Kein normales Ende: der
-   Eintrag bleibt stehen und lässt sich mit einem Klick wieder aufnehmen. */
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
 .dot.verwaist { color: var(--blocked); animation: verwaistblink 1.4s steps(2) infinite; }
 .railitem[data-status="verwaist"] { color: var(--blocked); }
 .railitem[data-status="verwaist"] .rsub { color: var(--blocked); opacity: .8; }
@@ -214,9 +214,9 @@ body {
 .tile[data-status="verwaist"] .tfoot .act { color: var(--blocked); opacity: 1; }
 @keyframes verwaistblink { 50% { opacity: .3 } }
 
-/* ---------- Nachgezogen: Flächen und Kleinteile ----------
-   Diese Klassen gestalteten bisher nur einzelne Skins. Der Abgleich in
-   klassen.py sorgt dafür, dass keiner sie wieder verliert. */
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in klassen.py makes sure none
+   loses them again. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
@@ -232,7 +232,7 @@ body {
 .choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
 .choiceButton[data-gewaehlt="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 
-/* Stil-Editor und Farbwahl. */
+/* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .85em; text-transform: none; }
 .styleNumber { color: var(--fg); }
 .styleNumber button { color: var(--accent); }
@@ -263,16 +263,16 @@ body {
 .pace { color: var(--dim); }
 .pace[data-warnung="ja"] { color: var(--blocked); }
 
-/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+/* Hover states: whatever is clickable should show it. */
 .choiceButton:hover { background: #efe9d8; }
 .styleToggle:hover { background: #efe9d8; }
 .paneclose:hover { color: var(--blocked); }
 .swatch:hover { border-color: var(--accent); }
 
-/* Kurzhinweis */
+/* Tooltip */
 .tip { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
 
-/* Warnkleid: übergangene Rückfragen */
+/* Warning coat: permission prompts skipped */
 .tile[data-ungezaehmt="ja"]::before {
   border: 2px solid var(--blocked);
   border-radius: 12px 4px 10px 5px;
@@ -281,17 +281,16 @@ body {
     transparent 7px 16px);
 }
 
-/* Eingefroren */
+/* Frozen */
 .dot.eingefroren { color: var(--waiting); }
 .tile[data-status="eingefroren"] { border-style: dashed; }
 #brake[data-an="ja"] { background: var(--blocked); color: #fff; }
 
-/* Wappen: dieser Skin zeichnet Verzeichnisse mit diesen Zeichen. Wer einen
-   eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
-   nichts. */
-:root[data-skin="sketch"] { --wappen: "✎✂✿❀☘✈☂⚑⌂✱❍✚△▢◇☾"; }
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="sketch"] { --crest: "✎✂✿❀☘✈☂⚑⌂✱❍✚△▢◇☾"; }
 .crest { transform: rotate(-4deg); display: inline-block; }
 
-/* Wiedergabe */
+/* Playback */
 .playbar { border-top: 1px dashed var(--line); }
 .hitAfter { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }

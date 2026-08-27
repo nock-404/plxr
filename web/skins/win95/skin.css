@@ -1,13 +1,13 @@
-/* Skin: Win95 — grauer Kunststoff, harte Kanten, Bevel nach außen.
-   Der Trick ist der doppelte Rahmen: außen hell gegen dunkel, innen umgekehrt.
-   Nichts hier ist rund, nichts hat einen weichen Schatten. */
+/* Skin: Win95 — grey plastic, hard edges, bevels facing out.
+   The trick is the double frame: light against dark on the outside, reversed on
+   the inside. Nothing here is round, nothing has a soft shadow. */
 
 :root {
-  /* Farben des Terminals — bewusst getrennt von der Oberfläche:
-     ein heller Skin braucht trotzdem ein lesbares, dunkles Terminal. */
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
   --term-bg: #000000; --term-fg: #c0c0c0;
-  --bg: #008080;        /* der Teal-Schreibtisch */
-  --panel: #c0c0c0;     /* Fensterfläche */
+  --bg: #008080;        /* the teal desktop */
+  --panel: #c0c0c0;     /* window surface */
   --fg: #000000;
   --dim: #5a5a5a;
   --accent: #000080;    /* Titelleisten-Navy */
@@ -18,20 +18,20 @@
 
 body {
   font-family: Tahoma, 'Segoe UI', 'MS Sans Serif', Geneva, sans-serif;
-  /* Über --size im Stil-Editor verstellbar. */
+  /* Adjustable through --size in the style editor. */
   font-size: var(--size, 12px);
   -webkit-font-smoothing: none;
 }
 .app { background: var(--bg); }
 .fx { display: none; }
 
-/* Bevel nach außen: erhaben. Für Knöpfe, Kacheln, Karten. */
+/* Bevel facing out: raised. For buttons, tiles, cards. */
 .btn, .selectButton, .tile, .card, .selectList {
   background: var(--panel); color: var(--dk);
   border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
-/* Bevel nach innen: vertieft. Für alles, was Eingabe aufnimmt. */
+/* Bevel facing in: sunken. For anything that takes input. */
 .filter input, .listbar input, .card input, .viewerbody, .tbody, .files {
   background: #fff; color: #000;
   border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
@@ -74,7 +74,7 @@ body {
 .railitem[data-status="permission"] .rdot { color: var(--blocked); }
 .rmeta { color: var(--sh); }
 
-/* ---------- Kacheln: jede ist ein kleines Fenster ---------- */
+/* ---------- Tiles: each one is a little window ---------- */
 
 .tile { min-height: 240px; }
 .tile:hover { outline: 1px dotted var(--dk); outline-offset: -4px; }
@@ -185,7 +185,7 @@ body {
 .selectRow[data-gewaehlt] { font-weight: bold; }
 .selectGroup { color: var(--dim); font-weight: bold; font-size: .9em; }
 
-/* ---------- Scrollbalken: mit Gleisraster wie damals ---------- */
+/* ---------- Scrollbars: with the dithered track of the era ---------- */
 
 *::-webkit-scrollbar { width: 16px; height: 16px; }
 *::-webkit-scrollbar-track {
@@ -200,9 +200,9 @@ body {
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
 
-/* ---------- Nachgezogen: Einstellungen, Rückfragen, Bootzeile ----------
-   Diese Klassen kamen später dazu. Der Abgleich in klassen.py sorgt dafür,
-   dass kein Skin sie wieder verliert. */
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in klassen.py makes sure no skin loses
+   them again. */
 .dialogText { color: var(--dk); }
 .boot { color: var(--dim); }
 .notice { color: var(--dim); font-size: .92em; text-transform: none; }
@@ -211,9 +211,9 @@ body {
 .emptyNote { color: var(--dim); }
 .emptyNote b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }
 
-/* --- Vom Absturz betroffen ---
-   Der Daemon endete, während die Session lief. Kein normales Ende: der
-   Eintrag bleibt stehen und lässt sich mit einem Klick wieder aufnehmen. */
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
 .dot.verwaist { color: #800000; animation: verwaistblink 1.4s steps(2) infinite; }
 .railitem[data-status="verwaist"] { color: #800000; }
 .railitem[data-status="verwaist"] .rsub { color: #800000; opacity: .8; }
@@ -221,9 +221,9 @@ body {
 .tile[data-status="verwaist"] .tfoot .act { color: #800000; opacity: 1; }
 @keyframes verwaistblink { 50% { opacity: .3 } }
 
-/* ---------- Nachgezogen: Flächen und Kleinteile ----------
-   Diese Klassen gestalteten bisher nur einzelne Skins. Der Abgleich in
-   klassen.py sorgt dafür, dass keiner sie wieder verliert. */
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in klassen.py makes sure none
+   loses them again. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
@@ -239,7 +239,7 @@ body {
 .choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .choiceButton[data-gewaehlt="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 
-/* Stil-Editor und Farbwahl. */
+/* Style editor and colour picker. */
 .styleName { color: var(--dk); font-size: .92em; text-transform: none; }
 .styleNumber { color: var(--dk); }
 .styleNumber button { color: var(--dk); }
@@ -269,34 +269,33 @@ body {
 .pace { color: var(--dk); }
 .pace[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }
 
-/* Hover-Zustände: was klickbar ist, soll es zeigen. */
+/* Hover states: whatever is clickable should show it. */
 .choiceButton:hover { background: #d4d0c8; }
 .styleToggle:hover { background: #d4d0c8; }
 .paneclose:hover { color: var(--blocked); }
 .swatch:hover { border-color: var(--accent); }
 .btn:hover { background: #d4d0c8; }
 
-/* Kurzhinweis */
+/* Tooltip */
 .tip { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
 
-/* Warnkleid: übergangene Rückfragen */
+/* Warning coat: permission prompts skipped */
 .tile[data-ungezaehmt="ja"]::before {
   border: 3px solid #000;
   background: repeating-linear-gradient(45deg, #ffd800 0 10px, #000 10px 20px);
   opacity: .16;
 }
 
-/* Eingefroren */
+/* Frozen */
 .dot.eingefroren { color: #000080; }
 .tile[data-status="eingefroren"] { border-style: dotted; }
 #brake[data-an="ja"] { background: #800000; color: #fff; }
 
-/* Wappen: dieser Skin zeichnet Verzeichnisse mit diesen Zeichen. Wer einen
-   eigenen Skin schreibt, setzt hier seine eigenen — JavaScript weiß davon
-   nichts. */
-:root[data-skin="win95"] { --wappen: "■□▲△●○◆◇★☆♠♣♥♦※¶§"; }
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="win95"] { --crest: "■□▲△●○◆◇★☆♠♣♥♦※¶§"; }
 .crest { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
 
-/* Wiedergabe */
+/* Playback */
 .playbar { border-top: 1px solid #fff; box-shadow: inset 0 1px 0 #808080; }
 .hitAfter { color: #444; background: #fff; border: 1px solid #808080; padding: 3px 6px; }
