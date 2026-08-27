@@ -102,6 +102,40 @@ func Forget() { os.Remove(infoPath()) }
 // aus Bequemlichkeit: ein <link rel="stylesheet"> kann keinen Header
 // mitschicken, und die Dateien enthalten nichts, was schützenswert wäre. Alles
 // unter /api und /ws braucht dagegen das Token.
+/* CORS macht das Fenster überhaupt erst arbeitsfähig.
+
+   Die Wails-Seite wird nicht vom Daemon ausgeliefert, sondern aus dem
+   App-Bündel — ihre Herkunft heißt "wails://wails" bzw. "http://wails.localhost".
+   Jeder fetch an den Daemon ist damit ein Cross-Origin-Aufruf, und weil wir das
+   Token in einer eigenen Kopfzeile schicken, schickt die Webview vorher ein
+   OPTIONS. Ohne Antwort darauf scheitert JEDER Aufruf aus dem Fenster — die
+   Oberfläche blieb leer und meldete nur "Verbindung verloren". Im Browser fiel
+   es nie auf: dort ist es dieselbe Herkunft.
+
+   Die Herkunft wird zurückgespiegelt statt "*" gesetzt, und das Token bleibt
+   die eigentliche Absicherung: der Daemon lauscht nur auf 127.0.0.1, und ohne
+   gültiges Token kommt jede Anfrage mit 403 zurück. */
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if o := r.Header.Get("Origin"); o != "" {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", o)
+			h.Add("Vary", "Origin")
+			h.Set("Access-Control-Allow-Headers", "X-Plxr-Token, Content-Type")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			h.Set("Access-Control-Max-Age", "600")
+		}
+		// Der Vorabflug trägt nie ein Token — Browser schicken bei OPTIONS
+		// grundsätzlich keine eigenen Kopfzeilen mit. Er muss deshalb vor der
+		// Token-Prüfung beantwortet werden, sonst bleibt es bei 403.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func Guard(token string, next http.Handler) http.Handler {
 	want := []byte(token)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

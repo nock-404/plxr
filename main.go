@@ -231,7 +231,7 @@ func runDaemon() {
 	go c.MitschnitteAufraeumen()
 
 	log.Printf("plxr daemon auf %s (PID %d)", info.URL(), info.PID)
-	log.Fatal(http.Serve(ln, daemon.Guard(info.Token, srv.Routes())))
+	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))
 }
 
 // runWindow ist nur noch eine Hülle: sie liefert die Oberfläche aus und sagt
