@@ -74,13 +74,22 @@ if (ungenutzt.length) {
    Die erste Runde suchte nach Umlauten und Artikeln — "Session wartet auf
    dich" hat weder das eine noch das andere und blieb monatelang stehen.
    Deshalb hier eine Wortliste, die auf die Sprache zielt, nicht auf ihre
-   Sonderzeichen. */
-const DEUTSCH = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine)\b|[äöüßÄÖÜ]/;
+   Sonderzeichen.
+
+   Die zweite Runde liess "Escape senden" durch: kein Umlaut, kein Artikel,
+   kein Wort aus der Liste. Und Vorlagen-Zeichenketten sah sie ueberhaupt
+   nicht an, obwohl der halbe Kurzhinweis dort steht. Also: Verben und
+   Hauptwoerter dazu, die in Bedienoberflaechen wirklich vorkommen, und
+   Backticks mitlesen — ohne die ${…}, dort steht Code. */
+const DEUTSCH = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine|senden|gesendet|oeffnen|geoeffnet|schliessen|speichern|gespeichert|loeschen|geloescht|abbrechen|Abbruch|Antwort|Antworten|Frage|Fragen|Eingabe|Eingabetaste|Taste|Sitzung|Fenster|Zeile|Zeilen|Ordner|Einstellungen|waehlen|Auswahl|neu|alle|mit|fuer|zum|zur|bei|dem|den|kann|muss|soll|hier|dort|jetzt|wieder|wurde|haben|hat)\b|[äöüßÄÖÜ]/;
 const jsQuellen = ['web/app.js', 'web/ui.js'].map((f) => [f, readFileSync(f, 'utf8')]);
 const deutscheReste = [];
 for (const [datei, src] of jsQuellen) {
   const ohneKommentar = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
-  for (const m of ohneKommentar.matchAll(/'([^'\\\n]{6,})'|"([^"\\\n]{6,})"/g)) {
+  // Vorlagen-Zeichenketten ohne ihre Einsetzungen: `„${x}" senden` ist Text.
+  const mitVorlagen = ohneKommentar.replace(/`([^`\\]|\\.)*`/g,
+    (t) => "'" + t.slice(1, -1).replace(/\$\{[^{}]*\}/g, ' ').replace(/['\\\n]/g, ' ') + "'");
+  for (const m of mitVorlagen.matchAll(/'([^'\\\n]{6,})'|"([^"\\\n]{6,})"/g)) {
     const txt = m[1] || m[2];
     // Selektoren, Schluessel, Kopfzeilen und Klassennamen sind kein Text.
     if (/^[\w.#\[\]=-]+$/.test(txt) || txt.startsWith('X-') || txt.includes('/')) continue;

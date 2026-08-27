@@ -742,7 +742,7 @@ $('#styleSave').addEventListener('click', async () => {
   const basis = currentTheme();
   const name = await plxrUI.prompt(
     tr('theme.nameAsk'),
-    'Eigenes Theme speichern', (basis?.name || 'mein') + '-eigen');
+    tr('theme.saveOwnTitle'), (basis?.name || tr('theme.ownBase')) + tr('theme.ownSuffix'));
   if (!name) return;
 
   const sauber = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -768,7 +768,7 @@ $('#styleSave').addEventListener('click', async () => {
     styleState.changes = {};
     plxrUI.notice(tr('theme.saved', { name }), 'Gespeichert');
   } catch (e) {
-    plxrUI.notice(e.message || String(e), 'Nicht gespeichert');
+    plxrUI.notice(e.message || String(e), tr('common.notSaved'));
   }
 });
 $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = true; });
@@ -946,6 +946,32 @@ function waitingSessions() {
   return state.tiles.filter((t) => t.alive && t.status === 'permission');
 }
 
+/* Group identical questions.
+
+   Eight agents in the same monorepo get the same question — "Do you want to
+   proceed?" eight times below one another. You answer it eight times
+   identically and read it not once to the end.
+
+   Only WORD-FOR-WORD identical questions are grouped. Measuring similarity
+   would be an invitation to an accident: two questions that differ in one file
+   name are not the same question, and one bulk answer to the wrong group is
+   worse than typing eight times. */
+function questionKey(tile) {
+  return (tile.confirm || tile.activity || '').trim();
+}
+
+function inboxGroups(list) {
+  const by = new Map();
+  for (const tile of list) {
+    const q = questionKey(tile);
+    // Without a recognised question there is nothing to group — each on its own.
+    const key = q ? `q:${q}` : `id:${tile.id}`;
+    if (!by.has(key)) by.set(key, { key, question: q, tiles: [] });
+    by.get(key).tiles.push(tile);
+  }
+  return [...by.values()];
+}
+
 function renderInbox() {
   const list = waitingSessions();
   const box = $('#inboxBody');
@@ -961,38 +987,56 @@ function renderInbox() {
   // Update existing cards rather than rebuilding them, otherwise the reply
   // field loses focus and what was typed on every tick.
   const gesehen = new Set();
-  for (const t of list) {
-    gesehen.add(t.id);
-    let card = box.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
+  for (const group of inboxGroups(list)) {
+    gesehen.add(group.key);
+    let card = box.querySelector(`[data-id="${CSS.escape(group.key)}"]`);
     if (!card) {
       card = document.createElement('div');
       card.className = 'inboxCard';
-      card.dataset.id = t.id;
+      card.dataset.id = group.key;
       card.innerHTML =
         '<div class="inboxHead"><span class="dot permission">◉</span>' +
-        '<b class="inboxName"></b><span class="inboxPath"></span>' +
+        '<b class="inboxName"></b><span class="inboxCount"></span>' +
+        '<span class="inboxPath"></span>' +
         `<button class="btn tiny" data-t="oeffnen">${tr('inbox.open')}</button></div>` +
         '<pre class="inboxQuestion"></pre>' +
-        '<div class="inboxReply"><input spellcheck="false" placeholder="Antwort, Eingabetaste sendet">' +
-        '<span class="inboxQuick"></span></div>';
+        '<div class="inboxReply"><input spellcheck="false"><span class="inboxQuick"></span></div>';
 
-      card.querySelector('[data-t="oeffnen"]').addEventListener('click', () => openSession(t.id));
+      /* The group is read off the card, never out of this closure: the card
+         outlives the tick, the group is rebuilt every second. A click a minute
+         from now must reach the sessions waiting then, not the ones that were
+         waiting when the card was built. */
+      card.querySelector('[data-t="oeffnen"]').addEventListener(
+        'click', () => openSession(card.group.tiles[0].id));
 
       const field = card.querySelector('.inboxReply input');
+      field.placeholder = tr('inbox.replyPlaceholder');
       field.addEventListener('keydown', async (e) => {
         if (e.key !== 'Enter') return;
         e.preventDefault();
-        await reply(t.id, field.value);
+        const text = field.value;
         field.value = '';
+        await replyAll(card.group.tiles, text);
       });
 
       box.appendChild(card);
     }
+    card.group = group;
 
-    card.querySelector('.inboxName').textContent = t.title || t.name;
-    card.querySelector('.inboxPath').textContent = [t.project, t.agent_label].filter(Boolean).join('  ·  ');
+    const first = group.tiles[0];
+    const many = group.tiles.length > 1;
+    card.querySelector('.inboxName').textContent = many
+      ? tr('inbox.groupName')
+      : (first.title || first.name);
+    const count = card.querySelector('.inboxCount');
+    count.textContent = many ? tr('inbox.groupCount', { n: group.tiles.length }) : '';
+    count.hidden = !many;
+    card.querySelector('.inboxPath').textContent = many
+      ? group.tiles.map((k) => k.title || k.name).join('  ·  ')
+      : [first.project, first.agent_label].filter(Boolean).join('  ·  ');
+
     const confirm = card.querySelector('.inboxQuestion');
-    const neu = t.confirm || t.activity || tr('inbox.noQuestion');
+    const neu = group.question || tr('inbox.noQuestion');
     if (confirm.textContent !== neu) confirm.textContent = neu;
 
     /* Only rebuild when the question changed: the card refreshes every second,
@@ -1002,11 +1046,13 @@ function renderInbox() {
     if (quick.dataset.fuer !== neu) {
       quick.dataset.fuer = neu;
       quick.innerHTML = '';
-      for (const a of quickRepliesFor(t.confirm)) {
+      for (const a of quickRepliesFor(group.question)) {
         const b = document.createElement('button');
         b.textContent = a.label;
-        b.dataset.tip = a.text === '\u001b' ? 'Escape senden' : `„${a.text || 'Eingabetaste'}" senden`;
-        b.addEventListener('click', () => reply(t.id, a.text, a.text === '\u001b'));
+        b.dataset.tip = a.text === '\u001b'
+          ? tr('inbox.sendEscape')
+          : tr('inbox.sendTip', { what: a.text || tr('inbox.enterKey') });
+        b.addEventListener('click', () => replyAll(card.group.tiles, a.text, a.text === '\u001b'));
         quick.appendChild(b);
       }
     }
@@ -1016,15 +1062,25 @@ function renderInbox() {
   }
 }
 
-async function reply(id, text, roh) {
-  try {
-    await api.sendReply(id, text, roh);
-    // Wait a moment, then read again: the session needs a beat before it
-    // changes its status.
-    setTimeout(() => { if (!$('#viewInbox').hidden) renderInbox(); }, 900);
-  } catch (e) {
-    plxrUI.notice(e.message || String(e), 'Nicht gesendet');
+/* One answer to every session in a group.
+
+   One after another rather than all at once: writing to eight terminals in the
+   same millisecond is nothing a shell expects, and the gain would be
+   unmeasurable. A failure on one does not abort the rest — otherwise half of
+   them would keep hanging and you would not know which half. */
+async function replyAll(tiles, text, roh) {
+  const failed = [];
+  for (const tile of tiles) {
+    try {
+      await api.sendReply(tile.id, text, roh);
+    } catch (e) {
+      failed.push(`${tile.title || tile.name}: ${e.message || String(e)}`);
+    }
   }
+  if (failed.length) plxrUI.notice(failed.join('\n'), tr('inbox.notSent'));
+  // Wait a moment, then read again: the session needs a beat before it
+  // changes its status.
+  setTimeout(() => { if (!$('#viewInbox').hidden) renderInbox(); }, 900);
 }
 
 async function showPorts() {
@@ -1815,7 +1871,7 @@ $('#filesToggle').addEventListener('click', () => {
 /* Split the pane: put a second session alongside. */
 $('#splitAdd').addEventListener('click', () => {
   const frei = state.tiles.filter((t) => !state.panes.includes(t.id));
-  if (!frei.length) { plxrUI.notice(tr('split.noOther'), 'Nichts zum Teilen'); return; }
+  if (!frei.length) { plxrUI.notice(tr('split.noOther'), tr('split.nothingToSplit')); return; }
   const box = $('#splitList');
   box.innerHTML = '';
   for (const t of frei) {
@@ -1995,7 +2051,7 @@ async function openFile(e, sid) {
     $('#viewerName').textContent = e.name;
     $('#viewerMeta').textContent = c.binary
       ? tr('file.binary')
-      : `${c.lines} Zeilen · ${(c.size / 1024).toFixed(1)} kB` +
+      : tr('file.meta', { lines: c.lines, kb: (c.size / 1024).toFixed(1) }) +
         (c.truncated ? tr('file.truncated') : '');
 
     const field = $('#viewerBody');
@@ -2037,10 +2093,10 @@ async function saveFile() {
     datei.mod = c.mod;
     datei.original = text;
     setDirty(false);
-    $('#viewerMeta').textContent = `${c.lines} Zeilen · ${(c.size / 1024).toFixed(1)} kB · gespeichert`;
+    $('#viewerMeta').textContent = tr('file.metaSaved', { lines: c.lines, kb: (c.size / 1024).toFixed(1) });
   } catch (err) {
     setDirty(true);
-    plxrUI.notice(err.message || String(err), 'Nicht gespeichert');
+    plxrUI.notice(err.message || String(err), tr('common.notSaved'));
   }
 }
 $('#viewerSave').addEventListener('click', saveFile);
@@ -2202,7 +2258,7 @@ function renderMarks() {
   let ab = 0;
   fileFind.treffer.forEach((p, i) => {
     teile.push(htmlSicher(text.slice(ab, p)));
-    teile.push(i === fileFind.index ? '<mark class="jetzt">' : '<mark>');
+    teile.push(i === fileFind.index ? '<mark class="current">' : '<mark>');
     teile.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
     ab = p + q.length;
   });
@@ -2515,7 +2571,7 @@ $('#archTerminals').addEventListener('click', searchTerminals);
 async function searchTerminals() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
-  $('#archInfo').textContent = 'durchsuche alle Terminalmitschnitte …';
+  $('#archInfo').textContent = tr('archive.searchingRecordings');
   try {
     archiv.terminals = await api.searchTerminals(q);
     archiv.treffer = null;
@@ -2531,7 +2587,7 @@ async function searchTerminals() {
 async function fullTextSearch() {
   const q = $('#archSearch').value.trim();
   if (q.length < 2) return;
-  $('#archInfo').textContent = 'durchsuche alle Transkripte …';
+  $('#archInfo').textContent = tr('archive.searchingTranscripts');
   try {
     archiv.treffer = await api.search(q);
     renderArchive();
@@ -2654,7 +2710,7 @@ function renderArchive() {
   if (!list.length) {
     if (archiv.alle.length) {
       showEmpty(box, tr('archive.noTitleHit'),
-        'Eingabetaste durchsucht stattdessen den vollen Text aller Transkripte.');
+        tr('archive.hitEnterForFullText'));
     } else if (state.filter) {
       showEmpty(box, tr('archive.noneUnderPath'),
         tr('archive.filtered', { path: state.filter }));
@@ -2952,7 +3008,7 @@ function updateVerfolgen() {
 
     if (st.fehler) { updateFehler(st.fehler); return; }
 
-    $('#updateText').textContent = 'fertig — startet neu';
+    $('#updateText').textContent = tr('update.doneRestarting');
     $('#updateFill').style.width = '100%';
     // Leave it up briefly so it is visible that it worked.
     setTimeout(async () => {
@@ -3079,7 +3135,7 @@ $('#templatesSave').addEventListener('click', async () => {
     await api.templateSave(name, label);
     openTemplates();
   } catch (e) {
-    plxrUI.notice(e.message || String(e), 'Nicht gespeichert');
+    plxrUI.notice(e.message || String(e), tr('common.notSaved'));
   }
 });
 

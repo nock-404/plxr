@@ -21,7 +21,7 @@ function grab(name) {
 }
 
 const source = ['OPTION_LINE', 'shorten', 'optionsFrom', 'yesNoFrom', 'quickRepliesFor', 'isUntamed',
-  'CREST_FALLBACK', 'hash32']
+  'CREST_FALLBACK', 'hash32', 'questionKey', 'inboxGroups']
   .map(grab).join('\n');
 
 const QUICK_REPLIES = [
@@ -30,7 +30,7 @@ const QUICK_REPLIES = [
   { text: '', label: 'Eingabe' }, { text: '', label: 'Esc' },
 ];
 const mod = new Function('QUICK_REPLIES',
-  source + '\nreturn { optionsFrom, quickRepliesFor, isUntamed, hash32, CREST_FALLBACK };')(QUICK_REPLIES);
+  source + '\nreturn { optionsFrom, quickRepliesFor, isUntamed, hash32, CREST_FALLBACK, inboxGroups };')(QUICK_REPLIES);
 
 const MARKER = '❯';   // the selection marker Claude Code draws
 
@@ -133,5 +133,44 @@ for (const [zustand, want, name] of roomCases) {
   if (got !== want) { failures++; console.log(`  FEHL ${name}: ${got} statt ${want}`); }
   else console.log(`  ok   ${name} -> ${got}`);
 }
+
+console.log('  --- Sammelfrage ---');
+/* Zusammengefasst wird nur bei woertlich gleicher Frage. Der teuerste
+   denkbare Fehler waere, zwei verschiedene Fragen in eine Karte zu ziehen:
+   dann geht eine Antwort an eine Session, die etwas anderes gefragt hat.
+   Deshalb pruefen die Faelle vor allem, was NICHT zusammenkommt. */
+const F = 'Do you want to proceed?';
+const groupCases = [
+  ['gleiche Frage kommt zusammen',
+   [{ id: 'a', confirm: F }, { id: 'b', confirm: F }, { id: 'c', confirm: F }],
+   [3]],
+  ['ein Dateiname Unterschied trennt',
+   [{ id: 'a', confirm: 'Edit src/a.go?' }, { id: 'b', confirm: 'Edit src/b.go?' }],
+   [1, 1]],
+  ['Leerraum aussen zaehlt nicht',
+   [{ id: 'a', confirm: F }, { id: 'b', confirm: '  ' + F + '\n' }],
+   [2]],
+  ['ohne Frage bleibt jede fuer sich',
+   [{ id: 'a' }, { id: 'b' }],
+   [1, 1]],
+  ['activity springt ein, wenn confirm fehlt',
+   [{ id: 'a', activity: F }, { id: 'b', confirm: F }],
+   [2]],
+  ['gemischt: zwei gleiche, eine andere',
+   [{ id: 'a', confirm: F }, { id: 'b', confirm: 'Delete?' }, { id: 'c', confirm: F }],
+   [2, 1]],
+];
+for (const [name, tiles, want] of groupCases) {
+  const got = mod.inboxGroups(tiles).map((g) => g.tiles.length);
+  const ok = JSON.stringify(got) === JSON.stringify(want);
+  if (!ok) { failures++; console.log(`  FEHL ${name}: ${JSON.stringify(got)} statt ${JSON.stringify(want)}`); }
+  else console.log(`  ok   ${name} -> ${JSON.stringify(got)}`);
+}
+
+// Keine Kachel darf verlorengehen: was rein geht, muss auch raus kommen.
+const alle = [{ id: 'a', confirm: F }, { id: 'b' }, { id: 'c', confirm: F }, { id: 'd', confirm: 'X' }];
+const drin = mod.inboxGroups(alle).flatMap((g) => g.tiles.map((t) => t.id)).sort().join(',');
+if (drin !== 'a,b,c,d') { failures++; console.log(`  FEHL Kachel verloren: ${drin}`); }
+else console.log('  ok   keine Kachel geht verloren');
 
 process.exit(failures ? 1 : 0);

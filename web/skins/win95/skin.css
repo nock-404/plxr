@@ -260,6 +260,8 @@ body {
 .inboxCard { border-bottom: 1px solid #dfdfdf; }
 .inboxName { font-weight: bold; color: var(--accent); }
 .inboxPath { color: var(--dim); font-size: .9em; }
+.inboxCount { font-size: .85em; color: var(--dim); background: var(--bg);
+  border: 1px solid; border-color: #808080 #fff #fff #808080; }
 .inboxQuestion { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
   color: #000; font-family: 'Courier New', monospace; font-size: 11px; }
 .inboxReply input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }

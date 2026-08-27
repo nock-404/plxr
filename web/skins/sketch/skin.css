@@ -253,6 +253,9 @@ body {
 .inboxCard { border-bottom: 1px dashed var(--line); }
 .inboxName { color: var(--accent); font-size: 1.05em; }
 .inboxPath { color: var(--dim); font-size: .82em; }
+.inboxCount { font-size: .8em; color: var(--accent);
+  border: 1px dashed var(--line); border-radius: 12px 10px 14px 9px;
+  transform: rotate(-.6deg); }
 .inboxQuestion { background: var(--panel); border: 2px solid var(--fg);
   border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px;
   color: #3a3a3a; font-family: 'SpaceMono', monospace; font-size: 11px; }

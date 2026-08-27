@@ -255,7 +255,7 @@ html, body {
   font: inherit; tab-size: 2;
 }
 .viewermarks mark { color: transparent; background: color-mix(in srgb, var(--accent) 26%, transparent); }
-.viewermarks mark.jetzt { background: color-mix(in srgb, var(--accent) 62%, transparent); }
+.viewermarks mark.current { background: color-mix(in srgb, var(--accent) 62%, transparent); }
 .dirty { flex: 0 0 auto; }
 .ruleslist { flex: 1; overflow: auto; padding: 8px 0 20px; }
 .rrow { display: flex; gap: 12px; align-items: baseline; padding: 6px 16px; }
@@ -377,6 +377,7 @@ html, body {
 .inboxCard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
 .inboxHead { display: flex; align-items: center; gap: 10px; }
 .inboxName { flex: 0 0 auto; }
+.inboxCount { flex: 0 0 auto; padding: 1px 7px; }
 .inboxPath { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .inboxQuestion { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; padding: 8px 10px; }
 .inboxReply { display: flex; gap: 8px; align-items: center; }

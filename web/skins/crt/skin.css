@@ -316,6 +316,7 @@ body {
 .inboxCard { border-bottom: 1px solid var(--line); }
 .inboxName { color: var(--accent); }
 .inboxPath { color: var(--dim); font-size: .8em; }
+.inboxCount { color: var(--accent); border: 1px solid var(--line); }
 .inboxQuestion { background: var(--panel); border: 1px solid var(--line); color: var(--fg);
   font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.45; }
 .inboxReply input { background: transparent; border: 1px solid var(--dim); outline: none; text-shadow: inherit; }

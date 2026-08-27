@@ -250,6 +250,8 @@ body {
 .inboxCard { border-bottom: 2px solid var(--line); }
 .inboxName { color: var(--accent); font-size: .85em; }
 .inboxPath { color: var(--dim); font-size: .7em; }
+.inboxCount { font-size: .7em; color: var(--bg); background: var(--accent);
+  border: 2px solid var(--line); padding: 0 6px; }
 .inboxQuestion { background: var(--bg); color: var(--fg); font-family: ui-monospace, monospace; font-size: 11px;
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
 .inboxReply input { background: var(--bg); color: var(--fg); border: 0; outline: none;
