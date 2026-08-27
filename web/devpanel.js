@@ -27,8 +27,9 @@
   const MAX = 500;
   const entries = [];
   let errors = 0;
-  let panel = null, body = null, badge = null;
+  let panel = null, body = null, badge = null, flag = null;
   let tab = 'console';
+  let selbstGezeigt = false;
 
   const now = () => {
     const d = new Date();
@@ -40,8 +41,15 @@
      Rendering must not be able to fail, so every step has its own fallback. */
   const asText = (v) => {
     if (typeof v === 'string') return v;
-    if (v instanceof Error) return `${v.name}: ${v.message}` + (v.stack ? `\n${v.stack}` : '');
-    if (v instanceof Element) return `<${v.tagName.toLowerCase()}${v.id ? '#' + v.id : ''}>`;
+    if (!v || typeof v !== 'object') return String(v);
+    /* Absichtlich nach Merkmalen statt mit instanceof: die Werkbank laeuft im
+       Fenster, im Browser und im Test, und Error und Element sind nicht
+       ueberall dieselbe Klasse. Ein Rekorder, der beim Aufschreiben des
+       Fehlers selbst wirft, ist wertlos. */
+    if (typeof v.message === 'string' && typeof v.name === 'string')
+      return `${v.name}: ${v.message}` + (v.stack ? `\n${v.stack}` : '');
+    if (typeof v.tagName === 'string')
+      return `<${v.tagName.toLowerCase()}${v.id ? '#' + v.id : ''}>`;
     try { return JSON.stringify(v); } catch { return String(v); }
   };
 
@@ -51,6 +59,12 @@
     if (kind === 'error' || kind === 'bad') {
       errors++;
       if (badge) { badge.textContent = String(errors); badge.hidden = false; }
+      flagUp();
+      /* Der erste Fehler holt die Leiste selbst nach vorn. Das ist der ganze
+         Zweck: wer eine nackte Oberflaeche vor sich hat, weiss nicht, dass es
+         hier etwas zu druecken gibt — und auf dem Mac kommt F12 ohne fn gar
+         nicht erst an. Nur beim ersten, danach nie wieder ungefragt. */
+      if (errors === 1 && !selbstGezeigt) { selbstGezeigt = true; setTimeout(() => toggle(true), 0); }
     }
     if (panel && !panel.hidden) render();
   }
@@ -130,6 +144,10 @@
 
   function build() {
     if (panel) return;
+    /* Ohne Dokument gibt es nichts zu bauen — im Test, in einem Arbeiter, in
+       jeder Umgebung ohne DOM. Aufzeichnen tut sie dort trotzdem, und das ist
+       der Teil, auf den es ankommt. */
+    if (!document || typeof document.createElement !== 'function' || !document.body) return;
     panel = document.createElement('aside');
     panel.className = 'devPanel';
     panel.hidden = true;
@@ -217,16 +235,41 @@
     add('warn', 'werkbank', 'no clipboard available — use plxrDebug.dump() instead');
   }
 
+  /* Wenn die Leiste zu ist und trotzdem etwas schiefgeht, muss es sichtbar
+     werden, ohne dass jemand eine Taste kennt. */
+  function flagUp() {
+    if (!document || !document.body || typeof document.createElement !== 'function') return;
+    if (panel && !panel.hidden) return;
+    if (!flag) {
+      flag = document.createElement('button');
+      flag.type = 'button';
+      flag.className = 'devFlag';
+      flag.addEventListener('click', () => toggle(true));
+      document.body.appendChild(flag);
+    }
+    flag.textContent = errors === 1 ? '1 error' : `${errors} errors`;
+    flag.hidden = false;
+  }
+
   function toggle(on) {
     build();
+    if (!panel) return;
     panel.hidden = on === undefined ? !panel.hidden : !on;
+    if (flag) flag.hidden = !panel.hidden ? true : errors === 0;
     if (!panel.hidden) render();
   }
 
   /* Capture phase again: the terminal swallows most keys, and F12 has to work
      even while a session has the focus. */
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'F12') { e.preventDefault(); e.stopPropagation(); toggle(); }
+    /* Drei Wege hinein, weil einer nicht reicht: F12 ist auf dem Mac
+       werkseitig eine Systemtaste und erreicht die Anwendung ohne fn nie.
+       Cmd+Alt+I ist der Griff, den jeder aus dem Browser kennt, und
+       Ctrl+Shift+D bleibt fuer Windows und Linux. */
+    const f12 = e.key === 'F12' || e.code === 'F12';
+    const mac = (e.metaKey || e.ctrlKey) && e.altKey && (e.key === 'i' || e.key === 'I' || e.code === 'KeyI');
+    const alt = e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd' || e.code === 'KeyD');
+    if (f12 || mac || alt) { e.preventDefault(); e.stopPropagation(); toggle(); }
   }, true);
 
   window.plxrDebug = { open: () => toggle(true), close: () => toggle(false), toggle, dump, entries };

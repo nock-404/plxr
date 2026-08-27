@@ -1891,14 +1891,14 @@ $('#splitCancel').addEventListener('click', () => { $('#splitPick').hidden = tru
 
 /* Every dialog closes with Escape and with a click beside it. A window that
    only one particular button leads out of is a trap. */
-const DIALOGE = ['#settings', '#splitPick', '#vorlagen', '#dialog'];
-for (const d of DIALOGE) {
+const DIALOGS = ['#settings', '#splitPick', '#templates', '#dialog'];
+for (const d of DIALOGS) {
   $(d).addEventListener('mousedown', (e) => { if (e.target === $(d)) $(d).hidden = true; });
 }
 
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  for (const d of DIALOGE) if (!$(d).hidden) { $(d).hidden = true; return; }
+  for (const d of DIALOGS) if (!$(d).hidden) { $(d).hidden = true; return; }
   if (!$('#find').hidden) { closeFind(); return; }
   if (!$('#viewer').hidden) { closeViewer(); return; }
   if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }

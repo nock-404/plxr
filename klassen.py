@@ -148,6 +148,19 @@ def ids_pruefen():
     for f in ('web/app.js', 'web/ui.js'):
         js += pathlib.Path(f).read_text()
     gerufen = set(re.findall(r"""\$\(['"]#([A-Za-z][A-Za-z0-9]*)""", js))
+
+    # Auch IDs, die nicht direkt an $() stehen, sondern in einer Liste.
+    #
+    # Der Grund: DIALOGE = ['#settings', '#vorlagen', …] und danach $(d) in der
+    # Schleife. Für die Suche oben ist das unsichtbar, und genau so hat
+    # '#vorlagen' die Umbenennung überlebt — die Zeile warf beim Start, alles
+    # danach in app.js lief nie, und die Oberfläche stand ohne Skin da.
+    #
+    # Bewusst nur Listen, deren Einträge ALLE ID-Wähler sind. Eine einzelne
+    # Zeichenkette mit Doppelkreuz ist zu wenig: '#ton' ist ein Salz für eine
+    # Hash-Funktion und '#ffcf5c' eine Farbe — beide sähen genauso aus.
+    for liste in re.findall(r"""\[\s*((?:['"]#[A-Za-z][\w-]*['"]\s*,\s*)+['"]#[A-Za-z][\w-]*['"])\s*,?\s*\]""", js):
+        gerufen |= set(re.findall(r"""['"]#([A-Za-z][\w-]*)['"]""", liste))
     gerufen |= set(re.findall(r"""getElementById\(['"]([A-Za-z][A-Za-z0-9]*)""", js))
     gerufen |= set(re.findall(r"""querySelector(?:All)?\(['"]#([A-Za-z][A-Za-z0-9]*)""", js))
 

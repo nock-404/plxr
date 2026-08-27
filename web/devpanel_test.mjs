@@ -98,5 +98,18 @@ sandbox.console.log('alles gut');
 const nachher = dbg.entries.filter((e) => e.kind === 'bad' || e.kind === 'error').length;
 pruefe(vorher === nachher, 'eine harmlose Meldung wurde als Fehler gezählt');
 
+/* 9. Sie darf sich unter keinen Umständen selbst zerlegen. Ohne DOM gibt es
+   nichts zu zeichnen — aufzeichnen muss sie trotzdem, und öffnen darf dann
+   eben nichts tun statt zu werfen. Genau daran ist sie schon einmal
+   gescheitert, als die Selbstmeldung dazukam. */
+let warf = null;
+try { dbg.open(); dbg.close(); dbg.toggle(); } catch (e) { warf = e; }
+pruefe(!warf, `öffnen ohne DOM hat geworfen: ${warf && warf.message}`);
+
+/* Und danach zeichnet sie weiter auf — ein halb gestorbener Rekorder wäre das
+   Schlimmste von beidem. */
+sandbox.console.error('danach noch da');
+pruefe(texte().some((t) => t.includes('danach noch da')), 'nach dem Öffnen wird nicht weiter aufgezeichnet');
+
 if (fehler) { console.error('  Werkbank: FEHLGESCHLAGEN'); process.exit(1); }
-console.log(`  Werkbank zeichnet auf (${dbg.entries.length} Einträge, 8 Prüfungen)`);
+console.log(`  Werkbank zeichnet auf (${dbg.entries.length} Einträge, 10 Prüfungen)`);

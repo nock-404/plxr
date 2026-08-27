@@ -138,3 +138,25 @@
   color: #5f6775;
   text-align: center;
 }
+
+/* The flag that appears when something goes wrong while the panel is closed.
+ * Without it a later error stays invisible — and nobody learns a shortcut for
+ * a tool they do not know exists. */
+.devFlag {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2147483000;
+  appearance: none;
+  border: 1px solid #7d2f2a;
+  background: #b6413a;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.devFlag:hover { background: #c94b43; }
+.devFlag[hidden] { display: none; }
