@@ -11,6 +11,75 @@
 
 const $ = (s) => document.querySelector(s);
 
+/* ═════════════════════════ Language ═════════════════════════
+
+   English is the source language: this is a public repository, and a tool
+   nobody outside German-speaking countries can read is a tool nobody outside
+   them uses. German is a translation like any other.
+
+   Everything the user reads goes through t(). Everything else — class names,
+   ids, log lines — stays as it is; those are not text, they are structure.
+
+   The table is loaded before the first paint. A missing key falls back to
+   English and, failing that, to the key itself: a screen showing "inbox.empty"
+   is ugly, but it is honest and it is findable. Silently empty would not be. */
+
+const SPRACHEN = ['en', 'de'];
+let sprache = 'en';
+let texte = {};
+let texteEn = {};
+
+function spracheWaehlen() {
+  try {
+    const eigen = localStorage.getItem('plxr.lang');
+    if (eigen && SPRACHEN.includes(eigen)) return eigen;
+  } catch {}
+  // Die Systemsprache ist die beste Vermutung, die ohne Nachfragen zu haben ist.
+  const roh = (navigator.language || 'en').toLowerCase().split('-')[0];
+  return SPRACHEN.includes(roh) ? roh : 'en';
+}
+
+async function spracheLaden(welche) {
+  sprache = welche || spracheWaehlen();
+  const hol = async (l) => {
+    const r = await fetch(`/i18n/${l}.json`);
+    if (!r.ok) throw new Error(`Sprachdatei ${l} fehlt`);
+    return r.json();
+  };
+  // Englisch immer mitladen: es ist der Rückfall für jeden fehlenden Schlüssel.
+  texteEn = await hol('en');
+  texte = sprache === 'en' ? texteEn : await hol(sprache).catch(() => ({}));
+}
+
+/* t liefert den Text zu einem Schlüssel.
+
+   Platzhalter stehen als {name} im Text und werden aus dem zweiten Argument
+   gefüllt. Absichtlich keine Pluralregeln: die Sprachen, um die es hier geht,
+   kommen mit einer Verzweigung im Aufrufer aus, und eine halbe
+   Pluralbibliothek wäre mehr Aufwand als der Nutzen. */
+function t(schluessel, werte) {
+  let s = texte[schluessel] ?? texteEn[schluessel] ?? schluessel;
+  if (werte) {
+    for (const [k, v] of Object.entries(werte)) s = s.replaceAll(`{${k}}`, v);
+  }
+  return s;
+}
+
+/* Alles im Markup übersetzen, was einen Schlüssel trägt. Wird beim Start und
+   nach jedem Sprachwechsel aufgerufen — so braucht ein Wechsel kein Neuladen. */
+function markupUebersetzen(wurzel = document) {
+  for (const el of wurzel.querySelectorAll('[data-i18n]')) {
+    el.textContent = t(el.dataset.i18n);
+  }
+  for (const el of wurzel.querySelectorAll('[data-i18n-tip]')) {
+    el.dataset.tip = t(el.dataset.i18nTip);
+  }
+  for (const el of wurzel.querySelectorAll('[data-i18n-ph]')) {
+    el.placeholder = t(el.dataset.i18nPh);
+  }
+  document.documentElement.lang = sprache;
+}
+
 const state = {
   tiles: [],        // letzter bekannter Gesamtzustand
   filter: '',       // Pfadfilter
@@ -3009,7 +3078,7 @@ async function emergencyBrake() {
     try {
       const r = await api.unfreeze();
       button.dataset.an = '';
-      button.textContent = 'STOPP';
+      button.textContent = t('header.brake');
       document.documentElement.dataset.eingefroren = '';
       $('#counts').textContent = `${r.fortgesetzt} fortgesetzt`;
     } catch (e) { plxrUI.notice(e.message || String(e), 'Nicht fortgesetzt'); }
@@ -3019,7 +3088,7 @@ async function emergencyBrake() {
     const r = await api.emergencyBrake();
     if (!r.betroffen) { plxrUI.notice('Es läuft gerade nichts.', 'Nichts anzuhalten'); return; }
     button.dataset.an = 'ja';
-    button.textContent = 'WEITER';
+    button.textContent = t('header.brakeRelease');
     document.documentElement.dataset.eingefroren = 'ja';
     $('#counts').textContent = r.eingefroren === r.betroffen
       ? `${r.eingefroren} angehalten`
@@ -3034,7 +3103,13 @@ pathComplete($('#newCwd'));
 state.filter = localStorage.getItem('plxr.filter') || '';
 $('#pathFilter').value = state.filter;
 
-connect()
+/* Sprache vor allem anderen: die Oberfläche darf nie kurz auf Englisch
+   aufblitzen und dann umspringen. Scheitert das Laden, bleiben die Schlüssel
+   stehen — sichtbar kaputt ist besser als leer. */
+spracheLaden()
+  .then(markupUebersetzen)
+  .catch((e) => console.error('Sprachdatei:', e))
+  .then(connect)
   .then(() => loadThemes())
   .then(() => {
     api.aufZustand(renderAll);
