@@ -9,16 +9,16 @@ import (
 	"strings"
 )
 
-// Ereignisse sind die Hook-Punkte, an denen plxr mitschreibt.
+// Events are the hook points plxr records at.
 var Events = []string{
 	"SessionStart", "UserPromptSubmit", "PreToolUse", "Notification", "Stop", "SessionEnd",
 }
 
-// Einrichten trägt plxr in die Einstellungen von Claude Code ein.
+// Install registers plxr in the Claude Code settings.
 //
-// Vorhandene Hooks bleiben stehen: die Datei gehört dem Nutzer, und wer dort
-// schon etwas eingerichtet hat, würde es zu Recht übelnehmen, wenn ein
-// fremdes Programm sie überschreibt. Ergänzt wird nur, was fehlt.
+// Existing hooks are left alone: the file belongs to the user, and anyone who
+// has already set something up there would rightly resent a foreign program
+// overwriting it. Only what is missing gets added.
 func Install(configDir string, entfernen bool) (string, error) {
 	if configDir == "" {
 		home, _ := os.UserHomeDir()
@@ -56,7 +56,7 @@ func Install(configDir string, entfernen bool) (string, error) {
 			if isOurs(entry) {
 				changed = true
 				if entfernen {
-					continue // fällt weg
+					continue // gets dropped
 				}
 				vorhanden = true
 			}
@@ -68,7 +68,7 @@ func Install(configDir string, entfernen bool) (string, error) {
 					"type":    "command",
 					"command": exe,
 					"args":    []any{"hook"},
-					// Ohne async würde jeder Werkzeugaufruf auf uns warten.
+					// Without async every tool call would wait on us.
 					"async": ev != "SessionEnd",
 				}},
 			})
@@ -94,8 +94,8 @@ func Install(configDir string, entfernen bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Vor dem Schreiben eine Sicherung: das ist die Konfigurationsdatei des
-	// Nutzers, nicht unsere.
+	// A backup before writing: this is the user's configuration file, not
+	// ours.
 	if old, err := os.ReadFile(path); err == nil {
 		os.WriteFile(path+".vor-plxr", old, 0o644)
 	}
@@ -107,12 +107,12 @@ func Install(configDir string, entfernen bool) (string, error) {
 }
 
 // istUnserer erkennt einen von plxr angelegten Eintrag.
-/* istUnserer erkennt einen Eintrag am Dateinamen des Befehls — und zwar am
-   Anfang, nicht auf's Zeichen genau. Eingetragen wird der Pfad des gerade
-   laufenden Binärs; das heißt unter Windows "plxr.exe" und beim Entwickeln
-   auch mal anders. Auf Gleichheit zu prüfen hieße: plxr erkennt den eigenen
-   Eintrag nicht wieder, meldet weiter "nicht eingerichtet" und legt bei jedem
-   Klick einen weiteren daneben. */
+/* isOurs recognises an entry by the file name of its command — by its start,
+   not character for character. What gets written is the path of the currently
+   running binary; on Windows that is "plxr.exe", and while developing it may be
+   something else again. Comparing for equality would mean: plxr no longer
+   recognises its own entry, keeps reporting "not installed", and adds another
+   one next to it on every click. */
 func isOurs(entry any) bool {
 	m, _ := entry.(map[string]any)
 	if m == nil {
@@ -131,9 +131,9 @@ func isOurs(entry any) bool {
 }
 
 func isOurCommand(befehl string) bool {
-	// Auch am Backslash trennen: die Einstellungsdatei kann von einem anderen
-	// System stammen, etwa aus einem mitgenommenen Profil, und filepath.Base
-	// kennt unter Unix nur den Schrägstrich.
+	// Split on the backslash as well: the settings file may come from another
+	// system, say from a profile carried over, and filepath.Base only knows the
+	// forward slash on Unix.
 	name := befehl
 	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
 		name = name[i+1:]
@@ -142,7 +142,7 @@ func isOurCommand(befehl string) bool {
 	return name == "plxr" || strings.HasPrefix(name, "plxr-")
 }
 
-// Eingerichtet sagt, ob plxr in den Einstellungen von Claude Code steht.
+// Installed reports whether plxr is present in the Claude Code settings.
 func Installed(configDir string) bool {
 	if configDir == "" {
 		home, _ := os.UserHomeDir()

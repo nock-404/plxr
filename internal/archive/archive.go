@@ -1,9 +1,9 @@
-// Package archive liest die abgelegten Claude-Code-Transkripte.
+// Package archive reads the archived Claude Code transcripts.
 //
 // Claude Code legt je Konfigurationsverzeichnis einen Ordner projects/ an,
-// darin je Arbeitsverzeichnis einen Ordner mit den Transkripten als .jsonl.
-// Der Ordnername ist der Pfad mit / durch - ersetzt; verlässlicher ist aber
-// das Feld cwd aus der Datei selbst, weil Sonderzeichen im Pfad die Umkehrung
+// with one folder per working directory holding the transcripts as .jsonl.
+// The folder name is the path with / replaced by -; more reliable however is
+// the cwd field from the file itself, because special characters in the path
 // mehrdeutig machen.
 package archive
 
@@ -31,17 +31,17 @@ type Entry struct {
 	Model   string `json:"model"`
 	Size    int64  `json:"size"`
 	Mod     int64  `json:"mod"`
-	Loop    bool   `json:"loop"` // begann mit /loop — im eingebauten Picker unsichtbar
+	Loop    bool   `json:"loop"` // started with /loop — invisible in the built-in picker
 
-	// Accounts sind alle Konten, in denen dieses Transkript liegt. Wer mehrere
-	// Zugänge parallel benutzt, hat dieselbe Session oft mehrfach auf Platte;
-	// angezeigt wird sie trotzdem nur einmal.
+	// Accounts are all accounts this transcript sits in. Anyone using several
+	// accounts in parallel often has the same session on disk several times; it
+	// is still shown only once.
 	Accounts []string `json:"accounts"`
 }
 
-// kopf ist, was wir aus einem Transkript brauchen. Gelesen wird nur der Anfang
-// und das Ende: bei 150 Dateien mit teils vielen Megabyte wäre alles zu lesen
-// verschwendet, und Titel wie Verzeichnis stehen ohnehin an den Rändern.
+// header is what we need out of a transcript. Only the start and the end are
+// read: with 150 files, some of them many megabytes, reading everything would be
+// wasted, and both title and directory sit at the edges anyway.
 type header struct {
 	Type    string `json:"type"`
 	AiTitle string `json:"aiTitle"`
@@ -55,7 +55,7 @@ type header struct {
 
 const readLimit = 96 << 10
 
-// List sammelt die Transkripte aller Konten, neueste zuerst.
+// List collects the transcripts of all accounts, newest first.
 func List(accs []accounts.Account, pathFilter string) []Entry {
 	out := []Entry{}
 	for _, a := range accs {
@@ -103,7 +103,7 @@ func List(accs []accounts.Account, pathFilter string) []Entry {
 }
 
 // falten fasst dasselbe Transkript aus mehreren Konten zu einem Eintrag
-// zusammen. Führend ist die jüngste Kopie — die ist am ehesten die, in der
+// together. The most recent copy leads — that is most likely the one in which
 // zuletzt gearbeitet wurde.
 func fold(in []Entry) []Entry {
 	nach := map[string]*Entry{}
@@ -124,7 +124,7 @@ func fold(in []Entry) []Entry {
 			*vorh = e
 			vorh.Accounts = acc
 		}
-		// Fehlende Angaben aus der anderen Kopie ergänzen.
+		// Fill in missing details from the other copy.
 		if vorh.Title == "" {
 			vorh.Title = e.Title
 		}
@@ -143,7 +143,7 @@ func fold(in []Entry) []Entry {
 	return out
 }
 
-// lies zieht Titel, Verzeichnis, Branch und Modell aus der Datei.
+// read pulls title, directory, branch and model out of the file.
 func read(e *Entry) {
 	f, err := os.Open(e.Path)
 	if err != nil {
@@ -177,10 +177,10 @@ func read(e *Entry) {
 		}
 	}
 
-	// Anfang lesen: dort stehen cwd und der erste Prompt.
+	// Read the start: cwd and the first prompt are there.
 	scan(bufio.NewScanner(io.LimitReader(f, readLimit)))
 
-	// Ende lesen: dort steht der zuletzt vergebene Titel.
+	// Read the end: the most recently assigned title is there.
 	if e.Size > readLimit {
 		if _, err := f.Seek(-readLimit, io.SeekEnd); err == nil {
 			br := bufio.NewReader(f)
@@ -191,7 +191,7 @@ func read(e *Entry) {
 }
 
 // ausOrdnername macht aus "-Users-max-projekt" wieder "/Users/max/projekt".
-// Nur ein Notnagel: Bindestriche im echten Pfad lassen sich nicht zurückholen.
+// A last resort only: hyphens in the real path cannot be recovered.
 func fromFolderName(n string) string {
 	if !strings.HasPrefix(n, "-") {
 		return n
@@ -199,14 +199,14 @@ func fromFolderName(n string) string {
 	return strings.ReplaceAll(n, "-", "/")
 }
 
-// Delete entfernt ein Transkript. Nur genau die Datei, kein Verzeichnis.
+// Delete removes a transcript. Only that exact file, no directory.
 func Delete(e Entry) error { return os.Remove(e.Path) }
 
-// Spiegeln kopiert ein Transkript in das Projektverzeichnis eines anderen
-// Kontos, damit `claude --resume` es dort findet.
+// Mirror copies a transcript into the project directory of another account so
+// that `claude --resume` finds it there.
 //
-// Ohne das schlägt ein Kontowechsel fehl: Claude Code sucht Transkripte
-// ausschließlich unter dem eigenen Konfigurationsverzeichnis.
+// Without this an account switch fails: Claude Code looks for transcripts only
+// below its own configuration directory.
 func Mirror(e Entry, ziel accounts.Account) (string, error) {
 	folder := filepath.Base(filepath.Dir(e.Path))
 	zielDir := filepath.Join(ziel.ProjectsDir(), folder)

@@ -1,9 +1,9 @@
-// Package files liefert den Dateibaum einer Session.
+// Package files provides the file tree of a session.
 //
-// Jeder Zugriff ist an das Arbeitsverzeichnis der Session gebunden. Das ist
-// keine Formalie: die Oberfläche schickt Pfade, und ohne Fessel könnte ein
-// „../../.ssh/id_rsa" den Baum verlassen. Deshalb prüft jede Funktion den
-// aufgelösten Pfad gegen die aufgelöste Wurzel — nach Symlinks, nicht davor.
+// Every access is tied to the working directory of the session. That is not a
+// formality: the UI sends paths, and without a leash a "../../.ssh/id_rsa" could
+// walk out of the tree. So every function checks the resolved path against the
+// resolved root — after following symlinks, not before.
 package files
 
 import (
@@ -17,11 +17,11 @@ import (
 	"unicode/utf8"
 )
 
-// MaxRead begrenzt, wie viel eine Vorschau liest.
+// MaxRead limits how much a preview reads.
 const MaxRead = 512 << 10
 
-// Rauschen, das im Baum standardmäßig nicht auftaucht. Der Nutzer kann es
-// einblenden; Voreinstellung ist ausblenden, weil node_modules jeden Baum
+// Noise that does not show up in the tree by default. The user can reveal it;
+// the default is to hide, because node_modules drowns every tree
 // unbrauchbar macht.
 var noise = map[string]bool{
 	".git": true, "node_modules": true, ".DS_Store": true,
@@ -36,10 +36,10 @@ type Entry struct {
 	Dir   bool   `json:"dir"`
 	Size  int64  `json:"size"`
 	Mod   int64  `json:"mod"`
-	Noise bool   `json:"noise"` // gehört zum ausgeblendeten Rauschen
+	Noise bool   `json:"noise"` // belongs to the hidden noise
 }
 
-// resolve löst einen Pfad auf und stellt sicher, dass er unter root bleibt.
+// resolve resolves a path and makes sure it stays below root.
 func resolve(root, path string) (string, error) {
 	realRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
@@ -55,14 +55,14 @@ func resolve(root, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Trennzeichen anhängen, sonst passiert /projekt-geheim auf /projekt.
+	// Append the separator, otherwise /project-secret passes for /project.
 	if real != realRoot && !strings.HasPrefix(real, realRoot+string(filepath.Separator)) {
 		return "", errors.New("Pfad liegt außerhalb der Session")
 	}
 	return real, nil
 }
 
-// List gibt den Inhalt eines Verzeichnisses zurück: Ordner zuerst, dann
+// List returns the contents of a directory: folders first, then
 // alphabetisch, Rauschen ans Ende.
 func List(root, dir string) ([]Entry, error) {
 	real, err := resolve(root, dir)
@@ -86,7 +86,7 @@ func List(root, dir string) ([]Entry, error) {
 			Path: filepath.Join(real, name),
 			Dir:  de.IsDir(),
 			Mod:  info.ModTime().UnixMilli(),
-			// Rauschen sind bekannte Namen plus alles, was mit Punkt anfängt.
+			// noise is known names plus everything starting with a dot.
 			Noise: noise[name] || (strings.HasPrefix(name, ".") && name != ".env.example"),
 		}
 		if !e.Dir {
@@ -114,13 +114,13 @@ type Content struct {
 	Binary    bool   `json:"binary"`
 	Size      int64  `json:"size"`
 	Lines     int    `json:"lines"`
-	// Mod ist der Stand, auf dem der Text beruht. Beim Speichern wird er
-	// zurückgeschickt: stimmt er nicht mehr, hat inzwischen jemand anderes
-	// geschrieben und wir überschreiben nicht blind.
+	// Mod is the state the text is based on. It is sent back when saving: if it
+	// no longer matches, somebody else has written in the meantime and we do
+	// not blindly overwrite.
 	Mod int64 `json:"mod"`
 }
 
-// Read liefert den Anfang einer Datei als Text.
+// Read returns the beginning of a file as text.
 func Read(root, path string) (*Content, error) {
 	real, err := resolve(root, path)
 	if err != nil {
@@ -150,8 +150,8 @@ func Read(root, path string) (*Content, error) {
 	c := &Content{Path: real, Size: info.Size(), Truncated: info.Size() > int64(n),
 		Mod: info.ModTime().UnixMilli()}
 
-	// Ein Nullbyte im Anfang ist das übliche, ausreichend zuverlässige Zeichen
-	// für „nicht anzeigbar". Ungültiges UTF-8 zählt auch.
+	// A null byte near the start is the usual, sufficiently reliable sign of
+	// "not displayable". Invalid UTF-8 counts as well.
 	if bytes.IndexByte(buf, 0) >= 0 || !utf8.Valid(buf) {
 		c.Binary = true
 		return c, nil
@@ -161,18 +161,18 @@ func Read(root, path string) (*Content, error) {
 	return c, nil
 }
 
-// MaxWrite begrenzt, was über die Oberfläche geschrieben werden darf.
+// MaxWrite limits what may be written through the UI.
 const MaxWrite = 4 << 20
 
-// Write speichert eine Datei.
+// Write saves a file.
 //
-// Drei Sicherungen, weil hier echte Arbeit verloren gehen kann:
-// der Pfad muss unter der Session liegen, die Datei muss vorher schon
-// existiert haben (plxr ist kein Dateimanager), und der Stand muss der sein,
-// auf dem der Text beruht — sonst hat inzwischen jemand anderes geschrieben.
+// Three safeguards, because real work can be lost here: the path has to sit
+// below the session, the file has to have existed before (plxr is not a file
+// manager), and the state has to be the one the text is based on — otherwise
+// somebody else has written in the meantime.
 //
-// Geschrieben wird über eine Nebendatei und Umbenennen: ein abgebrochener
-// Schreibvorgang hinterlässt so keine halbe Datei.
+// Writing goes through a sibling file and a rename: an interrupted write
+// leaves no half-written file behind.
 func Write(root, path, text string, expectedState int64) (*Content, error) {
 	if len(text) > MaxWrite {
 		return nil, errors.New("zu groß zum Speichern")
@@ -205,9 +205,9 @@ func Write(root, path, text string, expectedState int64) (*Content, error) {
 
 // Vorschlaege liefert Unterverzeichnisse zu einem angetippten Pfad.
 //
-// Anders als der Rest dieses Pakets NICHT an eine Session gefesselt: hier geht
-// es darum, ein Verzeichnis zu finden, in dem noch gar keine Session läuft.
-// Gelesen werden ausschließlich Verzeichnisnamen — keine Dateiinhalte.
+// Unlike the rest of this package NOT tied to a session: the point here is to
+// find a directory in which no session is running yet. Only directory names are
+// read — no file contents.
 func Suggestions(eingabe string, max int) []string {
 	if eingabe == "" {
 		eingabe = "~/"
@@ -217,8 +217,8 @@ func Suggestions(eingabe string, max int) []string {
 		eingabe = home + eingabe[1:]
 	}
 
-	// Endet die Eingabe auf einem Trenner, ist sie selbst das Verzeichnis;
-	// sonst ist der letzte Teil ein angefangener Name.
+	// If the input ends on a separator it is the directory itself; otherwise the
+	// last part is a name being typed.
 	dir, rumpf := eingabe, ""
 	if !strings.HasSuffix(eingabe, string(filepath.Separator)) {
 		dir, rumpf = filepath.Split(eingabe)
@@ -239,7 +239,7 @@ func Suggestions(eingabe string, max int) []string {
 			continue
 		}
 		name := e.Name()
-		// Versteckte nur zeigen, wenn ausdrücklich danach getippt wird.
+		// Only show hidden entries when they are explicitly being typed.
 		if strings.HasPrefix(name, ".") && !strings.HasPrefix(rumpf, ".") {
 			continue
 		}
