@@ -117,10 +117,10 @@ func scanRaw(path, small string) scanResult {
 	res := scanResult{offset: -1}
 	var pos int64
 
-	/* Nach dem ersten Treffer weiter mitlesen: gesucht wird die Fehlermeldung,
-	   gebraucht wird, was danach kam. Nur nach dem ERSTEN — bei fünfhundert
-	   Treffern will niemand fünfhundert Nachspann-Blöcke, und der erste ist der
-	   älteste, also der mit der Geschichte dahinter. */
+	/* Keep reading after the first hit: what is searched for is the error, what
+	   is needed is what came after it. Only after the FIRST — with five hundred
+	   hits nobody wants five hundred blocks of context, and the first one is the
+	   oldest, so the one with the story behind it. */
 	sammeln := 0
 	for {
 		roh, err := r.ReadBytes('\n')
@@ -150,8 +150,8 @@ func scanRaw(path, small string) scanResult {
 				res.offset = start
 				sammeln = AfterLines
 			}
-			// Weiterzählen ist billig, weitersuchen nach dem Nachspann nicht
-			// mehr nötig — sobald beides steht, reicht das Zählen bis zur Grenze.
+			// Counting on is cheap; searching for more context is not needed
+			// once both are in hand — from there counting to the cap suffices.
 			if res.count > 500 {
 				break
 			}

@@ -128,17 +128,16 @@ func (s *Server) Routes() *http.ServeMux {
 		h.Set("Access-Control-Expose-Headers", "X-Plxr-Size, X-Plxr-From, X-Plxr-Cut")
 		w.Write(pb.Data)
 	})
-	/* Die Zeitachse getrennt vom Strom.
+	/* The timeline, separate from the stream.
 
-	   Sie steckte in einer Kopfzeile. Das ging bei kurzen Sessions gut und
-	   scheitert ab einer halben Stunde: Chromium deckelt Kopfzeilen bei rund
-	   256 KB, und eine halbe Stunde ergibt schon 571 KB. Schlimmer als der
-	   Fehler wäre gewesen, wie er ankommt — die Oberfläche deutet einen
-	   gescheiterten fetch als "Daemon weg" und läuft in die
-	   Wiederverbindungsschleife.
+	   It used to sit in a header. That worked for short sessions and breaks
+	   from half an hour on: Chromium caps headers at around 256 KB, and half an
+	   hour already yields 571 KB. Worse than the bug would have been how it
+	   arrives — the UI reads a failed fetch as "daemon gone" and runs into the
+	   reconnect loop.
 
-	   Getrennt hat noch einen zweiten Vorteil: der Strom wird in Stücken
-	   geholt, die Zeitachse nur einmal. */
+	   Separating them has a second benefit: the stream is fetched in chunks,
+	   the timeline only once. */
 	mux.HandleFunc("GET /api/playback/{id}/zeitachse", func(w http.ResponseWriter, r *http.Request) {
 		marks, err := s.c.Timeline(r.PathValue("id"))
 		if err != nil {
