@@ -14,15 +14,15 @@ import (
 // Fensterereignisse, die ein angehängter Prozess nicht ohne Weiteres bekommt.
 // Deshalb wird nachgesehen. Zweimal pro Sekunde ist billig genug und schnell
 // genug, dass es beim Ziehen am Fensterrand nicht auffällt.
-func groessenWache(fd int, melden func(rows, cols int)) func() {
-	ende := make(chan struct{})
+func watchResize(fd int, report func(rows, cols int)) func() {
+	end := make(chan struct{})
 	go func() {
 		t := time.NewTicker(500 * time.Millisecond)
 		defer t.Stop()
 		letztW, letztH := 0, 0
 		for {
 			select {
-			case <-ende:
+			case <-end:
 				return
 			case <-t.C:
 				w, h, err := term.GetSize(fd)
@@ -30,9 +30,9 @@ func groessenWache(fd int, melden func(rows, cols int)) func() {
 					continue
 				}
 				letztW, letztH = w, h
-				melden(h, w)
+				report(h, w)
 			}
 		}
 	}()
-	return func() { close(ende) }
+	return func() { close(end) }
 }

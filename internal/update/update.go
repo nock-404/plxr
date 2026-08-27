@@ -37,15 +37,15 @@ type Release struct {
 	} `json:"assets"`
 }
 
-type Stand struct {
-	Aktuell   string `json:"aktuell"`
-	Neueste   string `json:"neueste"`
-	Verfügbar bool   `json:"verfuegbar"`
-	Notizen   string `json:"notizen"`
+type Status struct {
+	Current   string `json:"aktuell"`
+	Latest    string `json:"neueste"`
+	Available bool   `json:"verfuegbar"`
+	Notes     string `json:"notizen"`
 	AssetURL  string `json:"assetUrl"`
 	AssetName string `json:"assetName"`
-	Größe     int64  `json:"groesse"`
-	Fehler    string `json:"fehler,omitempty"`
+	Size      int64  `json:"groesse"`
+	Error     string `json:"fehler,omitempty"`
 }
 
 // assetName ist der Name, den das CI je Plattform hochlädt.
@@ -61,52 +61,52 @@ func assetName() string {
 }
 
 // Prüfen fragt GitHub nach der neuesten Fassung.
-func Prüfen(aktuell string) Stand {
+func Check(aktuell string) Status {
 	// Ohne führendes "v", genau wie Neueste. Sonst stand im Update-Balken
 	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — einmal mit, einmal ohne.
-	st := Stand{Aktuell: strings.TrimPrefix(aktuell, "v")}
+	st := Status{Current: strings.TrimPrefix(aktuell, "v")}
 
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	res, err := (&http.Client{Timeout: 12 * time.Second}).Do(req)
 	if err != nil {
-		st.Fehler = "GitHub nicht erreichbar: " + err.Error()
+		st.Error = "GitHub nicht erreichbar: " + err.Error()
 		return st
 	}
 	defer res.Body.Close()
 	if res.StatusCode == 404 {
-		st.Fehler = "noch keine Veröffentlichung im Repo"
+		st.Error = "noch keine Veröffentlichung im Repo"
 		return st
 	}
 	if res.StatusCode != 200 {
-		st.Fehler = "GitHub antwortet mit " + strconv.Itoa(res.StatusCode)
+		st.Error = "GitHub antwortet mit " + strconv.Itoa(res.StatusCode)
 		return st
 	}
 
 	var r Release
 	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		st.Fehler = err.Error()
+		st.Error = err.Error()
 		return st
 	}
-	st.Neueste = strings.TrimPrefix(r.Tag, "v")
-	st.Notizen = r.Body
-	st.Verfügbar = neuer(st.Neueste, aktuell)
+	st.Latest = strings.TrimPrefix(r.Tag, "v")
+	st.Notes = r.Body
+	st.Available = isNewer(st.Latest, aktuell)
 
 	want := assetName()
 	for _, a := range r.Assets {
 		if a.Name == want {
-			st.AssetURL, st.AssetName, st.Größe = a.URL, a.Name, a.Size
+			st.AssetURL, st.AssetName, st.Size = a.URL, a.Name, a.Size
 			break
 		}
 	}
-	if st.Verfügbar && st.AssetURL == "" {
-		st.Fehler = "Version " + st.Neueste + " hat kein Archiv namens " + want
+	if st.Available && st.AssetURL == "" {
+		st.Error = "Version " + st.Latest + " hat kein Archiv namens " + want
 	}
 	return st
 }
 
 // neuer vergleicht zwei Versionen der Form 1.2.3 stellenweise.
-func neuer(a, b string) bool {
+func isNewer(a, b string) bool {
 	if a == "" || b == "" || a == b {
 		return false
 	}
@@ -142,11 +142,11 @@ func neuer(a, b string) bool {
 // Getauscht wird über ein Umbenennen: die alte Fassung wandert zur Seite, die
 // neue an ihren Platz. Geht dabei etwas schief, kommt die alte zurück — ein
 // halb überschriebenes Programmverzeichnis wäre der schlimmste Ausgang.
-func Anwenden(assetURL string, fortschritt func(gelesen, gesamt int64)) (string, error) {
+func Apply(assetURL string, fortschritt func(read, gesamt int64)) (string, error) {
 	if assetURL == "" {
 		return "", errors.New("keine Adresse für das Archiv")
 	}
-	ziel, err := installOrt()
+	ziel, err := installTarget()
 	if err != nil {
 		return "", err
 	}
@@ -158,32 +158,32 @@ func Anwenden(assetURL string, fortschritt func(gelesen, gesamt int64)) (string,
 	defer os.RemoveAll(tmp)
 
 	archiv := filepath.Join(tmp, "neu.zip")
-	if err := laden(assetURL, archiv, fortschritt); err != nil {
+	if err := download(assetURL, archiv, fortschritt); err != nil {
 		return "", err
 	}
 	entpackt := filepath.Join(tmp, "aus")
-	if err := entpacken(archiv, entpackt); err != nil {
+	if err := unzip(archiv, entpackt); err != nil {
 		return "", err
 	}
 
-	neu, err := findeApp(entpackt)
+	fresh, err := findApp(entpackt)
 	if err != nil {
 		return "", err
 	}
 
-	if err := tauschen(neu, ziel); err != nil {
+	if err := swap(fresh, ziel); err != nil {
 		return "", err
 	}
 
 	// Signieren, damit das System die App über Fassungen hinweg wiedererkennt
 	// und nicht bei jedem Update erneut nach Berechtigungen fragt. Schlägt das
 	// fehl, ist die App trotzdem lauffähig — es fragt dann eben wieder.
-	_ = nachbereiten(ziel)
+	_ = resign(ziel)
 	return ziel, nil
 }
 
 // installOrt ist das, was ersetzt wird: auf macOS das App-Bündel, sonst die Datei.
-func installOrt() (string, error) {
+func installTarget() (string, error) {
 	exe, err := os.Executable()
 	if err != nil {
 		return "", err
@@ -203,7 +203,7 @@ func installOrt() (string, error) {
 // Ausnahme, sondern der Normalfall bei schlechter Leitung. Wer dann aufgibt,
 // hat einen Updater, der auf gutem WLAN funktioniert und sonst nicht.
 // Wiederaufgenommen wird über Range: schon geladene Bytes bleiben liegen.
-func laden(url, nach string, fortschritt func(int64, int64)) error {
+func download(url, nach string, fortschritt func(int64, int64)) error {
 	const versuche = 4
 	var letzter error
 
@@ -259,9 +259,9 @@ func laden(url, nach string, fortschritt func(int64, int64)) error {
 		}
 
 		gesamt := res.ContentLength + bereits
-		gelesen := bereits
+		read := bereits
 		buf := make([]byte, 256*1024)
-		var lesefehler error
+		var readErr error
 		for {
 			n, err := res.Body.Read(buf)
 			if n > 0 {
@@ -270,31 +270,31 @@ func laden(url, nach string, fortschritt func(int64, int64)) error {
 					res.Body.Close()
 					return werr
 				}
-				gelesen += int64(n)
+				read += int64(n)
 				if fortschritt != nil {
-					fortschritt(gelesen, gesamt)
+					fortschritt(read, gesamt)
 				}
 			}
 			if err == io.EOF {
 				break
 			}
 			if err != nil {
-				lesefehler = err
+				readErr = err
 				break
 			}
 		}
 		f.Close()
 		res.Body.Close()
 
-		if lesefehler == nil {
+		if readErr == nil {
 			return nil
 		}
-		letzter = lesefehler
+		letzter = readErr
 	}
 	return fmt.Errorf("Download nach %d Versuchen abgebrochen: %w", versuche, letzter)
 }
 
-func entpacken(archiv, nach string) error {
+func unzip(archiv, nach string) error {
 	r, err := zip.OpenReader(archiv)
 	if err != nil {
 		return err
@@ -330,7 +330,7 @@ func entpacken(archiv, nach string) error {
 	return nil
 }
 
-func findeApp(dir string) (string, error) {
+func findApp(dir string) (string, error) {
 	eintraege, err := os.ReadDir(dir)
 	if err != nil {
 		return "", err
@@ -346,7 +346,7 @@ func findeApp(dir string) (string, error) {
 	return "", errors.New("im Archiv war nichts Ausführbares")
 }
 
-func kopieren(von, nach string) error {
+func copyTree(von, nach string) error {
 	if runtime.GOOS == "darwin" {
 		// ditto erhält Bündelstruktur, Rechte und erweiterte Attribute —
 		// eine einfache Kopie zerstört die Signatur.
@@ -360,7 +360,7 @@ func kopieren(von, nach string) error {
 }
 
 // NeuStarten startet die getauschte Anwendung und beendet die laufende.
-func NeuStarten(ort string) error {
+func Restart(ort string) error {
 	if runtime.GOOS == "darwin" {
 		return exec.Command("open", "-n", ort).Start()
 	}
@@ -381,10 +381,10 @@ tauschen setzt die neue Fassung an den Platz der alten.
 	zwei Umbenennungen — die dauern Sekundenbruchteile, und dazwischen liegt die
 	alte Fassung noch als .alt bereit.
 */
-func tauschen(neu, ziel string) error {
+func swap(fresh, ziel string) error {
 	daneben := ziel + ".neu"
 	os.RemoveAll(daneben)
-	if err := kopieren(neu, daneben); err != nil {
+	if err := copyTree(fresh, daneben); err != nil {
 		os.RemoveAll(daneben)
 		return errors.New("neue Fassung ließ sich nicht ablegen: " + err.Error())
 	}

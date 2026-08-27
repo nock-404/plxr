@@ -52,7 +52,7 @@ type Theme struct {
 //
 // term-bg und term-fg sind bewusst getrennt von bg und fg: ein heller Skin
 // braucht trotzdem ein dunkles, lesbares Terminal.
-var Erlaubt = map[string]bool{
+var Allowed = map[string]bool{
 	"bg": true, "fg": true, "dim": true, "accent": true,
 	"working": true, "waiting": true, "blocked": true, "dead": true,
 	"panel": true, "line": true,
@@ -81,7 +81,7 @@ func (t *Theme) valid(skins map[string]bool) error {
 		return errors.New(`skin "` + t.Skin + `" gibt es nicht. Vorhanden: ` + strings.Join(known, ", "))
 	}
 	for k, v := range t.Palette {
-		if !Erlaubt[k] {
+		if !Allowed[k] {
 			return errors.New(`unbekannter Paletteneintrag "` + k + `"`)
 		}
 		if strings.ContainsAny(v, "{};<>") {
@@ -186,7 +186,7 @@ func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 
 // Löschen entfernt ein eigenes Theme. Eingebaute bleiben unantastbar — sie
 // stecken in der Anwendung und wären nach dem nächsten Update wieder da.
-func Löschen(name string) error {
+func Delete(name string) error {
 	if strings.ContainsAny(name, `/\.`) {
 		return errors.New("unzulässiger Name")
 	}

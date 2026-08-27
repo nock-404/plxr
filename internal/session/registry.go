@@ -48,7 +48,7 @@ func (r *Registry) load() error {
 		if s.Alive {
 			s.Alive = false
 			s.Status = StatusDead
-			s.Verwaist = true
+			s.Orphaned = true
 			s.ExitCode = -1
 			if s.EndedAt == 0 {
 				s.EndedAt = time.Now().UnixMilli()

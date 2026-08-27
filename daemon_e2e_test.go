@@ -48,13 +48,13 @@ func aufbauen(t *testing.T) (*httptest.Server, string) {
 	return s, token
 }
 
-func ruf(t *testing.T, s *httptest.Server, token, methode, pfad string, koerper string) (*http.Response, []byte) {
+func ruf(t *testing.T, s *httptest.Server, token, methode, path string, koerper string) (*http.Response, []byte) {
 	t.Helper()
 	var r io.Reader
 	if koerper != "" {
 		r = strings.NewReader(koerper)
 	}
-	req, err := http.NewRequest(methode, s.URL+pfad, r)
+	req, err := http.NewRequest(methode, s.URL+path, r)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func ruf(t *testing.T, s *httptest.Server, token, methode, pfad string, koerper 
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		t.Fatalf("%s %s: %v", methode, pfad, err)
+		t.Fatalf("%s %s: %v", methode, path, err)
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
@@ -76,12 +76,12 @@ func ruf(t *testing.T, s *httptest.Server, token, methode, pfad string, koerper 
 func TestAlleAnsichtenAusDemFenster(t *testing.T) {
 	s, token := aufbauen(t)
 
-	pfade := []string{
+	paths := []string{
 		"/api/health", "/api/sessions", "/api/themes", "/api/vorlagen",
 		"/api/accounts", "/api/archive", "/api/ports", "/api/usage",
 		"/api/rules", "/api/hook", "/api/tempo", "/api/shell", "/api/paths",
 	}
-	for _, p := range pfade {
+	for _, p := range paths {
 		// Erst der Vorabflug, den die Webview wegen der Token-Kopfzeile schickt.
 		req, _ := http.NewRequest("OPTIONS", s.URL+p, nil)
 		req.Header.Set("Origin", herkunftFenster)

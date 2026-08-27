@@ -21,24 +21,24 @@ func TestEigenenEintragWiedererkennen(t *testing.T) {
 		"",
 	}
 	for _, b := range unser {
-		if !unserBefehl(b) {
+		if !isOurCommand(b) {
 			t.Errorf("%q sollte als eigener Eintrag gelten", b)
 		}
 	}
 	for _, b := range fremd {
-		if unserBefehl(b) {
+		if isOurCommand(b) {
 			t.Errorf("%q sollte nicht als eigener Eintrag gelten", b)
 		}
 	}
 }
 
 func TestEintragErkannt(t *testing.T) {
-	eintrag := map[string]any{
+	entry := map[string]any{
 		"hooks": []any{map[string]any{
 			"type": "command", "command": "/build/bin/plxr-test", "args": []any{"hook"},
 		}},
 	}
-	if !istUnserer(eintrag) {
+	if !isOurs(entry) {
 		t.Error("Eintrag mit abweichendem Dateinamen wurde nicht erkannt")
 	}
 	fremd := map[string]any{
@@ -46,7 +46,7 @@ func TestEintragErkannt(t *testing.T) {
 			"type": "command", "command": "/Users/x/.claude-fleet/fleet-hook.mjs",
 		}},
 	}
-	if istUnserer(fremd) {
+	if isOurs(fremd) {
 		t.Error("fremder Eintrag wurde fälschlich als eigener erkannt")
 	}
 }

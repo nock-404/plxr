@@ -159,8 +159,8 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 	   suchen ließ eine erledigte Frage ewig als "braucht dich" stehen — der
 	   Posteingang zeigte Sessions, die längst weiterliefen. Drei Zeilen reichen
 	   auch für mehrzeilige Dialogfelder: deren Auswahl steht immer unten. */
-	unten := letzteZeilen(screen, 3)
-	amPrompt := wartetAmPrompt(screen)
+	unten := lastNonEmptyLines(screen, 3)
+	amPrompt := waitingAtPrompt(screen)
 	for _, re := range p.blockedRe {
 		// Entweder die Rückfrage steht ganz unten — dann ist sie offen —,
 		// oder der Schirm endet auf einem Prompt, der auf Eingabe wartet.
@@ -184,8 +184,8 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 // wartetAmPrompt sagt, ob der Schirm auf einer Eingabeaufforderung endet:
 // eine kurze Zeile, die auf ein Prompt-Zeichen ausläuft und hinter der nichts
 // mehr steht. Genau dort sitzt dann der Cursor.
-func wartetAmPrompt(screen string) bool {
-	letzte := letzteZeilen(screen, 1)
+func waitingAtPrompt(screen string) bool {
+	letzte := lastNonEmptyLines(screen, 1)
 	if letzte == "" || len(letzte) > 120 {
 		return false
 	}
@@ -206,15 +206,15 @@ func wartetAmPrompt(screen string) bool {
 // letzteZeilen liefert die letzten n Zeilen mit Inhalt. Leerzeilen am Ende
 // fallen weg — sonst schöbe ein Zeilenumbruch die Rückfrage aus dem Fenster,
 // obwohl sie noch offen ist.
-func letzteZeilen(s string, n int) string {
-	zeilen := strings.Split(s, "\n")
-	for len(zeilen) > 0 && strings.TrimSpace(zeilen[len(zeilen)-1]) == "" {
-		zeilen = zeilen[:len(zeilen)-1]
+func lastNonEmptyLines(s string, n int) string {
+	lines := strings.Split(s, "\n")
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
 	}
-	if len(zeilen) > n {
-		zeilen = zeilen[len(zeilen)-n:]
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
 	}
-	return strings.Join(zeilen, "\n")
+	return strings.Join(lines, "\n")
 }
 
 func lastLines(s string, n int) string {

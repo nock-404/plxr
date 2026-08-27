@@ -29,7 +29,7 @@ const (
 	Agent   Art = "agent"
 )
 
-type Eintrag struct {
+type Entry struct {
 	Art         Art    `json:"art"`
 	Name        string `json:"name"`
 	Path        string `json:"path"`
@@ -38,12 +38,12 @@ type Eintrag struct {
 	Ebene       int    `json:"ebene"` // 0 = global, dann Tiefe im Baum
 }
 
-const maxImportTiefe = 3
+const maxImportDepth = 3
 
 // Resolve liefert alles, was in cwd wirkt — in der Reihenfolge, in der Claude
 // Code es zusammenträgt: global zuerst, dann von der Wurzel abwärts.
-func Resolve(cwd, configDir string) []Eintrag {
-	out := []Eintrag{}
+func Resolve(cwd, configDir string) []Entry {
+	out := []Entry{}
 	gesehen := map[string]bool{}
 
 	add := func(art Art, p string, ebene int) {
@@ -56,19 +56,19 @@ func Resolve(cwd, configDir string) []Eintrag {
 			return
 		}
 		gesehen[p] = true
-		out = append(out, Eintrag{
-			Art: art, Name: kurzName(art, p), Path: p,
-			Description: beschreibung(p), Size: info.Size(), Ebene: ebene,
+		out = append(out, Entry{
+			Art: art, Name: shortName(art, p), Path: p,
+			Description: describe(p), Size: info.Size(), Ebene: ebene,
 		})
-		for _, imp := range importe(p, 1) {
+		for _, imp := range imports(p, 1) {
 			if gesehen[imp] {
 				continue
 			}
 			if info, err := os.Stat(imp); err == nil && !info.IsDir() {
 				gesehen[imp] = true
-				out = append(out, Eintrag{
+				out = append(out, Entry{
 					Art: Import, Name: filepath.Base(imp), Path: imp,
-					Description: beschreibung(imp), Size: info.Size(), Ebene: ebene,
+					Description: describe(imp), Size: info.Size(), Ebene: ebene,
 				})
 			}
 		}
@@ -122,7 +122,7 @@ func Resolve(cwd, configDir string) []Eintrag {
 
 func glob(p string) []string { m, _ := filepath.Glob(p); sort.Strings(m); return m }
 
-func kurzName(art Art, p string) string {
+func shortName(art Art, p string) string {
 	if art == Skill {
 		return filepath.Base(filepath.Dir(p))
 	}
@@ -130,8 +130,8 @@ func kurzName(art Art, p string) string {
 }
 
 // importe findet @pfad-Zeilen, mit denen eine CLAUDE.md weitere Dateien einbindet.
-func importe(p string, tiefe int) []string {
-	if tiefe > maxImportTiefe {
+func imports(p string, tiefe int) []string {
+	if tiefe > maxImportDepth {
 		return nil
 	}
 	f, err := os.Open(p)
@@ -162,7 +162,7 @@ func importe(p string, tiefe int) []string {
 
 // beschreibung nimmt das Feld description aus dem Frontmatter, sonst die erste
 // Überschrift plus den ersten Absatz.
-func beschreibung(p string) string {
+func describe(p string) string {
 	f, err := os.Open(p)
 	if err != nil {
 		return ""
@@ -172,34 +172,34 @@ func beschreibung(p string) string {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 8192), 1<<20)
 
-	var zeilen []string
+	var lines []string
 	for i := 0; sc.Scan() && i < 60; i++ {
-		zeilen = append(zeilen, sc.Text())
+		lines = append(lines, sc.Text())
 	}
-	if len(zeilen) == 0 {
+	if len(lines) == 0 {
 		return ""
 	}
 
-	if strings.TrimSpace(zeilen[0]) == "---" {
-		for i := 1; i < len(zeilen); i++ {
-			l := strings.TrimSpace(zeilen[i])
+	if strings.TrimSpace(lines[0]) == "---" {
+		for i := 1; i < len(lines); i++ {
+			l := strings.TrimSpace(lines[i])
 			if l == "---" {
 				break
 			}
 			if rest, ok := strings.CutPrefix(l, "description:"); ok {
-				return kuerzen(strings.Trim(strings.TrimSpace(rest), `"'`))
+				return shorten(strings.Trim(strings.TrimSpace(rest), `"'`))
 			}
 		}
 	}
 
-	var kopf, absatz string
-	for _, l := range zeilen {
+	var header, absatz string
+	for _, l := range lines {
 		t := strings.TrimSpace(l)
 		if t == "" || t == "---" {
 			continue
 		}
-		if strings.HasPrefix(t, "#") && kopf == "" {
-			kopf = strings.TrimSpace(strings.TrimLeft(t, "# "))
+		if strings.HasPrefix(t, "#") && header == "" {
+			header = strings.TrimSpace(strings.TrimLeft(t, "# "))
 			continue
 		}
 		if !strings.HasPrefix(t, "#") {
@@ -207,10 +207,10 @@ func beschreibung(p string) string {
 			break
 		}
 	}
-	return kuerzen(strings.TrimSpace(kopf + " — " + absatz))
+	return shorten(strings.TrimSpace(header + " — " + absatz))
 }
 
-func kuerzen(s string) string {
+func shorten(s string) string {
 	s = strings.TrimSuffix(strings.TrimSpace(s), "—")
 	s = strings.TrimSpace(s)
 	if len(s) > 220 {

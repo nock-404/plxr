@@ -24,92 +24,92 @@ import (
 	"plxr/internal/accounts"
 )
 
-type Posten struct {
-	Ein         int64 `json:"ein"`        // input_tokens
-	Aus         int64 `json:"aus"`        // output_tokens
-	CacheNeu    int64 `json:"cacheNeu"`   // cache_creation_input_tokens
-	CacheLesen  int64 `json:"cacheLesen"` // cache_read_input_tokens
-	Nachrichten int64 `json:"nachrichten"`
+type Item struct {
+	In         int64 `json:"ein"`        // input_tokens
+	Out        int64 `json:"aus"`        // output_tokens
+	CacheWrite int64 `json:"cacheNeu"`   // cache_creation_input_tokens
+	CacheRead  int64 `json:"cacheLesen"` // cache_read_input_tokens
+	Messages   int64 `json:"nachrichten"`
 }
 
-func (p *Posten) plus(o Posten) {
-	p.Ein += o.Ein
-	p.Aus += o.Aus
-	p.CacheNeu += o.CacheNeu
-	p.CacheLesen += o.CacheLesen
-	p.Nachrichten += o.Nachrichten
+func (p *Item) add(o Item) {
+	p.In += o.In
+	p.Out += o.Out
+	p.CacheWrite += o.CacheWrite
+	p.CacheRead += o.CacheRead
+	p.Messages += o.Messages
 }
 
 // Gesamt ist alles, was gezählt wurde — für eine grobe Größenordnung.
-func (p Posten) Gesamt() int64 { return p.Ein + p.Aus + p.CacheNeu + p.CacheLesen }
+func (p Item) Total() int64 { return p.In + p.Out + p.CacheWrite + p.CacheRead }
 
-type Zeile struct {
-	Schlüssel string `json:"schluessel"`
-	Posten
+type Line struct {
+	Key string `json:"schluessel"`
+	Item
 }
 
-type Bericht struct {
-	Summe       Posten  `json:"summe"`
-	NachTag     []Zeile `json:"nachTag"`
-	NachProjekt []Zeile `json:"nachProjekt"`
-	NachModell  []Zeile `json:"nachModell"`
-	NachKonto   []Zeile `json:"nachKonto"`
-	Dateien     int     `json:"dateien"`
-	Dauer       string  `json:"dauer"`
+type Report struct {
+	Sum       Item   `json:"summe"`
+	ByDay     []Line `json:"nachTag"`
+	ByProject []Line `json:"nachProjekt"`
+	ByModel   []Line `json:"nachModell"`
+	ByAccount []Line `json:"nachKonto"`
+	Files     int    `json:"dateien"`
+	Dauer     string `json:"dauer"`
 }
 
 // ---- Zwischenspeicher ----
 
 // eintrag hält, was aus einer Datei herauskam. Die Modelle liegen je Tag, nicht
 // als Gesamtsumme: sonst lässt sich ein Zeitraum nicht nach Modell aufteilen.
-type eintrag struct {
-	Version int                          `json:"version"`
-	Größe   int64                        `json:"groesse"`
-	Mod     int64                        `json:"mod"`
-	Tage    map[string]map[string]Posten `json:"tage"` // Tag -> Modell -> Posten
-	Projekt string                       `json:"projekt"`
+type entry struct {
+	Version int                        `json:"version"`
+	Size    int64                      `json:"groesse"`
+	Mod     int64                      `json:"mod"`
+	Tage    map[string]map[string]Item `json:"tage"` // Tag -> Modell -> Posten
+	Projekt string                     `json:"projekt"`
 }
 
 // speicherVersion invalidiert alte Zwischenspeicher, wenn sich die Form ändert.
-const speicherVersion = 2
+const cacheVersion = 2
 
 type speicher struct {
-	mu       sync.Mutex
-	Datei    map[string]eintrag `json:"datei"`
-	pfad     string
-	geändert bool
+	mu      sync.Mutex
+	File    map[string]entry `json:"datei"`
+	path    string
+	changed bool
 }
 
-func ladeSpeicher() *speicher {
+func loadCache() *speicher {
 	p := filepath.Join(daemon.Root(), "usage-cache.json")
-	s := &speicher{Datei: map[string]eintrag{}, pfad: p}
+	s := &speicher{File: map[string]entry{}, path: p}
 	if b, err := os.ReadFile(p); err == nil {
 		json.Unmarshal(b, s)
-		if s.Datei == nil {
-			s.Datei = map[string]eintrag{}
+		if s.File == nil {
+			s.File = map[string]entry{}
 		}
 	}
 	return s
 }
 
-func (s *speicher) sichern() {
-	if !s.geändert {
+func (s *speicher) saveCache() {
+	if !s.changed {
 		return
 	}
 	b, err := json.Marshal(s)
 	if err != nil {
 		return
 	}
-	os.MkdirAll(filepath.Dir(s.pfad), 0o755)
-	tmp := s.pfad + ".tmp"
+	os.MkdirAll(filepath.Dir(s.path), 0o755)
+	tmp := s.path + ".tmp"
 	if os.WriteFile(tmp, b, 0o644) == nil {
-		os.Rename(tmp, s.pfad)
+		os.Rename(tmp, s.path)
 	}
 }
 
 // ---- Auswertung ----
 
-type zeileRoh struct {
+type rawLine struct {
 	Type    string `json:"type"`
 	Cwd     string `json:"cwd"`
 	Message struct {
@@ -117,8 +117,8 @@ type zeileRoh struct {
 		Usage struct {
 			Input      int64 `json:"input_tokens"`
 			Output     int64 `json:"output_tokens"`
-			CacheNeu   int64 `json:"cache_creation_input_tokens"`
-			CacheLesen int64 `json:"cache_read_input_tokens"`
+			CacheWrite int64 `json:"cache_creation_input_tokens"`
+			CacheRead  int64 `json:"cache_read_input_tokens"`
 		} `json:"usage"`
 	} `json:"message"`
 	Timestamp string `json:"timestamp"`
@@ -126,13 +126,13 @@ type zeileRoh struct {
 
 // Rechnen wertet alle Transkripte aus. tage begrenzt auf die letzten n Tage
 // (0 = alles).
-func Rechnen(accs []accounts.Account, tage int) Bericht {
+func Compute(accs []accounts.Account, tage int) Report {
 	start := time.Now()
-	sp := ladeSpeicher()
+	sp := loadCache()
 
 	type job struct {
-		pfad, konto string
-		größe, mod  int64
+		path, account string
+		size, mod     int64
 	}
 	var jobs []job
 	gesehen := map[string]bool{}
@@ -169,8 +169,8 @@ func Rechnen(accs []accounts.Account, tage int) Bericht {
 	}
 	rein := make(chan job)
 	type erg struct {
-		konto string
-		e     eintrag
+		account string
+		e       entry
 	}
 	raus := make(chan erg, 64)
 	var wg sync.WaitGroup
@@ -180,19 +180,19 @@ func Rechnen(accs []accounts.Account, tage int) Bericht {
 			defer wg.Done()
 			for j := range rein {
 				sp.mu.Lock()
-				alt, ok := sp.Datei[j.pfad]
+				old, ok := sp.File[j.path]
 				sp.mu.Unlock()
-				if ok && alt.Version == speicherVersion && alt.Größe == j.größe && alt.Mod == j.mod {
-					raus <- erg{j.konto, alt}
+				if ok && old.Version == cacheVersion && old.Size == j.size && old.Mod == j.mod {
+					raus <- erg{j.account, old}
 					continue
 				}
-				e := lesen(j.pfad)
-				e.Version, e.Größe, e.Mod = speicherVersion, j.größe, j.mod
+				e := readAll(j.path)
+				e.Version, e.Size, e.Mod = cacheVersion, j.size, j.mod
 				sp.mu.Lock()
-				sp.Datei[j.pfad] = e
-				sp.geändert = true
+				sp.File[j.path] = e
+				sp.changed = true
 				sp.mu.Unlock()
-				raus <- erg{j.konto, e}
+				raus <- erg{j.account, e}
 			}
 		}()
 	}
@@ -210,14 +210,14 @@ func Rechnen(accs []accounts.Account, tage int) Bericht {
 		grenze = time.Now().AddDate(0, 0, -tage).Format("2006-01-02")
 	}
 
-	b := Bericht{Dateien: len(jobs)}
-	tag := map[string]*Posten{}
-	proj := map[string]*Posten{}
-	mod := map[string]*Posten{}
-	konto := map[string]*Posten{}
-	hol := func(m map[string]*Posten, k string) *Posten {
+	b := Report{Files: len(jobs)}
+	tag := map[string]*Item{}
+	proj := map[string]*Item{}
+	mod := map[string]*Item{}
+	account := map[string]*Item{}
+	hol := func(m map[string]*Item, k string) *Item {
 		if m[k] == nil {
-			m[k] = &Posten{}
+			m[k] = &Item{}
 		}
 		return m[k]
 	}
@@ -232,27 +232,27 @@ func Rechnen(accs []accounts.Account, tage int) Bericht {
 				continue
 			}
 			for m, p := range nachModell {
-				b.Summe.plus(p)
-				hol(tag, t).plus(p)
-				hol(proj, projekt).plus(p)
-				hol(konto, r.konto).plus(p)
+				b.Sum.add(p)
+				hol(tag, t).add(p)
+				hol(proj, projekt).add(p)
+				hol(account, r.account).add(p)
 				if m != "" {
-					hol(mod, m).plus(p)
+					hol(mod, m).add(p)
 				}
 			}
 		}
 	}
-	sp.sichern()
+	sp.saveCache()
 
-	b.NachTag = sortiert(tag, true)
-	b.NachProjekt = sortiert(proj, false)
-	b.NachModell = sortiert(mod, false)
+	b.ByDay = sorted(tag, true)
+	b.ByProject = sorted(proj, false)
+	b.ByModel = sorted(mod, false)
 	// Bei gespiegelten Transkripten wäre die Kontoaufteilung Zufall: dieselbe
 	// Session liegt in mehreren Konten, gezählt wird sie beim erstbesten.
 	// Dann lieber nichts zeigen als etwas Falsches.
-	b.NachKonto = sortiert(konto, false)
-	if len(b.NachKonto) < 2 {
-		b.NachKonto = []Zeile{}
+	b.ByAccount = sorted(account, false)
+	if len(b.ByAccount) < 2 {
+		b.ByAccount = []Line{}
 	}
 	b.Dauer = time.Since(start).Round(time.Millisecond).String()
 	return b
@@ -260,22 +260,22 @@ func Rechnen(accs []accounts.Account, tage int) Bericht {
 
 // sortiert gibt die Zeilen aus; nachSchlüssel absteigend (für Tage), sonst
 // nach Menge absteigend.
-func sortiert(m map[string]*Posten, nachSchlüssel bool) []Zeile {
-	out := make([]Zeile, 0, len(m))
+func sorted(m map[string]*Item, byKey bool) []Line {
+	out := make([]Line, 0, len(m))
 	for k, p := range m {
-		out = append(out, Zeile{Schlüssel: k, Posten: *p})
+		out = append(out, Line{Key: k, Item: *p})
 	}
-	if nachSchlüssel {
-		sort.Slice(out, func(i, j int) bool { return out[i].Schlüssel > out[j].Schlüssel })
+	if byKey {
+		sort.Slice(out, func(i, j int) bool { return out[i].Key > out[j].Key })
 	} else {
-		sort.Slice(out, func(i, j int) bool { return out[i].Gesamt() > out[j].Gesamt() })
+		sort.Slice(out, func(i, j int) bool { return out[i].Total() > out[j].Total() })
 	}
 	return out
 }
 
-func lesen(pfad string) eintrag {
-	e := eintrag{Tage: map[string]map[string]Posten{}}
-	f, err := os.Open(pfad)
+func readAll(path string) entry {
+	e := entry{Tage: map[string]map[string]Item{}}
+	f, err := os.Open(path)
 	if err != nil {
 		return e
 	}
@@ -288,7 +288,7 @@ func lesen(pfad string) eintrag {
 		if len(roh) == 0 || roh[0] != '{' {
 			continue
 		}
-		var z zeileRoh
+		var z rawLine
 		if json.Unmarshal(roh, &z) != nil {
 			continue
 		}
@@ -299,10 +299,10 @@ func lesen(pfad string) eintrag {
 			continue
 		}
 		u := z.Message.Usage
-		if u.Input == 0 && u.Output == 0 && u.CacheNeu == 0 && u.CacheLesen == 0 {
+		if u.Input == 0 && u.Output == 0 && u.CacheWrite == 0 && u.CacheRead == 0 {
 			continue
 		}
-		p := Posten{Ein: u.Input, Aus: u.Output, CacheNeu: u.CacheNeu, CacheLesen: u.CacheLesen, Nachrichten: 1}
+		p := Item{In: u.Input, Out: u.Output, CacheWrite: u.CacheWrite, CacheRead: u.CacheRead, Messages: 1}
 
 		tag := "unbekannt"
 		if len(z.Timestamp) >= 10 {
@@ -313,11 +313,11 @@ func lesen(pfad string) eintrag {
 			modell = ""
 		}
 		if e.Tage[tag] == nil {
-			e.Tage[tag] = map[string]Posten{}
+			e.Tage[tag] = map[string]Item{}
 		}
-		alt := e.Tage[tag][modell]
-		alt.plus(p)
-		e.Tage[tag][modell] = alt
+		old := e.Tage[tag][modell]
+		old.add(p)
+		e.Tage[tag][modell] = old
 	}
 	return e
 }
@@ -330,7 +330,7 @@ func lesen(pfad string) eintrag {
 // Wer acht Agenten gleichzeitig fährt, reißt das Fünf-Stunden-Fenster, ohne
 // es kommen zu sehen. Die Zahlen dafür stehen in den Transkripten; hier
 // werden sie auf ein Tempo hochgerechnet.
-type Tempo struct {
+type Pace struct {
 	// Fenster5h ist der Verbrauch der letzten fünf Stunden.
 	Fenster5h int64 `json:"fenster5h"`
 	// ProStunde ist das Tempo der letzten Stunde, hochgerechnet.
@@ -344,13 +344,13 @@ type Tempo struct {
 
 // TempoRechnen wertet nur die zuletzt geänderten Transkripte aus — alles
 // andere kann per Definition nichts zum aktuellen Tempo beitragen.
-func TempoRechnen(accs []accounts.Account) Tempo {
+func ComputePace(accs []accounts.Account) Pace {
 	jetzt := time.Now()
 	grenze5h := jetzt.Add(-5 * time.Hour)
 	grenze1h := jetzt.Add(-time.Hour)
 	grenze2h := jetzt.Add(-2 * time.Hour)
 
-	var t Tempo
+	var t Pace
 	var vorstunde int64
 	aktive := map[string]bool{}
 	gesehen := map[string]bool{}
@@ -373,8 +373,8 @@ func TempoRechnen(accs []accounts.Account) Tempo {
 					continue
 				}
 				gesehen[f.Name()] = true
-				pfad := filepath.Join(pdir, f.Name())
-				f5, f1, f2 := zeitfenster(pfad, grenze5h, grenze1h, grenze2h)
+				path := filepath.Join(pdir, f.Name())
+				f5, f1, f2 := window(path, grenze5h, grenze1h, grenze2h)
 				t.Fenster5h += f5
 				t.ProStunde += f1
 				vorstunde += f2
@@ -400,8 +400,8 @@ func TempoRechnen(accs []accounts.Account) Tempo {
 }
 
 // zeitfenster liest eine Datei von hinten und summiert drei Zeiträume.
-func zeitfenster(pfad string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
-	f, err := os.Open(pfad)
+func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
+	f, err := os.Open(path)
 	if err != nil {
 		return
 	}
@@ -425,7 +425,7 @@ func zeitfenster(pfad string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 		if len(roh) == 0 || roh[0] != '{' {
 			continue
 		}
-		var z zeileRoh
+		var z rawLine
 		if json.Unmarshal(roh, &z) != nil || z.Type != "assistant" {
 			continue
 		}
@@ -434,7 +434,7 @@ func zeitfenster(pfad string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 			continue
 		}
 		u := z.Message.Usage
-		summe := int64(u.Input + u.Output + u.CacheNeu + u.CacheLesen)
+		summe := int64(u.Input + u.Output + u.CacheWrite + u.CacheRead)
 		f5 += summe
 		if ts.After(g1) {
 			f1 += summe

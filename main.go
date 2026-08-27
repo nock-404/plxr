@@ -62,7 +62,7 @@ func main() {
 	// Wer Hilfe sucht, tippt --help, nicht "help". Ohne das zeigt das
 	// Flag-Paket nur die zwei Schalter und verschweigt jeden Unterbefehl.
 	flag.Usage = func() {
-		cli.Hilfe()
+		cli.Help()
 		fmt.Fprintln(os.Stderr, "\nSchalter:")
 		flag.PrintDefaults()
 	}
@@ -97,26 +97,26 @@ func kommando(name string, rest []string) bool {
 	if name == "hook" {
 		// Fehler bleiben stumm: ein Hook, der Claude Code mit Ausgabe
 		// zumüllt oder abbricht, ist schlimmer als ein fehlender Zustand.
-		_ = hook.Lauf(os.Stdin)
+		_ = hook.Run(os.Stdin)
 		return true
 	}
 	if name == "setup-hook" || name == "unsetup-hook" {
 		entfernen := name == "unsetup-hook"
-		pfad, err := hook.Einrichten(strings.Join(rest, " "), entfernen)
+		path, err := hook.Install(strings.Join(rest, " "), entfernen)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "plxr:", err)
 			os.Exit(1)
 		}
 		if entfernen {
-			fmt.Println("aus", pfad, "entfernt")
+			fmt.Println("aus", path, "entfernt")
 		} else {
-			fmt.Println("eingetragen in", pfad)
+			fmt.Println("eingetragen in", path)
 			fmt.Println("Neue Claude-Code-Sessions melden ihren Zustand ab sofort an plxr.")
 		}
 		return true
 	}
 	if name == "help" || name == "hilfe" {
-		cli.Hilfe()
+		cli.Help()
 		return true
 	}
 	if name == "version" {
@@ -129,7 +129,7 @@ func kommando(name string, rest []string) bool {
 		return false
 	}
 
-	c, err := cli.Verbinden()
+	c, err := cli.Connect()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "plxr:", err)
 		os.Exit(1)
@@ -139,17 +139,17 @@ func kommando(name string, rest []string) bool {
 	case "ls":
 		err = cli.Ls(c)
 	case "new":
-		pfad, cmd := "", []string(nil)
+		path, cmd := "", []string(nil)
 		for i, a := range rest {
 			if a == "--" {
 				cmd = rest[i+1:]
 				break
 			}
-			if pfad == "" {
-				pfad = a
+			if path == "" {
+				path = a
 			}
 		}
-		err = cli.New(c, pfad, cmd)
+		err = cli.New(c, path, cmd)
 	case "attach":
 		if len(rest) == 0 {
 			err = errors.New("welche Session? `plxr ls` zeigt sie")
@@ -176,22 +176,22 @@ func kommando(name string, rest []string) bool {
 
 // selbstUpdate holt die neueste Fassung von GitHub.
 func selbstUpdate() error {
-	st := update.Prüfen(version)
-	if st.Fehler != "" {
-		return errors.New(st.Fehler)
+	st := update.Check(version)
+	if st.Error != "" {
+		return errors.New(st.Error)
 	}
-	if !st.Verfügbar {
-		fmt.Printf("plxr %s ist aktuell (neueste: %s)\n", version, st.Neueste)
+	if !st.Available {
+		fmt.Printf("plxr %s ist aktuell (neueste: %s)\n", version, st.Latest)
 		return nil
 	}
-	fmt.Printf("neue Fassung %s (aktuell %s), %.1f MB\n", st.Neueste, version, float64(st.Größe)/(1<<20))
+	fmt.Printf("neue Fassung %s (aktuell %s), %.1f MB\n", st.Latest, version, float64(st.Size)/(1<<20))
 
 	letzte := -1
-	ort, err := update.Anwenden(st.AssetURL, func(gelesen, gesamt int64) {
+	ort, err := update.Apply(st.AssetURL, func(read, gesamt int64) {
 		if gesamt <= 0 {
 			return
 		}
-		p := int(gelesen * 100 / gesamt)
+		p := int(read * 100 / gesamt)
 		if p != letzte && p%5 == 0 {
 			letzte = p
 			fmt.Printf("\r  laden … %d%%", p)
@@ -214,10 +214,10 @@ func runDaemon() {
 	}
 
 	core.Version = version
-	ptyhost.Fassung = version
+	ptyhost.Version = version
 	// Der Mitschnitt liegt neben dem übrigen Zustand. Damit überlebt der
 	// Scrollback jeden Neustart — bei tmux ist er weg.
-	ptyhost.MitschnittDir = filepath.Join(daemon.Root(), "mitschnitt")
+	ptyhost.RecordingDir = filepath.Join(daemon.Root(), "mitschnitt")
 	c := core.New(reg, sub("web/themes"), sub("web/agents"), sub("web/skins"))
 	srv := server.New(c, sub("web"))
 
@@ -228,7 +228,7 @@ func runDaemon() {
 	defer daemon.Forget()
 
 	// Einmal beim Start aufräumen; häufiger lohnt nicht.
-	go c.MitschnitteAufraeumen()
+	go c.PruneRecordings()
 
 	log.Printf("plxr daemon auf %s (PID %d)", info.URL(), info.PID)
 	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))

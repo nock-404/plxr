@@ -42,7 +42,7 @@ type Entry struct {
 // kopf ist, was wir aus einem Transkript brauchen. Gelesen wird nur der Anfang
 // und das Ende: bei 150 Dateien mit teils vielen Megabyte wäre alles zu lesen
 // verschwendet, und Titel wie Verzeichnis stehen ohnehin an den Rändern.
-type kopf struct {
+type header struct {
 	Type    string `json:"type"`
 	AiTitle string `json:"aiTitle"`
 	Cwd     string `json:"cwd"`
@@ -53,7 +53,7 @@ type kopf struct {
 	} `json:"message"`
 }
 
-const leseGrenze = 96 << 10
+const readLimit = 96 << 10
 
 // List sammelt die Transkripte aller Konten, neueste zuerst.
 func List(accs []accounts.Account, pathFilter string) []Entry {
@@ -87,9 +87,9 @@ func List(accs []accounts.Account, pathFilter string) []Entry {
 					Size:    info.Size(),
 					Mod:     info.ModTime().UnixMilli(),
 				}
-				lies(&e)
+				read(&e)
 				if e.Cwd == "" {
-					e.Cwd = ausOrdnername(d.Name())
+					e.Cwd = fromFolderName(d.Name())
 				}
 				e.Project = filepath.Base(e.Cwd)
 				if pathFilter != "" && !strings.HasPrefix(e.Cwd, pathFilter) {
@@ -99,13 +99,13 @@ func List(accs []accounts.Account, pathFilter string) []Entry {
 			}
 		}
 	}
-	return falten(out)
+	return fold(out)
 }
 
 // falten fasst dasselbe Transkript aus mehreren Konten zu einem Eintrag
 // zusammen. Führend ist die jüngste Kopie — die ist am ehesten die, in der
 // zuletzt gearbeitet wurde.
-func falten(in []Entry) []Entry {
+func fold(in []Entry) []Entry {
 	nach := map[string]*Entry{}
 	reihe := []string{}
 	for i := range in {
@@ -144,7 +144,7 @@ func falten(in []Entry) []Entry {
 }
 
 // lies zieht Titel, Verzeichnis, Branch und Modell aus der Datei.
-func lies(e *Entry) {
+func read(e *Entry) {
 	f, err := os.Open(e.Path)
 	if err != nil {
 		return
@@ -158,7 +158,7 @@ func lies(e *Entry) {
 			if len(line) == 0 || line[0] != '{' {
 				continue
 			}
-			var k kopf
+			var k header
 			if json.Unmarshal(line, &k) != nil {
 				continue
 			}
@@ -178,11 +178,11 @@ func lies(e *Entry) {
 	}
 
 	// Anfang lesen: dort stehen cwd und der erste Prompt.
-	scan(bufio.NewScanner(io.LimitReader(f, leseGrenze)))
+	scan(bufio.NewScanner(io.LimitReader(f, readLimit)))
 
 	// Ende lesen: dort steht der zuletzt vergebene Titel.
-	if e.Size > leseGrenze {
-		if _, err := f.Seek(-leseGrenze, io.SeekEnd); err == nil {
+	if e.Size > readLimit {
+		if _, err := f.Seek(-readLimit, io.SeekEnd); err == nil {
 			br := bufio.NewReader(f)
 			br.ReadString('\n') // angeschnittene erste Zeile verwerfen
 			scan(bufio.NewScanner(br))
@@ -192,7 +192,7 @@ func lies(e *Entry) {
 
 // ausOrdnername macht aus "-Users-max-projekt" wieder "/Users/max/projekt".
 // Nur ein Notnagel: Bindestriche im echten Pfad lassen sich nicht zurückholen.
-func ausOrdnername(n string) string {
+func fromFolderName(n string) string {
 	if !strings.HasPrefix(n, "-") {
 		return n
 	}
@@ -207,19 +207,19 @@ func Delete(e Entry) error { return os.Remove(e.Path) }
 //
 // Ohne das schlägt ein Kontowechsel fehl: Claude Code sucht Transkripte
 // ausschließlich unter dem eigenen Konfigurationsverzeichnis.
-func Spiegeln(e Entry, ziel accounts.Account) (string, error) {
-	ordner := filepath.Base(filepath.Dir(e.Path))
-	zielDir := filepath.Join(ziel.ProjectsDir(), ordner)
+func Mirror(e Entry, ziel accounts.Account) (string, error) {
+	folder := filepath.Base(filepath.Dir(e.Path))
+	zielDir := filepath.Join(ziel.ProjectsDir(), folder)
 	if err := os.MkdirAll(zielDir, 0o755); err != nil {
 		return "", err
 	}
-	zielPfad := filepath.Join(zielDir, filepath.Base(e.Path))
+	targetPath := filepath.Join(zielDir, filepath.Base(e.Path))
 
 	// Schon aktuell? Dann nichts tun.
-	if zi, err := os.Stat(zielPfad); err == nil {
+	if zi, err := os.Stat(targetPath); err == nil {
 		if qi, err := os.Stat(e.Path); err == nil &&
 			zi.Size() == qi.Size() && !qi.ModTime().After(zi.ModTime()) {
-			return zielPfad, nil
+			return targetPath, nil
 		}
 	}
 
@@ -227,14 +227,14 @@ func Spiegeln(e Entry, ziel accounts.Account) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tmp := zielPfad + ".plxr-tmp"
+	tmp := targetPath + ".plxr-tmp"
 	if err := os.WriteFile(tmp, daten, 0o600); err != nil {
 		return "", err
 	}
-	if err := os.Rename(tmp, zielPfad); err != nil {
+	if err := os.Rename(tmp, targetPath); err != nil {
 		os.Remove(tmp)
 		return "", err
 	}
-	_ = os.Chtimes(zielPfad, time.Now(), time.Now())
-	return zielPfad, nil
+	_ = os.Chtimes(targetPath, time.Now(), time.Now())
+	return targetPath, nil
 }

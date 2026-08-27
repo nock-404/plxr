@@ -29,7 +29,7 @@ type Client struct {
 }
 
 // Verbinden liefert einen Client und startet den Daemon, falls keiner läuft.
-func Verbinden() (*Client, error) {
+func Connect() (*Client, error) {
 	info, err := daemon.Ensure()
 	if err != nil {
 		return nil, err
@@ -37,8 +37,8 @@ func Verbinden() (*Client, error) {
 	return &Client{info: info, http: &http.Client{Timeout: 30 * time.Second}}, nil
 }
 
-func (c *Client) hole(pfad string, ziel any) error {
-	req, _ := http.NewRequest("GET", c.info.URL()+pfad, nil)
+func (c *Client) fetch(path string, ziel any) error {
+	req, _ := http.NewRequest("GET", c.info.URL()+path, nil)
 	req.Header.Set("X-Plxr-Token", c.info.Token)
 	res, err := c.http.Do(req)
 	if err != nil {
@@ -52,13 +52,13 @@ func (c *Client) hole(pfad string, ziel any) error {
 	return json.NewDecoder(res.Body).Decode(ziel)
 }
 
-func (c *Client) schicke(methode, pfad string, koerper any, ziel any) error {
+func (c *Client) send(methode, path string, koerper any, ziel any) error {
 	var r io.Reader
 	if koerper != nil {
 		b, _ := json.Marshal(koerper)
 		r = bytes.NewReader(b)
 	}
-	req, _ := http.NewRequest(methode, c.info.URL()+pfad, r)
+	req, _ := http.NewRequest(methode, c.info.URL()+path, r)
 	req.Header.Set("X-Plxr-Token", c.info.Token)
 	res, err := c.http.Do(req)
 	if err != nil {
@@ -77,40 +77,40 @@ func (c *Client) schicke(methode, pfad string, koerper any, ziel any) error {
 
 func (c *Client) Sessions() ([]core.Tile, error) {
 	var out []core.Tile
-	return out, c.hole("/api/sessions", &out)
+	return out, c.fetch("/api/sessions", &out)
 }
 
 // Finden erlaubt Kürzel: die ersten Zeichen der ID oder ein Namensteil.
-func (c *Client) Finden(was string) (core.Tile, error) {
+func (c *Client) Find(was string) (core.Tile, error) {
 	list, err := c.Sessions()
 	if err != nil {
 		return core.Tile{}, err
 	}
-	var treffer []core.Tile
+	var hits []core.Tile
 	for _, t := range list {
 		if t.ID == was || strings.HasPrefix(t.ID, was) ||
 			strings.EqualFold(t.Name, was) ||
 			strings.Contains(strings.ToLower(t.Name+" "+t.Title), strings.ToLower(was)) {
-			treffer = append(treffer, t)
+			hits = append(hits, t)
 		}
 	}
-	switch len(treffer) {
+	switch len(hits) {
 	case 0:
 		return core.Tile{}, fmt.Errorf("keine Session passt zu %q", was)
 	case 1:
-		return treffer[0], nil
+		return hits[0], nil
 	default:
-		var namen []string
-		for _, t := range treffer {
-			namen = append(namen, t.ID[:8]+" "+t.Name)
+		var names []string
+		for _, t := range hits {
+			names = append(names, t.ID[:8]+" "+t.Name)
 		}
-		return core.Tile{}, fmt.Errorf("mehrdeutig, gemeint ist eine von:\n  %s", strings.Join(namen, "\n  "))
+		return core.Tile{}, fmt.Errorf("mehrdeutig, gemeint ist eine von:\n  %s", strings.Join(names, "\n  "))
 	}
 }
 
-func (c *Client) ws(pfad string) (*websocket.Conn, error) {
-	u := strings.Replace(c.info.URL(), "http", "ws", 1) + pfad
-	if strings.Contains(pfad, "?") {
+func (c *Client) ws(path string) (*websocket.Conn, error) {
+	u := strings.Replace(c.info.URL(), "http", "ws", 1) + path
+	if strings.Contains(path, "?") {
 		u += "&token=" + url.QueryEscape(c.info.Token)
 	} else {
 		u += "?token=" + url.QueryEscape(c.info.Token)

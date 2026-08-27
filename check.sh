@@ -29,6 +29,7 @@ schritt "fenstergriff" grep -q -- '--wails-draggable: drag' web/base.css
 # Ohne diesen Rand sitzt die macOS-Ampel auf dem Schriftzug.
 schritt "ampelrand" grep -q 'data-titlebar-inset' web/base.css
 schritt "go vet" go vet ./...
+schritt "bindungen" python3 bindungen.py
 
 printf '%-16s' "go test"
 go test ./... >/dev/null || { echo "FEHLER"; go test ./...; exit 1; }

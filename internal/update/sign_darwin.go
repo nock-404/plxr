@@ -10,7 +10,7 @@ import (
 )
 
 // zertName ist die Identität, mit der plxr sich auf dieser Maschine ausweist.
-const zertName = "plxr Code Signing"
+const certName = "plxr Code Signing"
 
 // nachbereiten signiert das ausgetauschte Bündel mit einer gleichbleibenden
 // lokalen Identität.
@@ -24,23 +24,23 @@ const zertName = "plxr Code Signing"
 // Das Zertifikat ist selbst ausgestellt und liegt nur im Schlüsselbund dieses
 // Nutzers. Es macht die App nicht vertrauenswürdiger — es macht sie nur
 // wiedererkennbar.
-func nachbereiten(ort string) error {
+func resign(ort string) error {
 	if !strings.HasSuffix(ort, ".app") {
 		return nil // nur Bündel tragen eine Signatur
 	}
-	if err := zertifikatSicherstellen(); err != nil {
+	if err := ensureCertificate(); err != nil {
 		return err
 	}
 	// Ohne das hält Gatekeeper die Datei für heruntergeladen und blockiert.
 	exec.Command("xattr", "-dr", "com.apple.quarantine", ort).Run()
 
 	return exec.Command("codesign", "--force", "--deep",
-		"--sign", zertName, "--identifier", "dev.plxr.app", ort).Run()
+		"--sign", certName, "--identifier", "dev.plxr.app", ort).Run()
 }
 
-func zertifikatSicherstellen() error {
+func ensureCertificate() error {
 	out, err := exec.Command("security", "find-identity", "-p", "codesigning").Output()
-	if err == nil && strings.Contains(string(out), zertName) {
+	if err == nil && strings.Contains(string(out), certName) {
 		return nil
 	}
 
@@ -56,7 +56,7 @@ distinguished_name = dn
 prompt = no
 x509_extensions = v3
 [dn]
-CN = `+zertName+`
+CN = `+certName+`
 [v3]
 basicConstraints = critical,CA:false
 keyUsage = critical,digitalSignature
@@ -74,7 +74,7 @@ extendedKeyUsage = critical,codeSigning
 	// macOS liest die neueren Voreinstellungen von openssl nicht.
 	if err := exec.Command("openssl", "pkcs12", "-export",
 		"-inkey", key, "-in", crt, "-out", p12,
-		"-passout", "pass:plxr", "-name", zertName,
+		"-passout", "pass:plxr", "-name", certName,
 		"-macalg", "sha1", "-keypbe", "PBE-SHA1-3DES", "-certpbe", "PBE-SHA1-3DES").Run(); err != nil {
 		return err
 	}

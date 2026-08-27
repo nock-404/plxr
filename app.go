@@ -67,7 +67,7 @@ func (a *App) Env() Env {
 // Nach einem Update startet die neue Fassung, und die alte muss weichen —
 // aber nur das Fenster. Der Daemon läuft weiter, deshalb überstehen die
 // Sessions den Wechsel.
-func (a *App) Beenden() {
+func (a *App) Quit() {
 	go func() {
 		time.Sleep(400 * time.Millisecond)
 		wr.Quit(a.ctx)

@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type Eintrag struct {
+type Entry struct {
 	PID     int    `json:"pid"`
 	Command string `json:"command"`
 	Port    int    `json:"port"`
@@ -22,15 +22,15 @@ type Eintrag struct {
 }
 
 // List liest die lauschenden TCP-Ports. eigene ordnet PIDs plxr-Sessions zu.
-func List(eigene map[int]bool) []Eintrag {
+func List(eigene map[int]bool) []Entry {
 	// -F erzwingt ein zeilenweises Format, das sich verlässlich parsen lässt;
 	// die Spaltenausgabe von lsof bricht bei Leerzeichen im Prozessnamen.
 	out, err := exec.Command("lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-FpcnuL").Output()
 	if err != nil && len(out) == 0 {
-		return []Eintrag{}
+		return []Entry{}
 	}
 
-	res := []Eintrag{}
+	res := []Entry{}
 	var pid int
 	var cmd, user string
 	gesehen := map[string]bool{}
@@ -39,17 +39,17 @@ func List(eigene map[int]bool) []Eintrag {
 		if len(line) < 2 {
 			continue
 		}
-		wert := line[1:]
+		value := line[1:]
 		switch line[0] {
 		case 'p':
-			pid, _ = strconv.Atoi(wert)
+			pid, _ = strconv.Atoi(value)
 			cmd, user = "", ""
 		case 'c':
-			cmd = wert
+			cmd = value
 		case 'L':
-			user = wert
+			user = value
 		case 'n':
-			addr := wert
+			addr := value
 			i := strings.LastIndex(addr, ":")
 			if i < 0 {
 				continue
@@ -63,7 +63,7 @@ func List(eigene map[int]bool) []Eintrag {
 				continue
 			}
 			gesehen[schluessel] = true
-			res = append(res, Eintrag{
+			res = append(res, Entry{
 				PID: pid, Command: cmd, Port: port,
 				Addr: addr[:i], User: user, Eigen: eigene[pid],
 			})

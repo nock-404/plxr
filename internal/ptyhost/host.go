@@ -25,7 +25,7 @@ import (
 const MaxBuf = 2 << 20
 
 // Fassung wird beim Start gesetzt und landet in TERM_PROGRAM_VERSION.
-var Fassung = "dev"
+var Version = "dev"
 
 // erbtNicht wird unten ergänzt: TERM und Verwandte setzen wir selbst.
 
@@ -50,7 +50,7 @@ type Host struct {
 
 	// mitschnitt ist die Datei, in die der ganze Strom läuft — auch das, was
 	// vorne aus dem Ringpuffer fällt.
-	mitschnitt  *os.File
+	recording   *os.File
 	geschrieben int64
 
 	// plattform hält, was nur ein bestimmtes System braucht — unter Windows
@@ -65,7 +65,7 @@ type Host struct {
 // Claude-Kontos (CLAUDE_CONFIG_DIR).
 func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	if len(argv) == 0 {
-		argv = shell.Standard()
+		argv = shell.Default()
 	}
 
 	p, err := pty.New()
@@ -75,7 +75,7 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 
 	c := p.Command(argv[0], argv[1:]...)
 	c.Dir = cwd
-	c.Env = append(sauberesEnv(), shell.Umgebung(Fassung)...)
+	c.Env = append(cleanEnv(), shell.Environment(Version)...)
 	c.Env = append(c.Env, "PLXR=1")
 	c.Env = append(c.Env, env...)
 
@@ -100,17 +100,17 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	}
 	if c.Process != nil {
 		h.PID = c.Process.Pid
-		h.plattform = nachStart(c.Process)
+		h.plattform = afterStart(c.Process)
 	}
 	// Mitschnitt öffnen. Scheitert das, läuft alles weiter — nur ohne
 	// Aufzeichnung. Ein Terminal, das wegen eines vollen Datenträgers nicht
 	// startet, wäre die schlechtere Wahl.
-	if MitschnittDir != "" {
-		if err := os.MkdirAll(MitschnittDir, 0o755); err == nil {
-			f, err := os.OpenFile(filepath.Join(MitschnittDir, id+".log"),
+	if RecordingDir != "" {
+		if err := os.MkdirAll(RecordingDir, 0o755); err == nil {
+			f, err := os.OpenFile(filepath.Join(RecordingDir, id+".log"),
 				os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 			if err == nil {
-				h.mitschnitt = f
+				h.recording = f
 			}
 		}
 	}
@@ -120,21 +120,21 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 }
 
 // MitschnittDir ist das Verzeichnis für die Mitschnitte. Leer heißt: keine.
-var MitschnittDir string
+var RecordingDir string
 
 // MaxMitschnitt begrenzt eine einzelne Aufzeichnung.
 //
 // Ein Dev-Server, der wochenlang läuft, schreibt sonst Gigabyte. Bei
 // Überschreitung wird nicht mehr angehängt — der Anfang bleibt erhalten, denn
 // dort steht üblicherweise, was die Session eigentlich tut.
-const MaxMitschnitt = 64 << 20
+const MaxRecording = 64 << 20
 
 // erbtNicht sind Variablen, die eine Claude-Code-Session an ihre Kindprozesse
 // weitergibt. Wird plxr aus einer solchen Session heraus gestartet, landen sie
 // über os.Environ() in jeder neuen Session — und CLAUDE_CODE_CHILD_SESSION
 // schaltet dort das Speichern des Transkripts ab. Die Session läuft dann zwar,
 // hinterlässt aber nichts, was sich später fortsetzen ließe.
-var erbtNicht = []string{
+var notInherited = []string{
 	"CLAUDECODE",
 	"CLAUDE_CODE_CHILD_SESSION",
 	"CLAUDE_CODE_ENTRYPOINT",
@@ -148,13 +148,13 @@ var erbtNicht = []string{
 	"PLXR",
 }
 
-func sauberesEnv() []string {
+func cleanEnv() []string {
 	alle := os.Environ()
 	out := make([]string, 0, len(alle))
 	for _, kv := range alle {
 		name, _, _ := strings.Cut(kv, "=")
 		verwerfen := false
-		for _, n := range erbtNicht {
+		for _, n := range notInherited {
 			if name == n {
 				verwerfen = true
 				break
@@ -176,8 +176,8 @@ func (h *Host) pump() {
 			copy(chunk, b[:n])
 			h.mu.Lock()
 			h.last = time.Now()
-			if h.mitschnitt != nil && h.geschrieben < MaxMitschnitt {
-				if n, err := h.mitschnitt.Write(chunk); err == nil {
+			if h.recording != nil && h.geschrieben < MaxRecording {
+				if n, err := h.recording.Write(chunk); err == nil {
 					h.geschrieben += int64(n)
 				}
 			}
@@ -213,9 +213,9 @@ func (h *Host) pump() {
 		close(c)
 		delete(h.subs, c)
 	}
-	if h.mitschnitt != nil {
-		h.mitschnitt.Close()
-		h.mitschnitt = nil
+	if h.recording != nil {
+		h.recording.Close()
+		h.recording = nil
 	}
 	h.mu.Unlock()
 	h.pty.Close()
@@ -340,7 +340,7 @@ func (h *Host) Kill() {
 	killProcess(h.cmd.Process, h.plattform)
 
 	go func() {
-		frist := time.Now().Add(KillFrist)
+		frist := time.Now().Add(KillGrace)
 		for time.Now().Before(frist) {
 			if !h.Alive() {
 				return
@@ -348,10 +348,10 @@ func (h *Host) Kill() {
 			time.Sleep(100 * time.Millisecond)
 		}
 		if h.Alive() {
-			killProcessHart(h.cmd.Process, h.plattform)
+			killProcessHard(h.cmd.Process, h.plattform)
 		}
 	}()
 }
 
 // KillFrist ist die Zeit zwischen freundlichem und hartem Beenden.
-var KillFrist = 2 * time.Second
+var KillGrace = 2 * time.Second

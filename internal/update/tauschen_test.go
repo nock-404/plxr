@@ -6,20 +6,20 @@ import (
 	"testing"
 )
 
-func bündel(t *testing.T, pfad, inhalt string) {
+func bundle(t *testing.T, path, content string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(pfad, "Contents", "MacOS"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(path, "Contents", "MacOS"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	f := filepath.Join(pfad, "Contents", "MacOS", "plxr")
-	if err := os.WriteFile(f, []byte(inhalt), 0o755); err != nil {
+	f := filepath.Join(path, "Contents", "MacOS", "plxr")
+	if err := os.WriteFile(f, []byte(content), 0o755); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func lies(t *testing.T, pfad string) string {
+func read(t *testing.T, path string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join(pfad, "Contents", "MacOS", "plxr"))
+	b, err := os.ReadFile(filepath.Join(path, "Contents", "MacOS", "plxr"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,14 +29,14 @@ func lies(t *testing.T, pfad string) string {
 func TestTauschErsetztUndRaeumtAuf(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
-	neu := filepath.Join(dir, "quelle.app")
-	bündel(t, ziel, "alt")
-	bündel(t, neu, "neu")
+	fresh := filepath.Join(dir, "quelle.app")
+	bundle(t, ziel, "alt")
+	bundle(t, fresh, "neu")
 
-	if err := tauschen(neu, ziel); err != nil {
+	if err := swap(fresh, ziel); err != nil {
 		t.Fatal(err)
 	}
-	if got := lies(t, ziel); got != "neu" {
+	if got := read(t, ziel); got != "neu" {
 		t.Errorf("am Zielort steht %q", got)
 	}
 	for _, rest := range []string{ziel + ".alt", ziel + ".neu"} {
@@ -51,12 +51,12 @@ func TestTauschErsetztUndRaeumtAuf(t *testing.T) {
 func TestTauschLaesstAlteInRuheWennQuelleFehlt(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
-	bündel(t, ziel, "alt")
+	bundle(t, ziel, "alt")
 
-	if err := tauschen(filepath.Join(dir, "gibtesnicht.app"), ziel); err == nil {
+	if err := swap(filepath.Join(dir, "gibtesnicht.app"), ziel); err == nil {
 		t.Fatal("fehlende Quelle wurde nicht gemeldet")
 	}
-	if got := lies(t, ziel); got != "alt" {
+	if got := read(t, ziel); got != "alt" {
 		t.Errorf("die alte Fassung wurde angetastet: %q", got)
 	}
 	if _, err := os.Stat(ziel + ".neu"); err == nil {
@@ -69,16 +69,16 @@ func TestTauschLaesstAlteInRuheWennQuelleFehlt(t *testing.T) {
 func TestZielortBleibtWaehrendDesKopierensBestehen(t *testing.T) {
 	dir := t.TempDir()
 	ziel := filepath.Join(dir, "plxr.app")
-	neu := filepath.Join(dir, "quelle.app")
-	bündel(t, ziel, "alt")
-	bündel(t, neu, "neu")
+	fresh := filepath.Join(dir, "quelle.app")
+	bundle(t, ziel, "alt")
+	bundle(t, fresh, "neu")
 
 	// Nachbilden, was tauschen tut, und dazwischen nachsehen.
 	daneben := ziel + ".neu"
-	if err := kopieren(neu, daneben); err != nil {
+	if err := copyTree(fresh, daneben); err != nil {
 		t.Fatal(err)
 	}
-	if got := lies(t, ziel); got != "alt" {
+	if got := read(t, ziel); got != "alt" {
 		t.Errorf("während des Kopierens stand am Zielort %q statt der alten Fassung", got)
 	}
 	os.RemoveAll(daneben)

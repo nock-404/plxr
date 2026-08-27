@@ -31,10 +31,10 @@ import (
 	"plxr/internal/rules"
 	"plxr/internal/search"
 	"plxr/internal/session"
+	"plxr/internal/template"
 	"plxr/internal/theme"
 	"plxr/internal/update"
 	"plxr/internal/usage"
-	"plxr/internal/vorlage"
 )
 
 // Tile ist eine Session plus dem, was die Oberfläche sonst noch anzeigt.
@@ -43,7 +43,7 @@ type Tile struct {
 	Preview string `json:"preview"`
 	// Frage ist der Teil des Bildschirms, der die Rückfrage enthält — für den
 	// Posteingang, damit man antworten kann, ohne die Session zu öffnen.
-	Frage string `json:"frage,omitempty"`
+	Question string `json:"frage,omitempty"`
 }
 
 // frageAus schneidet aus dem Bildschirm heraus, was nach einer Rückfrage
@@ -53,16 +53,16 @@ type Tile struct {
 // oft mit nummerierten Antwortmöglichkeiten darunter. Wir nehmen ab der
 // letzten Leerzeile vor dem ersten Fragezeichen — das trifft die üblichen
 // Formen, ohne den halben Bildschirm mitzuschleppen.
-func frageAus(schirm string) string {
-	zeilen := strings.Split(strings.TrimRight(schirm, "\n"), "\n")
-	if len(zeilen) == 0 {
+func questionFromScreen(screen string) string {
+	lines := strings.Split(strings.TrimRight(screen, "\n"), "\n")
+	if len(lines) == 0 {
 		return ""
 	}
 	// Von hinten die letzte Zeile mit Fragezeichen oder Auswahlmarke suchen.
-	ende := len(zeilen)
+	end := len(lines)
 	start := -1
-	for i := len(zeilen) - 1; i >= 0 && i > len(zeilen)-18; i-- {
-		l := strings.TrimSpace(zeilen[i])
+	for i := len(lines) - 1; i >= 0 && i > len(lines)-18; i-- {
+		l := strings.TrimSpace(lines[i])
 		if l == "" {
 			if start >= 0 {
 				start = i + 1
@@ -78,12 +78,12 @@ func frageAus(schirm string) string {
 	}
 	if start < 0 {
 		// Keine erkennbare Frage: die letzten Zeilen reichen als Anhaltspunkt.
-		start = len(zeilen) - 6
+		start = len(lines) - 6
 		if start < 0 {
 			start = 0
 		}
 	}
-	teil := strings.Join(zeilen[start:ende], "\n")
+	teil := strings.Join(lines[start:end], "\n")
 	if len(teil) > 900 {
 		teil = teil[len(teil)-900:]
 	}
@@ -120,7 +120,7 @@ func newID() string {
 
 // Create startet ein Kommando. konto wählt das Claude-Konfigurationsverzeichnis;
 // leer heißt Standardkonto.
-func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Session, error) {
+func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.Session, error) {
 	if cwd == "" {
 		cwd, _ = os.UserHomeDir()
 	}
@@ -128,10 +128,10 @@ func (c *Core) Create(cwd string, cmd []string, name, konto string) (*session.Se
 		return nil, errors.New("Verzeichnis gibt es nicht: " + cwd)
 	}
 	if len(cmd) == 0 {
-		cmd = shell.Standard()
+		cmd = shell.Default()
 	}
 
-	acc, _ := accounts.ByName(c.Accounts(), konto)
+	acc, _ := accounts.ByName(c.Accounts(), account)
 	id := newID()
 	h, err := ptyhost.Start(id, cwd, cmd, acc.Env())
 	if err != nil {
@@ -173,8 +173,8 @@ const totNachlauf = 90 * time.Second
 //
 // Ohne Grenze wächst das Verzeichnis endlos. 30 Tage decken die Frage
 // "wo war das nochmal" ab; wer weiter zurück muss, hat ohnehin das Transkript.
-func (c *Core) MitschnitteAufraeumen() {
-	dir := ptyhost.MitschnittDir
+func (c *Core) PruneRecordings() {
+	dir := ptyhost.RecordingDir
 	if dir == "" {
 		return
 	}
@@ -199,7 +199,7 @@ func (c *Core) MitschnitteAufraeumen() {
 }
 
 // aufraeumen entfernt eine beendete Session samt ihrem PTY-Eintrag.
-func (c *Core) aufraeumen(id string) {
+func (c *Core) cleanup(id string) {
 	c.reg.Delete(id)
 	c.mu.Lock()
 	delete(c.hosts, id)
@@ -226,7 +226,7 @@ func (c *Core) Kill(id string, purge bool) {
 //
 // Der Posteingang lebt davon: acht Agenten, drei warten — man will sie
 // abarbeiten, nicht jede einzeln öffnen.
-func (c *Core) Antworten(id, text string, roh bool) error {
+func (c *Core) Answer(id, text string, roh bool) error {
 	h := c.Host(id)
 	if h == nil {
 		return errors.New("Session läuft nicht")
@@ -253,17 +253,17 @@ func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Impo
 
 // ThemeLöschen entfernt ein eigenes Theme. Wer drei ausprobiert hat, will sie
 // wieder loswerden — die eingebauten bleiben unantastbar.
-func (c *Core) ThemeLöschen(name string) error { return theme.Löschen(name) }
+func (c *Core) ThemeDelete(name string) error { return theme.Delete(name) }
 
 // ---- Vorlagen ----
 
-func (c *Core) Vorlagen() []vorlage.Vorlage { return vorlage.Laden(daemon.Root()) }
+func (c *Core) Templates() []template.Template { return template.Load(daemon.Root()) }
 
 // VorlageStarten öffnet alle Sessions einer Vorlage. Fehler bei einzelnen
 // werden gesammelt statt abgebrochen — sieben von acht Sessions sind besser
 // als keine, nur weil ein Verzeichnis verschwunden ist.
-func (c *Core) VorlageStarten(name string) ([]string, error) {
-	for _, v := range c.Vorlagen() {
+func (c *Core) TemplateStart(name string) ([]string, error) {
+	for _, v := range c.Templates() {
 		if v.Name != name {
 			continue
 		}
@@ -286,22 +286,22 @@ func (c *Core) VorlageStarten(name string) ([]string, error) {
 }
 
 // VorlageAusLage macht aus dem, was gerade offen ist, eine Vorlage.
-func (c *Core) VorlageAusLage(name, label string) error {
-	var eintraege []vorlage.Eintrag
+func (c *Core) TemplateFromState(name, label string) error {
+	var eintraege []template.Entry
 	for _, s := range c.reg.List() {
 		if !s.Alive {
 			continue
 		}
-		eintraege = append(eintraege, vorlage.Eintrag{
+		eintraege = append(eintraege, template.Entry{
 			Cwd: s.Cwd, Cmd: s.Cmd, Name: s.Name, Account: s.Account,
 		})
 	}
-	return vorlage.Speichern(daemon.Root(), vorlage.Vorlage{
+	return template.Save(daemon.Root(), template.Template{
 		Name: name, Label: label, Sessions: eintraege,
 	})
 }
 
-func (c *Core) VorlageLöschen(name string) error { return vorlage.Löschen(daemon.Root(), name) }
+func (c *Core) TemplateDelete(name string) error { return template.Delete(daemon.Root(), name) }
 
 // ---- Konten und Archiv ----
 
@@ -311,9 +311,9 @@ func (c *Core) Archive(pathFilter string) []archive.Entry {
 	return archive.List(c.Accounts(), pathFilter)
 }
 
-func (c *Core) archiveFind(id, konto string) (archive.Entry, bool) {
+func (c *Core) archiveFind(id, account string) (archive.Entry, bool) {
 	for _, e := range archive.List(c.Accounts(), "") {
-		if e.ID == id && (konto == "" || e.Account == konto) {
+		if e.ID == id && (account == "" || e.Account == account) {
 			return e, true
 		}
 	}
@@ -321,22 +321,22 @@ func (c *Core) archiveFind(id, konto string) (archive.Entry, bool) {
 }
 
 // Suche durchsucht alle Transkripte im Volltext.
-func (c *Core) Suche(frage string, nurEigene bool) []search.Treffer {
-	return search.Suche(c.Accounts(), frage, nurEigene)
+func (c *Core) Search(question string, nurEigene bool) []search.Hit {
+	return search.Search(c.Accounts(), question, nurEigene)
 }
 
 // SucheTerminals durchsucht, was je in einem Terminal stand — auch in
 // Sessions, die es längst nicht mehr gibt.
-func (c *Core) SucheTerminals(frage string) []search.MitschnittTreffer {
-	namen := map[string]search.MitschnittTreffer{}
+func (c *Core) SucheTerminals(question string) []search.RecordingHit {
+	names := map[string]search.RecordingHit{}
 	for _, s := range c.reg.List() {
-		namen[s.ID] = search.MitschnittTreffer{Name: s.Label(), Cwd: s.Cwd}
+		names[s.ID] = search.RecordingHit{Name: s.Label(), Cwd: s.Cwd}
 	}
-	return search.SucheMitschnitte(ptyhost.MitschnittDir, frage, namen)
+	return search.SearchRecordings(ptyhost.RecordingDir, question, names)
 }
 
-func (c *Core) ArchiveDelete(id, konto string) error {
-	e, ok := c.archiveFind(id, konto)
+func (c *Core) ArchiveDelete(id, account string) error {
+	e, ok := c.archiveFind(id, account)
 	if !ok {
 		return errors.New("Transkript nicht gefunden")
 	}
@@ -346,8 +346,8 @@ func (c *Core) ArchiveDelete(id, konto string) error {
 // Resume nimmt ein abgelegtes Transkript wieder auf — bei Bedarf unter einem
 // anderen Konto. Dafür muss die Datei erst dorthin gespiegelt werden, weil
 // Claude Code nur unter dem eigenen Konfigurationsverzeichnis sucht.
-func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error) {
-	e, ok := c.archiveFind(id, quellKonto)
+func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, error) {
+	e, ok := c.archiveFind(id, fromAccount)
 	if !ok {
 		return nil, errors.New("Transkript nicht gefunden")
 	}
@@ -358,7 +358,7 @@ func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error
 		return nil, errors.New("Arbeitsverzeichnis gibt es nicht mehr: " + e.Cwd)
 	}
 
-	ziel := zielKonto
+	ziel := toAccount
 	if ziel == "" {
 		ziel = e.Account
 	}
@@ -367,7 +367,7 @@ func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error
 		if !ok {
 			return nil, errors.New("Konto gibt es nicht: " + ziel)
 		}
-		if _, err := archive.Spiegeln(e, acc); err != nil {
+		if _, err := archive.Mirror(e, acc); err != nil {
 			return nil, errors.New("Transkript ließ sich nicht ins Zielkonto kopieren: " + err.Error())
 		}
 	}
@@ -383,25 +383,25 @@ func (c *Core) Resume(id, quellKonto, zielKonto string) (*session.Session, error
 //
 // Der Prozess ist weg, aber bei Claude Code steht die Unterhaltung im
 // Transkript — mit --resume geht es dort weiter, wo der Absturz war.
-func (c *Core) Wiederaufnehmen(sessionID string) (*session.Session, error) {
+func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
 		return nil, errors.New("Session gibt es nicht")
 	}
-	cwd, konto, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
-	c.aufraeumen(sessionID)
+	cwd, account, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
+	c.cleanup(sessionID)
 
 	if claudeID != "" {
-		return c.Create(cwd, []string{"claude", "--resume", claudeID}, s.Name, konto)
+		return c.Create(cwd, []string{"claude", "--resume", claudeID}, s.Name, account)
 	}
 	// Kein Transkript: dann eben das Kommando erneut, im selben Verzeichnis.
-	return c.Create(cwd, cmd, s.Name, konto)
+	return c.Create(cwd, cmd, s.Name, account)
 }
 
 // SwitchAccount hängt eine laufende Session auf ein anderes Konto um: Prozess
 // beenden, Transkript spiegeln, unter dem neuen Konto fortsetzen. Das ist der
 // Weg, wenn ein Kontingent aufgebraucht ist.
-func (c *Core) SwitchAccount(sessionID, zielKonto string) (*session.Session, error) {
+func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
 		return nil, errors.New("Session gibt es nicht")
@@ -412,12 +412,12 @@ func (c *Core) SwitchAccount(sessionID, zielKonto string) (*session.Session, err
 	}
 	quelle := s.Account
 	c.Kill(sessionID, true)
-	return c.Resume(claudeID, quelle, zielKonto)
+	return c.Resume(claudeID, quelle, toAccount)
 }
 
 // ---- Verbrauch ----
 
-func (c *Core) Verbrauch(tage int) usage.Bericht { return usage.Rechnen(c.Accounts(), tage) }
+func (c *Core) Verbrauch(tage int) usage.Report { return usage.Compute(c.Accounts(), tage) }
 
 // ---- Anbindung an Claude Code ----
 
@@ -425,12 +425,12 @@ func (c *Core) Verbrauch(tage int) usage.Bericht { return usage.Rechnen(c.Accoun
 // HookStand meldet, ob alle Konten angebunden sind — nicht nur das erste.
 // HookSetzen trägt in alle ein; nur das erste zu prüfen hieße "eingerichtet"
 // anzuzeigen, während zwei Konten stumm bleiben.
-func (c *Core) HookStand() map[string]any {
+func (c *Core) HookStatus() map[string]any {
 	konten := c.Accounts()
 	acc, _ := accounts.ByName(konten, "")
 	fehlen := []string{}
 	for _, a := range konten {
-		if !hook.Eingerichtet(a.Dir) {
+		if !hook.Installed(a.Dir) {
 			fehlen = append(fehlen, a.Label)
 		}
 	}
@@ -450,7 +450,7 @@ func (c *Core) HookSetzen(an bool) error {
 		return errors.New("kein Claude-Code-Verzeichnis gefunden")
 	}
 	for _, a := range konten {
-		if _, err := hook.Einrichten(a.Dir, !an); err != nil {
+		if _, err := hook.Install(a.Dir, !an); err != nil {
 			return err
 		}
 	}
@@ -459,7 +459,7 @@ func (c *Core) HookSetzen(an bool) error {
 
 // ---- Verbrauchstempo ----
 
-func (c *Core) Tempo() usage.Tempo { return usage.TempoRechnen(c.Accounts()) }
+func (c *Core) Pace() usage.Pace { return usage.ComputePace(c.Accounts()) }
 
 // ---- Fassung ----
 
@@ -471,89 +471,89 @@ var Version = "dev"
 // bewusst weiter, ihm gehören die Sessions; melden muss er trotzdem, was
 // installiert ist. Sonst bliebe der Hinweis "neue Fassung" stehen und lüde
 // dasselbe Paket immer wieder.
-var versionSperre sync.RWMutex
+var versionMu sync.RWMutex
 
-func fassung() string {
-	versionSperre.RLock()
-	defer versionSperre.RUnlock()
+func currentVersion() string {
+	versionMu.RLock()
+	defer versionMu.RUnlock()
 	return Version
 }
 
-func (c *Core) VersionStand() update.Stand { return update.Prüfen(fassung()) }
+func (c *Core) VersionStatus() update.Status { return update.Check(currentVersion()) }
 
 // UpdateStand ist der Fortschritt einer laufenden Aktualisierung. Die
 // Oberfläche fragt ihn ab, statt auf einen Aufruf zu warten, der Minuten
 // dauern kann.
-type UpdateStand struct {
-	Läuft   bool   `json:"laeuft"`
-	Prozent int    `json:"prozent"`
+type UpdateStatus struct {
+	Running bool   `json:"laeuft"`
+	Percent int    `json:"prozent"`
 	Phase   string `json:"phase"`
-	Ort     string `json:"ort,omitempty"`
-	Fehler  string `json:"fehler,omitempty"`
-	Fertig  bool   `json:"fertig"`
+	Path    string `json:"ort,omitempty"`
+	Error   string `json:"fehler,omitempty"`
+	Done    bool   `json:"fertig"`
 }
 
-var updateStand UpdateStand
-var updateSperre sync.Mutex
+var updateStatus UpdateStatus
+var updateMu sync.Mutex
 
-func (c *Core) UpdateFortschritt() UpdateStand {
-	updateSperre.Lock()
-	defer updateSperre.Unlock()
-	return updateStand
+func (c *Core) UpdateFortschritt() UpdateStatus {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	return updateStatus
 }
 
-func setzeStand(fn func(*UpdateStand)) {
-	updateSperre.Lock()
-	fn(&updateStand)
-	updateSperre.Unlock()
+func setStatus(fn func(*UpdateStatus)) {
+	updateMu.Lock()
+	fn(&updateStatus)
+	updateMu.Unlock()
 }
 
 // Update startet die Aktualisierung und kehrt sofort zurück. Der Fortschritt
 // läuft über UpdateFortschritt — ein Aufruf, der bis zum Ende blockiert,
 // lässt die Oberfläche minutenlang tot aussehen.
 func (c *Core) Update() error {
-	updateSperre.Lock()
-	if updateStand.Läuft {
-		updateSperre.Unlock()
+	updateMu.Lock()
+	if updateStatus.Running {
+		updateMu.Unlock()
 		return errors.New("läuft bereits")
 	}
-	st := update.Prüfen(Version)
-	if st.Fehler != "" {
-		updateSperre.Unlock()
-		return errors.New(st.Fehler)
+	st := update.Check(Version)
+	if st.Error != "" {
+		updateMu.Unlock()
+		return errors.New(st.Error)
 	}
-	if !st.Verfügbar {
-		updateSperre.Unlock()
+	if !st.Available {
+		updateMu.Unlock()
 		return errors.New("es gibt nichts Neueres")
 	}
-	updateStand = UpdateStand{Läuft: true, Phase: "lädt"}
-	updateSperre.Unlock()
+	updateStatus = UpdateStatus{Running: true, Phase: "lädt"}
+	updateMu.Unlock()
 
 	go func() {
-		ort, err := update.Anwenden(st.AssetURL, func(gelesen, gesamt int64) {
+		ort, err := update.Apply(st.AssetURL, func(read, gesamt int64) {
 			if gesamt <= 0 {
 				return
 			}
-			setzeStand(func(u *UpdateStand) {
-				u.Prozent = int(gelesen * 100 / gesamt)
-				if u.Prozent >= 100 {
+			setStatus(func(u *UpdateStatus) {
+				u.Percent = int(read * 100 / gesamt)
+				if u.Percent >= 100 {
 					u.Phase = "tauscht aus"
 				}
 			})
 		})
-		setzeStand(func(u *UpdateStand) {
-			u.Läuft = false
-			u.Fertig = true
+		setStatus(func(u *UpdateStatus) {
+			u.Running = false
+			u.Done = true
 			if err != nil {
-				u.Fehler = err.Error()
+				u.Error = err.Error()
 				u.Phase = "fehlgeschlagen"
 				return
 			}
-			u.Ort, u.Phase, u.Prozent = ort, "fertig", 100
+			u.Path, u.Phase, u.Percent = ort, "fertig", 100
 		})
-		versionSperre.Lock()
-		Version = st.Neueste
-		versionSperre.Unlock()
+		versionMu.Lock()
+		Version = st.Latest
+		versionMu.Unlock()
 	}()
 	return nil
 }
@@ -563,34 +563,34 @@ func (c *Core) Update() error {
 // Der Daemon läuft weiter — er ist ein eigener Prozess, und die Sessions
 // gehören ihm. Nur das Fenster kommt neu, mit der neuen Fassung. Genau
 // deshalb bleibt beim Update alles beim Alten.
-func (c *Core) NeuStarten() error {
+func (c *Core) Restart() error {
 	st := c.UpdateFortschritt()
-	if st.Ort == "" {
+	if st.Path == "" {
 		return errors.New("nichts eingesetzt")
 	}
-	return update.NeuStarten(st.Ort)
+	return update.Restart(st.Path)
 }
 
 // ---- Regeln und Ports ----
 
 // Rules löst auf, welche Anweisungsdateien in einer Session wirken. Ohne
 // Session-ID gilt das übergebene Verzeichnis.
-func (c *Core) Rules(sessionID, dir string) []rules.Eintrag {
-	konto := ""
+func (c *Core) Rules(sessionID, dir string) []rules.Entry {
+	account := ""
 	if sessionID != "" {
 		if s, ok := c.reg.Get(sessionID); ok {
-			dir, konto = s.Cwd, s.Account
+			dir, account = s.Cwd, s.Account
 		}
 	}
 	if dir == "" {
-		return []rules.Eintrag{}
+		return []rules.Entry{}
 	}
-	acc, _ := accounts.ByName(c.Accounts(), konto)
+	acc, _ := accounts.ByName(c.Accounts(), account)
 	return rules.Resolve(dir, acc.Dir)
 }
 
 // Ports listet die belegten Ports und markiert, welche zu plxr-Sessions gehören.
-func (c *Core) Ports() []ports.Eintrag {
+func (c *Core) Ports() []ports.Entry {
 	eigene := map[int]bool{}
 	for _, s := range c.reg.List() {
 		if s.Alive && s.PID > 0 {
@@ -640,16 +640,16 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 
 // Vorschlaege hilft beim Eintippen eines Pfades. Bewusst ohne Sessionbezug:
 // gesucht wird ein Verzeichnis, in dem noch keine Session läuft.
-func (c *Core) Vorschlaege(eingabe string) []string {
-	return files.Vorschlaege(eingabe, 40)
+func (c *Core) Suggestions(eingabe string) []string {
+	return files.Suggestions(eingabe, 40)
 }
 
-func (c *Core) WriteFile(sessionID, path, text string, stand int64) (*files.Content, error) {
+func (c *Core) WriteFile(sessionID, path, text string, status int64) (*files.Content, error) {
 	root, err := c.root(sessionID)
 	if err != nil {
 		return nil, err
 	}
-	return files.Write(root, path, text, stand)
+	return files.Write(root, path, text, status)
 }
 
 // ---- Zustand zusammenführen ----
@@ -676,9 +676,9 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		// sieht, dann wegräumen. Verwaiste bleiben: sie stehen für Arbeit, die
 		// niemand beenden wollte, und verschwinden erst, wenn jemand sie
 		// wegklickt oder fortsetzt.
-		if !sess.Alive && !sess.Verwaist && sess.EndedAt > 0 &&
+		if !sess.Alive && !sess.Orphaned && sess.EndedAt > 0 &&
 			time.Since(time.UnixMilli(sess.EndedAt)) > totNachlauf {
-			c.aufraeumen(sess.ID)
+			c.cleanup(sess.ID)
 			continue
 		}
 
@@ -718,7 +718,7 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 
 		t := Tile{Session: sess, Preview: screen}
 		if sess.Alive && sess.Status == session.StatusPermission {
-			t.Frage = frageAus(screen)
+			t.Question = questionFromScreen(screen)
 		}
 		out = append(out, t)
 		c.checkEdge(sess)

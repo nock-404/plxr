@@ -9,7 +9,7 @@ import (
 
 // nachStart hat unter Unix nichts zu tun: go-pty startet das Kind mit eigener
 // Session, damit ist die Prozessgruppe schon da.
-func nachStart(*os.Process) any { return nil }
+func afterStart(*os.Process) any { return nil }
 
 // killProcess beendet die gesamte Prozessgruppe. Die Gruppen-ID ist gleich der
 // Prozess-ID; das negative Vorzeichen adressiert die Gruppe. Ohne das
@@ -23,7 +23,7 @@ func killProcess(p *os.Process, _ any) {
 
 // killProcessHart lässt nicht mit sich reden. Auch hier zuerst die Gruppe:
 // sonst überlebt, was die Session gestartet hat.
-func killProcessHart(p *os.Process, _ any) {
+func killProcessHard(p *os.Process, _ any) {
 	if err := syscall.Kill(-p.Pid, syscall.SIGKILL); err != nil {
 		_ = p.Signal(syscall.SIGKILL)
 	}

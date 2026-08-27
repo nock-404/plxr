@@ -10,12 +10,12 @@ import (
 )
 
 // MitschnittTreffer ist eine Fundstelle in der Terminalausgabe einer Session.
-type MitschnittTreffer struct {
+type RecordingHit struct {
 	SessionID string `json:"sessionId"`
 	Name      string `json:"name"`
 	Cwd       string `json:"cwd"`
 	Mod       int64  `json:"mod"`
-	Anzahl    int    `json:"anzahl"`
+	Count     int    `json:"anzahl"`
 	Auszug    string `json:"auszug"`
 }
 
@@ -28,28 +28,28 @@ type MitschnittTreffer struct {
 // Gesucht wird zeilenweise auf dem Rohstrom. Escape-Sequenzen stehen mit
 // drin — deshalb wird die Trefferzeile vor der Anzeige gesäubert, nicht
 // vorher der ganze Strom: das wäre bei hunderten Megabyte zu teuer.
-func SucheMitschnitte(dir, frage string, namen map[string]MitschnittTreffer) []MitschnittTreffer {
-	frage = strings.TrimSpace(frage)
-	if len(frage) < 2 || dir == "" {
-		return []MitschnittTreffer{}
+func SearchRecordings(dir, question string, names map[string]RecordingHit) []RecordingHit {
+	question = strings.TrimSpace(question)
+	if len(question) < 2 || dir == "" {
+		return []RecordingHit{}
 	}
-	klein := strings.ToLower(frage)
+	small := strings.ToLower(question)
 
-	dateien, _ := filepath.Glob(filepath.Join(dir, "*.log"))
-	out := []MitschnittTreffer{}
+	files, _ := filepath.Glob(filepath.Join(dir, "*.log"))
+	out := []RecordingHit{}
 
-	for _, p := range dateien {
+	for _, p := range files {
 		info, err := os.Stat(p)
 		if err != nil || info.Size() == 0 {
 			continue
 		}
-		anzahl, auszug := durchsuchenRoh(p, klein)
-		if anzahl == 0 {
+		count, auszug := scanRaw(p, small)
+		if count == 0 {
 			continue
 		}
 		id := strings.TrimSuffix(filepath.Base(p), ".log")
-		t := MitschnittTreffer{SessionID: id, Mod: info.ModTime().UnixMilli(), Anzahl: anzahl, Auszug: auszug}
-		if bekannt, ok := namen[id]; ok {
+		t := RecordingHit{SessionID: id, Mod: info.ModTime().UnixMilli(), Count: count, Auszug: auszug}
+		if bekannt, ok := names[id]; ok {
 			t.Name, t.Cwd = bekannt.Name, bekannt.Cwd
 		}
 		if t.Name == "" {
@@ -61,10 +61,10 @@ func SucheMitschnitte(dir, frage string, namen map[string]MitschnittTreffer) []M
 	return out
 }
 
-const maxZeile = 1 << 20
+const maxLine = 1 << 20
 
-func durchsuchenRoh(pfad, klein string) (int, string) {
-	f, err := os.Open(pfad)
+func scanRaw(path, small string) (int, string) {
+	f, err := os.Open(path)
 	if err != nil {
 		return 0, ""
 	}
@@ -77,29 +77,29 @@ func durchsuchenRoh(pfad, klein string) (int, string) {
 	}
 
 	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), maxZeile)
-	anzahl := 0
+	sc.Buffer(make([]byte, 0, 64*1024), maxLine)
+	count := 0
 	auszug := ""
 	for sc.Scan() {
-		zeile := sc.Text()
-		if !strings.Contains(strings.ToLower(zeile), klein) {
+		line := sc.Text()
+		if !strings.Contains(strings.ToLower(line), small) {
 			continue
 		}
-		anzahl++
+		count++
 		if auszug == "" {
-			auszug = sauber(zeile, klein)
+			auszug = clean(line, small)
 		}
-		if anzahl > 500 {
+		if count > 500 {
 			break
 		}
 	}
-	return anzahl, auszug
+	return count, auszug
 }
 
 // sauber entfernt Steuerzeichen und schneidet um die Fundstelle herum zu.
-func sauber(zeile, klein string) string {
-	rein := entferneEscapes(zeile)
-	i := strings.Index(strings.ToLower(rein), klein)
+func clean(line, small string) string {
+	rein := stripEscapes(line)
+	i := strings.Index(strings.ToLower(rein), small)
 	if i < 0 {
 		i = 0
 	}
@@ -108,15 +108,15 @@ func sauber(zeile, klein string) string {
 	if start < 0 {
 		start = 0
 	}
-	ende := start + 190
-	if ende > len(r) {
-		ende = len(r)
+	end := start + 190
+	if end > len(r) {
+		end = len(r)
 	}
-	s := strings.Join(strings.Fields(string(r[start:ende])), " ")
+	s := strings.Join(strings.Fields(string(r[start:end])), " ")
 	if start > 0 {
 		s = "… " + s
 	}
-	if ende < len(r) {
+	if end < len(r) {
 		s += " …"
 	}
 	return s

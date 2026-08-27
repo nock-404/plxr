@@ -2441,7 +2441,7 @@ function updateVerfolgen() {
         await api.neuStarten();
         // Die neue Fassung läuft jetzt. Dieses Fenster verabschiedet sich —
         // der Daemon bleibt, deshalb merken die Sessions davon nichts.
-        if (WAILS) Native.Beenden?.();
+        if (WAILS) Native.Quit();
       } catch {
         $('#updateText').textContent = 'eingesetzt — plxr von Hand neu starten';
       }

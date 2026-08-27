@@ -19,7 +19,7 @@ import (
 // damit ein Fehler hier höchstens den alten Zustand herstellt statt einen
 // schlechteren.
 
-type jobObjekt struct{ handle windows.Handle }
+type jobObject struct{ handle windows.Handle }
 
 // nachStart legt ein Job Object an und ordnet den eben gestarteten Prozess zu.
 //
@@ -27,7 +27,7 @@ type jobObjekt struct{ handle windows.Handle }
 // entkommen könnte. Sauberer wäre CREATE_SUSPENDED und ein Resume danach, doch
 // go-pty gibt den Thread-Handle nicht heraus. Für ein CLI, das in den ersten
 // Millisekunden noch nichts abspaltet, ist das vertretbar.
-func nachStart(p *os.Process) any {
+func afterStart(p *os.Process) any {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return nil
@@ -57,7 +57,7 @@ func nachStart(p *os.Process) any {
 		windows.CloseHandle(job)
 		return nil
 	}
-	return &jobObjekt{handle: job}
+	return &jobObject{handle: job}
 }
 
 // killProcess beendet den Behälter samt allem darin.
@@ -66,7 +66,7 @@ func nachStart(p *os.Process) any {
 // TerminateJobObject ist immer hart. Der weiche Weg wäre 0x03 in die
 // Eingabe-Pipe — das macht die Oberfläche, wenn der Nutzer abbrechen will.
 func killProcess(p *os.Process, plattform any) {
-	if j, ok := plattform.(*jobObjekt); ok && j != nil {
+	if j, ok := plattform.(*jobObject); ok && j != nil {
 		if windows.TerminateJobObject(j.handle, 1) == nil {
 			windows.CloseHandle(j.handle)
 			return
@@ -78,4 +78,4 @@ func killProcess(p *os.Process, plattform any) {
 
 // killProcessHart gibt es unter Windows nur der Vollständigkeit halber:
 // TerminateJobObject ist ohnehin hart, ein zweiter Anlauf ändert nichts.
-func killProcessHart(p *os.Process, plattform any) { killProcess(p, plattform) }
+func killProcessHard(p *os.Process, plattform any) { killProcess(p, plattform) }

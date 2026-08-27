@@ -51,39 +51,39 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := s.c.Antworten(r.PathValue("id"), string(b), r.URL.Query().Get("roh") == "1"); err != nil {
+		if err := s.c.Answer(r.PathValue("id"), string(b), r.URL.Query().Get("roh") == "1"); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/shell", func(w http.ResponseWriter, r *http.Request) {
-		cmd := shell.Standard()
+		cmd := shell.Default()
 		writeJSON(w, map[string]any{"cmd": cmd, "name": shell.Name(cmd)})
 	})
 	mux.HandleFunc("GET /api/themes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Themes()) })
 	mux.HandleFunc("POST /api/themes", s.importTheme)
 	mux.HandleFunc("DELETE /api/themes/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.ThemeLöschen(r.PathValue("name")); err != nil {
+		if err := s.c.ThemeDelete(r.PathValue("name")); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.Vorlagen())
+		writeJSON(w, s.c.Templates())
 	})
 	mux.HandleFunc("POST /api/vorlagen/{name}/start", func(w http.ResponseWriter, r *http.Request) {
-		ids, err := s.c.VorlageStarten(r.PathValue("name"))
+		ids, err := s.c.TemplateStart(r.PathValue("name"))
 		if err != nil && len(ids) == 0 {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		antwort := map[string]any{"ids": ids}
+		answer := map[string]any{"ids": ids}
 		if err != nil {
-			antwort["teilweise"] = err.Error()
+			answer["teilweise"] = err.Error()
 		}
-		writeJSON(w, antwort)
+		writeJSON(w, answer)
 	})
 	mux.HandleFunc("POST /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ Name, Label string }
@@ -91,14 +91,14 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, "kaputtes JSON", http.StatusBadRequest)
 			return
 		}
-		if err := s.c.VorlageAusLage(req.Name, req.Label); err != nil {
+		if err := s.c.TemplateFromState(req.Name, req.Label); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, s.c.Vorlagen())
+		writeJSON(w, s.c.Templates())
 	})
 	mux.HandleFunc("DELETE /api/vorlagen/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.VorlageLöschen(r.PathValue("name")); err != nil {
+		if err := s.c.TemplateDelete(r.PathValue("name")); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -113,13 +113,13 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		writeJSON(w, s.c.Suche(q.Get("q"), q.Get("nur") == "eigene"))
+		writeJSON(w, s.c.Search(q.Get("q"), q.Get("nur") == "eigene"))
 	})
 	mux.HandleFunc("DELETE /api/archive/{id}", s.archiveDelete)
 	mux.HandleFunc("POST /api/archive/{id}/resume", s.archiveResume)
 	mux.HandleFunc("POST /api/sessions/{id}/account", s.switchAccount)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
-		sess, err := s.c.Wiederaufnehmen(r.PathValue("id"))
+		sess, err := s.c.ResumeOrphaned(r.PathValue("id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -131,17 +131,17 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.Rules(q.Get("session"), q.Get("dir")))
 	})
 	mux.HandleFunc("GET /api/hook", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.HookStand())
+		writeJSON(w, s.c.HookStatus())
 	})
 	mux.HandleFunc("POST /api/hook", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.HookSetzen(r.URL.Query().Get("an") == "1"); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, s.c.HookStand())
+		writeJSON(w, s.c.HookStatus())
 	})
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.VersionStand())
+		writeJSON(w, s.c.VersionStatus())
 	})
 	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.Update(); err != nil {
@@ -158,7 +158,7 @@ func (s *Server) Routes() *http.ServeMux {
 	// laufende Session töten — genau das Gegenteil dessen, was im Dialog
 	// steht. Das Fenster verabschiedet sich selbst über die Wails-Bindung.
 	mux.HandleFunc("POST /api/restart", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.NeuStarten(); err != nil {
+		if err := s.c.Restart(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -169,13 +169,13 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.Verbrauch(tage))
 	})
 	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.Tempo())
+		writeJSON(w, s.c.Pace())
 	})
 	mux.HandleFunc("GET /api/ports", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Ports()) })
 	mux.HandleFunc("DELETE /api/ports/{pid}", s.killPort)
 	mux.HandleFunc("GET /api/files/{id}", s.listDir)
 	mux.HandleFunc("GET /api/paths", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.Vorschlaege(r.URL.Query().Get("q")))
+		writeJSON(w, s.c.Suggestions(r.URL.Query().Get("q")))
 	})
 	mux.HandleFunc("GET /api/file/{id}", s.readFile)
 	mux.HandleFunc("PUT /api/file/{id}", s.writeFile)

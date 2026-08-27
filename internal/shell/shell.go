@@ -16,7 +16,7 @@ import (
 )
 
 // Standard liefert das Kommando für eine gewöhnliche Terminalsitzung.
-func Standard() []string {
+func Default() []string {
 	if runtime.GOOS == "windows" {
 		return windowsShell()
 	}
@@ -80,12 +80,12 @@ func windowsShell() []string {
 // xterm.js kann. LANG mit UTF-8 verhindert, dass Umlaute und Rahmenzeichen
 // als Fragezeichen ankommen — das fehlt erstaunlich oft, wenn ein Programm
 // nicht aus einer Konsole gestartet wurde.
-func Umgebung(fassung string) []string {
+func Environment(currentVersion string) []string {
 	env := []string{
 		"TERM=xterm-256color",
 		"COLORTERM=truecolor",
 		"TERM_PROGRAM=plxr",
-		"TERM_PROGRAM_VERSION=" + fassung,
+		"TERM_PROGRAM_VERSION=" + currentVersion,
 	}
 	if os.Getenv("LANG") == "" {
 		env = append(env, "LANG=en_US.UTF-8")

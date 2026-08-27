@@ -20,7 +20,7 @@ import (
 	"plxr/internal/accounts"
 )
 
-type Treffer struct {
+type Hit struct {
 	SessionID string `json:"sessionId"`
 	Account   string `json:"account"`
 	Path      string `json:"path"`
@@ -30,11 +30,11 @@ type Treffer struct {
 	Mod       int64  `json:"mod"`
 	Rolle     string `json:"rolle"` // "user" oder "assistant"
 	Auszug    string `json:"auszug"`
-	Anzahl    int    `json:"anzahl"` // Treffer in dieser Session
+	Count     int    `json:"anzahl"` // Treffer in dieser Session
 }
 
 // zeile ist der Ausschnitt eines Transkripteintrags, den wir brauchen.
-type zeile struct {
+type line struct {
 	Type    string `json:"type"`
 	AiTitle string `json:"aiTitle"`
 	Cwd     string `json:"cwd"`
@@ -45,28 +45,28 @@ type zeile struct {
 }
 
 const (
-	maxTreffer      = 200
-	maxProSession   = 3
-	auszugKontext   = 90
-	maxZeilenLaenge = 2 << 20
+	maxHits       = 200
+	maxProSession = 3
+	auszugKontext = 90
+	maxLineLength = 2 << 20
 )
 
 // Suche durchläuft alle Transkripte aller Konten.
-func Suche(accs []accounts.Account, frage string, nurEigene bool) []Treffer {
-	frage = strings.TrimSpace(frage)
-	if len(frage) < 2 {
-		return []Treffer{}
+func Search(accs []accounts.Account, question string, nurEigene bool) []Hit {
+	question = strings.TrimSpace(question)
+	if len(question) < 2 {
+		return []Hit{}
 	}
-	klein := strings.ToLower(frage)
+	small := strings.ToLower(question)
 
-	dateien := sammeln(accs)
+	files := collect(accs)
 
 	arbeiter := runtime.NumCPU()
 	if arbeiter > 8 {
 		arbeiter = 8
 	}
-	rein := make(chan datei)
-	raus := make(chan Treffer)
+	rein := make(chan file)
+	raus := make(chan Hit)
 	var wg sync.WaitGroup
 
 	for i := 0; i < arbeiter; i++ {
@@ -74,14 +74,14 @@ func Suche(accs []accounts.Account, frage string, nurEigene bool) []Treffer {
 		go func() {
 			defer wg.Done()
 			for d := range rein {
-				if t, ok := durchsuchen(d, klein, nurEigene); ok {
+				if t, ok := scan(d, small, nurEigene); ok {
 					raus <- t
 				}
 			}
 		}()
 	}
 	go func() {
-		for _, d := range dateien {
+		for _, d := range files {
 			rein <- d
 		}
 		close(rein)
@@ -89,10 +89,10 @@ func Suche(accs []accounts.Account, frage string, nurEigene bool) []Treffer {
 		close(raus)
 	}()
 
-	out := []Treffer{}
+	out := []Hit{}
 	for t := range raus {
 		out = append(out, t)
-		if len(out) >= maxTreffer {
+		if len(out) >= maxHits {
 			break
 		}
 	}
@@ -106,15 +106,15 @@ func Suche(accs []accounts.Account, frage string, nurEigene bool) []Treffer {
 	return out
 }
 
-type datei struct {
-	pfad   string
-	konto  string
-	mod    int64
-	ordner string
+type file struct {
+	path    string
+	account string
+	mod     int64
+	folder  string
 }
 
-func sammeln(accs []accounts.Account) []datei {
-	var out []datei
+func collect(accs []accounts.Account) []file {
+	var out []file
 	gesehen := map[string]bool{}
 	for _, a := range accs {
 		dirs, err := os.ReadDir(a.ProjectsDir())
@@ -143,9 +143,9 @@ func sammeln(accs []accounts.Account) []datei {
 				if err != nil {
 					continue
 				}
-				out = append(out, datei{
-					pfad: filepath.Join(pdir, f.Name()), konto: a.Name,
-					mod: info.ModTime().UnixMilli(), ordner: d.Name(),
+				out = append(out, file{
+					path: filepath.Join(pdir, f.Name()), account: a.Name,
+					mod: info.ModTime().UnixMilli(), folder: d.Name(),
 				})
 			}
 		}
@@ -153,19 +153,19 @@ func sammeln(accs []accounts.Account) []datei {
 	return out
 }
 
-func durchsuchen(d datei, klein string, nurEigene bool) (Treffer, bool) {
-	f, err := os.Open(d.pfad)
+func scan(d file, small string, nurEigene bool) (Hit, bool) {
+	f, err := os.Open(d.path)
 	if err != nil {
-		return Treffer{}, false
+		return Hit{}, false
 	}
 	defer f.Close()
 
 	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), maxZeilenLaenge)
+	sc.Buffer(make([]byte, 0, 64*1024), maxLineLength)
 
-	t := Treffer{
-		SessionID: strings.TrimSuffix(filepath.Base(d.pfad), ".jsonl"),
-		Account:   d.konto, Path: d.pfad, Mod: d.mod,
+	t := Hit{
+		SessionID: strings.TrimSuffix(filepath.Base(d.path), ".jsonl"),
+		Account:   d.account, Path: d.path, Mod: d.mod,
 	}
 
 	for sc.Scan() {
@@ -175,9 +175,9 @@ func durchsuchen(d datei, klein string, nurEigene bool) (Treffer, bool) {
 		}
 		// Erst billig prüfen, ob der Begriff überhaupt vorkommt. Das JSON zu
 		// entpacken ist um ein Vielfaches teurer als ein Teilstringvergleich.
-		hat := strings.Contains(strings.ToLower(string(roh)), klein)
+		hat := strings.Contains(strings.ToLower(string(roh)), small)
 
-		var z zeile
+		var z line
 		if !hat && t.Title != "" && t.Cwd != "" {
 			continue
 		}
@@ -201,29 +201,29 @@ func durchsuchen(d datei, klein string, nurEigene bool) (Treffer, bool) {
 		if rolle != "user" && rolle != "assistant" {
 			continue
 		}
-		text := textAus(z.Message.Content)
+		text := textFrom(z.Message.Content)
 		if text == "" {
 			continue
 		}
-		i := strings.Index(strings.ToLower(text), klein)
+		i := strings.Index(strings.ToLower(text), small)
 		if i < 0 {
 			continue
 		}
-		t.Anzahl++
+		t.Count++
 		if t.Auszug == "" {
 			t.Rolle = rolle
-			t.Auszug = ausschnitt(text, i, len(klein))
+			t.Auszug = excerpt(text, i, len(small))
 		}
-		if t.Anzahl >= maxProSession && t.Title != "" {
+		if t.Count >= maxProSession && t.Title != "" {
 			break
 		}
 	}
 
-	if t.Anzahl == 0 {
-		return Treffer{}, false
+	if t.Count == 0 {
+		return Hit{}, false
 	}
 	if t.Cwd == "" {
-		t.Cwd = strings.ReplaceAll(d.ordner, "-", "/")
+		t.Cwd = strings.ReplaceAll(d.folder, "-", "/")
 	}
 	t.Project = filepath.Base(t.Cwd)
 	return t, true
@@ -231,7 +231,7 @@ func durchsuchen(d datei, klein string, nurEigene bool) (Treffer, bool) {
 
 // textAus holt den lesbaren Text aus dem Inhaltsfeld, das mal ein String und
 // mal eine Liste von Blöcken ist.
-func textAus(roh json.RawMessage) string {
+func textFrom(roh json.RawMessage) string {
 	if len(roh) == 0 {
 		return ""
 	}
@@ -258,7 +258,7 @@ func textAus(roh json.RawMessage) string {
 	return b.String()
 }
 
-func ausschnitt(text string, i, laenge int) string {
+func excerpt(text string, i, laenge int) string {
 	r := []rune(text)
 	// Byte- in Runenposition umrechnen, sonst zerschneidet der Ausschnitt Umlaute.
 	start := len([]rune(text[:i]))

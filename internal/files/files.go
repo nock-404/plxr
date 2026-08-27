@@ -23,7 +23,7 @@ const MaxRead = 512 << 10
 // Rauschen, das im Baum standardmäßig nicht auftaucht. Der Nutzer kann es
 // einblenden; Voreinstellung ist ausblenden, weil node_modules jeden Baum
 // unbrauchbar macht.
-var rauschen = map[string]bool{
+var noise = map[string]bool{
 	".git": true, "node_modules": true, ".DS_Store": true,
 	".next": true, ".nuxt": true, ".turbo": true, ".cache": true,
 	"dist": true, "build": true, "target": true, "vendor": true,
@@ -87,7 +87,7 @@ func List(root, dir string) ([]Entry, error) {
 			Dir:  de.IsDir(),
 			Mod:  info.ModTime().UnixMilli(),
 			// Rauschen sind bekannte Namen plus alles, was mit Punkt anfängt.
-			Noise: rauschen[name] || (strings.HasPrefix(name, ".") && name != ".env.example"),
+			Noise: noise[name] || (strings.HasPrefix(name, ".") && name != ".env.example"),
 		}
 		if !e.Dir {
 			e.Size = info.Size()
@@ -173,7 +173,7 @@ const MaxWrite = 4 << 20
 //
 // Geschrieben wird über eine Nebendatei und Umbenennen: ein abgebrochener
 // Schreibvorgang hinterlässt so keine halbe Datei.
-func Write(root, path, text string, erwarteterStand int64) (*Content, error) {
+func Write(root, path, text string, expectedState int64) (*Content, error) {
 	if len(text) > MaxWrite {
 		return nil, errors.New("zu groß zum Speichern")
 	}
@@ -188,7 +188,7 @@ func Write(root, path, text string, erwarteterStand int64) (*Content, error) {
 	if info.IsDir() {
 		return nil, errors.New("das ist ein Verzeichnis")
 	}
-	if erwarteterStand != 0 && info.ModTime().UnixMilli() != erwarteterStand {
+	if expectedState != 0 && info.ModTime().UnixMilli() != expectedState {
 		return nil, errors.New("die Datei wurde inzwischen von außen geändert — neu laden und noch einmal versuchen")
 	}
 
@@ -208,7 +208,7 @@ func Write(root, path, text string, erwarteterStand int64) (*Content, error) {
 // Anders als der Rest dieses Pakets NICHT an eine Session gefesselt: hier geht
 // es darum, ein Verzeichnis zu finden, in dem noch gar keine Session läuft.
 // Gelesen werden ausschließlich Verzeichnisnamen — keine Dateiinhalte.
-func Vorschlaege(eingabe string, max int) []string {
+func Suggestions(eingabe string, max int) []string {
 	if eingabe == "" {
 		eingabe = "~/"
 	}
@@ -232,7 +232,7 @@ func Vorschlaege(eingabe string, max int) []string {
 		return []string{}
 	}
 
-	klein := strings.ToLower(rumpf)
+	small := strings.ToLower(rumpf)
 	out := []string{}
 	for _, e := range eintraege {
 		if !e.IsDir() {
@@ -243,7 +243,7 @@ func Vorschlaege(eingabe string, max int) []string {
 		if strings.HasPrefix(name, ".") && !strings.HasPrefix(rumpf, ".") {
 			continue
 		}
-		if klein != "" && !strings.HasPrefix(strings.ToLower(name), klein) {
+		if small != "" && !strings.HasPrefix(strings.ToLower(name), small) {
 			continue
 		}
 		out = append(out, filepath.Join(dir, name))

@@ -10,7 +10,7 @@ import (
 )
 
 // Ereignisse sind die Hook-Punkte, an denen plxr mitschreibt.
-var Ereignisse = []string{
+var Events = []string{
 	"SessionStart", "UserPromptSubmit", "PreToolUse", "Notification", "Stop", "SessionEnd",
 }
 
@@ -19,7 +19,7 @@ var Ereignisse = []string{
 // Vorhandene Hooks bleiben stehen: die Datei gehört dem Nutzer, und wer dort
 // schon etwas eingerichtet hat, würde es zu Recht übelnehmen, wenn ein
 // fremdes Programm sie überschreibt. Ergänzt wird nur, was fehlt.
-func Einrichten(configDir string, entfernen bool) (string, error) {
+func Install(configDir string, entfernen bool) (string, error) {
 	if configDir == "" {
 		home, _ := os.UserHomeDir()
 		configDir = filepath.Join(home, ".claude")
@@ -27,12 +27,12 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
 	if _, err := os.Stat(configDir); err != nil {
 		return "", errors.New("kein Claude-Code-Verzeichnis: " + configDir)
 	}
-	pfad := filepath.Join(configDir, "settings.json")
+	path := filepath.Join(configDir, "settings.json")
 
 	einst := map[string]any{}
-	if b, err := os.ReadFile(pfad); err == nil && len(b) > 0 {
+	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
 		if err := json.Unmarshal(b, &einst); err != nil {
-			return "", errors.New(pfad + " ist kein gültiges JSON: " + err.Error())
+			return "", errors.New(path + " ist kein gültiges JSON: " + err.Error())
 		}
 	}
 
@@ -47,23 +47,23 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
 		hooks = map[string]any{}
 	}
 
-	geändert := false
-	for _, ev := range Ereignisse {
+	changed := false
+	for _, ev := range Events {
 		liste, _ := hooks[ev].([]any)
-		neu := make([]any, 0, len(liste))
+		fresh := make([]any, 0, len(liste))
 		vorhanden := false
-		for _, eintrag := range liste {
-			if istUnserer(eintrag) {
-				geändert = true
+		for _, entry := range liste {
+			if isOurs(entry) {
+				changed = true
 				if entfernen {
 					continue // fällt weg
 				}
 				vorhanden = true
 			}
-			neu = append(neu, eintrag)
+			fresh = append(fresh, entry)
 		}
 		if !entfernen && !vorhanden {
-			neu = append(neu, map[string]any{
+			fresh = append(fresh, map[string]any{
 				"hooks": []any{map[string]any{
 					"type":    "command",
 					"command": exe,
@@ -72,17 +72,17 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
 					"async": ev != "SessionEnd",
 				}},
 			})
-			geändert = true
+			changed = true
 		}
-		if len(neu) == 0 {
+		if len(fresh) == 0 {
 			delete(hooks, ev)
 		} else {
-			hooks[ev] = neu
+			hooks[ev] = fresh
 		}
 	}
 
-	if !geändert {
-		return pfad, nil
+	if !changed {
+		return path, nil
 	}
 	if len(hooks) == 0 {
 		delete(einst, "hooks")
@@ -96,14 +96,14 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
 	}
 	// Vor dem Schreiben eine Sicherung: das ist die Konfigurationsdatei des
 	// Nutzers, nicht unsere.
-	if alt, err := os.ReadFile(pfad); err == nil {
-		os.WriteFile(pfad+".vor-plxr", alt, 0o644)
+	if old, err := os.ReadFile(path); err == nil {
+		os.WriteFile(path+".vor-plxr", old, 0o644)
 	}
-	tmp := fmt.Sprintf("%s.%d.tmp", pfad, os.Getpid())
+	tmp := fmt.Sprintf("%s.%d.tmp", path, os.Getpid())
 	if err := os.WriteFile(tmp, b, 0o644); err != nil {
 		return "", err
 	}
-	return pfad, os.Rename(tmp, pfad)
+	return path, os.Rename(tmp, path)
 }
 
 // istUnserer erkennt einen von plxr angelegten Eintrag.
@@ -113,8 +113,8 @@ func Einrichten(configDir string, entfernen bool) (string, error) {
    auch mal anders. Auf Gleichheit zu prüfen hieße: plxr erkennt den eigenen
    Eintrag nicht wieder, meldet weiter "nicht eingerichtet" und legt bei jedem
    Klick einen weiteren daneben. */
-func istUnserer(eintrag any) bool {
-	m, _ := eintrag.(map[string]any)
+func isOurs(entry any) bool {
+	m, _ := entry.(map[string]any)
 	if m == nil {
 		return false
 	}
@@ -123,14 +123,14 @@ func istUnserer(eintrag any) bool {
 		if hm == nil {
 			continue
 		}
-		if unserBefehl(fmt.Sprint(hm["command"])) {
+		if isOurCommand(fmt.Sprint(hm["command"])) {
 			return true
 		}
 	}
 	return false
 }
 
-func unserBefehl(befehl string) bool {
+func isOurCommand(befehl string) bool {
 	// Auch am Backslash trennen: die Einstellungsdatei kann von einem anderen
 	// System stammen, etwa aus einem mitgenommenen Profil, und filepath.Base
 	// kennt unter Unix nur den Schrägstrich.
@@ -143,7 +143,7 @@ func unserBefehl(befehl string) bool {
 }
 
 // Eingerichtet sagt, ob plxr in den Einstellungen von Claude Code steht.
-func Eingerichtet(configDir string) bool {
+func Installed(configDir string) bool {
 	if configDir == "" {
 		home, _ := os.UserHomeDir()
 		configDir = filepath.Join(home, ".claude")
@@ -157,11 +157,11 @@ func Eingerichtet(configDir string) bool {
 		return false
 	}
 	hooks, _ := einst["hooks"].(map[string]any)
-	for _, ev := range Ereignisse {
+	for _, ev := range Events {
 		liste, _ := hooks[ev].([]any)
 		gefunden := false
 		for _, e := range liste {
-			if istUnserer(e) {
+			if isOurs(e) {
 				gefunden = true
 				break
 			}

@@ -34,7 +34,7 @@ type Session struct {
 	// Verwaist heißt: der Daemon ist gestorben und hat die Session mitgerissen.
 	// Anders als ein normales Ende ist das nichts, was jemand wollte — deshalb
 	// bleibt der Eintrag stehen, bis er gesehen wurde.
-	Verwaist bool `json:"verwaist,omitempty"`
+	Orphaned bool `json:"verwaist,omitempty"`
 
 	Account         string `json:"account,omitempty"`     // Claude-Konto, unter dem sie läuft
 	Agent           string `json:"agent,omitempty"`       // erkanntes CLI, z.B. "claude"

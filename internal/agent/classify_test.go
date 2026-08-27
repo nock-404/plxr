@@ -20,7 +20,7 @@ func TestRueckfrageNurSolangeOffen(t *testing.T) {
 
 	faelle := []struct {
 		name   string
-		schirm string
+		screen string
 		will   string
 	}{
 		{"Frage steht offen am Prompt",
@@ -41,7 +41,7 @@ func TestRueckfrageNurSolangeOffen(t *testing.T) {
 			"… esc to interrupt", Working},
 	}
 	for _, f := range faelle {
-		if got := p.Classify(f.schirm, 9*time.Second); got != f.will {
+		if got := p.Classify(f.screen, 9*time.Second); got != f.will {
 			t.Errorf("%s: %q statt %q", f.name, got, f.will)
 		}
 	}
@@ -52,12 +52,12 @@ func TestWartetAmPrompt(t *testing.T) {
 	// Shell-Prompts sind der Normalzustand, keine Rückfrage.
 	nein := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
 	for _, s := range ja {
-		if !wartetAmPrompt(s) {
+		if !waitingAtPrompt(s) {
 			t.Errorf("%q sollte als Prompt gelten", s)
 		}
 	}
 	for _, s := range nein {
-		if wartetAmPrompt(s) {
+		if waitingAtPrompt(s) {
 			t.Errorf("%q sollte nicht als Prompt gelten", s)
 		}
 	}

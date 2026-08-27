@@ -20,7 +20,7 @@ const (
 	weg   = "\x1b[0m"
 )
 
-func farbe(status string) string {
+func color(status string) string {
 	switch status {
 	case "working":
 		return gruen
@@ -33,11 +33,11 @@ func farbe(status string) string {
 	}
 }
 
-var zeichen = map[string]string{
+var glyph = map[string]string{
 	"working": "●", "waiting": "○", "permission": "◉", "dead": "✕", "unknown": "·",
 }
 
-func wort(status string) string {
+func word(status string) string {
 	switch status {
 	case "working":
 		return "arbeitet"
@@ -67,14 +67,14 @@ func Ls(c *Client) error {
 			name = t.Name
 		}
 		fmt.Printf("%s%s%s %-8s %s%-28s%s %-13s %s%s%s\n",
-			farbe(string(t.Status)), zeichen[string(t.Status)], weg,
-			t.ID[:8], fett, kurz(name, 28), weg,
-			wort(string(t.Status)), dim, t.Cwd, weg)
+			color(string(t.Status)), glyph[string(t.Status)], weg,
+			t.ID[:8], fett, trunc(name, 28), weg,
+			word(string(t.Status)), dim, t.Cwd, weg)
 	}
 	return nil
 }
 
-func kurz(s string, n int) string {
+func trunc(s string, n int) string {
 	if len([]rune(s)) <= n {
 		return s
 	}
@@ -94,7 +94,7 @@ func New(c *Client, cwd string, cmd []string) error {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	if err := c.schicke("POST", "/api/sessions",
+	if err := c.send("POST", "/api/sessions",
 		map[string]any{"cwd": abs, "cmd": cmd}, &out); err != nil {
 		return err
 	}
@@ -105,11 +105,11 @@ func New(c *Client, cwd string, cmd []string) error {
 
 // Kill beendet eine Session.
 func Kill(c *Client, was string) error {
-	t, err := c.Finden(was)
+	t, err := c.Find(was)
 	if err != nil {
 		return err
 	}
-	if err := c.schicke("DELETE", "/api/sessions/"+t.ID+"?purge=1", nil, nil); err != nil {
+	if err := c.send("DELETE", "/api/sessions/"+t.ID+"?purge=1", nil, nil); err != nil {
 		return err
 	}
 	fmt.Printf("%s beendet\n", t.Name)
@@ -125,15 +125,15 @@ func Ports(c *Client) error {
 		Addr    string `json:"addr"`
 		Eigen   bool   `json:"eigen"`
 	}
-	if err := c.hole("/api/ports", &list); err != nil {
+	if err := c.fetch("/api/ports", &list); err != nil {
 		return err
 	}
 	for _, p := range list {
-		markierung := ""
+		marker := ""
 		if p.Eigen {
-			markierung = gruen + " · plxr" + weg
+			marker = gruen + " · plxr" + weg
 		}
-		fmt.Printf("%5d  %-20s %spid %-7d %s%s%s\n", p.Port, p.Command, dim, p.PID, p.Addr, weg, markierung)
+		fmt.Printf("%5d  %-20s %spid %-7d %s%s%s\n", p.Port, p.Command, dim, p.PID, p.Addr, weg, marker)
 	}
 	return nil
 }
@@ -144,7 +144,7 @@ func Ports(c *Client) error {
 // unverändert durchgereicht werden, sonst käme etwa Strg-C bei der Session nie
 // an, sondern beendet plxr.
 func Attach(c *Client, was string) error {
-	t, err := c.Finden(was)
+	t, err := c.Find(was)
 	if err != nil {
 		return err
 	}
@@ -162,42 +162,42 @@ func Attach(c *Client, was string) error {
 	// Goroutinen: Größenmeldung, Tastatureingabe und der Aufbau. Ohne diesen
 	// Riegel reicht es, das Fenster zu ziehen während man tippt — und der
 	// Panic reißt den Prozess mit, bevor das Terminal wiederhergestellt ist.
-	var schreibSperre sync.Mutex
-	schreiben := func(v any) error {
-		schreibSperre.Lock()
-		defer schreibSperre.Unlock()
+	var writeMu sync.Mutex
+	write := func(v any) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
 		return conn.WriteJSON(v)
 	}
 
 	fd := int(os.Stdin.Fd())
-	var alt *term.State
+	var old *term.State
 	if term.IsTerminal(fd) {
-		if alt, err = term.MakeRaw(fd); err != nil {
+		if old, err = term.MakeRaw(fd); err != nil {
 			return err
 		}
 		// Zweifach abgesichert: das defer für den geordneten Weg, das recover
 		// für den ungeordneten. Eine Shell, die im Rohmodus zurückbleibt, ist
 		// für den Nutzer schlimmer als jeder Fehler darin — sie zeigt nichts
 		// mehr an, was er tippt.
-		defer term.Restore(fd, alt)
+		defer term.Restore(fd, old)
 		defer func() {
 			if r := recover(); r != nil {
-				term.Restore(fd, alt)
+				term.Restore(fd, old)
 				fmt.Fprintf(os.Stderr, "\r\nplxr: abgebrochen (%v)\r\n", r)
 				os.Exit(1)
 			}
 		}()
 	}
 
-	melden := func(rows, cols int) {
-		_ = schreiben(map[string]any{"type": "resize", "rows": rows, "cols": cols})
+	report := func(rows, cols int) {
+		_ = write(map[string]any{"type": "resize", "rows": rows, "cols": cols})
 	}
 	if w, h, err := term.GetSize(fd); err == nil {
-		melden(h, w)
+		report(h, w)
 	}
 
 	// Größenänderungen des lokalen Fensters weiterreichen.
-	stopp := groessenWache(fd, melden)
+	stopp := watchResize(fd, report)
 	defer stopp()
 
 	fertig := make(chan struct{})
@@ -231,22 +231,22 @@ func Attach(c *Client, was string) error {
 				continue
 			}
 			letztes = time.Time{}
-			if schreiben(map[string]any{"type": "in", "data": string(buf[:n])}) != nil {
+			if write(map[string]any{"type": "in", "data": string(buf[:n])}) != nil {
 				return
 			}
 		}
 	}()
 
 	<-fertig
-	if alt != nil {
-		term.Restore(fd, alt)
+	if old != nil {
+		term.Restore(fd, old)
 	}
 	fmt.Printf("\r\n%sabgehängt — %s läuft weiter%s\r\n", dim, t.Name, weg)
 	return nil
 }
 
 // Hilfe beschreibt die Kommandos.
-func Hilfe() {
+func Help() {
 	fmt.Print(`plxr — Leitstand für Coding-CLI-Sessions
 
   plxr                    Fenster öffnen
