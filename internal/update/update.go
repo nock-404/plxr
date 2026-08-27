@@ -62,7 +62,9 @@ func assetName() string {
 
 // Prüfen fragt GitHub nach der neuesten Fassung.
 func Prüfen(aktuell string) Stand {
-	st := Stand{Aktuell: aktuell}
+	// Ohne führendes "v", genau wie Neueste. Sonst stand im Update-Balken
+	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — einmal mit, einmal ohne.
+	st := Stand{Aktuell: strings.TrimPrefix(aktuell, "v")}
 
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
 	req.Header.Set("Accept", "application/vnd.github+json")

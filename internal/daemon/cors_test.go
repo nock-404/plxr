@@ -6,11 +6,14 @@ import (
 	"testing"
 )
 
-/* Das Fenster lädt seine Seite aus dem App-Bündel, nicht vom Daemon. Jeder
-   Aufruf ist deshalb Cross-Origin mit Vorabflug. Fehlt die Antwort darauf,
-   geht im Fenster gar nichts — und im Browser fällt es nicht auf, weil dort
-   Seite und Daemon dieselbe Herkunft haben. Genau so ist es einmal
-   durchgerutscht. */
+/*
+Das Fenster lädt seine Seite aus dem App-Bündel, nicht vom Daemon. Jeder
+
+	Aufruf ist deshalb Cross-Origin mit Vorabflug. Fehlt die Antwort darauf,
+	geht im Fenster gar nichts — und im Browser fällt es nicht auf, weil dort
+	Seite und Daemon dieselbe Herkunft haben. Genau so ist es einmal
+	durchgerutscht.
+*/
 func TestVorabflugWirdBeantwortet(t *testing.T) {
 	h := CORS(Guard("geheim", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("plxr"))
