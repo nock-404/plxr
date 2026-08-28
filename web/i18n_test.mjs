@@ -26,6 +26,18 @@ const used = new Set([
   ...[...sources.matchAll(/data-i18n(?:-tip|-ph)?="([\w.]+)"/g)].map((m) => m[1]),
 ]);
 
+/* Keys that go through a variable — the shortcut table holds the key, not the
+   text, because tr() at that point would run before the language file is
+   loaded, and the labels would freeze in the English fallback.
+
+   These only EXCUSE a key from the unused report, they never demand one. That
+   distinction is the whole point: taking every dotted literal as a used key
+   turns plxr.theme and every other localStorage name into a missing
+   translation. That is exactly what happened when this was first written. */
+const mentioned = new Set(
+  [...sources.matchAll(/['"]([a-z][\w]*\.[\w.]+)['"]/gi)].map((m) => m[1]),
+);
+
 let failed = 0;
 const en = tables.en || {};
 
@@ -62,10 +74,10 @@ for (const [name, tab] of Object.entries(tables)) {
 /* Keys under err. are not used from here: Go sends the code, errText() turns
    it into a sentence. errors.py checks those against the Go side, in both
    directions. */
-const unused = Object.keys(en).filter((k) => !k.startsWith('_') && !k.startsWith('err.') && !used.has(k));
+const unused = Object.keys(en).filter((k) => !k.startsWith('_') && !k.startsWith('err.') && !used.has(k) && !mentioned.has(k));
 if (unused.length) {
   failed = 1;
-  console.log(`  ${unused.length} Schluessel in en.json are used nowhere:`);
+  console.log(`  ${unused.length} keys in en.json are used nowhere:`);
   for (const k of unused.slice(0, 8)) console.log(`      ${k}`);
 }
 

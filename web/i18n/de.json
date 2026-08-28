@@ -335,5 +335,14 @@
   "marks.nChanged": "{n} Dateien seitdem geändert",
   "marks.rollBack": "ZURÜCKROLLEN",
   "marks.rollBackAsk": "{path} auf den Stand vor dieser Anweisung zurückrollen? Alles andere bleibt.",
-  "marks.rolledBack": "{path} zurückgerollt"
+  "marks.rolledBack": "{path} zurückgerollt",
+  "keys.title": "Tastatur",
+  "keys.tip": "Tastenkürzel zeigen — ? geht auch",
+  "key.search": "suchen",
+  "key.brake": "alle Sessions anhalten",
+  "key.split": "Fläche teilen",
+  "key.settings": "Einstellungen",
+  "key.fontSmaller": "Schrift kleiner",
+  "key.session": "zu Session 1–9 springen",
+  "key.keys": "diese Liste"
 }

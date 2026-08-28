@@ -1414,7 +1414,7 @@ function pathComplete(field, onPick) {
     }
   };
 
-  let treffer = [];
+  let hit = [];
   let picked = -1;
   let timer;
 
@@ -1422,8 +1422,8 @@ function pathComplete(field, onPick) {
 
   const render = () => {
     list.innerHTML = '';
-    if (!treffer.length) { shut(); return; }
-    treffer.forEach((path, i) => {
+    if (!hit.length) { shut(); return; }
+    hit.forEach((path, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'selectRow';
@@ -1447,7 +1447,7 @@ function pathComplete(field, onPick) {
   const load = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      treffer = await api.paths(field.value);
+      hit = await api.paths(field.value);
       picked = -1;
       render();
     }, 120);
@@ -1458,23 +1458,23 @@ function pathComplete(field, onPick) {
   field.addEventListener('blur', () => setTimeout(shut, 120));
 
   field.addEventListener('keydown', (e) => {
-    if (list.hidden || !treffer.length) {
+    if (list.hidden || !hit.length) {
       if (e.key === 'Tab' || e.key === 'ArrowDown') { load(); }
       return;
     }
     if (e.key === 'ArrowDown' || (e.key === 'Tab' && !e.shiftKey)) {
       e.preventDefault();
-      picked = (picked + 1) % treffer.length;
+      picked = (picked + 1) % hit.length;
       render();
       list.children[picked]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'ArrowUp' || (e.key === 'Tab' && e.shiftKey)) {
       e.preventDefault();
-      picked = (picked - 1 + treffer.length) % treffer.length;
+      picked = (picked - 1 + hit.length) % hit.length;
       render();
       list.children[picked]?.scrollIntoView({ block: 'nearest' });
     } else if (e.key === 'Enter' && picked >= 0) {
       e.preventDefault();
-      pick(treffer[picked]);
+      pick(hit[picked]);
     } else if (e.key === 'Escape') {
       shut();
     }
@@ -1889,18 +1889,62 @@ $('#findClose').addEventListener('click', closeFind);
    between windows are not intercepted — those belong to the system, and a
    program that swallows them feels wrong. */
 
+/* The KEY, not the text. tr() at this point would run before the language file
+   is loaded — the labels would freeze in the English fallback and never follow
+   a language change. Nobody noticed, because nothing ever showed them. */
 const SHORTCUTS = [
-  ['t', () => $('#newBtn').click(),                     tr('new.title2')],
-  ['w', () => state.active && closePane(state.active), tr('pane.closeTip')],
-  ['f', () => ($('#viewer').hidden ? openFind() : openFindInFile()), 'suchen'],
-  ['.', emergencyBrake,                                        'Notbremse'],
-  ['d', () => $('#splitAdd').click(),                    'teilen'],
-  [',', openSettings,                            'Einstellungen'],
-  ['0', () => changeFontSize(0),                         tr('key.fontReset')],
-  ['+', () => changeFontSize(1),                         tr('key.fontBigger')],
-  ['=', () => changeFontSize(1),                         tr('key.fontBigger')],
-  ['-', () => changeFontSize(-1),                        'Schrift kleiner'],
+  ['t', () => $('#newBtn').click(),                                  'new.title2'],
+  ['w', () => state.active && closePane(state.active),               'pane.closeTip'],
+  ['f', () => ($('#viewer').hidden ? openFind() : openFindInFile()), 'key.search'],
+  ['.', emergencyBrake,                                              'key.brake'],
+  ['d', () => $('#splitAdd').click(),                                'key.split'],
+  [',', openSettings,                                                'key.settings'],
+  ['0', () => changeFontSize(0),                                     'key.fontReset'],
+  ['+', () => changeFontSize(1),                                     'key.fontBigger'],
+  ['=', () => changeFontSize(1),                                     'key.fontBigger'],
+  ['-', () => changeFontSize(-1),                                    'key.fontSmaller'],
 ];
+
+/* Show the shortcuts.
+
+   They have had labels from the start and nothing ever showed them — a
+   shortcut nobody can find is none. Reachable two ways on purpose: by "?",
+   which is what people try, and through a button in the header, because
+   whoever does not know the key cannot press it either. */
+function showKeys() {
+  const box = $('#keysBody');
+  box.innerHTML = '';
+  const mod = MAC ? '⌘' : 'Strg+Umschalt+';
+  const rows = [
+    ...SHORTCUTS
+      .filter(([k]) => k !== '=')          // same as +, one line is enough
+      .map(([k, , key]) => [mod + k, tr(key)]),
+    [mod + '1…9', tr('key.session')],
+    ['?', tr('key.keys')],
+  ];
+  for (const [combo, what] of rows) {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>';
+    row.querySelector('.rart').textContent = combo;
+    row.querySelector('.rtitle').textContent = what;
+    box.appendChild(row);
+  }
+  $('#keys').hidden = false;
+}
+
+$('#keysBtn').addEventListener('click', showKeys);
+$('#keysClose').addEventListener('click', () => { $('#keys').hidden = true; });
+// Escape and a click beside it come from DIALOGS — see there.
+
+/* "?" without a modifier — but not while something is being typed into. */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '?' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const el = document.activeElement;
+  if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.closest('.xterm'))) return;
+  e.preventDefault();
+  showKeys();
+});
 
 function changeFontSize(dir) {
   const now = styleState.termSize || paneList()[0]?.term.options.fontSize || 13;
@@ -1921,8 +1965,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  const treffer = SHORTCUTS.find(([keyChar]) => keyChar === e.key.toLowerCase());
-  if (!treffer) return;
+  const hit = SHORTCUTS.find(([keyChar]) => keyChar === e.key.toLowerCase());
+  if (!hit) return;
 
   /* Inside an input field the usual editing shortcuts keep working. But note:
      xterm.js keeps the focus on a hidden textarea inside .xterm — without this
@@ -1937,7 +1981,7 @@ document.addEventListener('keydown', (e) => {
   // In the terminal ⌘F is already handled by the xterm handler — otherwise it fires twice.
   if (imTerminal && e.key.toLowerCase() === 'f') return;
   e.preventDefault();
-  treffer[1]();
+  hit[1]();
 });
 
 $('#filesToggle').addEventListener('click', () => {
@@ -1978,7 +2022,7 @@ $('#splitCancel').addEventListener('click', () => { $('#splitPick').hidden = tru
 
 /* Every dialog closes with Escape and with a click beside it. A window that
    only one particular button leads out of is a trap. */
-const DIALOGS = ['#settings', '#splitPick', '#templates', '#dialog'];
+const DIALOGS = ['#settings', '#splitPick', '#templates', '#dialog', '#keys'];
 for (const d of DIALOGS) {
   $(d).addEventListener('mousedown', (e) => { if (e.target === $(d)) $(d).hidden = true; });
 }
@@ -2209,7 +2253,7 @@ $('#viewerClose').addEventListener('click', closeViewer);
    A <textarea> brings no search of its own, and the window has no browser bar
    to step in. So we build one — the same bar as in the terminal, so it looks
    right in every skin without further work. */
-const fileFind = { treffer: [], index: -1, source: null };
+const fileFind = { hit: [], index: -1, source: null };
 
 function openFindInFile() {
   const field = $('#findInFileInput');
@@ -2225,7 +2269,7 @@ function openFindInFile() {
 function closeFindInFile() {
   $('#findInFile').hidden = true;
   $('#viewerMarks').textContent = '';
-  fileFind.treffer = [];
+  fileFind.hit = [];
   fileFind.index = -1;
   fileFind.source = null;
   $('#viewerBody').focus();
@@ -2236,13 +2280,13 @@ function editorCollectHits() {
   const text = $('#viewerBody').value;
   const q = $('#findInFileInput').value;
   fileFind.source = text;
-  fileFind.treffer = [];
+  fileFind.hit = [];
   fileFind.index = -1;
   if (q) {
     const heu = text.toLowerCase();
     const nadel = q.toLowerCase();
     for (let i = heu.indexOf(nadel); i !== -1; i = heu.indexOf(nadel, i + nadel.length)) {
-      fileFind.treffer.push(i);
+      fileFind.hit.push(i);
     }
   }
   editorShowCount();
@@ -2251,8 +2295,8 @@ function editorCollectHits() {
 function editorShowCount() {
   const info = $('#findInFileCount');
   if (!$('#findInFileInput').value) { info.textContent = ''; return; }
-  if (!fileFind.treffer.length) { info.textContent = tr('find.noHit'); return; }
-  info.textContent = tr('find.count', { i: Math.max(fileFind.index, 0) + 1, n: fileFind.treffer.length });
+  if (!fileFind.hit.length) { info.textContent = tr('find.noHit'); return; }
+  info.textContent = tr('find.count', { i: Math.max(fileFind.index, 0) + 1, n: fileFind.hit.length });
 }
 
 function editorJump(backwards) {
@@ -2260,21 +2304,21 @@ function editorJump(backwards) {
   // Typing on with the find field open changes the text under the hits.
   if (body.value !== fileFind.source) editorCollectHits();
   const q = $('#findInFileInput').value;
-  if (!q || !fileFind.treffer.length) { editorShowCount(); return; }
+  if (!q || !fileFind.hit.length) { editorShowCount(); return; }
 
   if (fileFind.index === -1) {
     // The first jump starts from where the cursor sits.
     const from = body.selectionStart;
-    const i = fileFind.treffer.findIndex((p) => p >= from);
+    const i = fileFind.hit.findIndex((p) => p >= from);
     fileFind.index = backwards
-      ? (i <= 0 ? fileFind.treffer.length - 1 : i - 1)
+      ? (i <= 0 ? fileFind.hit.length - 1 : i - 1)
       : (i === -1 ? 0 : i);
   } else {
-    const n = fileFind.treffer.length;
+    const n = fileFind.hit.length;
     fileFind.index = backwards ? (fileFind.index - 1 + n) % n : (fileFind.index + 1) % n;
   }
 
-  const pos = fileFind.treffer[fileFind.index];
+  const pos = fileFind.hit[fileFind.index];
   body.setSelectionRange(pos, pos + q.length);
   editorScrollTo(pos);
   editorShowCount();
@@ -2333,7 +2377,7 @@ function renderMarks() {
   const body = $('#viewerBody');
   const mode = $('#viewerMarks');
   const q = $('#findInFileInput').value;
-  if ($('#findInFile').hidden || !q || !fileFind.treffer.length || body.value.length > MARK_GRENZE) {
+  if ($('#findInFile').hidden || !q || !fileFind.hit.length || body.value.length > MARK_GRENZE) {
     mode.textContent = '';
     return;
   }
@@ -2341,7 +2385,7 @@ function renderMarks() {
   const text = body.value;
   const parts = [];
   let from = 0;
-  fileFind.treffer.forEach((p, i) => {
+  fileFind.hit.forEach((p, i) => {
     parts.push(htmlSicher(text.slice(from, p)));
     parts.push(i === fileFind.index ? '<mark class="current">' : '<mark>');
     parts.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
@@ -2838,13 +2882,13 @@ function showEmpty(box, title, text) {
    scattered across dozens of project folders, and the built-in picker shows
    only the current directory by default. */
 
-const archiv = { all: [], search: '', treffer: null, terminals: null };
+const archiv = { all: [], search: '', hit: null, terminals: null };
 
 async function loadArchive() {
   $('#archInfo').textContent = tr('common.loading');
   await fillAccounts('#archAccount');
   archiv.all = await api.archive(state.filter);
-  archiv.treffer = null;
+  archiv.hit = null;
   archiv.terminals = null;
   $('#archiveCount').textContent = archiv.all.length;
   renderArchive();
@@ -2852,7 +2896,7 @@ async function loadArchive() {
 
 $('#archSearch').addEventListener('input', (e) => {
   archiv.search = e.target.value.toLowerCase();
-  archiv.treffer = null;
+  archiv.hit = null;
   archiv.terminals = null;
   renderArchive();
 });
@@ -2869,7 +2913,7 @@ async function searchTerminals() {
   $('#archInfo').textContent = tr('archive.searchingRecordings');
   try {
     archiv.terminals = await api.searchTerminals(q);
-    archiv.treffer = null;
+    archiv.hit = null;
     renderArchive();
   } catch (e) {
     $('#archInfo').textContent = tr('archive.searchFailed', { err: e.message || e });
@@ -2884,7 +2928,7 @@ async function fullTextSearch() {
   if (q.length < 2) return;
   $('#archInfo').textContent = tr('archive.searchingTranscripts');
   try {
-    archiv.treffer = await api.search(q);
+    archiv.hit = await api.search(q);
     renderArchive();
   } catch (e) {
     $('#archInfo').textContent = tr('archive.searchFailed', { err: e.message || e });
@@ -2957,17 +3001,17 @@ function renderArchive() {
     return;
   }
 
-  if (archiv.treffer) {
+  if (archiv.hit) {
     const wonach = $('#archSearch').value.trim();
-    $('#archInfo').textContent = archiv.treffer.length === 1
+    $('#archInfo').textContent = archiv.hit.length === 1
       ? tr('archive.oneSession', { q: wonach })
-      : tr('archive.nSessions', { n: archiv.treffer.length, q: wonach });
-    if (!archiv.treffer.length) {
+      : tr('archive.nSessions', { n: archiv.hit.length, q: wonach });
+    if (!archiv.hit.length) {
       showEmpty(box, tr('find.noHit'),
         tr('archive.noFullTextHit', { q: wonach }));
       return;
     }
-    for (const t of archiv.treffer) {
+    for (const t of archiv.hit) {
       const row = document.createElement('div');
       row.className = 'row tall';
       row.innerHTML =

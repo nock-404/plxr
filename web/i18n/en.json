@@ -335,5 +335,14 @@
   "marks.nChanged": "{n} files changed since then",
   "marks.rollBack": "ROLL BACK",
   "marks.rollBackAsk": "Put {path} back the way it stood before this instruction? Everything else stays.",
-  "marks.rolledBack": "{path} rolled back"
+  "marks.rolledBack": "{path} rolled back",
+  "keys.title": "Keyboard",
+  "keys.tip": "Show the keyboard shortcuts — ? also works",
+  "key.search": "search",
+  "key.brake": "pause all sessions",
+  "key.split": "split the pane",
+  "key.settings": "settings",
+  "key.fontSmaller": "smaller font",
+  "key.session": "jump to session 1–9",
+  "key.keys": "this list"
 }

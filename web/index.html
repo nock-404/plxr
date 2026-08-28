@@ -34,6 +34,7 @@
 
     <div class="tools">
       <button class="btn" id="brake" data-i18n-tip="header.brakeTip" data-i18n="header.brake">PAUSE ALL</button>
+      <button class="btn icon" id="keysBtn" data-i18n-tip="keys.tip">?</button>
       <button class="btn icon" id="settingsBtn" data-i18n-tip="header.settingsTip">⚙</button>
       <button class="btn" id="templatesBtn" data-i18n-tip="header.templatesTip" data-i18n="header.templates">TEMPLATES</button>
       <button class="btn primary" id="newBtn" data-i18n="header.new">+ NEW</button>
@@ -297,6 +298,18 @@
 </div>
 
 <!-- Einstellungen -->
+<!-- The shortcuts. They existed from the start, with labels, and nothing ever
+     showed them — a shortcut nobody can find is none. -->
+<div id="keys" class="backdrop" hidden>
+  <div class="card">
+    <b class="cardTitle" data-i18n="keys.title">Keyboard</b>
+    <div id="keysBody" class="ruleslist"></div>
+    <div class="cardButtons">
+      <button class="btn primary" id="keysClose" data-i18n="common.close">CLOSE</button>
+    </div>
+  </div>
+</div>
+
 <div id="settings" class="backdrop" hidden>
   <div class="card wide">
     <b class="cardTitle" data-i18n="settings.title">settings</b>
