@@ -143,6 +143,9 @@ func Run(r *os.File) error {
 	}
 	if old.Status != z.Status || z.Since == 0 {
 		z.Since = now
+		// The ledger only wants the transitions — that is exactly here, where
+		// old and new status are both known. See ledger.go.
+		Note(z.SessionID, z.Status, now)
 	}
 	z.UpdatedAt = now
 

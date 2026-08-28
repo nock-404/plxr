@@ -231,6 +231,7 @@ const api = {
   ports: () => req('/api/ports'),
   portKill: (pid, hard) => req(`/api/ports/${pid}${hard ? '?hard=1' : ''}`, { method: 'DELETE' }),
   usage: (days) => req('/api/usage?days=' + days),
+  waiting: (days) => req('/api/waiting?days=' + days),
   pace: () => req('/api/tempo'),
   version: () => req('/api/version'),
   updateStatus: () => req('/api/update'),
@@ -3078,6 +3079,79 @@ async function loadUsage() {
   block('nach Projekt', b.byProject, 12);
   block('nach Modell', b.byModel, 8);
   block(tr('usage.byAccount'), b.byAccount, 8);
+  await loadWaiting(box, Number($('#usageRange').value) || 0);
+}
+
+/* ═════════════════════════ Waiting account ═════════════════════════
+
+   How long did the agents work, and how long did they wait for you. The second
+   number is the one worth having, and nothing in plxr could answer it: the
+   state file holds the current status and nothing of what came before.
+
+   A single wait is capped — see internal/hook/ledger.go. What was cut is shown
+   rather than swallowed, otherwise the figure would quietly be wrong. */
+
+function duration(ms) {
+  const min = Math.round(ms / 60000);
+  if (min < 60) return tr('waiting.minutes', { n: min });
+  const h = Math.floor(min / 60);
+  const rest = min % 60;
+  return rest ? tr('waiting.hoursMinutes', { h, n: rest }) : tr('waiting.hours', { h });
+}
+
+async function loadWaiting(box, days) {
+  let w;
+  try {
+    w = await api.waiting(days);
+  } catch {
+    return;   // the usage view is worth more than this block
+  }
+  if (!w.worked && !w.waited) return;
+
+  const d = document.createElement('div');
+  d.className = 'ublock';
+  d.innerHTML = '<b class="uhead"></b>';
+  d.querySelector('.uhead').textContent = tr('waiting.title');
+
+  const sum = document.createElement('div');
+  sum.className = 'usum';
+  for (const [value, label] of [
+    [duration(w.worked), tr('waiting.worked')],
+    [duration(w.waited), tr('waiting.waited')],
+  ]) {
+    const box2 = document.createElement('div');
+    box2.className = 'ubox';
+    box2.innerHTML = '<b class="ubig"></b><span></span>';
+    box2.querySelector('b').textContent = value;
+    box2.querySelector('span').textContent = label;
+    sum.appendChild(box2);
+  }
+  d.appendChild(sum);
+
+  /* The cap has to be named where the number stands. A figure that quietly
+     leaves something out is worse than no figure. */
+  if (w.cut) {
+    const note = document.createElement('div');
+    note.className = 'urow';
+    note.innerHTML = '<span class="ukey"></span><span class="uval"></span>';
+    note.querySelector('.ukey').textContent =
+      tr('waiting.capped', { cap: duration(w.cap) });
+    note.querySelector('.uval').textContent = duration(w.cut);
+    d.appendChild(note);
+  }
+
+  const max = Math.max(...w.byDay.map((l) => l.worked + l.waited), 1);
+  for (const l of w.byDay.slice(0, 30)) {
+    const row = document.createElement('div');
+    row.className = 'urow';
+    row.innerHTML = '<span class="ukey"></span><span class="ubar"><i class="ufill"></i></span><span class="uval"></span>';
+    row.querySelector('.ukey').textContent = l.key;
+    row.querySelector('.ufill').style.width = ((l.worked + l.waited) / max * 100).toFixed(1) + '%';
+    row.querySelector('.uval').textContent = duration(l.waited);
+    row.dataset.tip = tr('waiting.rowTip', { worked: duration(l.worked), waited: duration(l.waited) });
+    d.appendChild(row);
+  }
+  box.appendChild(d);
 }
 
 /* ═════════════════════════ Spending pace ═════════════════════════

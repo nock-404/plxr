@@ -29,6 +29,7 @@ TO_THE_INTERFACE = (
     'internal/usage', 'internal/session', 'internal/rules', 'internal/theme',
     'internal/search', 'internal/ports', 'internal/archive', 'internal/update',
     'internal/accounts', 'internal/template', 'internal/core', 'internal/server',
+    'internal/hook',
 )
 
 # Fields nobody reads on purpose.
@@ -53,6 +54,18 @@ WITHOUT_READER = {
     'role': 'taken twice: incoming from the transcript, and Hit.Role — the hit '
             'list does not show the role',
     'content': 'transcript, incoming',
+    # The hook payload comes IN from Claude Code — those field names are its
+    # contract, not ours, and the interface never sees them.
+    'hook_event_name': 'hook payload, incoming from Claude Code',
+    'session_id': 'hook payload, incoming',
+    'transcript_path': 'hook payload, incoming',
+    'tool_name': 'hook payload, incoming',
+    'tool_input': 'hook payload, incoming',
+    'notification_type': 'hook payload, incoming',
+    'last_assistant_message': 'hook payload, incoming',
+    'agent_id': 'hook payload, incoming',
+    'permission_mode': 'hook payload, incoming',
+    'updated_at': 'the state file on disk, read by the fleet watcher, not by the interface',
     # Cache on disk, format of its own.
     'version': 'disk cache',
     'groesse': 'disk cache',

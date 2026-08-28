@@ -925,3 +925,9 @@ func (c *Core) SkinWrite(name, css string) error {
 	}
 	return nil
 }
+
+// Waiting is the waiting account: how long the agents worked and how long they
+// waited for you. See internal/hook/ledger.go for why a single wait is capped.
+func (c *Core) Waiting(days int) hook.Report {
+	return hook.Waiting(days, time.Now().UnixMilli())
+}

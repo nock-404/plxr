@@ -313,5 +313,13 @@
   "workbench.nameNeeded": "The skin needs a name",
   "workbench.missingHead": "still missing",
   "workbench.nothingMissing": "nothing missing",
-  "workbench.livePreview": "live · not saved yet"
+  "workbench.livePreview": "live · not saved yet",
+  "waiting.title": "Waiting account",
+  "waiting.worked": "agents worked",
+  "waiting.waited": "waited for you",
+  "waiting.capped": "longer waits count as {cap} — cut off",
+  "waiting.rowTip": "{worked} worked, {waited} waited",
+  "waiting.minutes": "{n} min",
+  "waiting.hours": "{h} h",
+  "waiting.hoursMinutes": "{h} h {n} min"
 }
