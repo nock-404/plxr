@@ -1,13 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect x="2.8" y="2.8" width="26.4" height="26.4" rx="6.6" stroke="currentColor" stroke-width="2.5"/>
+  <!--
+    plxr — ein Leitstand, vier Sessions.
+
+    Rahmen, Nabe, vier Speichen auf den Diagonalen, vier massive Eckdreiecke.
+    Die Punkte sind gerechnet, nicht nach Augenmass gesetzt: Radius mal 0,7071
+    fuer die 45 Grad, daher die krummen Zahlen. Vierfach exakt symmetrisch.
+
+    currentColor durchgehend — jeder Skin faerbt es selbst ein, und dieselbe
+    Datei taugt fuer die Kopfleiste wie fuer die Anleitung.
+
+    Stumpfe Enden mit Absicht: runde Kappen nehmen dem Zeichen die harte
+    Phosphorkante, und bei 16 Pixeln laufen sie zu Punkten zusammen.
+  -->
+  <rect x="2.8" y="2.8" width="26.4" height="26.4" rx="6.6"
+        stroke="currentColor" stroke-width="2.5"/>
+
+  <!-- Nabe. Massiv statt Ring: ein Loch von 0,6 Einheiten waere bei 16 Pixeln
+       kleiner als ein Bildpunkt und liefe ohnehin zu. -->
+  <circle cx="16" cy="16" r="1.8" fill="currentColor"/>
+
+  <!-- Speichen: vom Rand der Nabe (r=1,8) bis r=6,6, also 16 ± 1,273 bis
+       16 ± 4,667. Sie enden deutlich vor den Dreiecken — der Abstand zur
+       Hypotenuse betraegt 2,6 Einheiten, abzueglich halber Strichbreite
+       bleibt 1,6 sichtbare Luft. -->
   <g stroke="currentColor" stroke-width="2" stroke-linecap="butt">
-    <path d="M16 16 L12.56 13.42"/><path d="M16 16 L19.44 13.42"/>
-    <path d="M16 16 L12.56 18.58"/><path d="M16 16 L19.44 18.58"/>
+    <path d="M14.727 14.727 L11.333 11.333"/>
+    <path d="M17.273 14.727 L20.667 11.333"/>
+    <path d="M14.727 17.273 L11.333 20.667"/>
+    <path d="M17.273 17.273 L20.667 20.667"/>
   </g>
+
+  <!-- Eckdreiecke: rechter Winkel in der Ecke, Hypotenuse zur Mitte.
+       Schenkel 6,2 Einheiten, 6,4 von der Kante eingerueckt — damit sitzen sie
+       innerhalb des Rahmens, ohne ihn zu beruehren. -->
   <g fill="currentColor" stroke="none">
-    <path d="M10 11.5 L13.76 11.82 L11.36 15.02 Z"/>
-    <path d="M22 11.5 L18.24 11.82 L20.64 15.02 Z"/>
-    <path d="M10 20.5 L13.76 20.18 L11.36 16.98 Z"/>
-    <path d="M22 20.5 L18.24 20.18 L20.64 16.98 Z"/>
+    <path d="M6.4 6.4 L12.6 6.4 L6.4 12.6 Z"/>
+    <path d="M25.6 6.4 L19.4 6.4 L25.6 12.6 Z"/>
+    <path d="M6.4 25.6 L12.6 25.6 L6.4 19.4 Z"/>
+    <path d="M25.6 25.6 L19.4 25.6 L25.6 19.4 Z"/>
   </g>
 </svg>

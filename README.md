@@ -1,3 +1,5 @@
+<img src="web/favicon.svg" alt="" width="88" align="right">
+
 # plxr
 
 Ein Terminal für macOS, Windows und Linux — gebaut für den Fall, dass mehrere
