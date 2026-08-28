@@ -49,7 +49,7 @@
       d.type = 'button';
       d.className = 'selectRow';
       d.textContent = o.textContent;
-      d.dataset.wert = o.value;
+      d.dataset.value = o.value;
       if (o.value === sel.value) d.dataset.picked = 'yes';
       d.addEventListener('click', () => {
         sel.value = o.value;
@@ -83,8 +83,8 @@
       list.style.maxHeight = Math.max(120, Math.min(320, up ? obenFrei : untenFrei)) + 'px';
       // Measure only after maxHeight, otherwise the scrollbar makes the width wrong.
       let leftPx = r.left;
-      const breite = list.offsetWidth;
-      if (leftPx + breite > window.innerWidth - margin) leftPx = window.innerWidth - breite - margin;
+      const width = list.offsetWidth;
+      if (leftPx + width > window.innerWidth - margin) leftPx = window.innerWidth - width - margin;
       list.style.left = Math.max(margin, leftPx) + 'px';
       if (up) { list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 4) + 'px'; }
       else { list.style.bottom = 'auto'; list.style.top = (r.bottom + 4) + 'px'; }
@@ -142,19 +142,19 @@
       $$('.cardTitle', d).textContent = title;
       $$('.dialogText', d).textContent = text;
 
-      const close = (wert) => {
+      const close = (value) => {
         d.remove();
         openDialog = null;
         document.removeEventListener('keydown', onKey, true);
-        done(wert);
+        done(value);
       };
 
       const box = $$('.cardButtons', d);
       for (const k of buttons) {
         const b = document.createElement('button');
-        b.className = 'btn' + (k.haupt ? ' primary' : '');
+        b.className = 'btn' + (k.primary ? ' primary' : '');
         b.textContent = k.text;
-        b.addEventListener('click', () => close(k.wert));
+        b.addEventListener('click', () => close(k.value));
         box.appendChild(b);
       }
 
@@ -223,7 +223,7 @@
     field.after(root);
     field.hidden = true;
 
-    const tupfer = $$('.swatch', root);
+    const swatch = $$('.swatch', root);
     const kasten = $$('.swatchField', root);
     const pane = $$('.swatchArea', root);
     const punkt = $$('.swatchDot', root);
@@ -233,18 +233,18 @@
 
     let hsv = hexNachHsv(field.value) || { h: 40, s: 1, v: 1 };
 
-    const render = (melden) => {
-      const wert = hsvNachHex(hsv.h, hsv.s, hsv.v);
-      tupfer.style.background = wert;
+    const render = (announce) => {
+      const color = hsvNachHex(hsv.h, hsv.s, hsv.v);
+      swatch.style.background = color;
       pane.style.background =
         `linear-gradient(to top, #000, transparent), ` +
         `linear-gradient(to right, #fff, ${hsvNachHex(hsv.h, 1, 1)})`;
       punkt.style.left = hsv.s * 100 + '%';
       punkt.style.top = (1 - hsv.v) * 100 + '%';
       tonPunkt.style.left = (hsv.h / 360) * 100 + '%';
-      if (document.activeElement !== hex) hex.value = wert;
-      field.value = wert;
-      if (melden !== false) onChange?.(wert);
+      if (document.activeElement !== hex) hex.value = color;
+      field.value = color;
+      if (announce !== false) onChange?.(color);
     };
 
     const ziehen = (el, beiPunkt) => {
@@ -276,7 +276,7 @@
       if (sheet) { hsv = sheet; render(); }
     });
 
-    tupfer.addEventListener('click', (e) => {
+    swatch.addEventListener('click', (e) => {
       e.stopPropagation();
       kasten.hidden = !kasten.hidden;
       if (!kasten.hidden) render(false);
@@ -287,8 +287,8 @@
 
     render(false);
     return {
-      set(wert) {
-        const sheet = hexNachHsv(wert);
+      set(color) {
+        const sheet = hexNachHsv(color);
         if (sheet) { hsv = sheet; render(false); }
       },
     };
@@ -302,8 +302,8 @@
   let tippEl = null;
   let tippTimer = null;
 
-  function showTip(ziel) {
-    const text = ziel.dataset.tip;
+  function showTip(el) {
+    const text = el.dataset.tip;
     if (!text) return;
     if (!tippEl) {
       tippEl = document.createElement('div');
@@ -315,7 +315,7 @@
 
     // Measure first, then place: otherwise a long tip at the edge pushes the
     // window open.
-    const k = ziel.getBoundingClientRect();
+    const k = el.getBoundingClientRect();
     const t = tippEl.getBoundingClientRect();
     let x = k.left + k.width / 2 - t.width / 2;
     x = Math.max(6, Math.min(x, window.innerWidth - t.width - 6));
@@ -332,10 +332,10 @@
 
   function tippBinden() {
     const einstieg = (e) => {
-      const ziel = e.target.closest?.('[data-tip]');
-      if (!ziel) return;
+      const el = e.target.closest?.('[data-tip]');
+      if (!el) return;
       clearTimeout(tippTimer);
-      tippTimer = setTimeout(() => showTip(ziel), 400);
+      tippTimer = setTimeout(() => showTip(el), 400);
     };
     document.addEventListener('mouseover', einstieg);
     document.addEventListener('mouseout', (e) => {
@@ -346,8 +346,8 @@
     document.addEventListener('scroll', tippWeg, true);
     // Keyboard use: on focus immediately, without the delay.
     document.addEventListener('focusin', (e) => {
-      const ziel = e.target.closest?.('[data-tip]');
-      if (ziel) showTip(ziel);
+      const el = e.target.closest?.('[data-tip]');
+      if (el) showTip(el);
     });
     document.addEventListener('focusout', tippWeg);
   }
@@ -359,9 +359,9 @@
     // Capitals as in the rest of the markup: crt sets text-transform, the other
     // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.
     confirm: (text, title = window.tr ? window.tr('dialog.sureTitle') : 'Are you sure?') =>
-      dialog(title, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', wert: false }, { text: window.tr ? window.tr('common.yes') : 'YES', wert: true, haupt: true }]),
+      dialog(title, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', value: false }, { text: window.tr ? window.tr('common.yes') : 'YES', value: true, primary: true }]),
     notice: (text, title = window.tr ? window.tr('dialog.noticeTitle') : 'Notice') =>
-      dialog(title, text, [{ text: 'OK', wert: true, haupt: true }]),
+      dialog(title, text, [{ text: 'OK', value: true, primary: true }]),
 
     /* Ask for a piece of text. Like confirm(), only with an input field — and here
        Enter may confirm, because nothing destructive hangs off it. */
@@ -382,11 +382,11 @@
         const field = $$('.promptInput', d);
         field.value = preset;
 
-        const close = (wert) => {
+        const close = (value) => {
           d.remove();
           openDialog = null;
           document.removeEventListener('keydown', onKey, true);
-          done(wert);
+          done(value);
         };
         for (const b of d.querySelectorAll('[data-w]')) {
           b.addEventListener('click', () => close(b.dataset.w === '1' ? field.value.trim() : null));

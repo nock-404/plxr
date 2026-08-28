@@ -34,6 +34,7 @@ step "go vet" go vet ./...
 step "bindings" python3 bindings.py
 step "js parser" node web/parser_test.mjs
 step "js calls" node calls.mjs web/app.js web/ui.js
+step "js properties" node props.mjs web/app.js web/ui.js web/devpanel.js
 step "routes" python3 routes.py
 step "fields" python3 fields.py
 step "workbench" node web/devpanel_test.mjs

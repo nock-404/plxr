@@ -35,8 +35,8 @@ function spracheWaehlen() {
     if (eigen && SPRACHEN.includes(eigen)) return eigen;
   } catch {}
   // The system language is the best guess available without asking.
-  const roh = (navigator.language || 'en').toLowerCase().split('-')[0];
-  return SPRACHEN.includes(roh) ? roh : 'en';
+  const raw = (navigator.language || 'en').toLowerCase().split('-')[0];
+  return SPRACHEN.includes(raw) ? raw : 'en';
 }
 
 async function spracheLaden(welche) {
@@ -84,7 +84,7 @@ const state = {
   tiles: [],        // letzter bekannter Gesamtzustand
   filter: '',       // Pfadfilter
   panes: [],        // session ids of the open terminal panes
-  aktiv: null,      // which of them the header acts on
+  active: null,      // which of them the header acts on
   themes: [],
 };
 
@@ -136,10 +136,10 @@ async function connect() {
 const wsURL = (p) =>
   BASE.replace(/^http/, 'ws') + p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
 
-async function req(pfad, opts = {}) {
+async function req(path, opts = {}) {
   let r;
   try {
-    r = await fetch(BASE + pfad, { ...opts, headers: { 'X-Plxr-Token': TOKEN, ...(opts.headers || {}) } });
+    r = await fetch(BASE + path, { ...opts, headers: { 'X-Plxr-Token': TOKEN, ...(opts.headers || {}) } });
   } catch (e) {
     // A network error means: the daemon is gone. Do not push that onto the
     // caller, start the reconnect instead.
@@ -214,20 +214,20 @@ const api = {
   folder: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
   paths: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
   shell: () => req('/api/shell'),
-  file: (id, pfad) => req(`/api/file/${id}?path=${encodeURIComponent(pfad)}`),
-  fileWrite: (id, pfad, text, mod) =>
-    req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: pfad, text, mod }) }),
+  file: (id, file) => req(`/api/file/${id}?path=${encodeURIComponent(file)}`),
+  fileWrite: (id, file, text, mod) =>
+    req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: file, text, mod }) }),
 
-  archive: (pfad) => req('/api/archive' + (pfad ? '?path=' + encodeURIComponent(pfad) : '')),
-  archiveDelete: (id, konto) => req(`/api/archive/${id}?account=${encodeURIComponent(konto || '')}`, { method: 'DELETE' }),
-  archiveResume: (id, konto, ziel) =>
-    req(`/api/archive/${id}/resume?account=${encodeURIComponent(konto || '')}&target=${encodeURIComponent(ziel || '')}`,
+  archive: (file) => req('/api/archive' + (file ? '?path=' + encodeURIComponent(file) : '')),
+  archiveDelete: (id, account) => req(`/api/archive/${id}?account=${encodeURIComponent(account || '')}`, { method: 'DELETE' }),
+  archiveResume: (id, account, target) =>
+    req(`/api/archive/${id}/resume?account=${encodeURIComponent(account || '')}&target=${encodeURIComponent(target || '')}`,
         { method: 'POST' }),
   search: (q) => req('/api/search?q=' + encodeURIComponent(q)),
   searchTerminals: (q) => req('/api/search/terminals?q=' + encodeURIComponent(q)),
 
-  start: (cwd, cmd, konto) =>
-    req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: konto }) }),
+  start: (cwd, cmd, account) =>
+    req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: account }) }),
   kill: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
   switchAccount: (id, target) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(target)}`, { method: 'POST' }),
   resume: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
@@ -371,7 +371,7 @@ function setSkin(name) {
   if (skinLoading === href) return Promise.resolve();
   skinLoading = href;
 
-  return new Promise((fertig) => {
+  return new Promise((done) => {
     const fresh = document.createElement('link');
     fresh.rel = 'stylesheet';
     fresh.href = href;
@@ -381,11 +381,11 @@ function setSkin(name) {
       skinLoading = null;
       // A different skin brings different crest glyphs.
       crestGlyphs = null;
-      fertig();
+      done();
     };
     fresh.addEventListener('load', adopt, { once: true });
     // A broken sheet: better to keep the old one than have none.
-    fresh.addEventListener('error', () => { fresh.remove(); skinLoading = null; fertig(); }, { once: true });
+    fresh.addEventListener('error', () => { fresh.remove(); skinLoading = null; done(); }, { once: true });
     document.head.appendChild(fresh);
   });
 }
@@ -453,9 +453,9 @@ function showDeleteButton(t) {
 }
 
 function currentTheme() {
-  const wert = $('#themeSel').value;
-  if (!wert) return null;
-  return state.themes.find((t) => t.name === wert) || { name: wert, skin: wert.split('-')[0], palette: {} };
+  const name = $('#themeSel').value;
+  if (!name) return null;
+  return state.themes.find((t) => t.name === name) || { name: name, skin: name.split('-')[0], palette: {} };
 }
 
 async function loadThemes(preselect) {
@@ -653,9 +653,9 @@ function buildStyleEditor() {
     const field = row.querySelector('.farbwert');
     field.value = currentColor(key);
     box.appendChild(row);
-    styleState.pickers[key] = plxrUI.colorPicker(field, (wert) => {
-      styleState.changes[key] = wert;
-      document.documentElement.style.setProperty('--' + key, wert);
+    styleState.pickers[key] = plxrUI.colorPicker(field, (color) => {
+      styleState.changes[key] = color;
+      document.documentElement.style.setProperty('--' + key, color);
       if (key.startsWith('term-')) forEachPane((p) => { p.term.options.theme = xtermTheme(); });
     });
   }
@@ -673,12 +673,12 @@ function buildStyleEditor() {
 // The current value of a colour: our own change first, then whatever applies.
 function currentColor(key) {
   if (styleState.changes[key]) return styleState.changes[key];
-  const wert = cssVar(key, '');
-  return /^#[0-9a-f]{6}$/i.test(wert) ? wert : rgbToHex(wert) || '#888888';
+  const value = cssVar(key, '');
+  return /^#[0-9a-f]{6}$/i.test(value) ? value : rgbToHex(value) || '#888888';
 }
 
-function rgbToHex(wert) {
-  const m = /rgba?\(([^)]+)\)/.exec(wert);
+function rgbToHex(value) {
+  const m = /rgba?\(([^)]+)\)/.exec(value);
   if (!m) return null;
   const [r, g, b] = m[1].split(',').map((x) => parseInt(x.trim(), 10));
   return '#' + [r, g, b].map((n) => (n || 0).toString(16).padStart(2, '0')).join('');
@@ -691,16 +691,16 @@ function numberRow(name, field, min, max, anwenden) {
     '<span class="styleNumber"><button type="button" data-r="-">−</button><span></span>' +
     '<button type="button" data-r="+">+</button></span>';
   row.querySelector('.styleName').textContent = name;
-  const anzeige = row.querySelector('.styleNumber span');
+  const readout = row.querySelector('.styleNumber span');
 
-  const jetzt = () => styleState[field] || (field === 'fontSize'
+  const now = () => styleState[field] || (field === 'fontSize'
     ? parseFloat(getComputedStyle(document.body).fontSize)
     : (paneList()[0]?.term.options.fontSize || 13));
 
-  const show = () => { anzeige.textContent = Math.round(jetzt()); };
+  const show = () => { readout.textContent = Math.round(now()); };
   for (const b of row.querySelectorAll('button')) {
     b.addEventListener('click', () => {
-      const fresh = Math.min(max, Math.max(min, Math.round(jetzt()) + (b.dataset.r === '+' ? 1 : -1)));
+      const fresh = Math.min(max, Math.max(min, Math.round(now()) + (b.dataset.r === '+' ? 1 : -1)));
       styleState[field] = fresh;
       anwenden();
       show();
@@ -748,14 +748,14 @@ $('#styleSave').addEventListener('click', async () => {
     tr('theme.saveOwnTitle'), (base?.name || tr('theme.ownBase')) + tr('theme.ownSuffix'));
   if (!name) return;
 
-  const sauber = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const clean = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   const palette = { ...(base?.palette || {}) };
   for (const [k, v] of Object.entries(styleState.changes)) {
     if (!k.startsWith('_')) palette[k] = v;
   }
 
   const theme = {
-    name: sauber,
+    name: clean,
     label: name,
     skin: base?.skin || 'crt',
     palette,
@@ -767,7 +767,7 @@ $('#styleSave').addEventListener('click', async () => {
 
   try {
     await api.themeImport(JSON.stringify(theme));
-    await loadThemes(sauber);
+    await loadThemes(clean);
     styleState.changes = {};
     plxrUI.notice(tr('theme.saved', { name }), tr('theme.savedTitle'));
   } catch (e) {
@@ -914,8 +914,8 @@ function optionsFrom(confirm) {
 
 // An option text can be a whole explanation — on the button the start is what counts.
 function shorten(t) {
-  const sauber = t.replace(/\s+/g, ' ').trim();
-  return sauber.length > 22 ? sauber.slice(0, 21) + '…' : sauber;
+  const clean = t.replace(/\s+/g, ' ').trim();
+  return clean.length > 22 ? clean.slice(0, 21) + '…' : clean;
 }
 
 /* Yes/no questions carry no numbers but have the same problem: "y" does not
@@ -993,9 +993,9 @@ function renderInbox() {
 
   // Update existing cards rather than rebuilding them, otherwise the reply
   // field loses focus and what was typed on every tick.
-  const gesehen = new Set();
+  const seen = new Set();
   for (const group of inboxGroups(list)) {
-    gesehen.add(group.key);
+    seen.add(group.key);
     let card = box.querySelector(`[data-id="${CSS.escape(group.key)}"]`);
     if (!card) {
       card = document.createElement('div');
@@ -1065,7 +1065,7 @@ function renderInbox() {
     }
   }
   for (const el of [...box.querySelectorAll('.inboxCard')]) {
-    if (!gesehen.has(el.dataset.id)) el.remove();
+    if (!seen.has(el.dataset.id)) el.remove();
   }
 }
 
@@ -1075,11 +1075,11 @@ function renderInbox() {
    same millisecond is nothing a shell expects, and the gain would be
    unmeasurable. A failure on one does not abort the rest — otherwise half of
    them would keep hanging and you would not know which half. */
-async function replyAll(tiles, text, roh) {
+async function replyAll(tiles, text, raw) {
   const failed = [];
   for (const tile of tiles) {
     try {
-      await api.sendReply(tile.id, text, roh);
+      await api.sendReply(tile.id, text, raw);
     } catch (e) {
       failed.push(`${tile.title || tile.name}: ${e.message || String(e)}`);
     }
@@ -1141,10 +1141,10 @@ let crestGlyphs = null;
 function crestGlyphSet() {
   // Re-read after every skin change: setSkin clears this.
   if (crestGlyphs) return crestGlyphs;
-  const roh = getComputedStyle(document.documentElement).getPropertyValue('--crest').trim();
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--crest').trim();
   // The value arrives as a CSS string, so in quotes.
-  const sauber = roh.replace(/^["']|["']$/g, '');
-  crestGlyphs = [...(sauber || CREST_FALLBACK)];
+  const clean = raw.replace(/^["']|["']$/g, '');
+  crestGlyphs = [...(clean || CREST_FALLBACK)];
   return crestGlyphs;
 }
 
@@ -1160,18 +1160,18 @@ function hash32(text) {
   return h;
 }
 
-function crest(pfad) {
-  if (!pfad) return '';
+function crest(path) {
+  if (!path) return '';
   const glyph = crestGlyphSet();
-  return glyph[hash32(pfad) % glyph.length];
+  return glyph[hash32(path) % glyph.length];
 }
 
 /* The colour comes from the same hash but from a different part of it —
    otherwise identical glyphs would always carry the same colour and the second
    cue would be no cue at all. */
-function crestHue(pfad) {
-  if (!pfad) return '';
-  return `hsl(${(hash32(pfad + '#ton') % 360)} 60% 60%)`;
+function crestHue(path) {
+  if (!path) return '';
+  return `hsl(${(hash32(path + '#ton') % 360)} 60% 60%)`;
 }
 
 /* The rail is the reason a session is not a full-screen overlay: whoever is
@@ -1268,10 +1268,10 @@ function isUntamed(t) {
 
 function renderGrid() {
   const raster = $('#viewGrid');
-  const gesehen = new Set();
+  const seen = new Set();
 
   for (const t of state.tiles) {
-    gesehen.add(t.id);
+    seen.add(t.id);
     let el = raster.querySelector(`[data-id="${CSS.escape(t.id)}"]`);
     if (!el) {
       el = document.createElement('article');
@@ -1308,7 +1308,7 @@ function renderGrid() {
       [t.model?.replace('claude-', ''), t.effort, ctxShort(t.context), agoText(t.since)]
         .filter(Boolean).join(' · ');
   }
-  for (const el of [...raster.children]) if (!gesehen.has(el.dataset.id)) el.remove();
+  for (const el of [...raster.children]) if (!seen.has(el.dataset.id)) el.remove();
 }
 
 // renderAll is the only receiver of the state stream.
@@ -1389,22 +1389,22 @@ function pathComplete(field, onPick) {
   const render = () => {
     list.innerHTML = '';
     if (!treffer.length) { shut(); return; }
-    treffer.forEach((pfad, i) => {
+    treffer.forEach((path, i) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'selectRow';
-      b.textContent = pfad;
+      b.textContent = path;
       if (i === picked) b.dataset.picked = 'yes';
-      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(pfad); });
+      b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(path); });
       list.appendChild(b);
     });
     stellen();
     list.hidden = false;
   };
 
-  const pick = (pfad) => {
+  const pick = (path) => {
     // Append the separator: the next keystroke then searches inside it.
-    field.value = pfad.endsWith('/') ? pfad : pfad + '/';
+    field.value = path.endsWith('/') ? path : path + '/';
     shut();
     onPick?.(field.value);
     load();
@@ -1451,9 +1451,9 @@ function pathComplete(field, onPick) {
    after every character all tiles disappear, because "/Volumes/…/pro" is not a
    directory yet. */
 function applyFilter() {
-  const wert = $('#pathFilter').value.trim().replace(/\/$/, '');
-  if (wert === state.filter) return;
-  state.filter = wert;
+  const filter = $('#pathFilter').value.trim().replace(/\/$/, '');
+  if (filter === state.filter) return;
+  state.filter = filter;
   localStorage.setItem('plxr.filter', state.filter);
   api.setFilter();
 }
@@ -1650,9 +1650,9 @@ function addPane(id) {
   panes.set(id, entry);
   state.panes.push(id);
 
-  const nachziehen = () => paneRefit(entry);
+  const refit = () => paneRefit(entry);
   let timer;
-  entry.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(nachziehen, 60); });
+  entry.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(refit, 60); });
   entry.ro.observe(el.querySelector('.pterm'));
 
   const aufDaten = (daten) => term.write(daten);
@@ -1663,7 +1663,7 @@ function addPane(id) {
   };
   attachments.set(id, { aufDaten, aufEnde, beiNeu: () => term.write('\r\n[plxr] wieder verbunden.\r\n') });
   api.attach(id, aufDaten, aufEnde);
-  requestAnimationFrame(() => { nachziehen(); term.focus(); });
+  requestAnimationFrame(() => { refit(); term.focus(); });
 
   paneActivate(id);
   renderRail();
@@ -1690,8 +1690,8 @@ function paneRefit(p) {
 function paneActivate(id) {
   // While selecting text mousedown fires constantly — without this guard
   // the file tree rebuilds on every drag.
-  if (state.aktiv === id && panes.has(id)) return;
-  state.aktiv = id;
+  if (state.active === id && panes.has(id)) return;
+  state.active = id;
   for (const p of paneList()) p.el.dataset.active = p.id === id ? 'yes' : 'no';
   updateHeader();
   const t = state.tiles.find((x) => x.id === id);
@@ -1708,9 +1708,9 @@ function closePane(id) {
   p.el.remove();
   panes.delete(id);
   state.panes = state.panes.filter((x) => x !== id);
-  if (state.aktiv === id) state.aktiv = state.panes[0] || null;
+  if (state.active === id) state.active = state.panes[0] || null;
   if (!state.panes.length) showGrid();
-  else { paneActivate(state.aktiv); for (const q of paneList()) paneRefit(q); }
+  else { paneActivate(state.active); for (const q of paneList()) paneRefit(q); }
   renderRail();
 }
 
@@ -1726,11 +1726,11 @@ function closeAllPanes() {
     panes.delete(id);
   }
   state.panes = [];
-  state.aktiv = null;
+  state.active = null;
 }
 
 function updateHeader() {
-  const t = state.tiles.find((x) => x.id === state.aktiv);
+  const t = state.tiles.find((x) => x.id === state.active);
   if (!t) return;
   $('#sessTitle').textContent = t.title || t.name;
   $('#sessMeta').textContent = [t.cwd, t.branch].filter(Boolean).join('  ·  ');
@@ -1738,17 +1738,17 @@ function updateHeader() {
 }
 
 $('#sessKill').addEventListener('click', async () => {
-  if (!state.aktiv) return;
-  const t = state.tiles.find((x) => x.id === state.aktiv);
+  if (!state.active) return;
+  const t = state.tiles.find((x) => x.id === state.active);
   if (!(await plxrUI.confirm(t?.name || '', tr('session.killAsk')))) return;
-  await api.kill(state.aktiv);
-  closePane(state.aktiv);
+  await api.kill(state.active);
+  closePane(state.active);
 });
 
 /* ═════════════════════════ Suche im Terminal ═════════════════════════ */
 
 function openFind() {
-  if (!state.aktiv) return;
+  if (!state.active) return;
   $('#find').hidden = false;
   $('#findInput').focus();
   $('#findInput').select();
@@ -1756,7 +1756,7 @@ function openFind() {
 
 function closeFind() {
   $('#find').hidden = true;
-  const p = panes.get(state.aktiv);
+  const p = panes.get(state.active);
   try { p?.search.clearDecorations(); } catch {}
   p?.term.focus();
 }
@@ -1764,7 +1764,7 @@ function closeFind() {
 /* While typing, search from the start rather than from the last hit.
    Otherwise "err" lands three hits further along than expected. */
 function findInTerminal(backwards, vonVorn) {
-  const p = panes.get(state.aktiv);
+  const p = panes.get(state.active);
   if (!p) return;
   const q = $('#findInput').value;
   if (!q) { $('#findCount').textContent = ''; try { p.search.clearDecorations(); } catch {} return; }
@@ -1822,7 +1822,7 @@ $('#findClose').addEventListener('click', closeFind);
 
 const SHORTCUTS = [
   ['t', () => $('#newBtn').click(),                     tr('new.title2')],
-  ['w', () => state.aktiv && closePane(state.aktiv), tr('pane.closeTip')],
+  ['w', () => state.active && closePane(state.active), tr('pane.closeTip')],
   ['f', () => ($('#viewer').hidden ? openFind() : openFindInFile()), 'suchen'],
   ['.', emergencyBrake,                                        'Notbremse'],
   ['d', () => $('#splitAdd').click(),                    'teilen'],
@@ -1834,8 +1834,8 @@ const SHORTCUTS = [
 ];
 
 function changeFontSize(dir) {
-  const jetzt = styleState.termSize || paneList()[0]?.term.options.fontSize || 13;
-  styleState.termSize = dir === 0 ? 13 : Math.min(28, Math.max(8, jetzt + dir));
+  const now = styleState.termSize || paneList()[0]?.term.options.fontSize || 13;
+  styleState.termSize = dir === 0 ? 13 : Math.min(28, Math.max(8, now + dir));
   forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
 }
 
@@ -1847,8 +1847,8 @@ document.addEventListener('keydown', (e) => {
   // Cmd+1..9 jumps to the session at that position in the rail.
   if (cmd && /^[1-9]$/.test(e.key)) {
     const all = [...$('#railList').querySelectorAll('.railitem[data-id]')];
-    const ziel = all[parseInt(e.key, 10) - 1];
-    if (ziel) { e.preventDefault(); ziel.click(); }
+    const target = all[parseInt(e.key, 10) - 1];
+    if (target) { e.preventDefault(); target.click(); }
     return;
   }
 
@@ -1880,7 +1880,7 @@ $('#filesToggle').addEventListener('click', () => {
   // On opening, the tree has to be loaded: while the panel was closed,
   // loadFileTree did nothing.
   if (!f.hidden) {
-    const t = state.tiles.find((x) => x.id === state.aktiv);
+    const t = state.tiles.find((x) => x.id === state.active);
     if (t) loadFileTree(t);
   }
   for (const p of paneList()) paneRefit(p);
@@ -1961,15 +1961,15 @@ async function fillAccounts(sel) {
    different account. plxr copies the transcript into the target account and
    restarts the session there with --resume. */
 $('#sessAccount').addEventListener('change', async (e) => {
-  const ziel = e.target.value;
-  const t = state.tiles.find((x) => x.id === state.aktiv);
-  if (!t || t.account === ziel) return;
+  const account = e.target.value;
+  const t = state.tiles.find((x) => x.id === state.active);
+  if (!t || t.account === account) return;
   const weiter = await plxrUI.confirm(
-    tr('session.switchAsk', { account: ziel }), tr('session.switchTitle'));
+    tr('session.switchAsk', { account: account }), tr('session.switchTitle'));
   if (!weiter) { e.target.value = t.account || ''; return; }
   try {
-    const fresh = await api.switchAccount(state.aktiv, ziel);
-    closePane(state.aktiv);
+    const fresh = await api.switchAccount(state.active, account);
+    closePane(state.active);
     setTimeout(() => openSession(fresh.id), 700);
   } catch (err) {
     plxrUI.notice(err.message || String(err), tr('session.switchFailed'));
@@ -1979,12 +1979,12 @@ $('#sessAccount').addEventListener('change', async (e) => {
 
 /* ═════════════════════════ Dateibaum ═════════════════════════ */
 
-const tree = { root: '', rauschen: false };
+const tree = { showNoise: false };
 
 $('#noiseToggle').addEventListener('click', () => {
-  tree.rauschen = !tree.rauschen;
-  $('#noiseToggle').classList.toggle('on', tree.rauschen);
-  const t = state.tiles.find((x) => x.id === state.aktiv);
+  tree.showNoise = !tree.showNoise;
+  $('#noiseToggle').classList.toggle('on', tree.showNoise);
+  const t = state.tiles.find((x) => x.id === state.active);
   if (t) loadFileTree(t);
 });
 
@@ -2002,7 +2002,6 @@ function fileGlyph(e) {
 
 async function loadFileTree(t) {
   if ($('#files').hidden) return;
-  tree.root = t.cwd;
   $('#filesRoot').textContent = t.cwd;
   const box = $('#filetree');
   box.innerHTML = '';
@@ -2016,7 +2015,7 @@ async function renderMarkLayer(box, dir, tiefe, sid) {
     return;
   }
   for (const e of entries || []) {
-    if (e.noise && !tree.rauschen) continue;
+    if (e.noise && !tree.showNoise) continue;
 
     const row = document.createElement('div');
     row.className = 'frow' + (e.noise ? ' noise' : '');
@@ -2050,7 +2049,7 @@ async function renderMarkLayer(box, dir, tiefe, sid) {
    agent in this very session, for instance — the daemon refuses rather than
    overwriting the other change. */
 
-const datei = { sid: null, pfad: null, mod: 0, original: '', binary: false };
+const doc = { sid: null, path: null, mod: 0, original: '' };
 
 function setDirty(ja) {
   $('#viewerDirty').hidden = !ja;
@@ -2060,11 +2059,10 @@ function setDirty(ja) {
 async function openFile(e, sid) {
   try {
     const c = await api.file(sid, e.path);
-    datei.sid = sid;
-    datei.pfad = c.path;
-    datei.mod = c.mod;
-    datei.binary = c.binary;
-    datei.original = c.binary ? '' : c.text;
+    doc.sid = sid;
+    doc.path = c.path;
+    doc.mod = c.mod;
+    doc.original = c.binary ? '' : c.text;
 
     $('#viewerName').textContent = e.name;
     $('#viewerMeta').textContent = c.binary
@@ -2073,7 +2071,7 @@ async function openFile(e, sid) {
         (c.truncated ? tr('file.truncated') : '');
 
     const field = $('#viewerBody');
-    field.value = datei.original;
+    field.value = doc.original;
     // Truncated means: we do not have the whole file. Saving that would
     // cut off the rest.
     field.readOnly = c.binary || c.truncated;
@@ -2088,7 +2086,7 @@ async function openFile(e, sid) {
 }
 
 $('#viewerBody').addEventListener('input', () => {
-  setDirty($('#viewerBody').value !== datei.original);
+  setDirty($('#viewerBody').value !== doc.original);
 });
 
 // Tab belongs in the text, not on the next button.
@@ -2099,7 +2097,7 @@ $('#viewerBody').addEventListener('keydown', (e) => {
   const a = f.selectionStart, b = f.selectionEnd;
   f.value = f.value.slice(0, a) + '\t' + f.value.slice(b);
   f.selectionStart = f.selectionEnd = a + 1;
-  setDirty(f.value !== datei.original);
+  setDirty(f.value !== doc.original);
 });
 
 async function saveFile() {
@@ -2107,9 +2105,9 @@ async function saveFile() {
   const text = $('#viewerBody').value;
   $('#viewerSave').disabled = true;
   try {
-    const c = await api.fileWrite(datei.sid, datei.pfad, text, datei.mod);
-    datei.mod = c.mod;
-    datei.original = text;
+    const c = await api.fileWrite(doc.sid, doc.path, text, doc.mod);
+    doc.mod = c.mod;
+    doc.original = text;
     setDirty(false);
     $('#viewerMeta').textContent = tr('file.metaSaved', { lines: c.lines, kb: (c.size / 1024).toFixed(1) });
   } catch (err) {
@@ -2234,12 +2232,12 @@ function editorScrollTo(pos) {
 let charWidthCache = null;
 function charWidth(st) {
   const font = `${st.fontSize} ${st.fontFamily}`;
-  if (charWidthCache?.font === font) return charWidthCache.breite;
+  if (charWidthCache?.font === font) return charWidthCache.charWidth;
   const c = document.createElement('canvas').getContext('2d');
   c.font = font;
-  const breite = c.measureText('0').width || parseFloat(st.fontSize) * 0.6;
-  charWidthCache = { font, breite };
-  return breite;
+  const charWidth = c.measureText('0').width || parseFloat(st.fontSize) * 0.6;
+  charWidthCache = { font, charWidth };
+  return charWidth;
 }
 
 /* The highlight layer takes font and margins from the text field at runtime:
@@ -2335,7 +2333,7 @@ const player = {
   skipIdle: true,
   timer: null,
   id: null,
-  beschnitten: false,
+  truncated: false,
 };
 
 const PLAYER_SPEEDS = [1, 2, 4, 8];
@@ -2350,7 +2348,6 @@ async function openPlayer(id, name, abOffset) {
   field.hidden = false;
   $('#playerName').textContent = name || id.slice(0, 8);
   $('#playerMeta').textContent = tr('common.loading');
-  player.id = id;
 
   if (!player.term) {
     player.term = new Terminal({
@@ -2398,7 +2395,6 @@ function closePlayer() {
   $('#player').hidden = true;
   player.data = null;
   player.marks = [];
-  player.id = null;
 }
 
 /* How much time passed between two points in the stream. Without a timeline —
@@ -2451,12 +2447,12 @@ function playerPause() {
 
 /* Seeking. xterm cannot rewind, so start over: clear the terminal and write
    everything up to the target in one go. */
-function playerSeek(ziel) {
+function playerSeek(target) {
   if (!player.data) return;
   const lief = player.running;
   playerPause();
   player.term.reset();
-  player.pos = Math.max(0, Math.min(ziel, player.data.length));
+  player.pos = Math.max(0, Math.min(target, player.data.length));
   if (player.pos > 0) player.term.write(player.data.subarray(0, player.pos));
   playerShowPosition();
   if (lief) playerPlay(true);
@@ -2520,11 +2516,11 @@ function rulesShow(openOne) {
 
 $('#rulesToggle').addEventListener('click', async () => {
   if (!$('#rulesPane').hidden) { rulesShow(false); return; }
-  if (!state.aktiv) return;
+  if (!state.active) return;
   $('#viewer').hidden = true;
   rulesShow(true);
   $('#rulesMeta').textContent = tr('common.loading');
-  const list = await api.rules(state.aktiv);
+  const list = await api.rules(state.active);
   $('#rulesMeta').textContent = list.length === 1
     ? tr('rules.oneFile')
     : tr('rules.nFiles', { n: list.length });
@@ -2553,12 +2549,12 @@ $('#rulesClose').addEventListener('click', () => rulesShow(false));
 
 /* An empty list without an explanation is a state that looks like a failure.
    Every list says why it is empty. */
-function showEmpty(box, titel, text) {
+function showEmpty(box, title, text) {
   box.innerHTML = '';
   const d = document.createElement('div');
   d.className = 'emptyNote';
   d.innerHTML = '<b></b><span></span>';
-  d.querySelector('b').textContent = titel;
+  d.querySelector('b').textContent = title;
   d.querySelector('span').textContent = text;
   box.appendChild(d);
 }
@@ -2627,9 +2623,9 @@ function shortDate(ms) {
     { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-async function resumeSession(id, konto) {
+async function resumeSession(id, account) {
   try {
-    const s = await api.archiveResume(id, konto, $('#archAccount').value);
+    const s = await api.archiveResume(id, account, $('#archAccount').value);
     showGrid();
     setTimeout(() => openSession(s.id), 500);
   } catch (err) {
@@ -2817,13 +2813,13 @@ async function loadPorts() {
     row.querySelector('.hitTitle').textContent = p.command + (p.own ? '  · ' + tr('ports.ownSession') : '');
     row.querySelector('.hitProject').textContent = p.addr;
     row.querySelector('.hitValue').textContent = 'pid ' + p.pid;
-    for (const hart of [false, true]) {
-      row.querySelector(`[data-h="${hart ? 1 : 0}"]`).addEventListener('click', async () => {
-        const wie = tr(hart ? 'ports.killHard' : 'ports.killSoft');
+    for (const hard of [false, true]) {
+      row.querySelector(`[data-h="${hard ? 1 : 0}"]`).addEventListener('click', async () => {
+        const manner = tr(hard ? 'ports.killHard' : 'ports.killSoft');
         const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`,
-          tr('ports.killAsk', { port: p.port, how: wie }));
+          tr('ports.killAsk', { port: p.port, how: manner }));
         if (!ja) return;
-        try { await api.portKill(p.pid, hart); setTimeout(loadPorts, 500); }
+        try { await api.portKill(p.pid, hard); setTimeout(loadPorts, 500); }
         catch (e) { plxrUI.notice(e.message || String(e), tr('ports.killFailed')); }
       });
     }
@@ -2857,9 +2853,9 @@ async function loadUsage() {
   const box = $('#usageBody');
   box.innerHTML = '';
 
-  const summe = document.createElement('div');
-  summe.className = 'usum';
-  for (const [wert, what] of [
+  const total = document.createElement('div');
+  total.className = 'usum';
+  for (const [amount, what] of [
     [b.sum.output, 'ausgabe'],
     [b.sum.input, 'eingabe'],
     [b.sum.cacheWrite, 'cache geschrieben'],
@@ -2869,19 +2865,19 @@ async function loadUsage() {
     const d = document.createElement('div');
     d.className = 'ubox';
     d.innerHTML = '<b class="ubig"></b><span></span>';
-    d.querySelector('b').textContent = tok(wert);
+    d.querySelector('b').textContent = tok(amount);
     d.querySelector('span').textContent = what;
-    summe.appendChild(d);
+    total.appendChild(d);
   }
-  box.appendChild(summe);
+  box.appendChild(total);
 
   const gesamt = (z) => z.input + z.output + z.cacheWrite + z.cacheRead;
-  const block = (titel, rows, grenze) => {
+  const block = (title, rows, grenze) => {
     if (!rows || !rows.length) return;
     const d = document.createElement('div');
     d.className = 'ublock';
     d.innerHTML = '<b class="uhead"></b>';
-    d.querySelector('.uhead').textContent = titel;
+    d.querySelector('.uhead').textContent = title;
     const max = Math.max(...rows.map(gesamt), 1);
     for (const z of rows.slice(0, grenze)) {
       const r = document.createElement('div');
@@ -2966,10 +2962,10 @@ const VERSION_INTERVAL = 10 * 60 * 1000;
 const VERSION_THROTTLE = 2 * 60 * 1000;
 let versionCheckedAt = 0;
 
-async function checkVersion(erzwingen) {
-  const jetzt = Date.now();
-  if (!erzwingen && jetzt - versionCheckedAt < VERSION_THROTTLE) return;
-  versionCheckedAt = jetzt;
+async function checkVersion(force) {
+  const nowMs = Date.now();
+  if (!force && nowMs - versionCheckedAt < VERSION_THROTTLE) return;
+  versionCheckedAt = nowMs;
   try {
     const st = await api.version();
     versionStatus = st;
@@ -3208,8 +3204,8 @@ $('#newForm').addEventListener('submit', async (e) => {
    daemon — that way the UI is never unstyled, even when the daemon is away. */
 (function themeAusSpeicher() {
   try {
-    const roh = localStorage.getItem('plxr.themeCache');
-    applyTheme(roh ? JSON.parse(roh) : { name: 'crt-amber', skin: 'crt', palette: {} });
+    const raw = localStorage.getItem('plxr.themeCache');
+    applyTheme(raw ? JSON.parse(raw) : { name: 'crt-amber', skin: 'crt', palette: {} });
   } catch {
     applyTheme({ name: 'crt-amber', skin: 'crt', palette: {} });
   }
