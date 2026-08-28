@@ -34,12 +34,18 @@ macOS und Linux. Für Windows das Archiv von der Releases-Seite laden.
 - Suche im Scrollback, anklickbare Adressen, Kopieren und Einfügen
 - xterm 6 mit WebGL, Unicode-11-Breiten, 50.000 Zeilen Verlauf
 - Tastenkürzel: `⌘T` neu, `⌘W` schließen, `⌘F` suchen, `⌘D` teilen,
-  `⌘1`–`⌘9` springen, `⌘+`/`⌘-`/`⌘0` Schrift, `⌘,` Einstellungen
+  `⌘1`–`⌘9` springen, `⌘+`/`⌘-`/`⌘0` Schrift, `⌘,` Einstellungen,
+  `⌘.` alle anhalten — und `?` zeigt die Liste
 
 **Als Leitstand**
 
 - **Posteingang** — alle Sessions, die auf eine Antwort warten, mit ihrer
-  Frage. Antworten geht direkt, ohne eine einzige zu öffnen.
+  Frage. Antworten geht direkt, ohne eine einzige zu öffnen. Fragen, die
+  wörtlich gleich sind, werden zu **einer** Karte mit **einer** Antwort.
+- **Antwortgedächtnis** — „das hast du heute schon zweimal so beantwortet",
+  mit Knopf. Nur wörtlich gleiche Fragen, nur innerhalb eines Tages.
+- **Notbremse** — ein Griff hält alle Sessions an (`SIGSTOP`), ein zweiter
+  lässt sie weiterlaufen. Einzeln geht auch.
 - **Übersicht** — Kacheln mit lebender Vorschau, Schiene nach Projekt
 - **Zustand je Agent** — arbeitet, wartet, braucht dich. Bei Claude Code exakt
   über einen Hook, bei allen anderen aus Bildschirm und Ruhezeit.
@@ -55,6 +61,14 @@ macOS und Linux. Für Windows das Archiv von der Releases-Seite laden.
   Volltextsuche über den kompletten Verlauf
 - **Dateien** — Baum je Session mit Editor, dazu die aufgelöste
   CLAUDE.md-Kette: was wirkt hier eigentlich alles
+- **Merkpunkte** — vor jeder Anweisung ein Abzug des Arbeitsverzeichnisses,
+  danach einzelne Dateien zurückrollen. `git checkout .` nimmt deine eigene
+  Arbeit mit — das hier nicht. Nur in einem Git-Repo, und ohne Index oder
+  Arbeitsbaum anzufassen.
+- **Wiedergabe** — jede Session als Aufzeichnung abspielen, mit Sprung zum
+  Suchtreffer
+- **Wartekonto** — über Wochen: wie lang haben die Agenten gearbeitet, und wie
+  lang auf dich gewartet
 
 **Drumherum**
 
@@ -64,6 +78,13 @@ macOS und Linux. Für Windows das Archiv von der Releases-Seite laden.
 - **Ports** — was lauscht, und der Weg es zu beenden
 - **Vier Skins**, komplett anpassbar: alle Farben live, eigener Farbwähler,
   Schriftgrößen, als eigenes Theme speicherbar
+- **Werkstatt** — einen Skin im laufenden Fenster schreiben, angedockt neben
+  der Oberfläche: jeder Tastendruck ist sofort links zu sehen. Daneben steht,
+  welche Klassen dein Blatt noch nicht anfasst. Eigene Skins liegen unter
+  `~/.plxr/skins` und überstehen jedes Update.
+- **Werkbank** — eine Konsole im Fenster (`F12`, `⌘⌥I`): Meldungen, jeder
+  Netzaufruf mit Status, und der Zustand der Oberfläche. Beim ersten Fehler
+  meldet sie sich selbst.
 - **Selbstaktualisierung** aus GitHub Releases, mit Ladebalken und Neustart
 
 Nichts in der Oberfläche ist ein Systemwidget: keine Auswahlmenüs des
@@ -131,9 +152,17 @@ den Querbau für fünf Plattformen.
 | `internal/search` | Volltextsuche über Transkripte und Terminalmitschnitte |
 | `internal/usage` | Tokenverbrauch und Tempo |
 | `internal/rules` | welche CLAUDE.md, Skills und Agenten hier wirken |
-| `internal/vorlage` | mehrere Sessions auf einen Schlag |
+| `internal/template` | mehrere Sessions auf einen Schlag |
+| `internal/marks` | Abzug des Arbeitsverzeichnisses vor jeder Anweisung |
+| `internal/replies` | welche Antwort auf welche Frage ging |
 | `internal/files` | Dateibaum und Editor, an die Session gefesselt |
 | `internal/ports` | belegte Ports |
+| `internal/theme` | Themes und Skins, eingebaute wie eigene |
+| `internal/accounts` | mehrere Claude-Code-Konten auf einem Rechner |
+| `internal/fleet` | Zustandsdateien anderer Werkzeuge einlesen |
+| `internal/notify` | Systemmeldung, wenn jemand wartet |
+| `internal/cli` | `plxr` auf der Kommandozeile |
+| `internal/uierr` | Fehler als Code statt als Prosa, damit sie übersetzbar sind |
 | `internal/update` | Selbstaktualisierung aus GitHub Releases |
 | `internal/server` | HTTP und WebSocket zwischen Daemon und Oberfläche |
 
