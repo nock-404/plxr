@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"plxr/internal/daemon"
+	"plxr/internal/marks"
 	"regexp"
 	"strings"
 	"time"
@@ -107,6 +108,14 @@ func Run(r *os.File) error {
 		z.Status, z.Activity, z.LastMessage = "waiting", "gestartet", ""
 	case "UserPromptSubmit":
 		z.Status, z.Prompt, z.Activity, z.LastMessage = "working", trunc(v.Prompt, 100), "", ""
+		// A mark before the instruction, not after: afterwards the agent has
+		// already changed something. Errors are swallowed — see marks.Note.
+		if tree, err := marks.Take(v.Cwd); err == nil && tree != "" {
+			marks.Note(v.SessionID, marks.Mark{
+				Tree: tree, At: time.Now().UnixMilli(),
+				Prompt: trunc(v.Prompt, 120), Cwd: v.Cwd,
+			})
+		}
 	case "PreToolUse":
 		z.Status = "working"
 		if a := describeTool(v.ToolName, v.ToolInput); a != "" {

@@ -330,7 +330,7 @@
     if (tippEl) tippEl.hidden = true;
   }
 
-  function tippBinden() {
+  function bindTips() {
     const einstieg = (e) => {
       const el = e.target.closest?.('[data-tip]');
       if (!el) return;
@@ -354,7 +354,7 @@
 
   window.plxrUI = {
     colorPicker,
-    tippBinden,
+    bindTips,
     replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
     // Capitals as in the rest of the markup: crt sets text-transform, the other
     // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.

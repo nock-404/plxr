@@ -227,6 +227,19 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("GET /api/marks/{id}", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Marks(r.PathValue("id")))
+	})
+	mux.HandleFunc("GET /api/marks/{id}/{tree}", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.MarkChanges(r.PathValue("id"), r.PathValue("tree")))
+	})
+	mux.HandleFunc("POST /api/marks/{id}/{tree}/restore", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.MarkRestore(r.PathValue("id"), r.PathValue("tree"), r.URL.Query().Get("path")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/waiting", func(w http.ResponseWriter, r *http.Request) {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		writeJSON(w, s.c.Waiting(days))

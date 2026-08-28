@@ -146,6 +146,7 @@
           <span class="spacer"></span>
           <button class="btn" id="filesToggle" data-i18n-tip="session.filesTip" data-i18n="session.files">FILES</button>
           <button class="btn" id="rulesToggle" data-i18n-tip="session.rulesTip" data-i18n="session.rules">RULES</button>
+          <button class="btn" id="marksToggle" data-i18n-tip="marks.openTip" data-i18n="marks.open">MARKS</button>
           <button class="btn" id="splitAdd" data-i18n-tip="session.splitTip" data-i18n="session.split">SPLIT</button>
           <select id="sessAccount" data-i18n-tip="session.accountTip"></select>
           <button class="btn" id="sessFreeze" data-i18n-tip="session.pauseTip" data-i18n="session.pause">PAUSE</button>
@@ -185,6 +186,16 @@
             <div id="rulesBody" class="ruleslist"></div>
           </div>
 
+
+          <div id="marksPane" class="overlay" hidden>
+            <div class="overlayBar">
+              <span class="overlayName" data-i18n="marks.title">Marks</span>
+              <span id="marksMeta" class="meta"></span>
+              <span class="spacer"></span>
+              <button class="btn" id="marksClose" data-i18n="common.back">BACK</button>
+            </div>
+            <div id="marksBody" class="ruleslist"></div>
+          </div>
 
           <!-- Playback: its own terminal without input, above everything. -->
           <div id="player" class="overlay" hidden>

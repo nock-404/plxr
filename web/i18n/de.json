@@ -323,5 +323,17 @@
   "waiting.hours": "{h} h",
   "waiting.hoursMinutes": "{h} h {n} min",
   "workbench.closeTip": "Werkstatt schließen — Ungespeichertes geht verloren",
-  "workbench.hint": "Tipp los — das Fenster ändert sich mit. ⌘S speichert."
+  "workbench.hint": "Tipp los — das Fenster ändert sich mit. ⌘S speichert.",
+  "err.mark.unknown": "Merkpunkt gibt es für diese Session nicht",
+  "err.mark.restoreFailed": "Zurückrollen fehlgeschlagen: {detail}",
+  "marks.title": "Merkpunkte",
+  "marks.open": "MERKPUNKTE",
+  "marks.openTip": "Ein Abzug vor jeder Anweisung — einzelne Dateien zurückrollen",
+  "marks.none": "Noch keine Merkpunkte",
+  "marks.noneHint": "Vor jeder Anweisung wird einer angelegt — aber nur in einem Git-Repo.",
+  "marks.unchanged": "seitdem nichts geändert",
+  "marks.nChanged": "{n} Dateien seitdem geändert",
+  "marks.rollBack": "ZURÜCKROLLEN",
+  "marks.rollBackAsk": "{path} auf den Stand vor dieser Anweisung zurückrollen? Alles andere bleibt.",
+  "marks.rolledBack": "{path} zurückgerollt"
 }

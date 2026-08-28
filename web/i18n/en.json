@@ -323,5 +323,17 @@
   "waiting.hours": "{h} h",
   "waiting.hoursMinutes": "{h} h {n} min",
   "workbench.closeTip": "Close the workbench — unsaved changes are lost",
-  "workbench.hint": "Type — the window changes as you go. ⌘S saves."
+  "workbench.hint": "Type — the window changes as you go. ⌘S saves.",
+  "err.mark.unknown": "No such mark for this session",
+  "err.mark.restoreFailed": "Could not roll back: {detail}",
+  "marks.title": "Marks",
+  "marks.open": "MARKS",
+  "marks.openTip": "A snapshot before every instruction — roll back single files",
+  "marks.none": "No marks yet",
+  "marks.noneHint": "A mark is taken before every instruction — but only inside a git repository.",
+  "marks.unchanged": "nothing changed since then",
+  "marks.nChanged": "{n} files changed since then",
+  "marks.rollBack": "ROLL BACK",
+  "marks.rollBackAsk": "Put {path} back the way it stood before this instruction? Everything else stays.",
+  "marks.rolledBack": "{path} rolled back"
 }

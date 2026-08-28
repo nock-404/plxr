@@ -25,6 +25,7 @@ import (
 	"plxr/internal/files"
 	"plxr/internal/fleet"
 	"plxr/internal/hook"
+	"plxr/internal/marks"
 	"plxr/internal/notify"
 	"plxr/internal/ports"
 	"plxr/internal/ptyhost"
@@ -930,4 +931,36 @@ func (c *Core) SkinWrite(name, css string) error {
 // waited for you. See internal/hook/ledger.go for why a single wait is capped.
 func (c *Core) Waiting(days int) hook.Report {
 	return hook.Waiting(days, time.Now().UnixMilli())
+}
+
+// ---- Marks: a snapshot before every instruction ----
+
+// Marks lists the recorded points of a session.
+func (c *Core) Marks(sessionID string) []marks.Mark { return marks.List(sessionID) }
+
+// MarkChanges says what has moved since a mark.
+func (c *Core) MarkChanges(sessionID, tree string) []marks.Change {
+	for _, m := range marks.List(sessionID) {
+		if m.Tree == tree {
+			return marks.Changed(m.Cwd, tree)
+		}
+	}
+	return nil
+}
+
+// MarkRestore puts one file back the way it stood at the mark.
+//
+// The tree is looked up among the marks of this session rather than taken from
+// the request: otherwise any tree object in any repository could be written
+// into any directory.
+func (c *Core) MarkRestore(sessionID, tree, path string) error {
+	for _, m := range marks.List(sessionID) {
+		if m.Tree == tree {
+			if err := marks.Restore(m.Cwd, tree, path); err != nil {
+				return uierr.With("err.mark.restoreFailed", err.Error())
+			}
+			return nil
+		}
+	}
+	return uierr.New("err.mark.unknown")
 }

@@ -24,31 +24,31 @@ const $ = (s) => document.querySelector(s);
    English and, failing that, to the key itself: a screen showing "inbox.empty"
    is ugly, but it is honest and it is findable. Silently empty would not be. */
 
-const SPRACHEN = ['en', 'de'];
-let sprache = 'en';
+const LANGUAGES = ['en', 'de'];
+let language = 'en';
 let texts = {};
-let texteEn = {};
+let textsEn = {};
 
-function spracheWaehlen() {
+function pickLanguage() {
   try {
     const eigen = localStorage.getItem('plxr.lang');
-    if (eigen && SPRACHEN.includes(eigen)) return eigen;
+    if (eigen && LANGUAGES.includes(eigen)) return eigen;
   } catch {}
   // The system language is the best guess available without asking.
   const raw = (navigator.language || 'en').toLowerCase().split('-')[0];
-  return SPRACHEN.includes(raw) ? raw : 'en';
+  return LANGUAGES.includes(raw) ? raw : 'en';
 }
 
-async function spracheLaden(welche) {
-  sprache = welche || spracheWaehlen();
-  const hol = async (l) => {
+async function loadLanguage(welche) {
+  language = welche || pickLanguage();
+  const fetchOne = async (l) => {
     const r = await fetch(`/i18n/${l}.json`);
     if (!r.ok) throw new Error(`Sprachdatei ${l} fehlt`);
     return r.json();
   };
   // Always load English too: it is the fallback for every missing key.
-  texteEn = await hol('en');
-  texts = sprache === 'en' ? texteEn : await hol(sprache).catch(() => ({}));
+  textsEn = await fetchOne('en');
+  texts = language === 'en' ? textsEn : await fetchOne(language).catch(() => ({}));
 }
 
 /* tr returns the text for a key.
@@ -58,7 +58,7 @@ async function spracheLaden(welche) {
    with one branch in the caller, and half a pluralisation library would be
    more work than it is worth. */
 function tr(keyName, values) {
-  let s = texts[keyName] ?? texteEn[keyName] ?? keyName;
+  let s = texts[keyName] ?? textsEn[keyName] ?? keyName;
   if (values) {
     for (const [k, v] of Object.entries(values)) s = s.replaceAll(`{${k}}`, v);
   }
@@ -79,13 +79,13 @@ function errText(e) {
   const raw = (e && e.message) || String(e ?? '');
   const [code, detail] = raw.split('|');
   if (!/^err\.[\w.]+$/.test(code)) return raw;
-  if (!(code in texts) && !(code in texteEn)) return raw;
+  if (!(code in texts) && !(code in textsEn)) return raw;
   return tr(code, detail === undefined ? undefined : { detail });
 }
 
 /* Translate everything in the markup that carries a key. Called at startup and
    after every language change — so a change needs no reload. */
-function markupUebersetzen(root = document) {
+function translateMarkup(root = document) {
   for (const el of root.querySelectorAll('[data-i18n]')) {
     el.textContent = tr(el.dataset.i18n);
   }
@@ -95,7 +95,7 @@ function markupUebersetzen(root = document) {
   for (const el of root.querySelectorAll('[data-i18n-ph]')) {
     el.placeholder = tr(el.dataset.i18nPh);
   }
-  document.documentElement.lang = sprache;
+  document.documentElement.lang = language;
 }
 
 const state = {
@@ -232,6 +232,10 @@ const api = {
   portKill: (pid, hard) => req(`/api/ports/${pid}${hard ? '?hard=1' : ''}`, { method: 'DELETE' }),
   usage: (days) => req('/api/usage?days=' + days),
   waiting: (days) => req('/api/waiting?days=' + days),
+  marks: (id) => req(`/api/marks/${encodeURIComponent(id)}`),
+  markChanges: (id, tree) => req(`/api/marks/${encodeURIComponent(id)}/${tree}`),
+  markRestore: (id, tree, path) =>
+    req(`/api/marks/${encodeURIComponent(id)}/${tree}/restore?path=${encodeURIComponent(path)}`, { method: 'POST' }),
   pace: () => req('/api/tempo'),
   version: () => req('/api/version'),
   updateStatus: () => req('/api/update'),
@@ -366,7 +370,7 @@ let neuTimer = null;
 function reconnect() {
   if (neuTimer) return;
   showConnection(false);
-  let wartezeit = 500;
+  let idleFor = 500;
   const attempt = async () => {
     try {
       await connect();
@@ -377,11 +381,11 @@ function reconnect() {
       api.reattach();
       neuTimer = null;
     } catch {
-      wartezeit = Math.min(wartezeit * 1.6, 5000);
-      neuTimer = setTimeout(attempt, wartezeit);
+      idleFor = Math.min(idleFor * 1.6, 5000);
+      neuTimer = setTimeout(attempt, idleFor);
     }
   };
-  neuTimer = setTimeout(attempt, wartezeit);
+  neuTimer = setTimeout(attempt, idleFor);
 }
 
 /* ═════════════════════════ Themes and skins ═════════════════════════ */
@@ -539,7 +543,7 @@ async function openSettings() {
   plxrUI.replaceSelects();
   $('#themeHint').textContent =
     tr('settings.themeHint');
-  tabWaehlen('look');
+  pickTab('look');
   buildStyleEditor();
   showDeleteButton();
   fillLanguages();
@@ -572,18 +576,18 @@ $('#settingsBtn').addEventListener('click', openSettings);
 
    Plus the raw number, so a skin can tie the intensity to it: three running
    agents may cause more unrest than one. */
-function raumzustand({ running, blocked, orphaned, total }) {
+function roomState({ running, blocked, orphaned, total }) {
   const w = document.documentElement;
   const mode = blocked || orphaned ? 'waiting' : (running ? 'working' : 'idle');
   if (w.dataset.room !== mode) w.dataset.room = mode;
 
   // As a CSS variable, so a skin can compute with it instead of guessing.
-  const setz = (k, v) => {
+  const setVar = (k, v) => {
     if (w.style.getPropertyValue(k) !== String(v)) w.style.setProperty(k, String(v));
   };
-  setz('--busy', running);
-  setz('--waiting-count', blocked + orphaned);
-  setz('--session-count', total);
+  setVar('--busy', running);
+  setVar('--waiting-count', blocked + orphaned);
+  setVar('--session-count', total);
 }
 
 /* Tabs in the settings window.
@@ -595,7 +599,7 @@ function raumzustand({ running, blocked, orphaned, total }) {
    Deliberately no state that gets stored anywhere: whoever opens the settings
    almost always wants the same thing, and a window that remembers the last tab
    shows the wrong one next time. */
-function tabWaehlen(welcher) {
+function pickTab(welcher) {
   for (const b of document.querySelectorAll('#settings .tab')) {
     b.classList.toggle('on', b.dataset.tab === welcher);
     b.setAttribute('aria-selected', b.dataset.tab === welcher ? 'true' : 'false');
@@ -606,7 +610,7 @@ function tabWaehlen(welcher) {
 }
 
 for (const b of document.querySelectorAll('#settings .tab')) {
-  b.addEventListener('click', () => tabWaehlen(b.dataset.tab));
+  b.addEventListener('click', () => pickTab(b.dataset.tab));
 }
 
 /* The language picker.
@@ -622,15 +626,15 @@ for (const b of document.querySelectorAll('#settings .tab')) {
 async function fillLanguages() {
   const sel = $('#langSel');
   if (!sel.options.length) {
-    for (const l of SPRACHEN) {
+    for (const l of LANGUAGES) {
       const o = document.createElement('option');
       o.value = l;
       // The name is written in the language itself — hence out of its table.
-      o.textContent = l === sprache ? tr('_meta.name') : NAMES[l] || l;
+      o.textContent = l === language ? tr('_meta.name') : NAMES[l] || l;
       sel.appendChild(o);
     }
   }
-  sel.value = sprache;
+  sel.value = language;
   plxrUI.replaceSelects();
 }
 
@@ -641,8 +645,8 @@ const NAMES = { en: 'English', de: 'Deutsch' };
 $('#langSel').addEventListener('change', async (e) => {
   const gewuenscht = e.target.value;
   try { localStorage.setItem('plxr.lang', gewuenscht); } catch {}
-  await spracheLaden(gewuenscht);
-  markupUebersetzen();
+  await loadLanguage(gewuenscht);
+  translateMarkup();
   // Whatever came out of JavaScript is redrawn by the next state update; the
   // views that load on demand are nudged here.
   refreshView();
@@ -1355,7 +1359,7 @@ function renderAll(tiles) {
   // A counter on the rail, so that even from inside a session you can see
   // dass jemand wartet.
   const wartet = blocked;
-  raumzustand({ running, blocked, orphaned, total: state.tiles.length });
+  roomState({ running, blocked, orphaned, total: state.tiles.length });
   $('#inboxCount').textContent = wartet || '';
   $('#railInbox').dataset.status = wartet ? 'permission' : '';
   if (!$('#viewInbox').hidden) renderInbox();
@@ -2567,6 +2571,92 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
 }, true);
 
+/* ═════════════════════════ Merkpunkte ═════════════════════════
+
+   Before every instruction a snapshot of the working directory is taken — a
+   git tree object, written with a temporary index, so neither your index nor
+   your working tree is touched. See internal/marks.
+
+   What it is for: an agent changes eleven files, one of them wrongly. The only
+   tool at hand is `git checkout .`, and that takes your own work with it. Here
+   one file goes back and nothing else moves.
+
+   The list opens closed: a mark with its instruction, and what changed since.
+   Only on a click does the file list come, because that costs a git diff per
+   mark and there can be dozens of them. */
+
+function marksShow(open) {
+  $('#marksPane').hidden = !open;
+  $('#marksToggle').classList.toggle('on', open);
+}
+
+async function marksRow(box, m) {
+  const row = document.createElement('div');
+  row.className = 'rrow';
+  row.innerHTML = '<span class="rart"></span><span class="rmain">' +
+    '<b class="rtitle"></b><span class="rdesc"></span></span><span class="rpath"></span>';
+  row.querySelector('.rart').textContent = new Date(m.at).toLocaleTimeString(language);
+  row.querySelector('.rtitle').textContent = m.prompt || m.tree.slice(0, 8);
+  row.querySelector('.rpath').textContent = m.tree.slice(0, 8);
+  const desc = row.querySelector('.rdesc');
+  box.appendChild(row);
+
+  let open = false;
+  const files = document.createElement('div');
+  box.appendChild(files);
+
+  row.addEventListener('click', async () => {
+    open = !open;
+    files.innerHTML = '';
+    if (!open) return;
+    let list = [];
+    try { list = await api.markChanges(state.active, m.tree); } catch { return; }
+    desc.textContent = list.length
+      ? tr('marks.nChanged', { n: list.length }) : tr('marks.unchanged');
+    for (const c of list) {
+      const f = document.createElement('div');
+      f.className = 'rrow';
+      f.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>' +
+        '<span class="hitAction"><button class="btn tiny"></button></span>';
+      f.querySelector('.rart').textContent = c.status;
+      f.querySelector('.rtitle').textContent = c.path;
+      const b = f.querySelector('button');
+      b.textContent = tr('marks.rollBack');
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!(await plxrUI.confirm(tr('marks.rollBackAsk', { path: c.path }), tr('marks.title')))) return;
+        try {
+          await api.markRestore(state.active, m.tree, c.path);
+          plxrUI.notice(tr('marks.rolledBack', { path: c.path }), tr('marks.title'));
+        } catch (err) {
+          plxrUI.notice(errText(err), tr('marks.title'));
+        }
+      });
+      files.appendChild(f);
+    }
+  });
+}
+
+$('#marksToggle').addEventListener('click', async () => {
+  if (!$('#marksPane').hidden) { marksShow(false); return; }
+  if (!state.active) return;
+  $('#viewer').hidden = true;
+  rulesShow(false);
+  marksShow(true);
+  const box = $('#marksBody');
+  box.innerHTML = '';
+  $('#marksMeta').textContent = tr('common.loading');
+  let list = [];
+  try { list = await api.marks(state.active); } catch { list = []; }
+  $('#marksMeta').textContent = '';
+  if (!list.length) {
+    showEmpty(box, tr('marks.none'), tr('marks.noneHint'));
+    return;
+  }
+  for (const m of list.slice(0, 50)) await marksRow(box, m);
+});
+$('#marksClose').addEventListener('click', () => marksShow(false));
+
 /* ═════════════════════════ Werkstatt ═════════════════════════
 
    A skin written in the running window, with the real sessions standing behind
@@ -2802,7 +2892,7 @@ async function fullTextSearch() {
 }
 
 function shortDate(ms) {
-  return new Date(ms).toLocaleString(sprache,
+  return new Date(ms).toLocaleString(language,
     { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -3190,8 +3280,8 @@ async function checkPace() {
     (t.active ? ` · ${tr('pace.active', { n: t.active })}` : '');
   el.title =
     tr('pace.tooltip', {
-      hour: t.perHour.toLocaleString(sprache),
-      window5h: t.window5h.toLocaleString(sprache),
+      hour: t.perHour.toLocaleString(language),
+      window5h: t.window5h.toLocaleString(language),
       active: t.active,
     });
 
@@ -3488,10 +3578,10 @@ api.env().then((e) => {
   }, 22);
 })();
 
-setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString(sprache); }, 1000);
+setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString(language); }, 1000);
 
 // Register our own tooltips — title="" would be a box from the system.
-plxrUI.tippBinden();
+plxrUI.bindTips();
 
 /* Emergency brake.
 
@@ -3536,8 +3626,8 @@ $('#pathFilter').value = state.filter;
 /* Language before anything else: the interface must never flash up in English
    and then switch. If loading fails the keys stay on screen — visibly broken
    is better than empty. */
-spracheLaden()
-  .then(markupUebersetzen)
+loadLanguage()
+  .then(translateMarkup)
   .catch((e) => console.error('Sprachdatei:', e))
   .then(connect)
   .then(() => loadThemes())
