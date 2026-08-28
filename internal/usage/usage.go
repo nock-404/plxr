@@ -44,7 +44,7 @@ func (p *Item) add(o Item) {
 func (p Item) Total() int64 { return p.In + p.Out + p.CacheWrite + p.CacheRead }
 
 type Line struct {
-	Key string `json:"schluessel"`
+	Key string `json:"key"`
 	Item
 }
 

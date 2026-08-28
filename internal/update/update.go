@@ -38,14 +38,14 @@ type Release struct {
 }
 
 type Status struct {
-	Current   string `json:"aktuell"`
-	Latest    string `json:"neueste"`
-	Available bool   `json:"verfuegbar"`
-	Notes     string `json:"notizen"`
+	Current   string `json:"current"`
+	Latest    string `json:"latest"`
+	Available bool   `json:"available"`
+	Notes     string `json:"notes"`
 	AssetURL  string `json:"assetUrl"`
 	AssetName string `json:"assetName"`
-	Size      int64  `json:"groesse"`
-	Error     string `json:"fehler,omitempty"`
+	Size      int64  `json:"size"`
+	Error     string `json:"error,omitempty"`
 }
 
 // assetName is the name CI uploads per platform.

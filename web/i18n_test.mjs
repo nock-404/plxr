@@ -82,6 +82,24 @@ if (ungenutzt.length) {
    Hauptwoerter dazu, die in Bedienoberflaechen wirklich vorkommen, und
    Backticks mitlesen — ohne die ${…}, dort steht Code. */
 const DEUTSCH = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine|senden|gesendet|oeffnen|geoeffnet|schliessen|speichern|gespeichert|loeschen|geloescht|abbrechen|Abbruch|Antwort|Antworten|Frage|Fragen|Eingabe|Eingabetaste|Taste|Sitzung|Fenster|Zeile|Zeilen|Ordner|Einstellungen|waehlen|Auswahl|neu|alle|mit|fuer|zum|zur|bei|dem|den|kann|muss|soll|hier|dort|jetzt|wieder|wurde|haben|hat)\b|[äöüßÄÖÜ]/;
+/* Keine HTML-Entities in den Werten.
+
+   Die Texte werden mit textContent gesetzt, und textContent decodiert nichts:
+   aus "path&gt;" wird auf dem Bildschirm woertlich path&gt;. Genau so ist es
+   passiert — beim Umzug der Texte aus dem HTML in die Tabellen sind die
+   Entities mitgewandert, zwoelf Stueck, und niemand hat es gesehen. */
+const entities = [];
+for (const [sprache, tabelle] of Object.entries(tabellen)) {
+  for (const [k, v] of Object.entries(tabelle)) {
+    if (typeof v === 'string' && /&(?:[a-zA-Z]+|#\d+);/.test(v)) entities.push(`${sprache}: ${k} = ${v}`);
+  }
+}
+if (entities.length) {
+  fehler = 1;
+  console.log(`  ${entities.length} Uebersetzungen enthalten HTML-Entities (textContent decodiert die nicht):`);
+  for (const e of entities) console.log(`      ${e}`);
+}
+
 const jsQuellen = ['web/app.js', 'web/ui.js'].map((f) => [f, readFileSync(f, 'utf8')]);
 const deutscheReste = [];
 for (const [datei, src] of jsQuellen) {
@@ -95,7 +113,7 @@ for (const [datei, src] of jsQuellen) {
     if (/^[\w.#\[\]=-]+$/.test(txt) || txt.startsWith('X-') || txt.includes('/')) continue;
     // Naives Paaren von Anfuehrungszeichen erwischt auch Code zwischen zwei
     // Zeichenketten. Was wie Code aussieht, ist keiner.
-    if (/=>|&&|\|\||\$\{|\bdata-\w+=/.test(txt)) continue;
+    if (/=>|&&|\|\||\$\{|\bdata-\w+=|===|\?|\btr\(/.test(txt)) continue;
     if (DEUTSCH.test(txt)) deutscheReste.push(`${datei}: ${txt.slice(0, 60)}`);
   }
 }

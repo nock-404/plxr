@@ -540,18 +540,18 @@ $('#settingsBtn').addEventListener('click', openSettings);
 
    Zusätzlich die reine Zahl, damit ein Skin die Stärke daran binden kann:
    drei laufende Agenten dürfen mehr Unruhe machen als einer. */
-function raumzustand({ laufen, blockiert, verwaist, gesamt }) {
+function raumzustand({ running, blocked, orphaned, total }) {
   const w = document.documentElement;
-  const lage = blockiert || verwaist ? 'waiting' : (laufen ? 'working' : 'idle');
+  const lage = blocked || orphaned ? 'waiting' : (running ? 'working' : 'idle');
   if (w.dataset.raum !== lage) w.dataset.raum = lage;
 
   // Als CSS-Variable, damit ein Skin daran rechnen kann statt zu raten.
   const setz = (k, v) => {
     if (w.style.getPropertyValue(k) !== String(v)) w.style.setProperty(k, String(v));
   };
-  setz('--busy', laufen);
-  setz('--waiting-count', blockiert + verwaist);
-  setz('--session-count', gesamt);
+  setz('--busy', running);
+  setz('--waiting-count', blocked + orphaned);
+  setz('--session-count', total);
 }
 
 /* Reiter im Einstellungsfenster.
@@ -957,7 +957,11 @@ function waitingSessions() {
    name are not the same question, and one bulk answer to the wrong group is
    worse than typing eight times. */
 function questionKey(tile) {
-  return (tile.confirm || tile.activity || '').trim();
+  /* tile.question ist die vom Daemon erkannte Rueckfrage. Hier stand
+     tile.confirm — ein Feld, das Go nie geschickt hat: die Sammelfrage hat
+     deshalb nach dem Taetigkeitstext gruppiert statt nach der Frage, und die
+     Karte zeigte nie die eigentliche Rueckfrage. */
+  return (tile.question || tile.activity || '').trim();
 }
 
 function inboxGroups(list) {
@@ -1309,22 +1313,26 @@ function renderAll(tiles) {
   state.tiles = tiles || [];
   const belegt = !!state.panes.length || !keineSonderansicht();
 
-  const laufen = state.tiles.filter((t) => t.alive).length;
-  const blockiert = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
-  const verwaist = state.tiles.filter((t) => t.verwaist).length;
+  const running = state.tiles.filter((t) => t.alive).length;
+  /* Laeuft nichts, gibt es nichts anzuhalten — dann steht der Knopf auch nicht
+     da. Eingerastet bleibt er sichtbar, sonst kaeme man nicht mehr heraus. */
+  const brake = $('#brake');
+  brake.hidden = running === 0 && brake.dataset.an !== 'ja';
+  const blocked = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
+  const orphaned = state.tiles.filter((t) => t.verwaist).length;
   // A counter on the rail, so that even from inside a session you can see
   // dass jemand wartet.
-  const wartet = blockiert;
-  raumzustand({ laufen, blockiert, verwaist, gesamt: state.tiles.length });
+  const wartet = blocked;
+  raumzustand({ running, blocked, orphaned, total: state.tiles.length });
   $('#inboxCount').textContent = wartet || '';
   $('#railInbox').dataset.status = wartet ? 'permission' : '';
   if (!$('#viewInbox').hidden) renderInbox();
   if (connectionOk) {
     $('#counts').textContent =
-      `${state.tiles.length} ${state.tiles.length === 1 ? 'Session' : 'Sessions'} · ` +
-      `${laufen} ${laufen === 1 ? tr('state.running') : 'laufen'}` +
-      (blockiert ? ` · ${tr('counts.waiting', { n: blockiert })}` : '') +
-      (verwaist ? ` · ${verwaist} vom Absturz betroffen` : '');
+      tr(state.tiles.length === 1 ? 'counts.session' : 'counts.sessions', { n: state.tiles.length }) +
+      ' · ' + tr(running === 1 ? 'counts.runningOne' : 'counts.running', { n: running }) +
+      (blocked ? ` · ${tr('counts.waiting', { n: blocked })}` : '') +
+      (orphaned ? ` · ${tr('counts.crashed', { n: orphaned })}` : '');
   }
 
   renderGrid();
@@ -1516,7 +1524,12 @@ function addPane(id) {
      line. macOptionIsMeta turns Alt+key into a meta input, the way shells
      expect. rightClickSelectsWord matches what other terminals do. */
   const term = new Terminal({
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    // Theme schon beim Bauen, nicht erst beim naechsten Wechsel: sonst startet
+    // jede neue Session in den Standardfarben von xterm und wird erst amber,
+    // wenn man zufaellig das Theme umstellt. Das Wiedergabe-Terminal machte es
+    // von Anfang an richtig, dieses nicht.
+    theme: xtermTheme(),
+    fontFamily: cssVar('term-font', 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'),
     fontSize: styleState.termSize || 13,
     lineHeight: 1.15,
     letterSpacing: 0,
@@ -2947,8 +2960,8 @@ async function checkVersion(erzwingen) {
     if (!st.available) { $('#updateBar').hidden = true; return; }
     if (localStorage.getItem('plxr.updateIgnoriert') === st.latest) return;
     $('#updateText').textContent =
-      tr('update.banner', { latest: st.latest, current: st.aktuell }) +
-      (st.resize ? ` · ${(st.resize / (1 << 20)).toFixed(1)} MB` : '');
+      tr('update.banner', { latest: st.latest, current: st.current }) +
+      (st.size ? ` · ${(st.size / (1 << 20)).toFixed(1)} MB` : '');
     $('#updateBar').hidden = false;
   } catch {}
 }
@@ -2958,7 +2971,7 @@ $('#updateHide').addEventListener('click', () => {
   $('#updateBar').hidden = true;
 });
 $('#updateNotes').addEventListener('click', () => {
-  plxrUI.notice(versionStatus?.notizen || tr('update.noNotes'), tr('update.notesTitle'));
+  plxrUI.notice(versionStatus?.notes || tr('update.noNotes'), tr('update.notesTitle'));
 });
 /* The flow you expect: notice, click, progress bar, restart. The sessions
    notice none of it — they belong to the daemon, and it keeps running. Only the
@@ -2999,14 +3012,14 @@ function updateVerfolgen() {
     } catch {
       return; // connection briefly gone — back on the next attempt
     }
-    $('#updateFill').style.width = st.prozent + '%';
+    $('#updateFill').style.width = st.percent + '%';
     $('#updateText').textContent =
-      st.phase === tr('update.loading') ? tr('update.progress', { pct: st.prozent }) : st.phase;
+      st.phase === tr('update.loading') ? tr('update.progress', { pct: st.percent }) : st.phase;
 
-    if (!st.fertig) return;
+    if (!st.done) return;
     clearInterval(tick);
 
-    if (st.fehler) { updateFehler(st.fehler); return; }
+    if (st.error) { updateFehler(st.error); return; }
 
     $('#updateText').textContent = tr('update.doneRestarting');
     $('#updateFill').style.width = '100%';

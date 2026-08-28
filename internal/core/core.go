@@ -48,7 +48,7 @@ type Tile struct {
 
 	// Question is the part of the screen holding the pending question — for the
 	// inbox, so it can be answered without opening the session.
-	Question string `json:"frage,omitempty"`
+	Question string `json:"question,omitempty"`
 }
 
 // questionFromScreen cuts out of the screen what looks like a pending
@@ -495,12 +495,12 @@ func (c *Core) VersionStatus() update.Status { return update.Check(currentVersio
 // waiting on a call that can take minutes
 // dauern kann.
 type UpdateStatus struct {
-	Running bool   `json:"laeuft"`
-	Percent int    `json:"prozent"`
+	Running bool   `json:"running"`
+	Percent int    `json:"percent"`
 	Phase   string `json:"phase"`
-	Path    string `json:"ort,omitempty"`
-	Error   string `json:"fehler,omitempty"`
-	Done    bool   `json:"fertig"`
+	Path    string `json:"path,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Done    bool   `json:"done"`
 }
 
 var updateStatus UpdateStatus

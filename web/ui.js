@@ -61,20 +61,58 @@
       return d;
     };
 
+    /* Die Liste haengt im Koerper, nicht im Feld.
+       Der Grund: die Einstellungen sind eine scrollende Karte
+       (.card.wide hat overflow-y: auto). Eine absolut positionierte Liste
+       darin wird an deren Rand abgeschnitten — von zehn Themes waren zwei zu
+       sehen, der Rest lag hinter der Kante. Etwas mit fester Position im
+       Koerper kann kein Vorfahre beschneiden.
+
+       Die alte Richtungslogik ist dabei weggefallen, und zwar zu Recht: sie
+       schrieb data-richtung="tall", das Stylesheet fragte nach "hoch". Nach
+       oben aufgeklappt hat also nie etwas. */
+    const platzieren = () => {
+      const r = button.getBoundingClientRect();
+      const rand = 8;
+      list.style.right = 'auto';
+      list.style.minWidth = r.width + 'px';
+      const untenFrei = window.innerHeight - r.bottom - rand;
+      const obenFrei = r.top - rand;
+      const hoch = untenFrei < Math.min(320, list.scrollHeight + 8) && obenFrei > untenFrei;
+      list.dataset.dir = hoch ? 'up' : 'down';
+      list.style.maxHeight = Math.max(120, Math.min(320, hoch ? obenFrei : untenFrei)) + 'px';
+      // Erst nach maxHeight messen, sonst ist die Breite die der Scrollleiste wegen falsch.
+      let links = r.left;
+      const breite = list.offsetWidth;
+      if (links + breite > window.innerWidth - rand) links = window.innerWidth - breite - rand;
+      list.style.left = Math.max(rand, links) + 'px';
+      if (hoch) { list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 4) + 'px'; }
+      else { list.style.bottom = 'auto'; list.style.top = (r.bottom + 4) + 'px'; }
+    };
+
     const auf = () => {
       render();
+      document.body.appendChild(list);
       list.hidden = false;
       wurzel.dataset.offen = 'ja';
-      // Open upwards when there is no room below.
-      const platz = window.innerHeight - button.getBoundingClientRect().bottom;
-      wurzel.dataset.richtung = platz < Math.min(320, list.scrollHeight + 16) ? 'tall' : 'runter';
+      platzieren();
       const g = $$('[data-picked]', list);
       if (g) g.scrollIntoView({ block: 'nearest' });
+      // Scrollt etwas darunter weg, muss die Liste mitgehen statt zu kleben.
+      window.addEventListener('scroll', platzieren, true);
+      window.addEventListener('resize', platzieren);
     };
-    const zu = () => { list.hidden = true; delete wurzel.dataset.offen; };
+    const zu = () => {
+      list.hidden = true;
+      delete wurzel.dataset.offen;
+      window.removeEventListener('scroll', platzieren, true);
+      window.removeEventListener('resize', platzieren);
+      // Zurueck ins Feld: dort sucht render() sie, und sie stirbt mit ihm.
+      wurzel.appendChild(list);
+    };
 
     button.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? auf() : zu(); });
-    document.addEventListener('click', (e) => { if (!wurzel.contains(e.target)) zu(); });
+    document.addEventListener('click', (e) => { if (!wurzel.contains(e.target) && !list.contains(e.target)) zu(); });
     document.addEventListener('keydown', (e) => {
       // Only while this list is open — otherwise an Escape anywhere in the
       // window would close the dialog underneath as well.

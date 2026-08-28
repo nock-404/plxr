@@ -35,6 +35,7 @@ schritt "bindungen" python3 bindungen.py
 schritt "js-parser" node web/parser_test.mjs
 schritt "js-aufrufe" node aufrufe.mjs web/app.js web/ui.js
 schritt "routen" python3 routen.py
+schritt "felder" python3 fields.py
 schritt "werkbank" node web/devpanel_test.mjs
 schritt "i18n" node web/i18n_test.mjs
 

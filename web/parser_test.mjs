@@ -142,22 +142,22 @@ console.log('  --- Sammelfrage ---');
 const F = 'Do you want to proceed?';
 const groupCases = [
   ['gleiche Frage kommt zusammen',
-   [{ id: 'a', confirm: F }, { id: 'b', confirm: F }, { id: 'c', confirm: F }],
+   [{ id: 'a', question: F }, { id: 'b', question: F }, { id: 'c', question: F }],
    [3]],
   ['ein Dateiname Unterschied trennt',
-   [{ id: 'a', confirm: 'Edit src/a.go?' }, { id: 'b', confirm: 'Edit src/b.go?' }],
+   [{ id: 'a', question: 'Edit src/a.go?' }, { id: 'b', question: 'Edit src/b.go?' }],
    [1, 1]],
   ['Leerraum aussen zaehlt nicht',
-   [{ id: 'a', confirm: F }, { id: 'b', confirm: '  ' + F + '\n' }],
+   [{ id: 'a', question: F }, { id: 'b', question: '  ' + F + '\n' }],
    [2]],
   ['ohne Frage bleibt jede fuer sich',
    [{ id: 'a' }, { id: 'b' }],
    [1, 1]],
-  ['activity springt ein, wenn confirm fehlt',
-   [{ id: 'a', activity: F }, { id: 'b', confirm: F }],
+  ['activity springt ein, wenn question fehlt',
+   [{ id: 'a', activity: F }, { id: 'b', question: F }],
    [2]],
   ['gemischt: zwei gleiche, eine andere',
-   [{ id: 'a', confirm: F }, { id: 'b', confirm: 'Delete?' }, { id: 'c', confirm: F }],
+   [{ id: 'a', question: F }, { id: 'b', question: 'Delete?' }, { id: 'c', question: F }],
    [2, 1]],
 ];
 for (const [name, tiles, want] of groupCases) {
@@ -168,7 +168,7 @@ for (const [name, tiles, want] of groupCases) {
 }
 
 // Keine Kachel darf verlorengehen: was rein geht, muss auch raus kommen.
-const alle = [{ id: 'a', confirm: F }, { id: 'b' }, { id: 'c', confirm: F }, { id: 'd', confirm: 'X' }];
+const alle = [{ id: 'a', question: F }, { id: 'b' }, { id: 'c', question: F }, { id: 'd', question: 'X' }];
 const drin = mod.inboxGroups(alle).flatMap((g) => g.tiles.map((t) => t.id)).sort().join(',');
 if (drin !== 'a,b,c,d') { failures++; console.log(`  FEHL Kachel verloren: ${drin}`); }
 else console.log('  ok   keine Kachel geht verloren');

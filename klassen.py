@@ -126,9 +126,51 @@ def main():
             print('      ' + ' '.join('.' + x for x in fehlt))
 
     fehler |= ids_pruefen()
+    fehler |= aufhebungen_pruefen()
 
     if not fehler:
         print('  Klassen und IDs stimmen überein')
+    return fehler
+
+
+def aufhebungen_pruefen():
+    """Hebt eine spätere Regel im selben Blatt eine frühere wieder auf?
+
+    Der Fall, für den es das gibt: in win95 stand `.listbody { background:
+    #fff }`, und 117 Zeilen weiter unten `.grid, .listbody, … { background:
+    transparent }`. Gleiche Spezifität, die spätere gewinnt — die Liste war
+    durchsichtig, der teal Desktop schien durch, und deckend waren nur die
+    geraden Zeilen. Kein Fehler, keine Warnung, nur ein Streifenmuster, das
+    aussieht wie Absicht.
+
+    Entstanden ist es beim Bedienen genau dieser Prüfdatei: eine Klasse fehlte
+    in einem Skin, also wurde sie in einer Sammelzeile nachgetragen — mit einem
+    Wert, der nichts tut. Ein Tor, das man mechanisch befriedigt, wird zur
+    Fehlerquelle.
+    """
+    fehler = 0
+    for pfad in sorted(glob.glob(os.path.join(WEB, 'skins', '*', 'skin.css'))) + \
+            [os.path.join(WEB, 'base.css')]:
+        s = re.sub(r'/\*.*?\*/', '', open(pfad, encoding='utf-8').read(), flags=re.S)
+        setz = {}
+        for i, m in enumerate(re.finditer(r'([^{}]+)\{([^{}]*)\}', s)):
+            sel, body = m.group(1), m.group(2)
+            werte = re.findall(r'(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)', body)
+            if not werte:
+                continue
+            for teil in sel.split(','):
+                teil = teil.strip()
+                if re.search(r'[:\[]', teil):
+                    continue          # Zustände und Merkmale dürfen aufheben
+                letzter = re.split(r'[\s>+~]+', teil)[-1]
+                for k in re.findall(r'^\.([A-Za-z][\w-]*)$', letzter):
+                    setz.setdefault(k, []).append(werte[-1].strip())
+        for k, v in sorted(setz.items()):
+            if len(v) > 1 and v[-1] in ('transparent', 'none') and v[0] not in ('transparent', 'none'):
+                fehler = 1
+                rel = os.path.relpath(pfad, os.path.dirname(WEB))
+                print(f'  {rel}: .{k} bekommt "{v[0]}" und weiter unten "{v[-1]}" — '
+                      f'die spätere Regel hebt die frühere auf')
     return fehler
 
 

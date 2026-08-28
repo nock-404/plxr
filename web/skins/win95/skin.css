@@ -224,7 +224,11 @@ body {
 /* ---------- Caught up: panes and small parts ----------
    Only some skins used to style these. The check in klassen.py makes sure none
    loses them again. */
-.grid, .listbody, .ruleslist, .filetree { background: transparent; }
+/* .listbody und .ruleslist stehen hier bewusst NICHT mehr drin: sie bekommen
+   weiter oben ihr Weiss, und "transparent" hat es hier wieder aufgehoben —
+   der teal Desktop schien durch die Liste, deckend waren nur die geraden
+   Zeilen. So sieht ein Tor aus, das mechanisch bedient wurde statt gelesen. */
+.grid, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
 .emptybox { color: var(--dim); }
