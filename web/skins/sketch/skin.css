@@ -315,3 +315,6 @@ body {
   animation: sketchPuls 3s ease-in-out infinite;
 }
 @keyframes sketchPuls { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+
+/* A tool button that is engaged — underlined, as if gone over twice. */
+.btn.on { color: var(--accent); border-color: var(--accent); }

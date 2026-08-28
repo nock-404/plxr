@@ -294,5 +294,9 @@
   "err.theme.notOwn": "No theme of your own by that name",
   "err.theme.unknownSkin": "No such skin. Available: {detail}",
   "err.theme.unknownPaletteKey": "Unknown palette entry \"{detail}\"",
-  "err.theme.badColorValue": "The colour value for \"{detail}\" contains characters that are not allowed"
+  "err.theme.badColorValue": "The colour value for \"{detail}\" contains characters that are not allowed",
+  "session.pause": "PAUSE",
+  "session.resume": "RESUME",
+  "session.pauseTip": "Halt this one session — it carries on where it stopped",
+  "session.pauseFailed": "Could not pause"
 }

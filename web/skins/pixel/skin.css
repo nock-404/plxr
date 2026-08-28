@@ -310,3 +310,6 @@ body {
   animation: pixelBlink 1.1s steps(2, end) infinite;
 }
 @keyframes pixelBlink { 50% { opacity: .25; } }
+
+/* A tool button that is engaged — see crt for why this was missing. */
+.btn.on { background: var(--accent); color: var(--bg); }

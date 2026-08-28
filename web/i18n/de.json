@@ -294,5 +294,9 @@
   "err.file.tooLarge": "Zu groß zum Speichern",
   "err.theme.unknownSkin": "Skin gibt es nicht. Vorhanden: {detail}",
   "err.theme.unknownPaletteKey": "Unbekannter Paletteneintrag \"{detail}\"",
-  "err.theme.badColorValue": "Farbwert für \"{detail}\" enthält unerlaubte Zeichen"
+  "err.theme.badColorValue": "Farbwert für \"{detail}\" enthält unerlaubte Zeichen",
+  "session.pause": "PAUSIEREN",
+  "session.resume": "FORTSETZEN",
+  "session.pauseTip": "Nur diese Session anhalten — sie läuft weiter, wo sie stand",
+  "session.pauseFailed": "Anhalten fehlgeschlagen"
 }

@@ -317,3 +317,6 @@ body {
 :root[data-room="working"] body { background: #0a7d7d; }
 :root[data-room="waiting"] body { background: #7d4a0a; }
 :root[data-room="idle"] body { background: var(--bg); }
+
+/* A tool button that is engaged: pressed in, as Windows 95 did it. */
+.btn.on { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }

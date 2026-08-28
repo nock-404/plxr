@@ -209,6 +209,8 @@ const api = {
     };
   },
   timeline: (id) => req(`/api/playback/${encodeURIComponent(id)}/timeline`),
+  freeze: (id) => req(`/api/sessions/${id}/freeze`, { method: 'POST' }),
+  unfreeze: (id) => req(`/api/sessions/${id}/unfreeze`, { method: 'POST' }),
   emergencyBrake: () => req('/api/freeze', { method: 'POST' }),
   unfreeze: () => req('/api/unfreeze', { method: 'POST' }),
   accounts: () => req('/api/accounts'),
@@ -1357,6 +1359,7 @@ function renderAll(tiles) {
   }
 
   renderGrid();
+  if (state.active) renderFreezeButton();
   renderRail();
   if (!belegt) {
     $('#viewGrid').hidden = state.tiles.length === 0;
@@ -1753,7 +1756,42 @@ function updateHeader() {
   $('#sessTitle').textContent = t.title || t.name;
   $('#sessMeta').textContent = [t.cwd, t.branch].filter(Boolean).join('  ·  ');
   fillAccounts('#sessAccount').then(() => { if (t.account) $('#sessAccount').value = t.account; });
+  renderFreezeButton();
 }
+
+/* Eine einzelne Session anhalten.
+
+   Der Daemon konnte das von Anfang an — /api/sessions/{id}/freeze steht dort
+   seit dem Bau der Notbremse. Nur kam man von der Oberflaeche aus nicht heran:
+   verdrahtet war allein die Notbremse fuer alle. Wer einen einzelnen Agenten
+   bremsen wollte, musste alle vier anhalten.
+
+   Der Knopf traegt seinen Zustand selbst, weil er zwei Bedeutungen hat und ein
+   Knopf, dem man nicht ansieht, was er als naechstes tut, schlimmer ist als
+   keiner. */
+function frozenNow() {
+  const t = state.tiles.find((x) => x.id === state.active);
+  return !!t?.frozen;
+}
+
+function renderFreezeButton() {
+  const b = $('#sessFreeze');
+  const t = state.tiles.find((x) => x.id === state.active);
+  b.hidden = !t?.alive;
+  if (b.hidden) return;
+  const on = frozenNow();
+  b.textContent = tr(on ? 'session.resume' : 'session.pause');
+  b.classList.toggle('on', on);
+}
+
+$('#sessFreeze').addEventListener('click', async () => {
+  if (!state.active) return;
+  try {
+    await (frozenNow() ? api.unfreeze(state.active) : api.freeze(state.active));
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('session.pauseFailed'));
+  }
+});
 
 $('#sessKill').addEventListener('click', async () => {
   if (!state.active) return;

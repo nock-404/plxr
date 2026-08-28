@@ -373,3 +373,7 @@ body {
 }
 :root[data-room="idle"] .fx::after { box-shadow: none; }
 @keyframes crtAtem { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* A tool button that is engaged. Only .btn.tiny.on was styled — FILES and
+   RULES therefore gave no clue whether they were open. */
+.btn.on { border-color: var(--accent); color: var(--accent); }
