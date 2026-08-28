@@ -18,7 +18,7 @@ ihren Zustand kennt.
 ## Installieren
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/mg-pr/plxr/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nock-404/plxr/main/install.sh | sh
 ```
 
 macOS und Linux. Für Windows das Archiv von der Releases-Seite laden.

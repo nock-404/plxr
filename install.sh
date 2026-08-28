@@ -1,7 +1,7 @@
 #!/bin/sh
 # plxr installieren.
 #
-#   curl -fsSL https://raw.githubusercontent.com/mg-pr/plxr/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/nock-404/plxr/main/install.sh | sh
 #
 # Holt die neueste Veröffentlichung von GitHub, legt die App nach /Applications
 # (macOS) beziehungsweise ~/.local/lib (Linux) und verlinkt das Kommando in ein
@@ -11,7 +11,7 @@
 # kann sudo kein Passwort erfragen — es bräche mitten im Vorgang ab.
 set -eu
 
-REPO="mg-pr/plxr"
+REPO="nock-404/plxr"
 
 rot()   { printf '\033[31m%s\033[0m\n' "$1" >&2; }
 fett()  { printf '\033[1m%s\033[0m\n' "$1"; }

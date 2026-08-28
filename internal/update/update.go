@@ -22,7 +22,7 @@ import (
 )
 
 // Repo is the project the versions come from.
-const Repo = "mg-pr/plxr"
+const Repo = "nock-404/plxr"
 
 type Release struct {
 	Tag        string    `json:"tag_name"`

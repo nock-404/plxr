@@ -134,7 +134,7 @@ jobs:
             ## Installieren
 
             ```sh
-            curl -fsSL https://raw.githubusercontent.com/mg-pr/plxr/main/install.sh | sh
+            curl -fsSL https://raw.githubusercontent.com/nock-404/plxr/main/install.sh | sh
             ```
 
             Oder das passende Archiv unten herunterladen und entpacken.
