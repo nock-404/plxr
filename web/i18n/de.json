@@ -321,5 +321,7 @@
   "waiting.rowTip": "{worked} gearbeitet, {waited} gewartet",
   "waiting.minutes": "{n} min",
   "waiting.hours": "{h} h",
-  "waiting.hoursMinutes": "{h} h {n} min"
+  "waiting.hoursMinutes": "{h} h {n} min",
+  "workbench.closeTip": "Werkstatt schließen — Ungespeichertes geht verloren",
+  "workbench.hint": "Tipp los — das Fenster ändert sich mit. ⌘S speichert."
 }

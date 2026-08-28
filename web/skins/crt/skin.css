@@ -377,3 +377,9 @@ body {
 /* A tool button that is engaged. Only .btn.tiny.on was styled — FILES and
    RULES therefore gave no clue whether they were open. */
 .btn.on { border-color: var(--accent); color: var(--accent); }
+
+/* The workbench borrows the surface of the file panel — only from the other
+   side, so it reads as a second panel and not as part of the interface. */
+.workbench { border-left: 1px solid var(--dim); background: color-mix(in srgb, var(--fg) 2%, var(--bg)); }
+.wbBar { border-bottom: 1px solid var(--dim); }
+.wbHint { color: var(--dim); }

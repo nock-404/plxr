@@ -318,3 +318,8 @@ body {
 
 /* A tool button that is engaged — underlined, as if gone over twice. */
 .btn.on { color: var(--accent); border-color: var(--accent); }
+
+/* Workbench — a second sheet of paper, dashed off. */
+.workbench { border-left: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.wbBar { border-bottom: 1px dashed var(--line); }
+.wbHint { color: var(--dim); font-size: .78em; }

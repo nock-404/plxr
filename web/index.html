@@ -185,21 +185,6 @@
             <div id="rulesBody" class="ruleslist"></div>
           </div>
 
-          <!-- Workbench: write a skin while the real sessions stand behind it. -->
-          <div id="workbench" class="overlay" hidden>
-            <div class="overlayBar">
-              <span class="overlayName" data-i18n="workbench.title">Workbench</span>
-              <input id="wbName" spellcheck="false" data-i18n-ph="workbench.namePlaceholder">
-              <span id="wbMeta" class="meta"></span>
-              <span class="spacer"></span>
-              <button class="btn" id="wbSave" data-i18n-tip="workbench.saveTip" data-i18n="workbench.save">SAVE</button>
-              <button class="btn" id="wbClose" data-i18n="common.back">BACK</button>
-            </div>
-            <div class="wbSplit">
-              <textarea id="wbCss" class="viewerbody" spellcheck="false"></textarea>
-              <div id="wbMissing" class="ruleslist"></div>
-            </div>
-          </div>
 
           <!-- Playback: its own terminal without input, above everything. -->
           <div id="player" class="overlay" hidden>
@@ -247,6 +232,24 @@
       </section>
 
     </main>
+
+    <!-- Workbench: docked beside the interface, not on top of it.
+         The whole point is watching the real window change while you type — an
+         overlay would cover exactly what it is meant to show. And it sits here,
+         beside .content, so it works in every view and not only inside an open
+         session. -->
+    <aside id="workbench" class="workbench" hidden>
+      <div class="wbBar">
+        <span class="overlayName" data-i18n="workbench.title">Workbench</span>
+        <input id="wbName" spellcheck="false" data-i18n-ph="workbench.namePlaceholder">
+        <span class="spacer"></span>
+        <button class="btn tiny" id="wbSave" data-i18n-tip="workbench.saveTip" data-i18n="workbench.save">SAVE</button>
+        <button class="btn tiny" id="wbClose" data-i18n-tip="workbench.closeTip">✕</button>
+      </div>
+      <span id="wbMeta" class="wbHint"></span>
+      <textarea id="wbCss" class="viewerbody" spellcheck="false"></textarea>
+      <div id="wbMissing" class="ruleslist"></div>
+    </aside>
   </div>
 
   <div class="fx"></div>

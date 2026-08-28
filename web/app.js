@@ -2648,6 +2648,10 @@ async function openWorkbench() {
   $('#settings').hidden = true;
   $('#workbench').hidden = false;
   wbRender();
+  $('#wbMeta').textContent = tr('workbench.hint');
+  // The panel takes width away from the interface — without a refit the
+  // terminals keep their old number of columns and wrap in the middle of a line.
+  for (const pane of paneList()) paneRefit(pane);
   $('#wbCss').focus();
 }
 
@@ -2655,6 +2659,7 @@ function closeWorkbench() {
   $('#workbench').hidden = true;
   // The preview goes with it: what was not saved must not stay behind.
   if (wbLive) { wbLive.remove(); wbLive = null; }
+  for (const pane of paneList()) paneRefit(pane);
 }
 
 async function wbSave() {

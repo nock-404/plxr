@@ -313,3 +313,8 @@ body {
 
 /* A tool button that is engaged — see crt for why this was missing. */
 .btn.on { background: var(--accent); color: var(--bg); }
+
+/* Workbench — same surface as the file panel, mirrored. */
+.workbench { border-left: var(--px) solid var(--line); background: var(--panel); }
+.wbBar { border-bottom: var(--px) solid var(--line); padding: 8px; }
+.wbHint { color: var(--dim); font-size: .68em; }

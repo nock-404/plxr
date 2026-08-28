@@ -320,3 +320,8 @@ body {
 
 /* A tool button that is engaged: pressed in, as Windows 95 did it. */
 .btn.on { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+
+/* Workbench — a window surface of its own, as Windows 95 would have it. */
+.workbench { background: var(--panel); margin: 3px; }
+.wbBar { background: var(--panel); border-bottom: 1px solid var(--sh); }
+.wbHint { color: var(--dk); font-size: .9em; }
