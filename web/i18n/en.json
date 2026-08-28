@@ -344,5 +344,13 @@
   "key.settings": "settings",
   "key.fontSmaller": "smaller font",
   "key.session": "jump to session 1–9",
-  "key.keys": "this list"
+  "key.keys": "this list",
+  "session.killTip": "End this session — the recording stays",
+  "hook.tip": "Let Claude Code report its state to plxr — writes into the settings of every account found",
+  "theme.deleteTip": "Delete this theme of your own — the built-in ones stay",
+  "settings.resetTip": "Back to the colours of the theme — your changes are lost",
+  "settings.saveTip": "Save the colours as a theme of your own",
+  "grid.none": "Nothing running",
+  "grid.noneHint": "+ NEW starts a session — ⌘T does too. Whatever runs shows up here as a tile.",
+  "grid.noneHookHint": "Claude Code is not reporting its state yet: settings → agents → ATTACH. Without it a tile only knows what stands on the screen."
 }

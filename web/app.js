@@ -26,6 +26,12 @@ const $ = (s) => document.querySelector(s);
 
 const LANGUAGES = ['en', 'de'];
 let language = 'en';
+
+/* null until asked once. Deliberately up here and not beside the hook code:
+   let is not hoisted, and the empty overview reads it — a declaration further
+   down works only as long as nothing runs earlier. That is not a property to
+   rely on. */
+let hookInstalled = null;
 let texts = {};
 let textsEn = {};
 
@@ -662,7 +668,7 @@ $('#langSel').addEventListener('change', async (e) => {
 const STYLE_COLORS = [
   ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', tr('style.dim')],
   ['accent', 'Hervorhebung'], ['panel', tr('style.panel')], ['line', 'Linien'],
-  ['working', 'arbeitet'], ['waiting', 'wartet'],
+  ['working', 'arbeitet'], ['waiting', 'waiting'],
   ['blocked', tr('state.needsYou')], ['dead', 'beendet'],
   ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
 ];
@@ -812,6 +818,7 @@ $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = tr
 async function showHookStatus() {
   try {
     const st = await api.hookStatus();
+    hookInstalled = !!st.installed;
     const several = (st.accounts || 1) > 1 ? tr('hook.accountCount', { n: st.accounts }) : '';
     $('#hookHint').textContent = st.installed
       ? tr('hook.connectedHint', { accounts: several })
@@ -864,7 +871,7 @@ const ANSICHTEN = [
   ['#railArchive', '#viewArchive'],
 ];
 
-const keineSonderansicht = () => ANSICHTEN.every(([, v]) => $(v).hidden);
+const noSpecialView = () => ANSICHTEN.every(([, v]) => $(v).hidden);
 
 function showOnly(welche) {
   for (const [, v] of ANSICHTEN) $(v).hidden = true;
@@ -1143,7 +1150,7 @@ $('#railUsage').addEventListener('click', showUsage);
 
 const GLYPHS = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', frozen: '❙❙' };
 const WORD = {
-  working: 'arbeitet', waiting: 'wartet', permission: tr('state.needsYou'),
+  working: 'arbeitet', waiting: 'waiting', permission: tr('state.needsYou'),
   dead: 'beendet', unknown: tr('state.running'),
 };
 
@@ -1276,7 +1283,7 @@ function renderRail() {
   }
 
   for (const [button, view] of ANSICHTEN) $(button).classList.toggle('active', !$(view).hidden);
-  $('#railHome').classList.toggle('active', !state.panes.length && keineSonderansicht());
+  $('#railHome').classList.toggle('active', !state.panes.length && noSpecialView());
 }
 
 /* ═════════════════════════ Kachelraster ═════════════════════════ */
@@ -1342,12 +1349,26 @@ function renderGrid() {
         .filter(Boolean).join(' · ');
   }
   for (const el of [...raster.children]) if (!seen.has(el.dataset.id)) el.remove();
+
+  /* The very first screen.
+     Without a session the overview was completely blank — the first thing
+     anyone sees said nothing at all, not even what to do next. And the one
+     thing that makes plxr worth anything is the hook: without it a tile knows
+     only what stands on the screen, not what the agent is doing. So the hint
+     says that first, and only when it is missing. */
+  const note = raster.querySelector('.emptyNote');
+  if (state.tiles.length) {
+    if (note) note.remove();
+  } else if (!note) {
+    showEmpty(raster, tr('grid.none'),
+      hookInstalled === false ? tr('grid.noneHookHint') : tr('grid.noneHint'));
+  }
 }
 
 // renderAll is the only receiver of the state stream.
 function renderAll(tiles) {
   state.tiles = tiles || [];
-  const belegt = !!state.panes.length || !keineSonderansicht();
+  const busy = !!state.panes.length || !noSpecialView();
 
   const running = state.tiles.filter((t) => t.alive).length;
   /* Nothing running, nothing to halt — then the button is not there either.
@@ -1356,12 +1377,12 @@ function renderAll(tiles) {
   brake.hidden = running === 0 && brake.dataset.on !== 'yes';
   const blocked = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
   const orphaned = state.tiles.filter((t) => t.orphaned).length;
-  // A counter on the rail, so that even from inside a session you can see
-  // dass jemand wartet.
-  const wartet = blocked;
+  // A counter on the rail, so that even from inside a session you can see that
+  // somebody is waiting.
+  const waiting = blocked;
   roomState({ running, blocked, orphaned, total: state.tiles.length });
-  $('#inboxCount').textContent = wartet || '';
-  $('#railInbox').dataset.status = wartet ? 'permission' : '';
+  $('#inboxCount').textContent = waiting || '';
+  $('#railInbox').dataset.status = waiting ? 'permission' : '';
   if (!$('#viewInbox').hidden) renderInbox();
   if (connectionOk) {
     $('#counts').textContent =
@@ -1374,7 +1395,7 @@ function renderAll(tiles) {
   renderGrid();
   if (state.active) renderFreezeButton();
   renderRail();
-  if (!belegt) {
+  if (!busy) {
     $('#viewGrid').hidden = state.tiles.length === 0;
     $('#empty').hidden = state.tiles.length > 0;
   }

@@ -151,7 +151,7 @@
           <button class="btn" id="splitAdd" data-i18n-tip="session.splitTip" data-i18n="session.split">SPLIT</button>
           <select id="sessAccount" data-i18n-tip="session.accountTip"></select>
           <button class="btn" id="sessFreeze" data-i18n-tip="session.pauseTip" data-i18n="session.pause">PAUSE</button>
-          <button class="btn" id="sessKill" data-i18n="session.kill">TERMINATE</button>
+          <button class="btn" id="sessKill" data-i18n-tip="session.killTip" data-i18n="session.kill">TERMINATE</button>
         </div>
 
         <div class="sesssplit">
@@ -344,9 +344,9 @@
         <div class="style" id="styleEditor"></div>
         <span class="rowInline">
           <span id="themeHint" class="notice"></span>
-          <button type="button" class="btn" id="themeDelete" hidden data-i18n="common.delete">DELETE</button>
-          <button type="button" class="btn" id="styleReset" data-i18n="settings.reset">RESET</button>
-          <button type="button" class="btn" id="styleSave" data-i18n="common.save">SAVE</button>
+          <button type="button" class="btn" id="themeDelete" hidden data-i18n-tip="theme.deleteTip" data-i18n="common.delete">DELETE</button>
+          <button type="button" class="btn" id="styleReset" data-i18n-tip="settings.resetTip" data-i18n="settings.reset">RESET</button>
+          <button type="button" class="btn" id="styleSave" data-i18n-tip="settings.saveTip" data-i18n="common.save">SAVE</button>
           <button type="button" class="btn" id="wbOpen" data-i18n-tip="workbench.openTip" data-i18n="workbench.open">WORKBENCH</button>
           <button type="button" class="btn" id="themeImportBtn" data-i18n="settings.import">IMPORT</button>
           <input type="file" id="themeFile" accept=".json,application/json" hidden>
@@ -359,7 +359,7 @@
         <span class="fieldName" data-i18n="settings.claudeCode">claude code</span>
         <span class="rowInline">
           <span id="hookHint" class="notice"></span>
-          <button type="button" class="btn" id="hookBtn"></button>
+          <button type="button" class="btn" id="hookBtn" data-i18n-tip="hook.tip"></button>
         </span>
       </div>
     </div>

@@ -344,5 +344,13 @@
   "key.settings": "Einstellungen",
   "key.fontSmaller": "Schrift kleiner",
   "key.session": "zu Session 1–9 springen",
-  "key.keys": "diese Liste"
+  "key.keys": "diese Liste",
+  "session.killTip": "Diese Session beenden — der Mitschnitt bleibt",
+  "hook.tip": "Claude Code seinen Zustand an plxr melden lassen — schreibt in die Einstellungen jedes gefundenen Kontos",
+  "theme.deleteTip": "Dieses eigene Theme löschen — die eingebauten bleiben",
+  "settings.resetTip": "Zurück auf die Farben des Themes — deine Änderungen gehen verloren",
+  "settings.saveTip": "Die Farben als eigenes Theme speichern",
+  "grid.none": "Es läuft nichts",
+  "grid.noneHint": "+ NEU startet eine Session — ⌘T auch. Was läuft, steht hier als Kachel.",
+  "grid.noneHookHint": "Claude Code meldet seinen Zustand noch nicht: Einstellungen → Agenten → EINRICHTEN. Ohne das weiß eine Kachel nur, was auf dem Schirm steht."
 }
