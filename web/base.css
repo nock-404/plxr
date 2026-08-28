@@ -13,7 +13,7 @@
      --crest                 the glyphs this skin draws directories with
 
    And these are the classes it styles. The list reflects the current state;
-   after changing it run `./klassen.py` — it reports what a skin forgets.
+   after changing it run `./classes.py` — it reports what a skin forgets.
 
      Header     .bar .mark .wordmark .filter .prompt .btn .icon .primary .tiny
      Status     .statusrow .updatebar .boot

@@ -251,7 +251,7 @@ body {
 *::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 /* ---------- Caught up: settings, confirmations, boot line ----------
-   These classes arrived later. The check in klassen.py makes sure no skin loses
+   These classes arrived later. The check in classes.py makes sure no skin loses
    them again. */
 .dialogText { color: var(--fg); font-size: .92em; }
 .boot { color: var(--dim); }
@@ -273,7 +273,7 @@ body {
 @keyframes orphanedblink { 50% { opacity: .3 } }
 
 /* ---------- Caught up: panes and small parts ----------
-   Only some skins used to style these. The check in klassen.py makes sure none
+   Only some skins used to style these. The check in classes.py makes sure none
    loses them again. */
 .grid, .listbody, .ruleslist, .filetree { background: transparent; }
 .rdot { opacity: .9; }

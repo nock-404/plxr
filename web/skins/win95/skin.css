@@ -201,7 +201,7 @@ body {
 }
 
 /* ---------- Caught up: settings, confirmations, boot line ----------
-   These classes arrived later. The check in klassen.py makes sure no skin loses
+   These classes arrived later. The check in classes.py makes sure no skin loses
    them again. */
 .dialogText { color: var(--dk); }
 .boot { color: var(--dim); }
@@ -222,7 +222,7 @@ body {
 @keyframes orphanedblink { 50% { opacity: .3 } }
 
 /* ---------- Caught up: panes and small parts ----------
-   Only some skins used to style these. The check in klassen.py makes sure none
+   Only some skins used to style these. The check in classes.py makes sure none
    loses them again. */
 /* .listbody und .ruleslist stehen hier bewusst NICHT mehr drin: sie bekommen
    weiter oben ihr Weiss, und "transparent" hat es hier wieder aufgehoben —

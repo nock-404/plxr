@@ -1,39 +1,40 @@
 #!/bin/bash
-# Entwicklungsstand bauen und starten — neben einer Installation, nicht statt ihr.
+# Build and start the development version — beside an installation, not instead
+# of it.
 #
-# Drei Dinge, die hier schon schiefgegangen sind:
+# Three things that have gone wrong here before:
 #
-# 1. PLXR_HOME muss woanders hinzeigen. Sonst teilen sich Entwicklungsstand und
-#    Installation dieselbe daemon.json und damit denselben Daemon; der eine
-#    beendet dem anderen die Sitzung.
-# 2. Gestartet wird über den ABSOLUTEN Pfad. Mit einem relativen steht in der
-#    Prozessliste etwas anderes, als pkill sucht — die alten Fenster überleben
-#    und häufen sich im Dock.
-# 3. Kein `open`: LaunchServices reicht die Umgebung der Shell nicht durch,
-#    PLXR_HOME käme nie an.
+# 1. PLXR_HOME has to point somewhere else. Otherwise the development version
+#    and the installation share one daemon.json and therefore one daemon; each
+#    one ends the other's sessions.
+# 2. Started through the ABSOLUTE path. With a relative one the process list
+#    shows something other than what pkill looks for — the old windows survive
+#    and pile up in the dock.
+# 3. No `open`: LaunchServices does not pass the shell's environment through,
+#    so PLXR_HOME would never arrive.
 set -e
 cd "$(dirname "$0")"
-WURZEL="$PWD"
+ROOT="$PWD"
 export PATH="/opt/homebrew/bin:$HOME/go/bin:$PATH"
 export PLXR_HOME="$HOME/.plxr-dev"
 
-APP="$WURZEL/build/bin/plxr.app"
+APP="$ROOT/build/bin/plxr.app"
 BIN="$APP/Contents/MacOS/plxr"
 
 node --check web/app.js
 node --check web/ui.js
-python3 klassen.py
+python3 classes.py
 wails build "$@" | grep -E 'Built|rror' || true
 ./sign.sh "$APP"
 
-# Alles beenden, was aus DIESEM Verzeichnis stammt — Fenster wie Daemon.
-# Was unter ~/.plxr läuft, bleibt unangetastet.
+# End everything that came out of THIS directory — window as well as daemon.
+# Whatever runs under ~/.plxr stays untouched.
 pkill -f "$APP" 2>/dev/null || true
 rm -f "$PLXR_HOME/daemon.json"
 sleep 1
 
-# macOS merkt sich Symbole je Bündelpfad. Nach einer neuen Signatur zeigt der
-# Dock sonst weiter das alte — oder Wails' Standard-W.
+# macOS remembers icons per bundle path. After a new signature the dock would
+# otherwise keep showing the old one — or Wails' default W.
 touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
 	-f "$APP" >/dev/null 2>&1 || true
@@ -46,12 +47,12 @@ if [ -f "$PLXR_HOME/daemon.json" ]; then
 	python3 - "$PLXR_HOME/daemon.json" <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
-print(f"  Entwicklungsstand auf http://127.0.0.1:{d['port']}/?token={d['token']}")
+print(f"  development build on http://127.0.0.1:{d['port']}/?token={d['token']}")
 EOF
 else
-	echo "  WARNUNG: kein Daemon unter $PLXR_HOME" >&2
+	echo "  WARNING: no daemon under $PLXR_HOME" >&2
 fi
 
-laufend=$(pgrep -fc "$APP/Contents/MacOS/plxr" 2>/dev/null || echo 0)
-[ "$laufend" -gt 2 ] && echo "  WARNUNG: $laufend Prozesse aus dem Baubaum — hier häuft sich etwas" >&2
+running=$(pgrep -fc "$APP/Contents/MacOS/plxr" 2>/dev/null || echo 0)
+[ "$running" -gt 2 ] && echo "  WARNING: $running processes from the build tree — something is piling up here" >&2
 exit 0

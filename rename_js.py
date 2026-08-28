@@ -8,8 +8,8 @@ eigenen Durchgang dran.
 
 Anders als Go hat JavaScript keinen Compiler, der eine vergessene Stelle
 meldet. Deshalb wird hinterher geprüft, dass sich an den Zeichenketten
-nachweislich nichts geändert hat — und der Rest muss über klassen.py,
-bindungen.py, den Parser-Test und `node --check` fallen.
+nachweislich nichts geändert hat — und der Rest muss über classes.py,
+bindings.py, den Parser-Test und `node --check` fallen.
 """
 import json
 import re
