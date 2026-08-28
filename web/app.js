@@ -65,6 +65,24 @@ function tr(keyName, values) {
   return s;
 }
 
+/* Turn an error from the daemon into a sentence.
+
+   Go does not send prose but a code, "err.session.unknown", and an
+   untranslatable detail behind a bar — a path, a name, the message of an
+   underlying error. See internal/uierr for the why.
+
+   Anything not recognised is shown as it stands. That matters: an error must
+   never be swallowed, and a daemon that is newer than this window may well
+   send a code this table does not know yet. Then the code itself is on screen,
+   which is ugly but honest — and traceable. */
+function errText(e) {
+  const raw = (e && e.message) || String(e ?? '');
+  const [code, detail] = raw.split('|');
+  if (!/^err\.[\w.]+$/.test(code)) return raw;
+  if (!(code in texts) && !(code in texteEn)) return raw;
+  return tr(code, detail === undefined ? undefined : { detail });
+}
+
 /* Translate everything in the markup that carries a key. Called at startup and
    after every language change — so a change needs no reload. */
 function markupUebersetzen(root = document) {
@@ -496,7 +514,7 @@ $('#themeDelete').addEventListener('click', async () => {
     await api.themeDelete(t.name);
     await loadThemes();
   } catch (e) {
-    plxrUI.notice(e.message || String(e), tr('theme.notDeleted'));
+    plxrUI.notice(errText(e), tr('theme.notDeleted'));
   }
 });
 
@@ -771,7 +789,7 @@ $('#styleSave').addEventListener('click', async () => {
     styleState.changes = {};
     plxrUI.notice(tr('theme.saved', { name }), tr('theme.savedTitle'));
   } catch (e) {
-    plxrUI.notice(e.message || String(e), tr('common.notSaved'));
+    plxrUI.notice(errText(e), tr('common.notSaved'));
   }
 });
 $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = true; });
@@ -803,7 +821,7 @@ $('#hookBtn').addEventListener('click', async () => {
          : tr('hook.installed'),
       'Claude Code');
   } catch (e) {
-    plxrUI.notice(e.message || String(e), tr('err.notChanged'));
+    plxrUI.notice(errText(e), tr('err.notChanged'));
   }
 });
 
@@ -815,7 +833,7 @@ $('#themeFile').addEventListener('change', async (e) => {
     const t = await api.themeImport(await f.text());
     await loadThemes(t.name);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), tr('theme.rejected'));
+    plxrUI.notice(errText(err), tr('theme.rejected'));
   }
   e.target.value = '';
 });
@@ -1081,7 +1099,7 @@ async function replyAll(tiles, text, raw) {
     try {
       await api.sendReply(tile.id, text, raw);
     } catch (e) {
-      failed.push(`${tile.title || tile.name}: ${e.message || String(e)}`);
+      failed.push(`${tile.title || tile.name}: ${errText(e)}`);
     }
   }
   if (failed.length) plxrUI.notice(failed.join('\n'), tr('inbox.notSent'));
@@ -1492,7 +1510,7 @@ function addPane(id) {
           const fresh = await api.resume(t.id);
           setTimeout(() => openSession(fresh.id), 700);
         } catch (e) {
-          plxrUI.notice(e.message || String(e), tr('archive.notResumed'));
+          plxrUI.notice(errText(e), tr('archive.notResumed'));
         }
       });
     return;
@@ -1972,7 +1990,7 @@ $('#sessAccount').addEventListener('change', async (e) => {
     closePane(state.active);
     setTimeout(() => openSession(fresh.id), 700);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), tr('session.switchFailed'));
+    plxrUI.notice(errText(err), tr('session.switchFailed'));
     e.target.value = t.account || '';
   }
 });
@@ -2081,7 +2099,7 @@ async function openFile(e, sid) {
     $('#rulesPane').hidden = true;
     $('#viewer').hidden = false;
   } catch (err) {
-    plxrUI.notice(err.message || String(err), tr('file.unreadable'));
+    plxrUI.notice(errText(err), tr('file.unreadable'));
   }
 }
 
@@ -2112,7 +2130,7 @@ async function saveFile() {
     $('#viewerMeta').textContent = tr('file.metaSaved', { lines: c.lines, kb: (c.size / 1024).toFixed(1) });
   } catch (err) {
     setDirty(true);
-    plxrUI.notice(err.message || String(err), tr('common.notSaved'));
+    plxrUI.notice(errText(err), tr('common.notSaved'));
   }
 }
 $('#viewerSave').addEventListener('click', saveFile);
@@ -2377,7 +2395,7 @@ async function openPlayer(id, name, abOffset) {
   } catch (e) {
     $('#playerMeta').textContent = '';
     closePlayer();
-    plxrUI.notice(e.message || String(e), tr('player.noRecording'));
+    plxrUI.notice(errText(e), tr('player.noRecording'));
     return;
   }
 
@@ -2629,7 +2647,7 @@ async function resumeSession(id, account) {
     showGrid();
     setTimeout(() => openSession(s.id), 500);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), tr('archive.resumeFailed'));
+    plxrUI.notice(errText(err), tr('archive.resumeFailed'));
   }
 }
 
@@ -2770,7 +2788,7 @@ function renderArchive() {
         archiv.all = archiv.all.filter((x) => x.id !== e.id);
         renderArchive();
       } catch (err) {
-        plxrUI.notice(err.message || String(err), tr('archive.deleteFailed'));
+        plxrUI.notice(errText(err), tr('archive.deleteFailed'));
       }
     });
     box.appendChild(row);
@@ -2820,7 +2838,7 @@ async function loadPorts() {
           tr('ports.killAsk', { port: p.port, how: manner }));
         if (!ja) return;
         try { await api.portKill(p.pid, hard); setTimeout(loadPorts, 500); }
-        catch (e) { plxrUI.notice(e.message || String(e), tr('ports.killFailed')); }
+        catch (e) { plxrUI.notice(errText(e), tr('ports.killFailed')); }
       });
     }
     box.appendChild(row);
@@ -3005,7 +3023,7 @@ $('#updateGo').addEventListener('click', async () => {
   try {
     await api.update();
   } catch (e) {
-    updateFehler(e.message || String(e));
+    updateFehler(errText(e));
     return;
   }
   updateVerfolgen();
@@ -3137,7 +3155,7 @@ async function openTemplates() {
         const r = await api.templateStart(v.name);
         if (r.teilweise) plxrUI.notice(r.teilweise, tr('templates.startFailed'));
       } catch (e) {
-        plxrUI.notice(e.message || String(e), tr('template.notStarted'));
+        plxrUI.notice(errText(e), tr('template.notStarted'));
       }
     });
 
@@ -3145,7 +3163,7 @@ async function openTemplates() {
       ev.stopPropagation();
       if (!(await plxrUI.confirm(v.label, tr('templates.deleteAsk')))) return;
       try { await api.templateDelete(v.name); openTemplates(); }
-      catch (e) { plxrUI.notice(e.message || String(e), tr('theme.notDeleted')); }
+      catch (e) { plxrUI.notice(errText(e), tr('theme.notDeleted')); }
     });
     box.appendChild(row);
   }
@@ -3163,7 +3181,7 @@ $('#templatesSave').addEventListener('click', async () => {
     await api.templateSave(name, label);
     openTemplates();
   } catch (e) {
-    plxrUI.notice(e.message || String(e), tr('common.notSaved'));
+    plxrUI.notice(errText(e), tr('common.notSaved'));
   }
 });
 
@@ -3194,7 +3212,7 @@ $('#newForm').addEventListener('submit', async (e) => {
     $('#dialog').hidden = true;
     setTimeout(() => openSession(s.id), 400);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), tr('session.startFailed'));
+    plxrUI.notice(errText(err), tr('session.startFailed'));
   }
 });
 
@@ -3255,7 +3273,7 @@ async function emergencyBrake() {
       button.textContent = tr('header.brake');
       document.documentElement.dataset.frozen = '';
       $('#counts').textContent = tr('brake.resumed', { n: r.resumed });
-    } catch (e) { plxrUI.notice(e.message || String(e), tr('brake.notResumed')); }
+    } catch (e) { plxrUI.notice(errText(e), tr('brake.notResumed')); }
     return;
   }
   try {
@@ -3267,7 +3285,7 @@ async function emergencyBrake() {
     $('#counts').textContent = r.frozen === r.affected
       ? tr('brake.halted', { n: r.frozen })
       : tr('brake.partial', { done: r.frozen, total: r.affected });
-  } catch (e) { plxrUI.notice(e.message || String(e), tr('brake.failed')); }
+  } catch (e) { plxrUI.notice(errText(e), tr('brake.failed')); }
 }
 $('#brake').addEventListener('click', emergencyBrake);
 

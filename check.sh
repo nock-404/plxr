@@ -39,6 +39,7 @@ step "routes" python3 routes.py
 step "fields" python3 fields.py
 step "workbench" node web/devpanel_test.mjs
 step "i18n" node web/i18n_test.mjs
+step "error codes" python3 errors.py
 # gofmt is not cosmetic here: renaming shifts every aligned block, and drifted
 # formatting hides real diffs in the next review.
 step "gofmt" bash -c '[ -z "$(gofmt -l . | grep -v "^build/")" ]'

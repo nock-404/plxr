@@ -52,11 +52,11 @@ func TestContextOnlyAfterFirstHit(t *testing.T) {
 	dir := t.TempDir()
 	var lines []string
 	for i := 0; i < 5; i++ {
-		lines = append(lines, "FEHLER hier", "danach-"+string(rune('a'+i)))
+		lines = append(lines, "ERROR hier", "after-"+string(rune('a'+i)))
 	}
 	logfile(t, dir, "abc", strings.Join(lines, "\n"))
 
-	hits := SearchRecordings(dir, "FEHLER", nil)
+	hits := SearchRecordings(dir, "ERROR", nil)
 	if hits[0].Count != 5 {
 		t.Errorf("counted %d hits instead of 5", hits[0].Count)
 	}
@@ -64,7 +64,7 @@ func TestContextOnlyAfterFirstHit(t *testing.T) {
 		t.Errorf("%d context lines, at most %d expected", len(hits[0].After), AfterLines)
 	}
 	// The context has to start right after the FIRST hit.
-	if len(hits[0].After) == 0 || !strings.Contains(hits[0].After[0], "danach-a") {
+	if len(hits[0].After) == 0 || !strings.Contains(hits[0].After[0], "after-a") {
 		t.Errorf("context does not start after the first hit: %v", hits[0].After)
 	}
 }
@@ -72,8 +72,8 @@ func TestContextOnlyAfterFirstHit(t *testing.T) {
 // A hit on the very last line has no context — and must not break anything.
 func TestHitOnLastLine(t *testing.T) {
 	dir := t.TempDir()
-	logfile(t, dir, "abc", "alles gut\nFEHLER am Ende")
-	hits := SearchRecordings(dir, "FEHLER", nil)
+	logfile(t, dir, "abc", "all fine\nERROR at the end")
+	hits := SearchRecordings(dir, "ERROR", nil)
 	if len(hits) != 1 {
 		t.Fatalf("%d hits", len(hits))
 	}
@@ -85,13 +85,13 @@ func TestHitOnLastLine(t *testing.T) {
 // Escape sequences are in the raw stream. They must not reach the display.
 func TestContextIsCleaned(t *testing.T) {
 	dir := t.TempDir()
-	logfile(t, dir, "abc", "FEHLER\n\x1b[31mrot\x1b[0m und weiter")
-	hits := SearchRecordings(dir, "FEHLER", nil)
+	logfile(t, dir, "abc", "ERROR\n\x1b[31mred\x1b[0m and on")
+	hits := SearchRecordings(dir, "ERROR", nil)
 	after := strings.Join(hits[0].After, "\n")
 	if strings.Contains(after, "\x1b") {
 		t.Errorf("escape sequence reached the context: %q", after)
 	}
-	if !strings.Contains(after, "rot und weiter") {
+	if !strings.Contains(after, "red and on") {
 		t.Errorf("text was lost in cleaning: %q", after)
 	}
 }
@@ -99,9 +99,9 @@ func TestContextIsCleaned(t *testing.T) {
 // Empty lines carry nothing and would push the useful lines out of the window.
 func TestContextSkipsEmptyLines(t *testing.T) {
 	dir := t.TempDir()
-	logfile(t, dir, "abc", "FEHLER\n\n\n   \nendlich etwas")
-	hits := SearchRecordings(dir, "FEHLER", nil)
-	if len(hits[0].After) != 1 || !strings.Contains(hits[0].After[0], "endlich etwas") {
+	logfile(t, dir, "abc", "ERROR\n\n\n   \nfinally something")
+	hits := SearchRecordings(dir, "ERROR", nil)
+	if len(hits[0].After) != 1 || !strings.Contains(hits[0].After[0], "finally something") {
 		t.Errorf("empty lines were not skipped: %v", hits[0].After)
 	}
 }
@@ -114,10 +114,10 @@ The hit has to carry its byte position, otherwise a click on it can only
 */
 func TestHitCarriesItsPosition(t *testing.T) {
 	dir := t.TempDir()
-	head := "erste Zeile\nzweite Zeile\n"
-	logfile(t, dir, "abc", head+"HIER ist der Fehler\nund danach\n")
+	head := "first line\nsecond line\n"
+	logfile(t, dir, "abc", head+"HERE is the error\nand after it\n")
 
-	hits := SearchRecordings(dir, "HIER ist", nil)
+	hits := SearchRecordings(dir, "HERE is", nil)
 	if len(hits) != 1 {
 		t.Fatalf("%d hits", len(hits))
 	}
@@ -130,9 +130,9 @@ func TestHitCarriesItsPosition(t *testing.T) {
 // and every position after the first CRLF would be wrong.
 func TestPositionSurvivesCRLF(t *testing.T) {
 	dir := t.TempDir()
-	head := "eins\r\nzwei\r\n"
-	logfile(t, dir, "abc", head+"TREFFER\r\n")
-	hits := SearchRecordings(dir, "TREFFER", nil)
+	head := "one\r\ntwo\r\n"
+	logfile(t, dir, "abc", head+"HIT\r\n")
+	hits := SearchRecordings(dir, "HIT", nil)
 	if hits[0].Offset != int64(len(head)) {
 		t.Errorf("position %d instead of %d — CRLF miscounted", hits[0].Offset, len(head))
 	}
@@ -147,14 +147,14 @@ A hit early in a large recording used to be invisible: the search seeked to
 func TestEarlyHitInLargeRecordingIsFound(t *testing.T) {
 	dir := t.TempDir()
 	var b strings.Builder
-	b.WriteString("FRUEHER FEHLER ganz am Anfang\n")
+	b.WriteString("EARLY ERROR right at the start\n")
 	// Comfortably past the old 8 MB cutoff.
 	for b.Len() < 10<<20 {
 		b.WriteString("belangloses Rauschen aus dem Build\n")
 	}
 	logfile(t, dir, "gross", b.String())
 
-	hits := SearchRecordings(dir, "FRUEHER FEHLER", nil)
+	hits := SearchRecordings(dir, "EARLY ERROR", nil)
 	if len(hits) != 1 {
 		t.Fatalf("the early hit was not found — %d hits", len(hits))
 	}
@@ -167,8 +167,8 @@ func TestEarlyHitInLargeRecordingIsFound(t *testing.T) {
 // be able to eat all the memory.
 func TestEndlessLineDoesNotEatMemory(t *testing.T) {
 	dir := t.TempDir()
-	logfile(t, dir, "abc", strings.Repeat("x", 4<<20)+"TREFFER")
-	hits := SearchRecordings(dir, "TREFFER", nil)
+	logfile(t, dir, "abc", strings.Repeat("x", 4<<20)+"HIT")
+	hits := SearchRecordings(dir, "HIT", nil)
 	// The hit sits beyond maxLine, so it is not found — but nothing blows up,
 	// and that is what matters here.
 	_ = hits

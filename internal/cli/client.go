@@ -104,7 +104,7 @@ func (c *Client) Find(which string) (core.Tile, error) {
 		for _, t := range hits {
 			names = append(names, t.ID[:8]+" "+t.Name)
 		}
-		return core.Tile{}, fmt.Errorf("mehrdeutig, gemeint ist eine von:\n  %s", strings.Join(names, "\n  "))
+		return core.Tile{}, fmt.Errorf("ambiguous, one of these is meant:\n  %s", strings.Join(names, "\n  "))
 	}
 }
 

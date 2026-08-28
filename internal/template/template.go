@@ -10,9 +10,9 @@ package template
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
+	"plxr/internal/uierr"
 	"sort"
 	"strings"
 )
@@ -71,13 +71,13 @@ func Load(root string) []Template {
 
 func Save(root string, t Template) error {
 	if strings.TrimSpace(t.Name) == "" {
-		return errors.New("die Vorlage braucht einen Namen")
+		return uierr.New("err.template.noName")
 	}
 	if !ValidName(t.Name) {
-		return errors.New("der Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten")
+		return uierr.New("err.template.badName")
 	}
 	if len(t.Sessions) == 0 {
-		return errors.New("die Vorlage enthält keine Session")
+		return uierr.New("err.template.empty")
 	}
 	migrate(root)
 	if err := os.MkdirAll(Dir(root), 0o755); err != nil {
@@ -89,7 +89,7 @@ func Save(root string, t Template) error {
 
 func Delete(root, name string) error {
 	if !ValidName(name) {
-		return errors.New("unzulässiger Name")
+		return uierr.New("err.template.badName")
 	}
 	migrate(root)
 	return os.Remove(filepath.Join(Dir(root), name+".json"))

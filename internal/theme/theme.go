@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"plxr/internal/daemon"
+	"plxr/internal/uierr"
 	"sort"
 	"strings"
 )
@@ -64,13 +65,13 @@ func (t *Theme) valid(skins map[string]bool) error {
 		return errors.New(`theme braucht ein Feld "name"`)
 	}
 	if strings.ContainsAny(t.Name, `/\.`) {
-		return errors.New("theme-name darf keine Pfadzeichen enthalten")
+		return uierr.New("err.theme.badName")
 	}
 	if strings.TrimSpace(t.Skin) == "" {
 		return errors.New(`theme "` + t.Name + `" braucht ein Feld "skin"`)
 	}
 	if strings.ContainsAny(t.Skin, `/\.`) {
-		return errors.New("skin-name darf keine Pfadzeichen enthalten")
+		return uierr.New("err.theme.badSkinName")
 	}
 	if skins != nil && !skins[t.Skin] {
 		known := make([]string, 0, len(skins))
@@ -78,14 +79,14 @@ func (t *Theme) valid(skins map[string]bool) error {
 			known = append(known, k)
 		}
 		sort.Strings(known)
-		return errors.New(`skin "` + t.Skin + `" gibt es nicht. Vorhanden: ` + strings.Join(known, ", "))
+		return uierr.With("err.theme.unknownSkin", t.Skin+" — "+strings.Join(known, ", "))
 	}
 	for k, v := range t.Palette {
 		if !Allowed[k] {
-			return errors.New(`unbekannter Paletteneintrag "` + k + `"`)
+			return uierr.With("err.theme.unknownPaletteKey", k)
 		}
 		if strings.ContainsAny(v, "{};<>") {
-			return errors.New(`Farbwert für "` + k + `" enthält unerlaubte Zeichen`)
+			return uierr.With("err.theme.badColorValue", k)
 		}
 	}
 	if t.Label == "" {
@@ -169,7 +170,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 	var t Theme
 	if err := json.Unmarshal(raw, &t); err != nil {
-		return nil, errors.New("kein gültiges JSON: " + err.Error())
+		return nil, uierr.With("err.theme.badJSON", err.Error())
 	}
 	if err := t.valid(Skins(skinFS)); err != nil {
 		return nil, err
@@ -188,11 +189,11 @@ func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 // inside the application and would be back after the next update anyway.
 func Delete(name string) error {
 	if strings.ContainsAny(name, `/\.`) {
-		return errors.New("unzulässiger Name")
+		return uierr.New("err.theme.badName")
 	}
 	p := filepath.Join(UserDir(), name+".json")
 	if _, err := os.Stat(p); err != nil {
-		return errors.New("kein eigenes Theme mit diesem Namen")
+		return uierr.New("err.theme.notOwn")
 	}
 	return os.Remove(p)
 }

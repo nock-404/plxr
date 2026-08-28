@@ -59,10 +59,13 @@ for (const [name, tab] of Object.entries(tables)) {
   }
 }
 
-const unused = Object.keys(en).filter((k) => !k.startsWith('_') && !used.has(k));
+/* Keys under err. are not used from here: Go sends the code, errText() turns
+   it into a sentence. errors.py checks those against the Go side, in both
+   directions. */
+const unused = Object.keys(en).filter((k) => !k.startsWith('_') && !k.startsWith('err.') && !used.has(k));
 if (unused.length) {
   failed = 1;
-  console.log(`  ${unused.length} Schluessel in en.json werden nirgends used:`);
+  console.log(`  ${unused.length} Schluessel in en.json are used nowhere:`);
   for (const k of unused.slice(0, 8)) console.log(`      ${k}`);
 }
 

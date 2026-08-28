@@ -1,12 +1,12 @@
 package search
 
 import (
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
 
 	"plxr/internal/ptyhost"
+	"plxr/internal/uierr"
 )
 
 /* Playback hands out a recording together with its timeline.
@@ -43,16 +43,16 @@ type Playback struct {
 // ReadPlayback returns a slice of the recording starting at from.
 func ReadPlayback(dir, id string, from int64) (*Playback, error) {
 	if dir == "" || id == "" {
-		return nil, errors.New("keine Aufzeichnung angegeben")
+		return nil, uierr.New("err.playback.noID")
 	}
 	// The id becomes a file name, so it must not carry a path.
 	if filepath.Base(id) != id {
-		return nil, errors.New("unzulässige Kennung")
+		return nil, uierr.New("err.playback.badID")
 	}
 	logPath := filepath.Join(dir, id+".log")
 	f, err := os.Open(logPath)
 	if err != nil {
-		return nil, errors.New("für diese Session gibt es keine Aufzeichnung")
+		return nil, uierr.New("err.playback.missing")
 	}
 	defer f.Close()
 
@@ -90,10 +90,10 @@ func ReadPlayback(dir, id string, from int64) (*Playback, error) {
 // ReadTimeline hands out the marks of a recording on their own.
 func ReadTimeline(dir, id string) ([]ptyhost.Mark, error) {
 	if dir == "" || filepath.Base(id) != id || id == "" {
-		return nil, errors.New("unzulässige Kennung")
+		return nil, uierr.New("err.playback.badID")
 	}
 	if _, err := os.Stat(filepath.Join(dir, id+".log")); err != nil {
-		return nil, errors.New("für diese Session gibt es keine Aufzeichnung")
+		return nil, uierr.New("err.playback.missing")
 	}
 	// A recording from before the timeline existed simply has none. That is not
 	// an error — the caller then plays back at a constant rate.

@@ -8,13 +8,13 @@ package update
 import (
 	"archive/zip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"plxr/internal/uierr"
 	"runtime"
 	"strconv"
 	"strings"
@@ -144,7 +144,7 @@ func isNewer(a, b string) bool {
 // overwritten program directory would be the worst outcome.
 func Apply(assetURL string, progress func(read, total int64)) (string, error) {
 	if assetURL == "" {
-		return "", errors.New("keine Adresse für das Archiv")
+		return "", uierr.New("err.update.noAssetURL")
 	}
 	target, err := installTarget()
 	if err != nil {
@@ -304,7 +304,7 @@ func unzip(zipPath, dest string) error {
 		target := filepath.Join(dest, f.Name)
 		// Zip slip: an archive must not break out of its target folder.
 		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return errors.New("Archiv enthält einen Pfad außerhalb des Ziels: " + f.Name)
+			return uierr.With("err.archive.escapes", f.Name)
 		}
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(target, 0o755)
@@ -343,7 +343,7 @@ func findApp(dir string) (string, error) {
 			return filepath.Join(dir, e.Name()), nil
 		}
 	}
-	return "", errors.New("im Archiv war nichts Ausführbares")
+	return "", uierr.New("err.archive.noBinary")
 }
 
 func copyTree(src, dest string) error {
@@ -386,19 +386,19 @@ func swap(fresh, target string) error {
 	os.RemoveAll(beside)
 	if err := copyTree(fresh, beside); err != nil {
 		os.RemoveAll(beside)
-		return errors.New("neue Fassung ließ sich nicht ablegen: " + err.Error())
+		return uierr.With("err.update.copyFailed", err.Error())
 	}
 
 	aside := target + ".alt"
 	os.RemoveAll(aside)
 	if err := os.Rename(target, aside); err != nil {
 		os.RemoveAll(beside)
-		return errors.New("alte Fassung ließ sich nicht beiseiteschieben: " + err.Error())
+		return uierr.With("err.update.moveAsideFailed", err.Error())
 	}
 	if err := os.Rename(beside, target); err != nil {
 		os.Rename(aside, target) // back to the start
 		os.RemoveAll(beside)
-		return errors.New("neue Fassung ließ sich nicht einsetzen: " + err.Error())
+		return uierr.With("err.update.installFailed", err.Error())
 	}
 	os.RemoveAll(aside)
 	return nil

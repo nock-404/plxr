@@ -33,6 +33,7 @@ import (
 	"plxr/internal/session"
 	"plxr/internal/template"
 	"plxr/internal/theme"
+	"plxr/internal/uierr"
 	"plxr/internal/update"
 	"plxr/internal/usage"
 )
@@ -130,7 +131,7 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 		cwd, _ = os.UserHomeDir()
 	}
 	if fi, err := os.Stat(cwd); err != nil || !fi.IsDir() {
-		return nil, errors.New("Verzeichnis gibt es nicht: " + cwd)
+		return nil, uierr.With("err.dir.missing", cwd)
 	}
 	if len(cmd) == 0 {
 		cmd = shell.Default()
@@ -239,7 +240,7 @@ func (c *Core) Kill(id string, purge bool) {
 func (c *Core) Answer(id, text string, raw bool) error {
 	h := c.Host(id)
 	if h == nil {
-		return errors.New("Session läuft nicht")
+		return uierr.New("err.session.notRunning")
 	}
 	// A line break sends the answer off. For a control key such as Escape that
 	// would be wrong — it has to arrive on its own.
@@ -292,7 +293,7 @@ func (c *Core) TemplateStart(name string) ([]string, error) {
 		}
 		return ids, nil
 	}
-	return nil, errors.New("keine Vorlage mit diesem Namen")
+	return nil, uierr.New("err.template.unknown")
 }
 
 // TemplateFromState turns whatever is open right now into a template.
@@ -348,7 +349,7 @@ func (c *Core) SearchTerminals(question string) []search.RecordingHit {
 func (c *Core) ArchiveDelete(id, account string) error {
 	e, ok := c.archiveFind(id, account)
 	if !ok {
-		return errors.New("Transkript nicht gefunden")
+		return uierr.New("err.transcript.missing")
 	}
 	return archive.Delete(e)
 }
@@ -359,13 +360,13 @@ func (c *Core) ArchiveDelete(id, account string) error {
 func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, error) {
 	e, ok := c.archiveFind(id, fromAccount)
 	if !ok {
-		return nil, errors.New("Transkript nicht gefunden")
+		return nil, uierr.New("err.transcript.missing")
 	}
 	if e.Cwd == "" {
-		return nil, errors.New("Arbeitsverzeichnis der Session unbekannt")
+		return nil, uierr.New("err.session.noCwd")
 	}
 	if _, err := os.Stat(e.Cwd); err != nil {
-		return nil, errors.New("Arbeitsverzeichnis gibt es nicht mehr: " + e.Cwd)
+		return nil, uierr.With("err.cwd.gone", e.Cwd)
 	}
 
 	target := toAccount
@@ -375,10 +376,10 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	if target != e.Account {
 		acc, ok := accounts.ByName(c.Accounts(), target)
 		if !ok {
-			return nil, errors.New("Konto gibt es nicht: " + target)
+			return nil, uierr.With("err.account.unknown", target)
 		}
 		if _, err := archive.Mirror(e, acc); err != nil {
-			return nil, errors.New("Transkript ließ sich nicht ins Zielkonto kopieren: " + err.Error())
+			return nil, uierr.With("err.transcript.copyFailed", err.Error())
 		}
 	}
 
@@ -396,7 +397,7 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
-		return nil, errors.New("Session gibt es nicht")
+		return nil, uierr.New("err.session.unknown")
 	}
 	cwd, account, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
 	c.cleanup(sessionID)
@@ -414,11 +415,11 @@ func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
-		return nil, errors.New("Session gibt es nicht")
+		return nil, uierr.New("err.session.unknown")
 	}
 	claudeID := s.ClaudeSessionID
 	if claudeID == "" {
-		return nil, errors.New("für diese Session ist keine Claude-Session-ID bekannt — läuft dort überhaupt Claude Code?")
+		return nil, uierr.New("err.session.noClaudeID")
 	}
 	source := s.Account
 	c.Kill(sessionID, true)
@@ -457,7 +458,7 @@ func (c *Core) HookStatus() map[string]any {
 func (c *Core) HookSet(on bool) error {
 	all := c.Accounts()
 	if len(all) == 0 {
-		return errors.New("kein Claude-Code-Verzeichnis gefunden")
+		return uierr.New("err.hook.noConfigDir")
 	}
 	for _, a := range all {
 		if _, err := hook.Install(a.Dir, !on); err != nil {
@@ -523,7 +524,7 @@ func (c *Core) Update() error {
 	updateMu.Lock()
 	if updateStatus.Running {
 		updateMu.Unlock()
-		return errors.New("läuft bereits")
+		return uierr.New("err.update.running")
 	}
 	st := update.Check(Version)
 	if st.Error != "" {
@@ -532,7 +533,7 @@ func (c *Core) Update() error {
 	}
 	if !st.Available {
 		updateMu.Unlock()
-		return errors.New("es gibt nichts Neueres")
+		return uierr.New("err.update.upToDate")
 	}
 	updateStatus = UpdateStatus{Running: true, Phase: "lädt"}
 	updateMu.Unlock()
@@ -586,7 +587,7 @@ func (c *Core) Update() error {
 func (c *Core) Restart() error {
 	st := c.UpdateProgress()
 	if st.Path == "" {
-		return errors.New("nichts eingesetzt")
+		return uierr.New("err.update.nothingSwapped")
 	}
 	if err := update.Restart(st.Path); err != nil {
 		return err
@@ -723,10 +724,10 @@ func (c *Core) Ports() []ports.Entry {
 
 func (c *Core) KillPort(pid int, hard bool) error {
 	if pid <= 1 {
-		return errors.New("unsinnige Prozess-ID")
+		return uierr.New("err.port.badPID")
 	}
 	if pid == os.Getpid() {
-		return errors.New("das wäre plxr selbst")
+		return uierr.New("err.port.wouldBeUs")
 	}
 	return ports.Kill(pid, hard)
 }
@@ -738,7 +739,7 @@ func (c *Core) KillPort(pid int, hard bool) error {
 func (c *Core) root(sessionID string) (string, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
-		return "", errors.New("Session gibt es nicht")
+		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
 }

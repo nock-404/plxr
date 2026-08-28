@@ -57,8 +57,8 @@ func main() {
 		}
 	}
 
-	browser := flag.Bool("browser", false, "statt des Fensters den Browser öffnen")
-	showVersion := flag.Bool("version", false, "Fassung ausgeben")
+	browser := flag.Bool("browser", false, "open the browser instead of the window")
+	showVersion := flag.Bool("version", false, "print the version")
 	// Anyone looking for help types --help, not "help". Without this the flag
 	// package shows only the two switches and hides every subcommand.
 	flag.Usage = func() {
@@ -80,7 +80,7 @@ func main() {
 
 	if *browser {
 		url := fmt.Sprintf("%s/?token=%s", info.URL(), info.Token)
-		fmt.Printf("\n  plxr läuft. Daemon PID %d, Port %d\n  %s\n\n", info.PID, info.Port, url)
+		fmt.Printf("\n  plxr is running. Daemon PID %d, port %d\n  %s\n\n", info.PID, info.Port, url)
 		openBrowser(url)
 		return
 	}
@@ -181,10 +181,10 @@ func selfUpdate() error {
 		return errors.New(st.Error)
 	}
 	if !st.Available {
-		fmt.Printf("plxr %s ist aktuell (neueste: %s)\n", version, st.Latest)
+		fmt.Printf("plxr %s is up to date (latest: %s)\n", version, st.Latest)
 		return nil
 	}
-	fmt.Printf("neue Fassung %s (aktuell %s), %.1f MB\n", st.Latest, version, float64(st.Size)/(1<<20))
+	fmt.Printf("new version %s (current %s), %.1f MB\n", st.Latest, version, float64(st.Size)/(1<<20))
 
 	last := -1
 	path, err := update.Apply(st.AssetURL, func(read, total int64) {

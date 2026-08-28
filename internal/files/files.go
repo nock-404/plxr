@@ -8,10 +8,10 @@ package files
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"plxr/internal/uierr"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -57,7 +57,7 @@ func resolve(root, path string) (string, error) {
 	}
 	// Append the separator, otherwise /project-secret passes for /project.
 	if real != realRoot && !strings.HasPrefix(real, realRoot+string(filepath.Separator)) {
-		return "", errors.New("Pfad liegt außerhalb der Session")
+		return "", uierr.New("err.file.outsideSession")
 	}
 	return real, nil
 }
@@ -131,7 +131,7 @@ func Read(root, path string) (*Content, error) {
 		return nil, err
 	}
 	if info.IsDir() {
-		return nil, errors.New("das ist ein Verzeichnis")
+		return nil, uierr.New("err.file.isDirectory")
 	}
 
 	f, err := os.Open(real)
@@ -175,7 +175,7 @@ const MaxWrite = 4 << 20
 // leaves no half-written file behind.
 func Write(root, path, text string, expectedState int64) (*Content, error) {
 	if len(text) > MaxWrite {
-		return nil, errors.New("zu groß zum Speichern")
+		return nil, uierr.New("err.file.tooLarge")
 	}
 	real, err := resolve(root, path)
 	if err != nil {
@@ -183,13 +183,13 @@ func Write(root, path, text string, expectedState int64) (*Content, error) {
 	}
 	info, err := os.Stat(real)
 	if err != nil {
-		return nil, errors.New("die Datei gibt es nicht mehr")
+		return nil, uierr.New("err.file.gone")
 	}
 	if info.IsDir() {
-		return nil, errors.New("das ist ein Verzeichnis")
+		return nil, uierr.New("err.file.isDirectory")
 	}
 	if expectedState != 0 && info.ModTime().UnixMilli() != expectedState {
-		return nil, errors.New("die Datei wurde inzwischen von außen geändert — neu laden und noch einmal versuchen")
+		return nil, uierr.New("err.file.changedOutside")
 	}
 
 	tmp := real + ".plxr-tmp"

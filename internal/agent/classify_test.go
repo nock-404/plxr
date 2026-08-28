@@ -34,7 +34,7 @@ func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 		{"y/n answered, output without a prompt",
 			"rm -rf /tmp/x (y/n) y\nweg.\nfertig.\nnoch etwas.", "unknown"},
 		{"multi-line dialog box",
-			"Bearbeite Datei\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No", Permission},
+			"Editing file\n\nDo you want to proceed?\n❯ 1. Yes\n  2. No", Permission},
 		{"blank lines after the question do not count",
 			"Continue?\n\n\n", Permission},
 		{"working",

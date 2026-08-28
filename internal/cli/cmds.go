@@ -58,7 +58,7 @@ func Ls(c *Client) error {
 		return err
 	}
 	if len(list) == 0 {
-		fmt.Println("keine Sessions. `plxr new <pfad>` startet eine.")
+		fmt.Println("no sessions. `plxr new <path>` starts one.")
 		return nil
 	}
 	for _, t := range list {
@@ -240,7 +240,7 @@ func Attach(c *Client, which string) error {
 	if old != nil {
 		term.Restore(fd, old)
 	}
-	fmt.Printf("\r\n%sabgehängt — %s läuft weiter%s\r\n", dim, t.Name, reset)
+	fmt.Printf("\r\n%sdetached — %s keeps running%s\r\n", dim, t.Name, reset)
 	return nil
 }
 
