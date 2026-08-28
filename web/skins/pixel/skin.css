@@ -318,3 +318,6 @@ body {
 .workbench { border-left: var(--px) solid var(--line); background: var(--panel); }
 .wbBar { border-bottom: var(--px) solid var(--line); padding: 8px; }
 .wbHint { color: var(--dim); font-size: .68em; }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .68em; }

@@ -29,6 +29,7 @@ import (
 	"plxr/internal/notify"
 	"plxr/internal/ports"
 	"plxr/internal/ptyhost"
+	"plxr/internal/replies"
 	"plxr/internal/rules"
 	"plxr/internal/search"
 	"plxr/internal/session"
@@ -248,8 +249,21 @@ func (c *Core) Answer(id, text string, raw bool) error {
 	if !raw && !strings.HasSuffix(text, "\r") && !strings.HasSuffix(text, "\n") {
 		text += "\r"
 	}
+	/* Remember what went to which question — before the write, because
+	   afterwards the screen has already moved on and the question is gone.
+	   Only what the daemon really recognised as a question: without one there
+	   is nothing to remember it by. */
+	if q := questionFromScreen(h.Tail(18)); q != "" {
+		replies.Note(q, text)
+	}
+
 	_, err := h.Write([]byte(text))
 	return err
+}
+
+// Replies hands out what was answered to this question before.
+func (c *Core) Replies(question string) []replies.Reply {
+	return replies.For(question, time.Now().UnixMilli())
 }
 
 func (c *Core) Host(id string) *ptyhost.Host {

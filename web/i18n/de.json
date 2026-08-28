@@ -352,5 +352,8 @@
   "settings.saveTip": "Die Farben als eigenes Theme speichern",
   "grid.none": "Es läuft nichts",
   "grid.noneHint": "+ NEU startet eine Session — ⌘T auch. Was läuft, steht hier als Kachel.",
-  "grid.noneHookHint": "Claude Code meldet seinen Zustand noch nicht: Einstellungen → Agenten → EINRICHTEN. Ohne das weiß eine Kachel nur, was auf dem Schirm steht."
+  "grid.noneHookHint": "Claude Code meldet seinen Zustand noch nicht: Einstellungen → Agenten → EINRICHTEN. Ohne das weiß eine Kachel nur, was auf dem Schirm steht.",
+  "memory.once": "schon einmal beantwortet:",
+  "memory.times": "schon {n}× beantwortet:",
+  "memory.againTip": "„{what}“ nochmal senden — zuletzt {when}"
 }

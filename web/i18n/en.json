@@ -352,5 +352,8 @@
   "settings.saveTip": "Save the colours as a theme of your own",
   "grid.none": "Nothing running",
   "grid.noneHint": "+ NEW starts a session — ⌘T does too. Whatever runs shows up here as a tile.",
-  "grid.noneHookHint": "Claude Code is not reporting its state yet: settings → agents → ATTACH. Without it a tile only knows what stands on the screen."
+  "grid.noneHookHint": "Claude Code is not reporting its state yet: settings → agents → ATTACH. Without it a tile only knows what stands on the screen.",
+  "memory.once": "answered once before:",
+  "memory.times": "answered {n} times before:",
+  "memory.againTip": "send “{what}” again — last time {when}"
 }

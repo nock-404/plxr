@@ -323,3 +323,6 @@ body {
 .workbench { border-left: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
 .wbBar { border-bottom: 1px dashed var(--line); }
 .wbHint { color: var(--dim); font-size: .78em; }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .82em; font-style: italic; }

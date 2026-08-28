@@ -383,3 +383,6 @@ body {
 .workbench { border-left: 1px solid var(--dim); background: color-mix(in srgb, var(--fg) 2%, var(--bg)); }
 .wbBar { border-bottom: 1px solid var(--dim); }
 .wbHint { color: var(--dim); }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .9em; }

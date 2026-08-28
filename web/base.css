@@ -428,6 +428,12 @@ html, body {
    themselves come from the skin through --crest. */
 .crest { flex: 0 0 auto; }
 
+/* The reply memory sits between the question and the reply field — where the
+   decision is made, not somewhere off to the side. Layout only; the skins give
+   it its look. */
+.inboxMemory { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 2px; }
+.inboxMemory[hidden] { display: none; }
+
 /* Workbench: a column docked to the right of the interface.
    Deliberately not an overlay — the point is watching the real window change
    while you type, and an overlay would cover exactly that. The editor and the

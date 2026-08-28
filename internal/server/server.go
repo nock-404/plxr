@@ -227,6 +227,9 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("GET /api/replies", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Replies(r.URL.Query().Get("q")))
+	})
 	mux.HandleFunc("GET /api/marks/{id}", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Marks(r.PathValue("id")))
 	})

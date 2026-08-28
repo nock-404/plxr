@@ -238,6 +238,7 @@ const api = {
   portKill: (pid, hard) => req(`/api/ports/${pid}${hard ? '?hard=1' : ''}`, { method: 'DELETE' }),
   usage: (days) => req('/api/usage?days=' + days),
   waiting: (days) => req('/api/waiting?days=' + days),
+  replies: (q) => req('/api/replies?q=' + encodeURIComponent(q)),
   marks: (id) => req(`/api/marks/${encodeURIComponent(id)}`),
   markChanges: (id, tree) => req(`/api/marks/${encodeURIComponent(id)}/${tree}`),
   markRestore: (id, tree, path) =>
@@ -1019,6 +1020,43 @@ function inboxGroups(list) {
   return [...by.values()];
 }
 
+/* The reply memory.
+
+   Eight agents in the same monorepo ask the same thing all day. You answer it,
+   and half an hour later you cannot remember whether you said yes the last two
+   times or no. So it stands there before you decide — with a button that sends
+   the same thing again.
+
+   Word for word, and only within a day: a decision from last week says nothing
+   about today's branch, and an old answer offered with a button would be worse
+   than none. */
+async function showMemory(box, card, question) {
+  let list = [];
+  try { list = await api.replies(question); } catch { return; }
+  if (!list.length) return;
+  // The question may have moved on while this was in flight.
+  if (box.dataset.forQuestion !== question) return;
+
+  const seen = new Map();
+  for (const r of list) if (!seen.has(r.answer)) seen.set(r.answer, r);
+
+  const head = document.createElement('span');
+  head.className = 'memoryHead';
+  head.textContent = list.length === 1
+    ? tr('memory.once') : tr('memory.times', { n: list.length });
+  box.appendChild(head);
+
+  for (const [answer, r] of seen) {
+    const b = document.createElement('button');
+    b.className = 'btn tiny';
+    b.textContent = answer.length > 24 ? answer.slice(0, 23) + '…' : answer;
+    b.dataset.tip = tr('memory.againTip', { when: agoText(r.at), what: answer });
+    b.addEventListener('click', () => replyAll(card.group.tiles, answer));
+    box.appendChild(b);
+  }
+  box.hidden = false;
+}
+
 function renderInbox() {
   const list = waitingSessions();
   const box = $('#inboxBody');
@@ -1047,6 +1085,7 @@ function renderInbox() {
         '<span class="inboxPath"></span>' +
         `<button class="btn tiny" data-t="oeffnen">${tr('inbox.open')}</button></div>` +
         '<pre class="inboxQuestion"></pre>' +
+        '<div class="inboxMemory" hidden></div>' +
         '<div class="inboxReply"><input spellcheck="false"><span class="inboxQuick"></span></div>';
 
       /* The group is read off the card, never out of this closure: the card
@@ -1089,6 +1128,18 @@ function renderInbox() {
     /* Only rebuild when the question changed: the card refreshes every second,
        and anyone aiming at a button should not lose it from under the
        pointer. */
+    /* What was answered to exactly this question before.
+       Asked only when the question changes: the card refreshes every second,
+       and a request per card per tick would be a request per second for
+       nothing. */
+    const memory = card.querySelector('.inboxMemory');
+    if (memory.dataset.forQuestion !== fresh) {
+      memory.dataset.forQuestion = fresh;
+      memory.hidden = true;
+      memory.innerHTML = '';
+      if (group.question) showMemory(memory, card, group.question);
+    }
+
     const quick = card.querySelector('.inboxQuick');
     if (quick.dataset.fuer !== fresh) {
       quick.dataset.fuer = fresh;
