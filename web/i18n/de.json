@@ -298,5 +298,20 @@
   "session.pause": "PAUSIEREN",
   "session.resume": "FORTSETZEN",
   "session.pauseTip": "Nur diese Session anhalten — sie läuft weiter, wo sie stand",
-  "session.pauseFailed": "Anhalten fehlgeschlagen"
+  "session.pauseFailed": "Anhalten fehlgeschlagen",
+  "err.skin.unknown": "Skin gibt es nicht",
+  "err.skin.badName": "Skin-Name darf keine Pfadzeichen enthalten",
+  "err.skin.tooLarge": "Zu groß zum Speichern",
+  "err.skin.saveFailed": "Speichern fehlgeschlagen: {detail}",
+  "workbench.title": "Werkstatt",
+  "workbench.namePlaceholder": "Name des Skins",
+  "workbench.save": "SPEICHERN",
+  "workbench.saveTip": "Skin speichern — ⌘S geht auch",
+  "workbench.saved": "gespeichert",
+  "workbench.open": "WERKSTATT",
+  "workbench.openTip": "Den aktuellen Skin schreiben, während die echten Sessions dahinterstehen",
+  "workbench.nameNeeded": "Der Skin braucht einen Namen",
+  "workbench.missingHead": "fehlt noch",
+  "workbench.nothingMissing": "nichts fehlt",
+  "workbench.livePreview": "live · noch nicht gespeichert"
 }

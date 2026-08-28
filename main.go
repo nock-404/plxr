@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"plxr/internal/ptyhost"
+	"plxr/internal/theme"
 	"runtime"
 	"strings"
 
@@ -239,12 +240,15 @@ func runDaemon() {
 func runWindow(info daemon.Info) {
 	app := NewApp(info)
 	err := wails.Run(&options.App{
-		Title:       "plxr",
-		Width:       1440,
-		Height:      900,
-		MinWidth:    900,
-		MinHeight:   560,
-		AssetServer: &assetserver.Options{Assets: sub("web")},
+		Title:     "plxr",
+		Width:     1440,
+		Height:    900,
+		MinWidth:  900,
+		MinHeight: 560,
+		// The fallback handler serves the skins on disk. Without it a skin of your
+		// own would be invisible in the window: the window serves its files out of
+		// the binary and answers 404 for everything that is not in it.
+		AssetServer: &assetserver.Options{Assets: sub("web"), Handler: theme.SkinHandler(nil)},
 		// Without this Ctrl/Cmd +/- zooms the entire UI. In a terminal the font of
 		// the terminal should change, not the whole window — plxr binds those
 		// shortcuts itself.

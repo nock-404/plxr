@@ -428,6 +428,13 @@ html, body {
    themselves come from the skin through --crest. */
 .crest { flex: 0 0 auto; }
 
+/* Workbench: editor on the left, what is still missing on the right. Pure
+   layout — the two halves borrow their look from the file viewer and the rules
+   list, so a skin needs no rule of its own for the workbench. */
+.wbSplit { flex: 1; min-height: 0; display: flex; }
+.wbSplit > .viewerbody { flex: 1; min-width: 0; }
+.wbSplit > .ruleslist { flex: 0 0 260px; overflow-y: auto; }
+
 /* Playback. Layout here, looks in the skin. */
 .playterm { flex: 1; min-height: 0; overflow: hidden; padding: 6px 10px; }
 .playbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; flex: 0 0 auto; }

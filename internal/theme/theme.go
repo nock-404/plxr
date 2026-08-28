@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"plxr/internal/daemon"
@@ -112,6 +113,11 @@ func Skins(skinFS fs.FS) map[string]bool {
 			out[e.Name()] = true
 		}
 	}
+	// Skins of your own count too, otherwise valid() would reject a theme that
+	// points at one — and the workbench could not save its first skin.
+	for name := range OwnSkins() {
+		out[name] = true
+	}
 	return out
 }
 
@@ -196,4 +202,81 @@ func Delete(name string) error {
 		return uierr.New("err.theme.notOwn")
 	}
 	return os.Remove(p)
+}
+
+// ---- Skins of your own ----
+
+// SkinDir is where skins written by hand live: ~/.plxr/skins/<name>/skin.css.
+//
+// The four built-in ones sit inside the binary and are therefore not editable —
+// an update would overwrite them anyway. Anything written in the workbench
+// lands here, beside them, and survives every update.
+func SkinDir() string { return filepath.Join(daemon.Root(), "skins") }
+
+// OwnSkins lists the skins on disk.
+func OwnSkins() map[string]bool {
+	out := map[string]bool{}
+	entries, err := os.ReadDir(SkinDir())
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(SkinDir(), e.Name(), "skin.css")); err == nil {
+			out[e.Name()] = true
+		}
+	}
+	return out
+}
+
+// SkinPath is the file of a skin of your own — empty for a name that is not
+// allowed. The check is not cosmetic: the name comes out of an HTTP request and
+// would otherwise reach any file on the disk through "../".
+func SkinPath(name string) string {
+	if name == "" || strings.ContainsAny(name, `/\.`) {
+		return ""
+	}
+	return filepath.Join(SkinDir(), name, "skin.css")
+}
+
+// SkinHandler serves the skins on disk under /skins/<name>/skin.css and hands
+// everything else to next.
+//
+// It hangs in two places: on the daemon for the browser, and as the fallback
+// handler of the Wails asset server. Without the second one a skin of your own
+// would be invisible in the window — the window serves its files out of the
+// binary and would answer 404 for anything not in it.
+//
+// next is what keeps the built-in four working. Without it this handler
+// swallows every /skins/ request, and crt, pixel, sketch and win95 — which live
+// in the binary, not on disk — answer 404. The end-to-end test caught exactly
+// that.
+func SkinHandler(next http.Handler) http.Handler {
+	if next == nil {
+		next = http.NotFoundHandler()
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(r.URL.Path, "/skins/")
+		name, file, ok := strings.Cut(rest, "/")
+		if !ok || file != "skin.css" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		p := SkinPath(name)
+		if p == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if _, err := os.Stat(p); err != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		// No caching: the workbench writes this file while the window is looking
+		// at it, and a cached sheet would make every save look like it did nothing.
+		w.Header().Set("Cache-Control", "no-store")
+		http.ServeFile(w, r, p)
+	})
 }

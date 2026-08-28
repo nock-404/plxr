@@ -185,6 +185,22 @@
             <div id="rulesBody" class="ruleslist"></div>
           </div>
 
+          <!-- Workbench: write a skin while the real sessions stand behind it. -->
+          <div id="workbench" class="overlay" hidden>
+            <div class="overlayBar">
+              <span class="overlayName" data-i18n="workbench.title">Workbench</span>
+              <input id="wbName" spellcheck="false" data-i18n-ph="workbench.namePlaceholder">
+              <span id="wbMeta" class="meta"></span>
+              <span class="spacer"></span>
+              <button class="btn" id="wbSave" data-i18n-tip="workbench.saveTip" data-i18n="workbench.save">SAVE</button>
+              <button class="btn" id="wbClose" data-i18n="common.back">BACK</button>
+            </div>
+            <div class="wbSplit">
+              <textarea id="wbCss" class="viewerbody" spellcheck="false"></textarea>
+              <div id="wbMissing" class="ruleslist"></div>
+            </div>
+          </div>
+
           <!-- Playback: its own terminal without input, above everything. -->
           <div id="player" class="overlay" hidden>
             <div class="overlayBar">
@@ -304,6 +320,7 @@
           <button type="button" class="btn" id="themeDelete" hidden data-i18n="common.delete">DELETE</button>
           <button type="button" class="btn" id="styleReset" data-i18n="settings.reset">RESET</button>
           <button type="button" class="btn" id="styleSave" data-i18n="common.save">SAVE</button>
+          <button type="button" class="btn" id="wbOpen" data-i18n-tip="workbench.openTip" data-i18n="workbench.open">WORKBENCH</button>
           <button type="button" class="btn" id="themeImportBtn" data-i18n="settings.import">IMPORT</button>
           <input type="file" id="themeFile" accept=".json,application/json" hidden>
         </span>

@@ -104,7 +104,7 @@ type Core struct {
 
 	mu    sync.RWMutex
 	hosts map[string]*ptyhost.Host
-	// letzter gemeldeter Status je Session, um Flanken zu erkennen
+	// last reported status per session, to spot the edges
 	lastStatus map[string]session.Status
 }
 
@@ -880,4 +880,48 @@ func (c *Core) checkEdge(sess session.Session) {
 		body = "wartet auf deine Antwort"
 	}
 	notify.Send(sess.Label(), body)
+}
+
+// ---- Workbench: skins of your own ----
+
+// SkinRead hands out the CSS of a skin of your own. A built-in one is read out
+// of the binary instead, so the workbench can start from it rather than from an
+// empty page — nobody writes a whole visual language from nothing.
+func (c *Core) SkinRead(name string) (string, error) {
+	if p := theme.SkinPath(name); p != "" {
+		if b, err := os.ReadFile(p); err == nil {
+			return string(b), nil
+		}
+	}
+	if c.skins == nil {
+		return "", uierr.New("err.skin.unknown")
+	}
+	b, err := fs.ReadFile(c.skins, name+"/skin.css")
+	if err != nil {
+		return "", uierr.New("err.skin.unknown")
+	}
+	return string(b), nil
+}
+
+// SkinWrite saves a skin of your own.
+//
+// Deliberately no CSS check: a stylesheet that is half written is the normal
+// state while writing one, and a save that refuses because a brace is still
+// open would make the workbench unusable. A broken sheet costs the look, not
+// the data.
+func (c *Core) SkinWrite(name, css string) error {
+	p := theme.SkinPath(name)
+	if p == "" {
+		return uierr.New("err.skin.badName")
+	}
+	if len(css) > 512*1024 {
+		return uierr.New("err.skin.tooLarge")
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return uierr.With("err.skin.saveFailed", err.Error())
+	}
+	if err := os.WriteFile(p, []byte(css), 0o644); err != nil {
+		return uierr.With("err.skin.saveFailed", err.Error())
+	}
+	return nil
 }

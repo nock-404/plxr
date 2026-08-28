@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"plxr/internal/theme"
 	"strconv"
 	"strings"
 	"time"
@@ -243,6 +244,30 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("PUT /api/file/{id}", s.writeFile)
 	mux.HandleFunc("GET /ws/tiles", s.wsTiles)
 	mux.HandleFunc("GET /ws/session/{id}", s.wsSession)
+	// Skins of your own, from disk. Must sit before the file server, otherwise
+	// the embedded tree answers first and a skin of your own would be invisible.
+	mux.Handle("GET /skins/", theme.SkinHandler(http.FileServer(http.FS(s.web))))
+	mux.HandleFunc("GET /api/skins/{name}", func(w http.ResponseWriter, r *http.Request) {
+		css, err := s.c.SkinRead(r.PathValue("name"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Write([]byte(css))
+	})
+	mux.HandleFunc("PUT /api/skins/{name}", func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(io.LimitReader(r.Body, 512*1024))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.SkinWrite(r.PathValue("name"), string(b)); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.Handle("GET /", http.FileServer(http.FS(s.web)))
 	return mux
 }

@@ -155,9 +155,13 @@ const wsURL = (p) =>
   BASE.replace(/^http/, 'ws') + p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
 
 async function req(path, opts = {}) {
+  // text: the answer is not JSON but a stylesheet. Taken out of the options
+  // before they go to fetch — an unknown key there is silently ignored, and
+  // silently ignored is exactly how a wrong call survives.
+  const { text: asText, ...rest } = opts;
   let r;
   try {
-    r = await fetch(BASE + path, { ...opts, headers: { 'X-Plxr-Token': TOKEN, ...(opts.headers || {}) } });
+    r = await fetch(BASE + path, { ...rest, headers: { 'X-Plxr-Token': TOKEN, ...(rest.headers || {}) } });
   } catch (e) {
     // A network error means: the daemon is gone. Do not push that onto the
     // caller, start the reconnect instead.
@@ -170,7 +174,8 @@ async function req(path, opts = {}) {
   }
   if (r.status === 403) { reconnect(); throw new Error(tr('err.tokenExpired')); }
   if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
-  return r.status === 204 ? null : r.json();
+  if (r.status === 204) return null;
+  return asText ? r.text() : r.json();
 }
 
 const b64 = (s) => {
@@ -209,6 +214,9 @@ const api = {
     };
   },
   timeline: (id) => req(`/api/playback/${encodeURIComponent(id)}/timeline`),
+  skinRead: (name) => req(`/api/skins/${encodeURIComponent(name)}`, { text: true }),
+  skinWrite: (name, css) =>
+    req(`/api/skins/${encodeURIComponent(name)}`, { method: 'PUT', body: css }),
   freeze: (id) => req(`/api/sessions/${id}/freeze`, { method: 'POST' }),
   unfreeze: (id) => req(`/api/sessions/${id}/unfreeze`, { method: 'POST' }),
   emergencyBrake: () => req('/api/freeze', { method: 'POST' }),
@@ -2557,6 +2565,119 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { e.preventDefault(); playerPlay(!player.running); }
   if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
 }, true);
+
+/* ═════════════════════════ Werkstatt ═════════════════════════
+
+   A skin written in the running window, with the real sessions standing behind
+   it. Two decisions carry this:
+
+   The live preview is a <style> element, not the saved file. Every keystroke
+   would otherwise mean a write to disk and a reload of the sheet — and half a
+   second of an unstyled window on every one. The element sits after the skin
+   sheet, so its rules win without anything having to be removed.
+
+   What is missing is counted against the DOM, not against a list. classes.py
+   compares the source statically; here the actual window stands in front of
+   you, with exactly the elements that exist right now. That is more honest —
+   and it changes while you click around, which is the point: open the archive
+   and you see what the archive still lacks. */
+
+let wbLive = null;      // the <style> element carrying the preview
+let wbTimer = null;
+
+/* The classes really present in the window, minus what layout alone covers.
+   Deliberately read out of the DOM rather than out of the source: a class that
+   nothing ever creates needs no styling either. */
+function wbClassesInUse() {
+  const out = new Set();
+  for (const el of document.querySelectorAll('[class]')) {
+    for (const c of el.classList) if (!c.startsWith('dev') && !c.startsWith('xterm')) out.add(c);
+  }
+  return [...out].sort();
+}
+
+/* Which classes does this stylesheet mention at all? Deliberately rough — the
+   exact question ("does it style it, or only position it") is what classes.py
+   asks in the gate. Here it is about the quick look while writing. */
+function wbStyledBy(css) {
+  const clean = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  return new Set([...clean.matchAll(/\.([A-Za-z][\w-]*)/g)].map((m) => m[1]));
+}
+
+function wbRender() {
+  const css = $('#wbCss').value;
+  if (!wbLive) {
+    wbLive = document.createElement('style');
+    wbLive.id = 'wbLive';
+    document.head.appendChild(wbLive);
+  }
+  wbLive.textContent = css;
+
+  const styled = wbStyledBy(css);
+  const missing = wbClassesInUse().filter((c) => !styled.has(c));
+  $('#wbMeta').textContent = tr('workbench.livePreview');
+  const box = $('#wbMissing');
+  box.innerHTML = '';
+  const head = document.createElement('div');
+  head.className = 'rrow';
+  head.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>';
+  head.querySelector('.rart').textContent = String(styled.size);
+  head.querySelector('.rtitle').textContent = missing.length
+    ? tr('workbench.missingHead') : tr('workbench.nothingMissing');
+  box.appendChild(head);
+  for (const c of missing) {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>';
+    row.querySelector('.rtitle').textContent = '.' + c;
+    box.appendChild(row);
+  }
+}
+
+async function openWorkbench() {
+  const t = currentTheme();
+  const skin = t?.skin || 'crt';
+  $('#wbName').value = skin;
+  try {
+    $('#wbCss').value = await api.skinRead(skin);
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('workbench.title'));
+    return;
+  }
+  $('#settings').hidden = true;
+  $('#workbench').hidden = false;
+  wbRender();
+  $('#wbCss').focus();
+}
+
+function closeWorkbench() {
+  $('#workbench').hidden = true;
+  // The preview goes with it: what was not saved must not stay behind.
+  if (wbLive) { wbLive.remove(); wbLive = null; }
+}
+
+async function wbSave() {
+  const name = $('#wbName').value.trim();
+  if (!name) { plxrUI.notice(tr('workbench.nameNeeded'), tr('workbench.title')); return; }
+  try {
+    await api.skinWrite(name, $('#wbCss').value);
+    $('#wbMeta').textContent = tr('workbench.saved');
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('workbench.title'));
+  }
+}
+
+$('#wbCss').addEventListener('input', () => {
+  clearTimeout(wbTimer);
+  wbTimer = setTimeout(wbRender, 120);
+});
+$('#wbOpen').addEventListener('click', openWorkbench);
+$('#wbSave').addEventListener('click', wbSave);
+$('#wbClose').addEventListener('click', closeWorkbench);
+$('#workbench').addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); wbSave(); }
+  if (e.key === 'Escape') { e.preventDefault(); closeWorkbench(); }
+});
 
 /* ═════════════════════════ Regeln ═════════════════════════ */
 
