@@ -41,8 +41,8 @@
 
 * { box-sizing: border-box; }
 
-/* Anordnungsmasse, die zwei Stellen kennen muessen. Farben stehen nicht hier:
-   die bringt der Skin mit. */
+/* Layout measurements two places have to know. Colours do not live here: the
+   skin brings those along. */
 :root { --files-w: 260px; }
 
 html, body {
@@ -217,11 +217,11 @@ html, body {
 
 .files { flex: 0 0 auto; width: var(--files-w); display: flex; flex-direction: column; min-height: 0; }
 
-/* Der Dateibetrachter laesst den Baum stehen.
-   Vorher lag er als .overlay ueber der ganzen Flaeche, also auch ueber der
-   Dateileiste — man klickte eine Datei an und verlor die Stelle im Baum, aus
-   der man kam. Regeln und Wiedergabe duerfen weiter alles verdecken: die
-   haben mit dem Baum nichts zu tun. */
+/* The file viewer leaves the tree standing.
+   It used to lie across the whole area as an .overlay, so across the file
+   panel as well — you clicked a file and lost the place in the tree you came
+   from. Rules and playback may still cover everything: they have nothing to do
+   with the tree. */
 .sesssplit[data-files="open"] #viewer { left: var(--files-w); }
 .filesbar { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; }
 .filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
@@ -304,8 +304,8 @@ html, body {
   min-width: 100%; max-height: 320px; overflow-y: auto;
   display: flex; flex-direction: column;
 }
-/* Geoeffnet haengt die Liste im Koerper und positioniert sich selbst — sonst
-   schneidet die scrollende Einstellungskarte sie ab. ui.js setzt data-dir. */
+/* While open the list hangs in the body and positions itself — otherwise the
+   scrolling settings card clips it. ui.js sets data-dir. */
 .selectList[data-dir] { position: fixed; z-index: 400; }
 .selectRow { text-align: left; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; padding: 4px 12px; border: 0; background: none; }
 .selectGroup { padding: 6px 12px 2px; }
@@ -428,7 +428,7 @@ html, body {
    themselves come from the skin through --crest. */
 .crest { flex: 0 0 auto; }
 
-/* Wiedergabe. Layout hier, Aussehen im Skin. */
+/* Playback. Layout here, looks in the skin. */
 .playterm { flex: 1; min-height: 0; overflow: hidden; padding: 6px 10px; }
 .playbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; flex: 0 0 auto; }
 .playbar input[type="range"] { flex: 1; }

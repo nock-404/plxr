@@ -219,7 +219,7 @@ body {
 .hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
-/* Ladebalken beim Update. */
+/* Progress bar during an update. */
 .progress { background: var(--bg); }
 .progress i { background: var(--accent); }
 
@@ -301,7 +301,7 @@ body {
 .tabs { border-bottom: 2px solid var(--line); }
 
 /* Raumzustand */
-/* Ein Rahmen aus gesetzten Blöcken, kein Verlauf. */
+/* A border of placed blocks, no gradient. */
 :root[data-room="working"] .fx::after {
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--working) 45%, transparent);
 }

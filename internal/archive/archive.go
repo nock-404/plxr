@@ -1,10 +1,10 @@
 // Package archive reads the archived Claude Code transcripts.
 //
-// Claude Code legt je Konfigurationsverzeichnis einen Ordner projects/ an,
-// with one folder per working directory holding the transcripts as .jsonl.
-// The folder name is the path with / replaced by -; more reliable however is
-// the cwd field from the file itself, because special characters in the path
-// mehrdeutig machen.
+// Claude Code creates a projects/ folder per config directory, with one folder
+// per working directory holding the transcripts as .jsonl. The folder name is
+// the path with / replaced by -; more reliable however is the cwd field from
+// the file itself, because special characters in the path make that name
+// ambiguous.
 package archive
 
 import (
@@ -21,9 +21,9 @@ import (
 )
 
 type Entry struct {
-	ID      string `json:"id"`      // Session-ID = Dateiname ohne Endung
-	Account string `json:"account"` // Kennung des Kontos
-	Path    string `json:"path"`    // absolute Datei
+	ID      string `json:"id"`      // session id = file name without extension
+	Account string `json:"account"` // identifier of the account
+	Path    string `json:"path"`    // absolute file path
 	Cwd     string `json:"cwd"`
 	Project string `json:"project"`
 	Title   string `json:"title"`
@@ -102,9 +102,8 @@ func List(accs []accounts.Account, pathFilter string) []Entry {
 	return fold(out)
 }
 
-// falten fasst dasselbe Transkript aus mehreren Konten zu einem Eintrag
-// together. The most recent copy leads — that is most likely the one in which
-// zuletzt gearbeitet wurde.
+// fold merges the same transcript from several accounts into one entry. The
+// most recent copy leads — that is most likely the one last worked in.
 func fold(in []Entry) []Entry {
 	byID := map[string]*Entry{}
 	order := []string{}
@@ -190,7 +189,7 @@ func read(e *Entry) {
 	}
 }
 
-// ausOrdnername macht aus "-Users-max-projekt" wieder "/Users/max/projekt".
+// fromFolderName turns "-Users-max-project" back into "/Users/max/project".
 // A last resort only: hyphens in the real path cannot be recovered.
 func fromFolderName(n string) string {
 	if !strings.HasPrefix(n, "-") {
@@ -215,7 +214,7 @@ func Mirror(e Entry, target accounts.Account) (string, error) {
 	}
 	targetPath := filepath.Join(targetDir, filepath.Base(e.Path))
 
-	// Schon aktuell? Dann nichts tun.
+	// Already up to date? Then do nothing.
 	if zi, err := os.Stat(targetPath); err == nil {
 		if qi, err := os.Stat(e.Path); err == nil &&
 			zi.Size() == qi.Size() && !qi.ModTime().After(zi.ModTime()) {

@@ -26,7 +26,7 @@ const $ = (s) => document.querySelector(s);
 
 const SPRACHEN = ['en', 'de'];
 let sprache = 'en';
-let texte = {};
+let texts = {};
 let texteEn = {};
 
 function spracheWaehlen() {
@@ -34,7 +34,7 @@ function spracheWaehlen() {
     const eigen = localStorage.getItem('plxr.lang');
     if (eigen && SPRACHEN.includes(eigen)) return eigen;
   } catch {}
-  // Die Systemsprache ist die beste Vermutung, die ohne Nachfragen zu haben ist.
+  // The system language is the best guess available without asking.
   const roh = (navigator.language || 'en').toLowerCase().split('-')[0];
   return SPRACHEN.includes(roh) ? roh : 'en';
 }
@@ -46,35 +46,35 @@ async function spracheLaden(welche) {
     if (!r.ok) throw new Error(`Sprachdatei ${l} fehlt`);
     return r.json();
   };
-  // Englisch immer mitladen: es ist der Rückfall für jeden fehlenden Schlüssel.
+  // Always load English too: it is the fallback for every missing key.
   texteEn = await hol('en');
-  texte = sprache === 'en' ? texteEn : await hol(sprache).catch(() => ({}));
+  texts = sprache === 'en' ? texteEn : await hol(sprache).catch(() => ({}));
 }
 
-/* t liefert den Text zu einem Schlüssel.
+/* tr returns the text for a key.
 
-   Platzhalter stehen als {name} im Text und werden aus dem zweiten Argument
-   gefüllt. Absichtlich keine Pluralregeln: die Sprachen, um die es hier geht,
-   kommen mit einer Verzweigung im Aufrufer aus, und eine halbe
-   Pluralbibliothek wäre mehr Aufwand als der Nutzen. */
-function tr(schluessel, werte) {
-  let s = texte[schluessel] ?? texteEn[schluessel] ?? schluessel;
-  if (werte) {
-    for (const [k, v] of Object.entries(werte)) s = s.replaceAll(`{${k}}`, v);
+   Placeholders appear as {name} in the text and are filled from the second
+   argument. Deliberately no plural rules: the languages this deals with get by
+   with one branch in the caller, and half a pluralisation library would be
+   more work than it is worth. */
+function tr(keyName, values) {
+  let s = texts[keyName] ?? texteEn[keyName] ?? keyName;
+  if (values) {
+    for (const [k, v] of Object.entries(values)) s = s.replaceAll(`{${k}}`, v);
   }
   return s;
 }
 
-/* Alles im Markup übersetzen, was einen Schlüssel trägt. Wird beim Start und
-   nach jedem Sprachwechsel aufgerufen — so braucht ein Wechsel kein Neuladen. */
-function markupUebersetzen(wurzel = document) {
-  for (const el of wurzel.querySelectorAll('[data-i18n]')) {
+/* Translate everything in the markup that carries a key. Called at startup and
+   after every language change — so a change needs no reload. */
+function markupUebersetzen(root = document) {
+  for (const el of root.querySelectorAll('[data-i18n]')) {
     el.textContent = tr(el.dataset.i18n);
   }
-  for (const el of wurzel.querySelectorAll('[data-i18n-tip]')) {
+  for (const el of root.querySelectorAll('[data-i18n-tip]')) {
     el.dataset.tip = tr(el.dataset.i18nTip);
   }
-  for (const el of wurzel.querySelectorAll('[data-i18n-ph]')) {
+  for (const el of root.querySelectorAll('[data-i18n-ph]')) {
     el.placeholder = tr(el.dataset.i18nPh);
   }
   document.documentElement.lang = sprache;
@@ -182,9 +182,9 @@ const api = {
       { headers: { 'X-Plxr-Token': TOKEN } });
     if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
     return {
-      // "resize" stand hier fuer die Groesse — ein Rest der Blanket-Regex, die
-      // damals groesse zu resize gemacht hat. Es gibt keine Groessenaenderung,
-      // es ist die Laenge der Aufzeichnung.
+      // "resize" used to stand here for the size — a leftover of the blanket
+      // regex that turned groesse into resize. There is no resizing involved,
+      // it is the length of the recording.
       data: new Uint8Array(await r.arrayBuffer()),
       size: Number(r.headers.get('X-Plxr-Size') || 0),
       truncated: r.headers.get('X-Plxr-Cut') === 'true',
@@ -272,9 +272,9 @@ const api = {
   // After a daemon restart every open pane hangs on a dead socket.
   // Without pulling them along you get a UI that only looks alive.
   reattach() {
-    for (const [id, eintrag] of attachments) {
-      this.attach(id, eintrag.aufDaten, eintrag.aufEnde);
-      eintrag.beiNeu?.();
+    for (const [id, entry] of attachments) {
+      this.attach(id, entry.aufDaten, entry.aufEnde);
+      entry.beiNeu?.();
     }
   },
   detach(id) {
@@ -319,12 +319,12 @@ function showConnection(ok) {
    outage does not otherwise heal by itself — the user would have to reopen it
    by hand, and has no way of knowing that. */
 function refreshView() {
-  const nach = [
+  const dest = [
     ['#viewPorts', () => loadView('#portsList', '#portsInfo', loadPorts)],
     ['#viewUsage', () => loadView('#usageBody', '#usageInfo', loadUsage)],
     ['#viewArchive', () => loadView('#archList', '#archInfo', loadArchive)],
   ];
-  for (const [sel, load] of nach) {
+  for (const [sel, load] of dest) {
     if (!$(sel)?.hidden) load();
   }
   if (!$('#settings').hidden) {
@@ -338,7 +338,7 @@ function reconnect() {
   if (neuTimer) return;
   showConnection(false);
   let wartezeit = 500;
-  const versuch = async () => {
+  const attempt = async () => {
     try {
       await connect();
       await loadThemes($('#themeSel').value);
@@ -349,10 +349,10 @@ function reconnect() {
       neuTimer = null;
     } catch {
       wartezeit = Math.min(wartezeit * 1.6, 5000);
-      neuTimer = setTimeout(versuch, wartezeit);
+      neuTimer = setTimeout(attempt, wartezeit);
     }
   };
-  neuTimer = setTimeout(versuch, wartezeit);
+  neuTimer = setTimeout(attempt, wartezeit);
 }
 
 /* ═════════════════════════ Themes and skins ═════════════════════════ */
@@ -366,43 +366,43 @@ let skinLoading = null;
 
 function setSkin(name) {
   const href = `/skins/${name}/skin.css`;
-  const alt = $('#skinCss');
-  if (alt && alt.getAttribute('href') === href) return Promise.resolve();
+  const prev = $('#skinCss');
+  if (prev && prev.getAttribute('href') === href) return Promise.resolve();
   if (skinLoading === href) return Promise.resolve();
   skinLoading = href;
 
   return new Promise((fertig) => {
-    const neu = document.createElement('link');
-    neu.rel = 'stylesheet';
-    neu.href = href;
+    const fresh = document.createElement('link');
+    fresh.rel = 'stylesheet';
+    fresh.href = href;
     const adopt = () => {
-      if (alt && alt !== neu) alt.remove();
-      neu.id = 'skinCss';
+      if (prev && prev !== fresh) prev.remove();
+      fresh.id = 'skinCss';
       skinLoading = null;
       // A different skin brings different crest glyphs.
       crestGlyphs = null;
       fertig();
     };
-    neu.addEventListener('load', adopt, { once: true });
+    fresh.addEventListener('load', adopt, { once: true });
     // A broken sheet: better to keep the old one than have none.
-    neu.addEventListener('error', () => { neu.remove(); skinLoading = null; fertig(); }, { once: true });
-    document.head.appendChild(neu);
+    fresh.addEventListener('error', () => { fresh.remove(); skinLoading = null; fertig(); }, { once: true });
+    document.head.appendChild(fresh);
   });
 }
 
 function applyTheme(t) {
   if (!t || !t.skin) return;
-  const wurzel = document.documentElement;
-  wurzel.dataset.skin = t.skin;
-  wurzel.dataset.scan = t.scanlines === false ? 'off' : 'on';
-  wurzel.dataset.glow = t.glow === false ? 'off' : 'on';
+  const root = document.documentElement;
+  root.dataset.skin = t.skin;
+  root.dataset.scan = t.scanlines === false ? 'off' : 'on';
+  root.dataset.glow = t.glow === false ? 'off' : 'on';
 
   setSkin(t.skin).then(() => {
     // Set the palette only once the skin is in place: otherwise its :root block
     // overrides our values, because it is parsed later.
-    for (const k of PALETTE) wurzel.style.removeProperty('--' + k);
+    for (const k of PALETTE) root.style.removeProperty('--' + k);
     for (const [k, v] of Object.entries(t.palette || {})) {
-      if (PALETTE.includes(k)) wurzel.style.setProperty('--' + k, v);
+      if (PALETTE.includes(k)) root.style.setProperty('--' + k, v);
     }
     for (const p of paneList()) p.term.options.theme = xtermTheme();
 
@@ -465,18 +465,18 @@ async function loadThemes(preselect) {
 
   const sel = $('#themeSel');
   sel.innerHTML = '';
-  let gruppe = null, letzterSkin = null;
+  let group = null, letzterSkin = null;
   for (const t of list) {
     if (t.skin !== letzterSkin) {
-      gruppe = document.createElement('optgroup');
-      gruppe.label = t.skin;
-      sel.appendChild(gruppe);
+      group = document.createElement('optgroup');
+      group.label = t.skin;
+      sel.appendChild(group);
       letzterSkin = t.skin;
     }
     const o = document.createElement('option');
     o.value = t.name;
     o.textContent = t.label;
-    gruppe.appendChild(o);
+    group.appendChild(o);
   }
   const wanted = preselect || localStorage.getItem('plxr.theme') || 'crt-amber';
   sel.value = list.some((t) => t.name === wanted) ? wanted : list[0].name;
@@ -525,30 +525,30 @@ async function openSettings() {
 }
 $('#settingsBtn').addEventListener('click', openSettings);
 
-/* Raumzustand — der ganze Raum sagt, was los ist.
+/* Room state — the whole room says what is going on.
 
-   Ein farbiger Punkt je Kachel funktioniert nur, wenn man hinsieht. Wer aber
-   in einer Datei liest oder in einem anderen Fenster arbeitet, sieht ihn nicht.
-   Deshalb trägt die Oberfläche selbst den Gesamtzustand: die Skins hängen ihre
-   Mittel daran — der crt lässt den Rand atmen, sketch das Papier, win95 färbt
-   den Schreibtisch. Was das JavaScript liefert, ist nur die Tatsache.
+   A coloured dot per tile only works if you look at it. Anyone reading a file
+   or working in another window does not see it. So the interface itself
+   carries the overall state, and the skins hang their means off it — crt lets
+   the border breathe, sketch the paper, win95 colours the desktop. What the
+   JavaScript supplies is only the fact.
 
-   Bewusst nur DREI Zustände. Fünf feine Abstufungen kann man nicht mehr aus
-   dem Augenwinkel unterscheiden, und ein Raum, der ständig etwas anderes
-   flüstert, wird zu Rauschen:
+   Deliberately just THREE states. Five fine gradations can no longer be told
+   apart out of the corner of your eye, and a room constantly whispering
+   something different turns into noise:
 
-     working   irgendwer arbeitet
-     waiting   jemand braucht dich — das ist der einzige, der drängt
-     idle      alles fertig, es ist ruhig
+     working   somebody is working
+     waiting   somebody needs you — the only one that presses
+     idle      all done, it is quiet
 
-   Zusätzlich die reine Zahl, damit ein Skin die Stärke daran binden kann:
-   drei laufende Agenten dürfen mehr Unruhe machen als einer. */
+   Plus the raw number, so a skin can tie the intensity to it: three running
+   agents may cause more unrest than one. */
 function raumzustand({ running, blocked, orphaned, total }) {
   const w = document.documentElement;
-  const lage = blocked || orphaned ? 'waiting' : (running ? 'working' : 'idle');
-  if (w.dataset.room !== lage) w.dataset.room = lage;
+  const mode = blocked || orphaned ? 'waiting' : (running ? 'working' : 'idle');
+  if (w.dataset.room !== mode) w.dataset.room = mode;
 
-  // Als CSS-Variable, damit ein Skin daran rechnen kann statt zu raten.
+  // As a CSS variable, so a skin can compute with it instead of guessing.
   const setz = (k, v) => {
     if (w.style.getPropertyValue(k) !== String(v)) w.style.setProperty(k, String(v));
   };
@@ -557,15 +557,15 @@ function raumzustand({ running, blocked, orphaned, total }) {
   setz('--session-count', total);
 }
 
-/* Reiter im Einstellungsfenster.
+/* Tabs in the settings window.
 
-   Der Stil-Editor allein sind zwölf Farbfelder und zwei Regler. Darunter ist
-   alles andere unter den Falz gerutscht — die Anbindung von Claude Code hat
-   man schlicht nicht mehr gesehen.
+   The style editor alone is twelve colour fields and two sliders. Underneath
+   it everything else had slipped below the fold — the Claude Code hook simply
+   could not be seen any more.
 
-   Bewusst kein Zustand, der irgendwo gespeichert wird: wer die Einstellungen
-   öffnet, will fast immer dasselbe, und ein Fenster, das sich an den letzten
-   Reiter erinnert, zeigt beim nächsten Mal den falschen. */
+   Deliberately no state that gets stored anywhere: whoever opens the settings
+   almost always wants the same thing, and a window that remembers the last tab
+   shows the wrong one next time. */
 function tabWaehlen(welcher) {
   for (const b of document.querySelectorAll('#settings .tab')) {
     b.classList.toggle('on', b.dataset.tab === welcher);
@@ -596,8 +596,8 @@ async function fillLanguages() {
     for (const l of SPRACHEN) {
       const o = document.createElement('option');
       o.value = l;
-      // Der Name steht in der Sprache selbst — deshalb aus deren Tabelle.
-      o.textContent = l === sprache ? tr('_meta.name') : NAMEN[l] || l;
+      // The name is written in the language itself — hence out of its table.
+      o.textContent = l === sprache ? tr('_meta.name') : NAMES[l] || l;
       sel.appendChild(o);
     }
   }
@@ -605,17 +605,17 @@ async function fillLanguages() {
   plxrUI.replaceSelects();
 }
 
-// Kurz genug, um sie hier zu halten: eine zweite Abfrage je Sprache nur für
-// den Anzeigenamen wäre Aufwand ohne Gegenwert.
-const NAMEN = { en: 'English', de: 'Deutsch' };
+// Short enough to keep here: a second request per language just for the
+// display name would be effort without return.
+const NAMES = { en: 'English', de: 'Deutsch' };
 
 $('#langSel').addEventListener('change', async (e) => {
   const gewuenscht = e.target.value;
   try { localStorage.setItem('plxr.lang', gewuenscht); } catch {}
   await spracheLaden(gewuenscht);
   markupUebersetzen();
-  // Was aus JavaScript kam, zeichnet der nächste Zustandsstrom neu; die
-  // Ansichten, die auf Zuruf laden, hier anstoßen.
+  // Whatever came out of JavaScript is redrawn by the next state update; the
+  // views that load on demand are nudged here.
   refreshView();
   showHookStatus();
 });
@@ -700,8 +700,8 @@ function numberRow(name, field, min, max, anwenden) {
   const show = () => { anzeige.textContent = Math.round(jetzt()); };
   for (const b of row.querySelectorAll('button')) {
     b.addEventListener('click', () => {
-      const neu = Math.min(max, Math.max(min, Math.round(jetzt()) + (b.dataset.r === '+' ? 1 : -1)));
-      styleState[field] = neu;
+      const fresh = Math.min(max, Math.max(min, Math.round(jetzt()) + (b.dataset.r === '+' ? 1 : -1)));
+      styleState[field] = fresh;
       anwenden();
       show();
     });
@@ -742,14 +742,14 @@ $('#styleReset').addEventListener('click', () => {
 });
 
 $('#styleSave').addEventListener('click', async () => {
-  const basis = currentTheme();
+  const base = currentTheme();
   const name = await plxrUI.prompt(
     tr('theme.nameAsk'),
-    tr('theme.saveOwnTitle'), (basis?.name || tr('theme.ownBase')) + tr('theme.ownSuffix'));
+    tr('theme.saveOwnTitle'), (base?.name || tr('theme.ownBase')) + tr('theme.ownSuffix'));
   if (!name) return;
 
   const sauber = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-  const palette = { ...(basis?.palette || {}) };
+  const palette = { ...(base?.palette || {}) };
   for (const [k, v] of Object.entries(styleState.changes)) {
     if (!k.startsWith('_')) palette[k] = v;
   }
@@ -757,7 +757,7 @@ $('#styleSave').addEventListener('click', async () => {
   const theme = {
     name: sauber,
     label: name,
-    skin: basis?.skin || 'crt',
+    skin: base?.skin || 'crt',
     palette,
     scanlines: document.documentElement.dataset.scan !== 'off',
     glow: document.documentElement.dataset.glow !== 'off',
@@ -898,14 +898,14 @@ const OPTION_LINE = /^[\s>❯▶*·-]*(\d{1,2})\s*[).:\]]\s+(.{1,60}?)\s*$/;
 function optionsFrom(confirm) {
   if (!confirm) return null;
   const out = [];
-  const gesehen = new Set();
+  const seen = new Set();
   for (const row of String(confirm).split('\n')) {
     const m = OPTION_LINE.exec(row);
     if (!m) continue;
-    const [, taste, text] = m;
-    if (gesehen.has(taste)) continue;      // dieselbe Ziffer nur einmal
-    gesehen.add(taste);
-    out.push({ text: taste, label: `${taste} · ${shorten(text)}` });
+    const [, key, text] = m;
+    if (seen.has(key)) continue;           // the same digit only once
+    seen.add(key);
+    out.push({ text: key, label: `${key} · ${shorten(text)}` });
     if (out.length >= 5) break;            // more does not fit on a card
   }
   // A single digit is not a choice but usually a line number.
@@ -960,10 +960,10 @@ function waitingSessions() {
    name are not the same question, and one bulk answer to the wrong group is
    worse than typing eight times. */
 function questionKey(tile) {
-  /* tile.question ist die vom Daemon erkannte Rueckfrage. Hier stand
-     tile.confirm — ein Feld, das Go nie geschickt hat: die Sammelfrage hat
-     deshalb nach dem Taetigkeitstext gruppiert statt nach der Frage, und die
-     Karte zeigte nie die eigentliche Rueckfrage. */
+  /* tile.question is the pending question as the daemon recognised it. This
+     used to read tile.confirm — a field Go never sent: the grouping therefore
+     went by the activity text instead of the question, and the card never
+     showed the actual question. */
   return (tile.question || tile.activity || '').trim();
 }
 
@@ -1043,15 +1043,15 @@ function renderInbox() {
       : [first.project, first.agent_label].filter(Boolean).join('  ·  ');
 
     const confirm = card.querySelector('.inboxQuestion');
-    const neu = group.question || tr('inbox.noQuestion');
-    if (confirm.textContent !== neu) confirm.textContent = neu;
+    const fresh = group.question || tr('inbox.noQuestion');
+    if (confirm.textContent !== fresh) confirm.textContent = fresh;
 
     /* Only rebuild when the question changed: the card refreshes every second,
        and anyone aiming at a button should not lose it from under the
        pointer. */
     const quick = card.querySelector('.inboxQuick');
-    if (quick.dataset.fuer !== neu) {
-      quick.dataset.fuer = neu;
+    if (quick.dataset.fuer !== fresh) {
+      quick.dataset.fuer = fresh;
       quick.innerHTML = '';
       for (const a of quickRepliesFor(group.question)) {
         const b = document.createElement('button');
@@ -1108,8 +1108,8 @@ $('#railUsage').addEventListener('click', showUsage);
 
 /* ═════════════════════════ Schiene ═════════════════════════ */
 
-const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', frozen: '❙❙' };
-const WORT = {
+const GLYPHS = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', frozen: '❙❙' };
+const WORD = {
   working: 'arbeitet', waiting: 'wartet', permission: tr('state.needsYou'),
   dead: 'beendet', unknown: tr('state.running'),
 };
@@ -1162,8 +1162,8 @@ function hash32(text) {
 
 function crest(pfad) {
   if (!pfad) return '';
-  const zeichen = crestGlyphSet();
-  return zeichen[hash32(pfad) % zeichen.length];
+  const glyph = crestGlyphSet();
+  return glyph[hash32(pfad) % glyph.length];
 }
 
 /* The colour comes from the same hash but from a different part of it —
@@ -1178,17 +1178,17 @@ function crestHue(pfad) {
    inside one session should still see when somebody elsewhere is stuck. */
 function renderRail() {
   const list = $('#railList');
-  const gruppen = new Map();
+  const groups = new Map();
   for (const t of state.tiles) {
     const k = t.project || '—';
-    if (!gruppen.has(k)) gruppen.set(k, []);
-    gruppen.get(k).push(t);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(t);
   }
 
-  const erwartet = [...gruppen.keys()].map((k) => 'g:' + k)
+  const erwartet = [...groups.keys()].map((k) => 'g:' + k)
     .concat(state.tiles.map((t) => 's:' + t.id));
 
-  for (const [projekt, entries] of gruppen) {
+  for (const [projekt, entries] of groups) {
     const headerKey = 'g:' + projekt;
     let kopf = list.querySelector(`[data-key="${CSS.escape(headerKey)}"]`);
     if (!kopf) {
@@ -1226,14 +1226,14 @@ function renderRail() {
       el.classList.toggle('active', state.panes.includes(t.id));
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
-      punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+      punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (GLYPHS[st] || '·');
       const rw = el.querySelector('.crest');
       rw.textContent = crest(t.cwd);
       rw.style.color = crestHue(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
       el.querySelector('.rsub').textContent = t.orphaned
         ? tr('state.crashed')
-        : [t.alive ? WORT[st] : tr('state.ended'), t.agent].filter(Boolean).join(' · ');
+        : [t.alive ? WORD[st] : tr('state.ended'), t.agent].filter(Boolean).join(' · ');
       el.dataset.tip = `${t.name} — ${t.cwd}`;
     }
   }
@@ -1242,7 +1242,7 @@ function renderRail() {
     if (!erwartet.includes(el.dataset.key)) el.remove();
   }
 
-  for (const [button, ansicht] of ANSICHTEN) $(button).classList.toggle('active', !$(ansicht).hidden);
+  for (const [button, view] of ANSICHTEN) $(button).classList.toggle('active', !$(view).hidden);
   $('#railHome').classList.toggle('active', !state.panes.length && keineSonderansicht());
 }
 
@@ -1292,7 +1292,7 @@ function renderGrid() {
     el.dataset.untamed = isUntamed(t) ? 'yes' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
-    punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+    punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (GLYPHS[st] || '·');
     const w = el.querySelector('.crest');
     w.textContent = crest(t.cwd);
     w.style.color = crestHue(t.cwd);
@@ -1317,8 +1317,8 @@ function renderAll(tiles) {
   const belegt = !!state.panes.length || !keineSonderansicht();
 
   const running = state.tiles.filter((t) => t.alive).length;
-  /* Laeuft nichts, gibt es nichts anzuhalten — dann steht der Knopf auch nicht
-     da. Eingerastet bleibt er sichtbar, sonst kaeme man nicht mehr heraus. */
+  /* Nothing running, nothing to halt — then the button is not there either.
+     Engaged it stays visible, otherwise there would be no way back out. */
   const brake = $('#brake');
   brake.hidden = running === 0 && brake.dataset.on !== 'yes';
   const blocked = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
@@ -1371,8 +1371,8 @@ function pathComplete(field, onPick) {
     list.style.top = r.bottom + 4 + 'px';
     list.style.minWidth = Math.max(r.width, 380) + 'px';
     // If it no longer fits below, it opens upwards.
-    const platz = window.innerHeight - r.bottom;
-    if (platz < 240) {
+    const room = window.innerHeight - r.bottom;
+    if (room < 240) {
       list.style.top = 'auto';
       list.style.bottom = window.innerHeight - r.top + 4 + 'px';
     } else {
@@ -1384,11 +1384,11 @@ function pathComplete(field, onPick) {
   let picked = -1;
   let timer;
 
-  const zu = () => { list.hidden = true; picked = -1; };
+  const shut = () => { list.hidden = true; picked = -1; };
 
   const render = () => {
     list.innerHTML = '';
-    if (!treffer.length) { zu(); return; }
+    if (!treffer.length) { shut(); return; }
     treffer.forEach((pfad, i) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -1405,7 +1405,7 @@ function pathComplete(field, onPick) {
   const pick = (pfad) => {
     // Append the separator: the next keystroke then searches inside it.
     field.value = pfad.endsWith('/') ? pfad : pfad + '/';
-    zu();
+    shut();
     onPick?.(field.value);
     load();
   };
@@ -1421,7 +1421,7 @@ function pathComplete(field, onPick) {
 
   field.addEventListener('input', load);
   field.addEventListener('focus', load);
-  field.addEventListener('blur', () => setTimeout(zu, 120));
+  field.addEventListener('blur', () => setTimeout(shut, 120));
 
   field.addEventListener('keydown', (e) => {
     if (list.hidden || !treffer.length) {
@@ -1442,7 +1442,7 @@ function pathComplete(field, onPick) {
       e.preventDefault();
       pick(treffer[picked]);
     } else if (e.key === 'Escape') {
-      zu();
+      shut();
     }
   });
 }
@@ -1484,13 +1484,13 @@ function addPane(id) {
   if (!t) return;
   if (t.orphaned) {
     // The daemon ended while the session was running. With Claude Code the
-    // Unterhaltung im Transkript — von dort geht es weiter.
+    // conversation lives in the transcript — that is where it carries on.
     plxrUI.confirm(tr('session.resumeAsk', { name: t.name, cwd: t.cwd }), tr('session.resumeTitle'))
       .then(async (ja) => {
         if (!ja) return;
         try {
-          const neu = await api.resume(t.id);
-          setTimeout(() => openSession(neu.id), 700);
+          const fresh = await api.resume(t.id);
+          setTimeout(() => openSession(fresh.id), 700);
         } catch (e) {
           plxrUI.notice(e.message || String(e), tr('archive.notResumed'));
         }
@@ -1527,10 +1527,10 @@ function addPane(id) {
      line. macOptionIsMeta turns Alt+key into a meta input, the way shells
      expect. rightClickSelectsWord matches what other terminals do. */
   const term = new Terminal({
-    // Theme schon beim Bauen, nicht erst beim naechsten Wechsel: sonst startet
-    // jede neue Session in den Standardfarben von xterm und wird erst amber,
-    // wenn man zufaellig das Theme umstellt. Das Wiedergabe-Terminal machte es
-    // von Anfang an richtig, dieses nicht.
+    // Theme at construction, not at the next change: otherwise every new
+    // session starts in xterm's default colours and only turns amber when the
+    // theme happens to be switched. The playback terminal got this right from
+    // the start, this one did not.
     theme: xtermTheme(),
     fontFamily: cssVar('term-font', 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'),
     fontSize: styleState.termSize || 13,
@@ -1551,7 +1551,7 @@ function addPane(id) {
     rightClickSelectsWord: true,
     scrollSensitivity: 3,
     // Saves the darker skins: foreground colours that are too dark get
-    // aufgehellt, bis sie lesbar sind.
+    // lightened until they are readable.
     minimumContrastRatio: 4.5,
     // Otherwise xterm draws bold text in the bright colour variant and the
     // skin's palette falls apart.
@@ -1646,18 +1646,18 @@ function addPane(id) {
      do not — there every drag of the mouse would overwrite what the user had
      copied before. ⌘C is enough. */
 
-  const eintrag = { id, term, fit, search, serial, el };
-  panes.set(id, eintrag);
+  const entry = { id, term, fit, search, serial, el };
+  panes.set(id, entry);
   state.panes.push(id);
 
-  const nachziehen = () => paneRefit(eintrag);
+  const nachziehen = () => paneRefit(entry);
   let timer;
-  eintrag.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(nachziehen, 60); });
-  eintrag.ro.observe(el.querySelector('.pterm'));
+  entry.ro = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(nachziehen, 60); });
+  entry.ro.observe(el.querySelector('.pterm'));
 
   const aufDaten = (daten) => term.write(daten);
-  const aufEnde = (grund) => {
-    term.write(grund === 'leitung'
+  const aufEnde = (reason) => {
+    term.write(reason === 'leitung'
       ? `\r\n[plxr] ${tr('pane.lostLine')}\r\n`
       : `\r\n[plxr] ${tr('pane.endedLine')}\r\n`);
   };
@@ -1833,9 +1833,9 @@ const SHORTCUTS = [
   ['-', () => changeFontSize(-1),                        'Schrift kleiner'],
 ];
 
-function changeFontSize(richtung) {
+function changeFontSize(dir) {
   const jetzt = styleState.termSize || paneList()[0]?.term.options.fontSize || 13;
-  styleState.termSize = richtung === 0 ? 13 : Math.min(28, Math.max(8, jetzt + richtung));
+  styleState.termSize = dir === 0 ? 13 : Math.min(28, Math.max(8, jetzt + dir));
   forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
 }
 
@@ -1846,13 +1846,13 @@ document.addEventListener('keydown', (e) => {
 
   // Cmd+1..9 jumps to the session at that position in the rail.
   if (cmd && /^[1-9]$/.test(e.key)) {
-    const alle = [...$('#railList').querySelectorAll('.railitem[data-id]')];
-    const ziel = alle[parseInt(e.key, 10) - 1];
+    const all = [...$('#railList').querySelectorAll('.railitem[data-id]')];
+    const ziel = all[parseInt(e.key, 10) - 1];
     if (ziel) { e.preventDefault(); ziel.click(); }
     return;
   }
 
-  const treffer = SHORTCUTS.find(([taste]) => taste === e.key.toLowerCase());
+  const treffer = SHORTCUTS.find(([keyChar]) => keyChar === e.key.toLowerCase());
   if (!treffer) return;
 
   /* Inside an input field the usual editing shortcuts keep working. But note:
@@ -1875,10 +1875,10 @@ $('#filesToggle').addEventListener('click', () => {
   const f = $('#files');
   f.hidden = !f.hidden;
   $('#filesToggle').classList.toggle('on', !f.hidden);
-  // Der Betrachter braucht die Breite als Merkmal, nicht als Vermutung.
+  // The viewer needs the width as an attribute, not as a guess.
   $('#files').closest('.sesssplit').dataset.files = f.hidden ? '' : 'open';
   // On opening, the tree has to be loaded: while the panel was closed,
-  // hat dateibaumLaden nichts getan.
+  // loadFileTree did nothing.
   if (!f.hidden) {
     const t = state.tiles.find((x) => x.id === state.aktiv);
     if (t) loadFileTree(t);
@@ -1898,7 +1898,7 @@ $('#splitAdd').addEventListener('click', () => {
     b.innerHTML = '<span class="dot"></span><span class="rname"></span>';
     const st = t.status || 'unknown';
     b.querySelector('.dot').className = 'dot ' + st;
-    b.querySelector('.dot').textContent = ZEICHEN[st] || '·';
+    b.querySelector('.dot').textContent = GLYPHS[st] || '·';
     b.querySelector('.rname').textContent = (t.title || t.name) + '  ·  ' + t.project;
     b.addEventListener('click', () => { $('#splitPick').hidden = true; addPane(t.id); });
     box.appendChild(b);
@@ -1968,9 +1968,9 @@ $('#sessAccount').addEventListener('change', async (e) => {
     tr('session.switchAsk', { account: ziel }), tr('session.switchTitle'));
   if (!weiter) { e.target.value = t.account || ''; return; }
   try {
-    const neu = await api.switchAccount(state.aktiv, ziel);
+    const fresh = await api.switchAccount(state.aktiv, ziel);
     closePane(state.aktiv);
-    setTimeout(() => openSession(neu.id), 700);
+    setTimeout(() => openSession(fresh.id), 700);
   } catch (err) {
     plxrUI.notice(err.message || String(err), tr('session.switchFailed'));
     e.target.value = t.account || '';
@@ -1979,11 +1979,11 @@ $('#sessAccount').addEventListener('change', async (e) => {
 
 /* ═════════════════════════ Dateibaum ═════════════════════════ */
 
-const baum = { wurzel: '', rauschen: false };
+const tree = { root: '', rauschen: false };
 
 $('#noiseToggle').addEventListener('click', () => {
-  baum.rauschen = !baum.rauschen;
-  $('#noiseToggle').classList.toggle('on', baum.rauschen);
+  tree.rauschen = !tree.rauschen;
+  $('#noiseToggle').classList.toggle('on', tree.rauschen);
   const t = state.tiles.find((x) => x.id === state.aktiv);
   if (t) loadFileTree(t);
 });
@@ -2002,7 +2002,7 @@ function fileGlyph(e) {
 
 async function loadFileTree(t) {
   if ($('#files').hidden) return;
-  baum.wurzel = t.cwd;
+  tree.root = t.cwd;
   $('#filesRoot').textContent = t.cwd;
   const box = $('#filetree');
   box.innerHTML = '';
@@ -2016,7 +2016,7 @@ async function renderMarkLayer(box, dir, tiefe, sid) {
     return;
   }
   for (const e of entries || []) {
-    if (e.noise && !baum.rauschen) continue;
+    if (e.noise && !tree.rauschen) continue;
 
     const row = document.createElement('div');
     row.className = 'frow' + (e.noise ? ' noise' : '');
@@ -2129,9 +2129,9 @@ document.addEventListener('keydown', (e) => {
 async function closeViewer() {
   $('#findInFile').hidden = true;
   if (!$('#viewerDirty').hidden) {
-    const weg = await plxrUI.confirm(
+    const gone = await plxrUI.confirm(
       tr('file.discardHint', { name: $('#viewerName').textContent }), tr('file.discardAsk'));
-    if (!weg) return;
+    if (!gone) return;
   }
   setDirty(false);
   $('#viewer').hidden = true;
@@ -2182,10 +2182,10 @@ function editorCollectHits() {
 }
 
 function editorShowCount() {
-  const stand = $('#findInFileCount');
-  if (!$('#findInFileInput').value) { stand.textContent = ''; return; }
-  if (!fileFind.treffer.length) { stand.textContent = tr('find.noHit'); return; }
-  stand.textContent = tr('find.count', { i: Math.max(fileFind.index, 0) + 1, n: fileFind.treffer.length });
+  const info = $('#findInFileCount');
+  if (!$('#findInFileInput').value) { info.textContent = ''; return; }
+  if (!fileFind.treffer.length) { info.textContent = tr('find.noHit'); return; }
+  info.textContent = tr('find.count', { i: Math.max(fileFind.index, 0) + 1, n: fileFind.treffer.length });
 }
 
 function editorJump(backwards) {
@@ -2197,8 +2197,8 @@ function editorJump(backwards) {
 
   if (fileFind.index === -1) {
     // The first jump starts from where the cursor sits.
-    const ab = body.selectionStart;
-    const i = fileFind.treffer.findIndex((p) => p >= ab);
+    const from = body.selectionStart;
+    const i = fileFind.treffer.findIndex((p) => p >= from);
     fileFind.index = backwards
       ? (i <= 0 ? fileFind.treffer.length - 1 : i - 1)
       : (i === -1 ? 0 : i);
@@ -2227,8 +2227,8 @@ function editorScrollTo(pos) {
   const row = davor.length - davor.replaceAll('\n', '').length;
   body.scrollTop = Math.max(0, row * zh - body.clientHeight / 2);
 
-  const spalte = pos - (davor.lastIndexOf('\n') + 1);
-  body.scrollLeft = Math.max(0, spalte * charWidth(st) - body.clientWidth / 2);
+  const col = pos - (davor.lastIndexOf('\n') + 1);
+  body.scrollLeft = Math.max(0, col * charWidth(st) - body.clientWidth / 2);
 }
 
 let charWidthCache = null;
@@ -2247,11 +2247,11 @@ function charWidth(st) {
    every highlight against the text below. */
 function markLayerGeometry() {
   const st = getComputedStyle($('#viewerBody'));
-  const lage = $('#viewerMarks').style;
+  const mode = $('#viewerMarks').style;
   for (const eig of ['font', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight',
                      'letterSpacing', 'wordSpacing', 'tabSize', 'padding', 'margin',
                      'borderWidth', 'textIndent']) {
-    lage[eig] = st[eig];
+    mode[eig] = st[eig];
   }
 }
 
@@ -2264,38 +2264,38 @@ const MARK_GRENZE = 2 << 20;
 
 function renderMarks() {
   const body = $('#viewerBody');
-  const lage = $('#viewerMarks');
+  const mode = $('#viewerMarks');
   const q = $('#findInFileInput').value;
   if ($('#findInFile').hidden || !q || !fileFind.treffer.length || body.value.length > MARK_GRENZE) {
-    lage.textContent = '';
+    mode.textContent = '';
     return;
   }
   markLayerGeometry();
   const text = body.value;
-  const teile = [];
-  let ab = 0;
+  const parts = [];
+  let from = 0;
   fileFind.treffer.forEach((p, i) => {
-    teile.push(htmlSicher(text.slice(ab, p)));
-    teile.push(i === fileFind.index ? '<mark class="current">' : '<mark>');
-    teile.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
-    ab = p + q.length;
+    parts.push(htmlSicher(text.slice(from, p)));
+    parts.push(i === fileFind.index ? '<mark class="current">' : '<mark>');
+    parts.push(htmlSicher(text.slice(p, p + q.length)), '</mark>');
+    from = p + q.length;
   });
-  teile.push(htmlSicher(text.slice(ab)));
+  parts.push(htmlSicher(text.slice(from)));
   /* A trailing space: if the file ends with a line break the text field keeps an
      empty line for it, a <div> does not. Without that compensation the two
      layers scroll different distances, and at the end of the file every
      highlight would sit one line too high. */
-  teile.push(' ');
-  lage.innerHTML = teile.join('');
+  parts.push(' ');
+  mode.innerHTML = parts.join('');
   markLayerScroll();
 }
 
 // Both layers have to show the same section.
 function markLayerScroll() {
   const body = $('#viewerBody');
-  const lage = $('#viewerMarks');
-  lage.scrollTop = body.scrollTop;
-  lage.scrollLeft = body.scrollLeft;
+  const mode = $('#viewerMarks');
+  mode.scrollTop = body.scrollTop;
+  mode.scrollLeft = body.scrollLeft;
 }
 
 $('#viewerBody').addEventListener('scroll', markLayerScroll);
@@ -2327,9 +2327,9 @@ $('#findInFileClose').addEventListener('click', closeFindInFile);
 const player = {
   term: null,
   fit: null,
-  daten: null,      // Uint8Array des Stroms
-  marken: [],       // [{offset, at}]
-  pos: 0,           // wie weit bereits geschrieben wurde
+  data: null,       // Uint8Array of the stream
+  marks: [],        // [{offset, at}]
+  pos: 0,           // how much has been written so far
   running: false,
   pace: 1,
   skipIdle: true,
@@ -2431,7 +2431,7 @@ function playerStep() {
   player.pos = bis;
   playerShowPosition();
 
-  let warten = playerGap(vorher, bis) / player.tempo;
+  let warten = playerGap(vorher, bis) / player.pace;
   if (player.skipIdle && warten > PLAYER_IDLE_GAP) warten = PLAYER_IDLE_KEEP;
   player.timer = setTimeout(playerStep, Math.max(0, warten));
 }
@@ -2492,9 +2492,9 @@ $('#playerSeek').addEventListener('input', (e) => {
   playerSeek(Math.round((e.target.value / 1000) * player.data.length));
 });
 $('#playerSpeed').addEventListener('click', () => {
-  const i = (PLAYER_SPEEDS.indexOf(player.tempo) + 1) % PLAYER_SPEEDS.length;
-  player.tempo = PLAYER_SPEEDS[i];
-  $('#playerSpeed').textContent = `${player.tempo}×`;
+  const i = (PLAYER_SPEEDS.indexOf(player.pace) + 1) % PLAYER_SPEEDS.length;
+  player.pace = PLAYER_SPEEDS[i];
+  $('#playerSpeed').textContent = `${player.pace}×`;
 });
 $('#playerSkipIdle').addEventListener('click', () => {
   player.skipIdle = !player.skipIdle;
@@ -2510,12 +2510,12 @@ document.addEventListener('keydown', (e) => {
 
 const ARTNAME = { global: 'global', projekt: 'projekt', lokal: 'lokal', import: 'import', skill: 'skill', agent: 'agent' };
 
-/* Der Knopf zeigt an, ob die Regeln offen sind — wie der fuer die Dateien.
-   Ohne diese Anzeige sieht man dem Reiter nicht an, in welchem Zustand er ist,
-   und der einzige sichtbare Weg zurueck ist, nochmal draufzudruecken. */
-function rulesShow(offen) {
-  $('#rulesPane').hidden = !offen;
-  $('#rulesToggle').classList.toggle('on', offen);
+/* The button shows whether the rules are open — like the one for the files.
+   Without that indication the tab gives no clue which state it is in, and the
+   only visible way back is pressing it again. */
+function rulesShow(openOne) {
+  $('#rulesPane').hidden = !openOne;
+  $('#rulesToggle').classList.toggle('on', openOne);
 }
 
 $('#rulesToggle').addEventListener('click', async () => {
@@ -2569,15 +2569,15 @@ function showEmpty(box, titel, text) {
    scattered across dozens of project folders, and the built-in picker shows
    only the current directory by default. */
 
-const archiv = { alle: [], search: '', treffer: null, terminals: null };
+const archiv = { all: [], search: '', treffer: null, terminals: null };
 
 async function loadArchive() {
   $('#archInfo').textContent = tr('common.loading');
   await fillAccounts('#archAccount');
-  archiv.alle = await api.archive(state.filter);
+  archiv.all = await api.archive(state.filter);
   archiv.treffer = null;
   archiv.terminals = null;
-  $('#archiveCount').textContent = archiv.alle.length;
+  $('#archiveCount').textContent = archiv.all.length;
   renderArchive();
 }
 
@@ -2669,10 +2669,10 @@ function renderArchive() {
          times already — what is wanted is the command that fixed it back
          then. */
       if (t.after?.length) {
-        const nach = document.createElement('pre');
-        nach.className = 'hitAfter';
-        nach.textContent = t.after.join('\n');
-        row.appendChild(nach);
+        const dest = document.createElement('pre');
+        dest.className = 'hitAfter';
+        dest.textContent = t.after.join('\n');
+        row.appendChild(dest);
       }
 
       /* A click plays the recording from this spot — including for sessions that
@@ -2723,18 +2723,18 @@ function renderArchive() {
 
   const q = archiv.search;
   const list = q
-    ? archiv.alle.filter((e) =>
+    ? archiv.all.filter((e) =>
         (e.title || '').toLowerCase().includes(q) ||
         (e.project || '').toLowerCase().includes(q) ||
         (e.cwd || '').toLowerCase().includes(q))
-    : archiv.alle;
+    : archiv.all;
 
   $('#archInfo').textContent = q
-    ? tr('find.count', { i: list.length, n: archiv.alle.length })
-    : tr(archiv.alle.length === 1 ? 'archive.transcript' : 'archive.transcripts', { n: archiv.alle.length });
+    ? tr('find.count', { i: list.length, n: archiv.all.length })
+    : tr(archiv.all.length === 1 ? 'archive.transcript' : 'archive.transcripts', { n: archiv.all.length });
 
   if (!list.length) {
-    if (archiv.alle.length) {
+    if (archiv.all.length) {
       showEmpty(box, tr('archive.noTitleHit'),
         tr('archive.hitEnterForFullText'));
     } else if (state.filter) {
@@ -2767,11 +2767,11 @@ function renderArchive() {
     });
     row.querySelector('[data-t="weg"]').addEventListener('click', async (ev) => {
       ev.stopPropagation();
-      const weg = await plxrUI.confirm(`${e.title || e.id}\n${e.cwd}`, tr('archive.deleteAsk'));
-      if (!weg) return;
+      const gone = await plxrUI.confirm(`${e.title || e.id}\n${e.cwd}`, tr('archive.deleteAsk'));
+      if (!gone) return;
       try {
         await api.archiveDelete(e.id, e.account);
-        archiv.alle = archiv.alle.filter((x) => x.id !== e.id);
+        archiv.all = archiv.all.filter((x) => x.id !== e.id);
         renderArchive();
       } catch (err) {
         plxrUI.notice(err.message || String(err), tr('archive.deleteFailed'));
@@ -2811,8 +2811,8 @@ async function loadPorts() {
       '<span class="hitAction"><button class="btn" data-h="0">BEENDEN</button>' +
       '<button class="btn" data-h="1">HART</button></span>';
     row.querySelector('.hitDate').textContent = p.port;
-    /* Das Merkmal, auf das alle vier Skins seit jeher zielen — gesetzt hat es
-       nie jemand, also war die Hervorhebung eigener Sessions tot. */
+    /* The attribute all four skins have always aimed at — nobody ever set it,
+       so the highlighting of our own sessions was dead. */
     row.dataset.own = p.own ? 'yes' : '';
     row.querySelector('.hitTitle').textContent = p.command + (p.own ? '  · ' + tr('ports.ownSession') : '');
     row.querySelector('.hitProject').textContent = p.addr;
@@ -2859,7 +2859,7 @@ async function loadUsage() {
 
   const summe = document.createElement('div');
   summe.className = 'usum';
-  for (const [wert, was] of [
+  for (const [wert, what] of [
     [b.sum.output, 'ausgabe'],
     [b.sum.input, 'eingabe'],
     [b.sum.cacheWrite, 'cache geschrieben'],
@@ -2870,7 +2870,7 @@ async function loadUsage() {
     d.className = 'ubox';
     d.innerHTML = '<b class="ubig"></b><span></span>';
     d.querySelector('b').textContent = tok(wert);
-    d.querySelector('span').textContent = was;
+    d.querySelector('span').textContent = what;
     summe.appendChild(d);
   }
   box.appendChild(summe);
@@ -2989,16 +2989,16 @@ $('#updateHide').addEventListener('click', () => {
 $('#updateNotes').addEventListener('click', () => {
   plxrUI.notice(versionStatus?.notes || tr('update.noNotes'), tr('update.notesTitle'));
 });
-/* Der erwartete Ablauf: Hinweis, Klick, Fortschritt, Neustart.
-   Neu daran ist, dass der Daemon mitgeht — sonst redet ein neues Fenster mit
-   einem alten Daemon, und das ist ein Zustand, in dem nichts mehr geht und
-   nichts sagt warum. Was das kostet, steht deshalb VOR dem Klick da und nicht
-   danach: laufende Sessions werden zu verwaisten. */
+/* The expected flow: notice, click, progress, restart.
+   What is new is that the daemon goes along — otherwise a new window talks to
+   an old daemon, and that is a state in which nothing works and nothing says
+   why. So what it costs stands BEFORE the click, not after: running sessions
+   become orphaned ones. */
 $('#updateGo').addEventListener('click', async () => {
   const laufende = state.tiles.filter((t) => t.alive).length;
-  const frage = tr('update.installAsk', { v: versionStatus?.latest || '' }) +
+  const question = tr('update.installAsk', { v: versionStatus?.latest || '' }) +
     (laufende ? '\n\n' + tr('update.sessionsWarn', { n: laufende }) : '');
-  const ja = await plxrUI.confirm(tr('update.confirm'), frage);
+  const ja = await plxrUI.confirm(tr('update.confirm'), question);
   if (!ja) return;
 
   $('#updateGo').disabled = true;
@@ -3046,8 +3046,8 @@ function updateVerfolgen() {
     setTimeout(async () => {
       try {
         await api.restart();
-        // Die neue Fassung laeuft. Dieses Fenster tritt ab, der Daemon
-        // beendet sich gleich selbst — beide kommen neu und zusammen.
+        // The new version is running. This window bows out, the daemon ends
+        // itself in a moment — both come back new and together.
         if (WAILS) Native.Quit();
       } catch {
         $('#updateText').textContent = tr('update.installed');
@@ -3073,7 +3073,7 @@ async function fillChoice() {
   const box = $('#newCmdChoice');
   if (box.children.length) return;
   try { shellCmd = (await api.shell()).cmd; } catch { shellCmd = ['/bin/sh', '-l']; }
-  const zuletzt = localStorage.getItem('plxr.startart') || 'shell';
+  const last = localStorage.getItem('plxr.startart') || 'shell';
   for (const w of STARTBAR) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -3083,7 +3083,7 @@ async function fillChoice() {
     b.addEventListener('click', () => setChoice(w.id));
     box.appendChild(b);
   }
-  setChoice(zuletzt);
+  setChoice(last);
 }
 
 function setChoice(id) {
@@ -3156,10 +3156,10 @@ async function openTemplates() {
 }
 
 $('#templatesSave').addEventListener('click', async () => {
-  const offen = state.tiles.filter((t) => t.alive).length;
-  if (!offen) { plxrUI.notice(tr('templates.nothingToSave'), tr('templates.nothingToSaveTitle')); return; }
+  const openOne = state.tiles.filter((t) => t.alive).length;
+  if (!openOne) { plxrUI.notice(tr('templates.nothingToSave'), tr('templates.nothingToSaveTitle')); return; }
   const label = await plxrUI.prompt(
-    tr(offen === 1 ? 'templates.saveAskOne' : 'templates.saveAskMany', { n: offen }),
+    tr(openOne === 1 ? 'templates.saveAskOne' : 'templates.saveAskMany', { n: openOne }),
     tr('templates.nameAsk'), tr('templates.nameExample'));
   if (!label) return;
   const name = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -3179,7 +3179,7 @@ $('#newBtn').addEventListener('click', async () => {
 });
 $('#newCancel').addEventListener('click', () => { $('#dialog').hidden = true; });
 
-// Der Ordnerdialog des Systems gibt es nur im Fenster.
+// The system's folder dialog exists only inside the window.
 if (api.inWindow) {
   $('#pickDir').hidden = false;
   $('#pickDir').addEventListener('click', async () => {
@@ -3281,9 +3281,9 @@ pathComplete($('#newCwd'));
 state.filter = localStorage.getItem('plxr.filter') || '';
 $('#pathFilter').value = state.filter;
 
-/* Sprache vor allem anderen: die Oberfläche darf nie kurz auf Englisch
-   aufblitzen und dann umspringen. Scheitert das Laden, bleiben die Schlüssel
-   stehen — sichtbar kaputt ist besser als leer. */
+/* Language before anything else: the interface must never flash up in English
+   and then switch. If loading fails the keys stay on screen — visibly broken
+   is better than empty. */
 spracheLaden()
   .then(markupUebersetzen)
   .catch((e) => console.error('Sprachdatei:', e))

@@ -1,11 +1,11 @@
 // Package ptyhost starts processes in a pseudo terminal owned by the daemon
-// rather than by a terminal window. That way the session survives closing
-// des Fensters.
+// rather than by a terminal window. That way the session survives the window
+// being closed.
 //
 // The PTY binding goes through go-pty because it offers one API for Unix PTYs
 // and Windows ConPTY. creack/pty cannot do Windows, and os/exec alone is not
-// enough there: ConPTY needs a process attribute that os/exec does not
-// setzen kann (golang/go#62708).
+// enough there: ConPTY needs a process attribute os/exec cannot set
+// (golang/go#62708).
 package ptyhost
 
 import (
@@ -132,8 +132,8 @@ var RecordingDir string
 // is usually where what the session actually does is written down.
 const MaxRecording = 64 << 20
 
-// notInherited are variables a Claude Code session passes to its child processes
-// weitergibt. Wird plxr aus einer solchen Session heraus gestartet, landen sie
+// notInherited are variables a Claude Code session passes on to its child
+// processes. Start plxr from inside such a session and they travel
 // through os.Environ() into every new session — and CLAUDE_CODE_CHILD_SESSION
 // turns off saving the transcript there. The session does run, but leaves
 // nothing behind that could be picked up later.

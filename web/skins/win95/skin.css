@@ -224,10 +224,11 @@ body {
 /* ---------- Caught up: panes and small parts ----------
    Only some skins used to style these. The check in classes.py makes sure none
    loses them again. */
-/* .listbody und .ruleslist stehen hier bewusst NICHT mehr drin: sie bekommen
-   weiter oben ihr Weiss, und "transparent" hat es hier wieder aufgehoben —
-   der teal Desktop schien durch die Liste, deckend waren nur die geraden
-   Zeilen. So sieht ein Tor aus, das mechanisch bedient wurde statt gelesen. */
+/* .listbody and .ruleslist are deliberately NOT in here any more: they get
+   their white further up, and "transparent" undid it again down here — the
+   teal desktop shone through the list and only the even rows were opaque.
+   That is what a gate looks like when it gets fed mechanically instead of
+   read. */
 .grid, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
@@ -235,7 +236,7 @@ body {
 .hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
-/* Ladebalken beim Update. */
+/* Progress bar during an update. */
 .progress { background: #fff; }
 .progress i { background: var(--accent); }
 
@@ -312,7 +313,7 @@ body {
 .tabs { border-bottom: 2px solid #dfdfdf; }
 
 /* Raumzustand */
-/* Kein Atmen — Windows 95 hat nicht geatmet. Der Schreibtisch färbt sich. */
+/* No breathing — Windows 95 did not breathe. The desktop takes on colour. */
 :root[data-room="working"] body { background: #0a7d7d; }
 :root[data-room="waiting"] body { background: #7d4a0a; }
 :root[data-room="idle"] body { background: var(--bg); }

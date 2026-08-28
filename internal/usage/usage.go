@@ -249,7 +249,7 @@ func Compute(accs []accounts.Account, days int) Report {
 	b.ByModel = sorted(mod, false)
 	// With mirrored transcripts the split by account would be arbitrary: the
 	// same session sits in several accounts and is counted at the first one.
-	// Dann lieber nichts zeigen als etwas Falsches.
+	// Better to show nothing than something wrong.
 	b.ByAccount = sorted(account, false)
 	if len(b.ByAccount) < 2 {
 		b.ByAccount = []Line{}
@@ -342,8 +342,8 @@ type Pace struct {
 	Trend string `json:"trend"`
 }
 
-// ComputePace only evaluates the most recently changed transcripts — everything
-// andere kann per Definition nichts zum aktuellen Tempo beitragen.
+// ComputePace only evaluates the most recently changed transcripts — by
+// definition nothing else can contribute to the current pace.
 func ComputePace(accs []accounts.Account) Pace {
 	now := time.Now()
 	cut5h := now.Add(-5 * time.Hour)

@@ -203,7 +203,7 @@ func Write(root, path, text string, expectedState int64) (*Content, error) {
 	return Read(root, real)
 }
 
-// Vorschlaege liefert Unterverzeichnisse zu einem angetippten Pfad.
+// Suggestions returns subdirectories for a partially typed path.
 //
 // Unlike the rest of this package NOT tied to a session: the point here is to
 // find a directory in which no session is running yet. Only directory names are

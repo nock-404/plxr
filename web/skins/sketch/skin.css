@@ -224,7 +224,7 @@ body {
 .hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
-/* Ladebalken beim Update. */
+/* Progress bar during an update. */
 .progress { background: #e8e2d2; }
 .progress i { background: var(--accent); }
 
@@ -304,7 +304,7 @@ body {
 .tabs { border-bottom: 1px dashed var(--line); }
 
 /* Raumzustand */
-/* Das Papier nimmt einen Ton an, als läge Licht darauf. */
+/* The paper takes on a tint, as if light were falling on it. */
 :root[data-room="working"] .fx::after {
   background: radial-gradient(120% 90% at 50% 0%,
     color-mix(in srgb, var(--working) 7%, transparent), transparent 70%);

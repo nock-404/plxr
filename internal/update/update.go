@@ -1,8 +1,8 @@
-// Package update holt neue Fassungen von GitHub Releases.
+// Package update fetches new versions from GitHub releases.
 //
-// The flow is deliberately plain: compare versions, download the archive, swap
-// daneben auspacken, tauschen, neu starten. Kein Hintergrunddienst, kein
-// no silent swap — the user decides.
+// The flow is deliberately plain: compare versions, download the archive,
+// unpack it beside the old one, swap, restart. No background service, no
+// silent swap — the user decides.
 package update
 
 import (
@@ -63,7 +63,7 @@ func assetName() string {
 // Check asks GitHub for the latest version.
 func Check(current string) Status {
 	// Without a leading "v", exactly like Latest. Otherwise the update bar read
-	// "Fassung 0.3.5 ist da (du hast v0.3.4)" — once with, once without.
+	// "Version 0.3.5 is out (you have v0.3.4)" — once with, once without.
 	st := Status{Current: strings.TrimPrefix(current, "v")}
 
 	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
@@ -213,7 +213,7 @@ func download(url, dest string, progress func(int64, int64)) error {
 			time.Sleep(time.Duration(1<<attempt) * time.Second)
 		}
 
-		// Wie weit sind wir schon?
+		// How far along are we already?
 		var have int64
 		if fi, err := os.Stat(dest); err == nil {
 			have = fi.Size()

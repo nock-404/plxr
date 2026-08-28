@@ -31,15 +31,15 @@ type Profile struct {
 	Match []string `json:"match"`
 	// Blocked recognises "waiting for a decision" in the visible text.
 	Blocked []string `json:"blocked"`
-	// Working erkennt "arbeitet gerade", z.B. einen Spinner.
+	// Working recognises "busy right now", a spinner for instance.
 	Working []string `json:"working"`
 	// IdleSeconds: after this long without output, IdleStatus applies.
 	IdleSeconds float64 `json:"idle_seconds"`
 	// IdleStatus is the state while quiet. The default is "unknown", meaning
 	// plainly "running": a dev server printing a line every few seconds is not
 	// waiting for a person — it is simply doing its job.
-	// Only tools that genuinely sit at an input prompt
-	// bleiben, setzen hier "waiting".
+	// Only tools that genuinely come to rest at an input prompt set
+	// "waiting" here.
 	IdleStatus string `json:"idle_status"`
 
 	blockedRe []*regexp.Regexp
@@ -149,8 +149,8 @@ const (
 )
 
 // Classify derives the status from the visible text and from output quiet time.
-// Order matters: a pending question beats everything, then a spinner, then
-// entscheidet, wie lange nichts mehr kam.
+// Order matters: a pending question beats everything, then a spinner, then it
+// comes down to how long nothing has arrived.
 func (p *Profile) Classify(screen string, idle time.Duration) string {
 	tail := lastLines(screen, 12)
 

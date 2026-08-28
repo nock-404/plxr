@@ -106,7 +106,7 @@ func Install(configDir string, remove bool) (string, error) {
 	return path, os.Rename(tmp, path)
 }
 
-// istUnserer erkennt einen von plxr angelegten Eintrag.
+// isOurs recognises an entry created by plxr.
 /* isOurs recognises an entry by the file name of its command — by its start,
    not character for character. What gets written is the path of the currently
    running binary; on Windows that is "plxr.exe", and while developing it may be

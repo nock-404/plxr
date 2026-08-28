@@ -215,7 +215,7 @@ func Ensure() (Info, error) {
 	}
 	_ = cmd.Process.Release()
 
-	// Der Daemon schreibt daemon.json erst, wenn er wirklich lauscht.
+	// The daemon writes daemon.json only once it really is listening.
 	deadline := time.Now().Add(8 * time.Second)
 	for time.Now().Before(deadline) {
 		if i, err := Read(); err == nil && i.PID != 0 && alive(i) {

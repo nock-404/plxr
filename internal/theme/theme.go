@@ -5,7 +5,7 @@
 // lives as CSS under web/skins/<name>/skin.css; the theme only points at it and
 // may override the palette.
 //
-// Eingebaute Themes kommen aus web/themes, eigene aus ~/.plxr/themes.
+// Built-in themes come from web/themes, your own from ~/.plxr/themes.
 package theme
 
 import (

@@ -18,14 +18,14 @@
     sel.dataset.wrapped = 'yes';
     sel.hidden = true;
 
-    const wurzel = document.createElement('div');
-    wurzel.className = 'select';
-    wurzel.innerHTML = '<button type="button" class="selectButton"><span class="auswahlText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
-    sel.after(wurzel);
+    const root = document.createElement('div');
+    root.className = 'select';
+    root.innerHTML = '<button type="button" class="selectButton"><span class="auswahlText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
+    sel.after(root);
 
-    const button = $$('.selectButton', wurzel);
-    const text = $$('.auswahlText', wurzel);
-    const list = $$('.selectList', wurzel);
+    const button = $$('.selectButton', root);
+    const text = $$('.auswahlText', root);
+    const list = $$('.selectList', root);
     if (sel.dataset.tip) button.dataset.tip = sel.dataset.tip;
 
     const render = () => {
@@ -55,68 +55,68 @@
         sel.value = o.value;
         // The rest of the code listens for 'change' on the real element.
         sel.dispatchEvent(new Event('change', { bubbles: true }));
-        zu();
+        shut();
         render();
       });
       return d;
     };
 
-    /* Die Liste haengt im Koerper, nicht im Feld.
-       Der Grund: die Einstellungen sind eine scrollende Karte
-       (.card.wide hat overflow-y: auto). Eine absolut positionierte Liste
-       darin wird an deren Rand abgeschnitten — von zehn Themes waren zwei zu
-       sehen, der Rest lag hinter der Kante. Etwas mit fester Position im
-       Koerper kann kein Vorfahre beschneiden.
+    /* The list hangs in the body, not in the field.
+       The reason: the settings are a scrolling card (.card.wide has
+       overflow-y: auto). A list positioned absolutely inside it gets clipped
+       at its edge — two out of ten themes were visible, the rest sat behind
+       the edge. Something with a fixed position in the body cannot be clipped
+       by any ancestor.
 
-       Die alte Richtungslogik ist dabei weggefallen, und zwar zu Recht: sie
-       schrieb data-richtung="tall", das Stylesheet fragte nach "hoch". Nach
-       oben aufgeklappt hat also nie etwas. */
+       The old direction logic fell away with it, and rightly so: it wrote
+       data-richtung="tall" while the stylesheet asked for "hoch". So nothing
+       ever opened upwards. */
     const platzieren = () => {
       const r = button.getBoundingClientRect();
-      const rand = 8;
+      const margin = 8;
       list.style.right = 'auto';
       list.style.minWidth = r.width + 'px';
-      const untenFrei = window.innerHeight - r.bottom - rand;
-      const obenFrei = r.top - rand;
-      const hoch = untenFrei < Math.min(320, list.scrollHeight + 8) && obenFrei > untenFrei;
-      list.dataset.dir = hoch ? 'up' : 'down';
-      list.style.maxHeight = Math.max(120, Math.min(320, hoch ? obenFrei : untenFrei)) + 'px';
-      // Erst nach maxHeight messen, sonst ist die Breite die der Scrollleiste wegen falsch.
-      let links = r.left;
+      const untenFrei = window.innerHeight - r.bottom - margin;
+      const obenFrei = r.top - margin;
+      const up = untenFrei < Math.min(320, list.scrollHeight + 8) && obenFrei > untenFrei;
+      list.dataset.dir = up ? 'up' : 'down';
+      list.style.maxHeight = Math.max(120, Math.min(320, up ? obenFrei : untenFrei)) + 'px';
+      // Measure only after maxHeight, otherwise the scrollbar makes the width wrong.
+      let leftPx = r.left;
       const breite = list.offsetWidth;
-      if (links + breite > window.innerWidth - rand) links = window.innerWidth - breite - rand;
-      list.style.left = Math.max(rand, links) + 'px';
-      if (hoch) { list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 4) + 'px'; }
+      if (leftPx + breite > window.innerWidth - margin) leftPx = window.innerWidth - breite - margin;
+      list.style.left = Math.max(margin, leftPx) + 'px';
+      if (up) { list.style.top = 'auto'; list.style.bottom = (window.innerHeight - r.top + 4) + 'px'; }
       else { list.style.bottom = 'auto'; list.style.top = (r.bottom + 4) + 'px'; }
     };
 
-    const auf = () => {
+    const openIt = () => {
       render();
       document.body.appendChild(list);
       list.hidden = false;
-      wurzel.dataset.open = 'yes';
+      root.dataset.open = 'yes';
       platzieren();
       const g = $$('[data-picked]', list);
       if (g) g.scrollIntoView({ block: 'nearest' });
-      // Scrollt etwas darunter weg, muss die Liste mitgehen statt zu kleben.
+      // If something underneath scrolls away, the list has to follow instead of sticking.
       window.addEventListener('scroll', platzieren, true);
       window.addEventListener('resize', platzieren);
     };
-    const zu = () => {
+    const shut = () => {
       list.hidden = true;
-      delete wurzel.dataset.open;
+      delete root.dataset.open;
       window.removeEventListener('scroll', platzieren, true);
       window.removeEventListener('resize', platzieren);
-      // Zurueck ins Feld: dort sucht render() sie, und sie stirbt mit ihm.
-      wurzel.appendChild(list);
+      // Back into the field: that is where render() looks for it, and it dies with it.
+      root.appendChild(list);
     };
 
-    button.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? auf() : zu(); });
-    document.addEventListener('click', (e) => { if (!wurzel.contains(e.target) && !list.contains(e.target)) zu(); });
+    button.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? openIt() : shut(); });
+    document.addEventListener('click', (e) => { if (!root.contains(e.target) && !list.contains(e.target)) shut(); });
     document.addEventListener('keydown', (e) => {
       // Only while this list is open — otherwise an Escape anywhere in the
       // window would close the dialog underneath as well.
-      if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); zu(); }
+      if (e.key === 'Escape' && !list.hidden) { e.stopPropagation(); shut(); }
     }, true);
     // Changes from outside (on load, say) have to become visible.
     sel.addEventListener('change', render);
@@ -126,27 +126,27 @@
 
   /* ---------- Confirmation and notice ---------- */
 
-  let offen = null;
+  let openDialog = null;
 
-  function dialog(titel, text, buttons) {
-    return new Promise((fertig) => {
-      if (offen) offen.remove();
+  function dialog(title, text, buttons) {
+    return new Promise((done) => {
+      if (openDialog) openDialog.remove();
       const d = document.createElement('div');
-      offen = d;
+      openDialog = d;
       // Deliberately the same classes as the other dialogs: otherwise no skin
       // styles them and the confirmation stands naked on the page.
       d.className = 'backdrop';
       d.innerHTML =
         '<div class="card"><b class="cardTitle"></b>' +
         '<p class="dialogText"></p><div class="cardButtons"></div></div>';
-      $$('.cardTitle', d).textContent = titel;
+      $$('.cardTitle', d).textContent = title;
       $$('.dialogText', d).textContent = text;
 
       const close = (wert) => {
         d.remove();
-        offen = null;
-        document.removeEventListener('keydown', taste, true);
-        fertig(wert);
+        openDialog = null;
+        document.removeEventListener('keydown', onKey, true);
+        done(wert);
       };
 
       const box = $$('.cardButtons', d);
@@ -161,7 +161,7 @@
       // A click beside the card cancels — as with every other dialog.
       d.addEventListener('mousedown', (e) => { if (e.target === d) close(false); });
 
-      function taste(e) {
+      function onKey(e) {
         if (e.key === 'Escape') { e.stopPropagation(); close(false); }
         // Enter cancels, it does not confirm. With "delete transcript?" the return
         // key would otherwise be the destructive answer — and that is exactly the one
@@ -170,10 +170,10 @@
       }
       // Before the application's handler, so Escape does not also close the
       // window underneath.
-      document.addEventListener('keydown', taste, true);
+      document.addEventListener('keydown', onKey, true);
       document.body.appendChild(d);
       // The cancelling button gets the focus: anyone confirming blindly should
-      // nichts kaputtmachen.
+      // not break anything.
       box.firstElementChild?.focus();
     });
   }
@@ -211,25 +211,25 @@
   }
 
   function colorPicker(field, onChange) {
-    const wurzel = document.createElement('div');
-    wurzel.className = 'colorPicker';
-    wurzel.innerHTML =
+    const root = document.createElement('div');
+    root.className = 'colorPicker';
+    root.innerHTML =
       '<button type="button" class="swatch"></button>' +
       '<div class="swatchField" hidden>' +
       '  <div class="swatchArea"><i class="swatchDot"></i></div>' +
       '  <div class="swatchHue"><i class="swatchHueDot"></i></div>' +
       '  <input class="swatchHex" spellcheck="false" maxlength="7">' +
       '</div>';
-    field.after(wurzel);
+    field.after(root);
     field.hidden = true;
 
-    const tupfer = $$('.swatch', wurzel);
-    const kasten = $$('.swatchField', wurzel);
-    const pane = $$('.swatchArea', wurzel);
-    const punkt = $$('.swatchDot', wurzel);
-    const ton = $$('.swatchHue', wurzel);
-    const tonPunkt = $$('.swatchHueDot', wurzel);
-    const hex = $$('.swatchHex', wurzel);
+    const tupfer = $$('.swatch', root);
+    const kasten = $$('.swatchField', root);
+    const pane = $$('.swatchArea', root);
+    const punkt = $$('.swatchDot', root);
+    const hue = $$('.swatchHue', root);
+    const tonPunkt = $$('.swatchHueDot', root);
+    const hex = $$('.swatchHex', root);
 
     let hsv = hexNachHsv(field.value) || { h: 40, s: 1, v: 1 };
 
@@ -269,11 +269,11 @@
     };
 
     ziehen(pane, (x, y) => { hsv.s = x; hsv.v = 1 - y; });
-    ziehen(ton, (x) => { hsv.h = x * 360; });
+    ziehen(hue, (x) => { hsv.h = x * 360; });
 
     hex.addEventListener('input', () => {
-      const neu = hexNachHsv(hex.value);
-      if (neu) { hsv = neu; render(); }
+      const sheet = hexNachHsv(hex.value);
+      if (sheet) { hsv = sheet; render(); }
     });
 
     tupfer.addEventListener('click', (e) => {
@@ -282,14 +282,14 @@
       if (!kasten.hidden) render(false);
     });
     document.addEventListener('mousedown', (e) => {
-      if (!wurzel.contains(e.target)) kasten.hidden = true;
+      if (!root.contains(e.target)) kasten.hidden = true;
     });
 
     render(false);
     return {
       set(wert) {
-        const neu = hexNachHsv(wert);
-        if (neu) { hsv = neu; render(false); }
+        const sheet = hexNachHsv(wert);
+        if (sheet) { hsv = sheet; render(false); }
       },
     };
   }
@@ -358,18 +358,18 @@
     replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
     // Capitals as in the rest of the markup: crt sets text-transform, the other
     // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.
-    confirm: (text, titel = window.tr ? window.tr('dialog.sureTitle') : 'Are you sure?') =>
-      dialog(titel, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', wert: false }, { text: window.tr ? window.tr('common.yes') : 'YES', wert: true, haupt: true }]),
-    notice: (text, titel = window.tr ? window.tr('dialog.noticeTitle') : 'Notice') =>
-      dialog(titel, text, [{ text: 'OK', wert: true, haupt: true }]),
+    confirm: (text, title = window.tr ? window.tr('dialog.sureTitle') : 'Are you sure?') =>
+      dialog(title, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', wert: false }, { text: window.tr ? window.tr('common.yes') : 'YES', wert: true, haupt: true }]),
+    notice: (text, title = window.tr ? window.tr('dialog.noticeTitle') : 'Notice') =>
+      dialog(title, text, [{ text: 'OK', wert: true, haupt: true }]),
 
     /* Ask for a piece of text. Like confirm(), only with an input field — and here
        Enter may confirm, because nothing destructive hangs off it. */
-    prompt(text, titel = window.tr ? window.tr('dialog.promptTitle') : 'Input', vorgabe = '') {
-      return new Promise((fertig) => {
-        if (offen) offen.remove();
+    prompt(text, title = window.tr ? window.tr('dialog.promptTitle') : 'Input', preset = '') {
+      return new Promise((done) => {
+        if (openDialog) openDialog.remove();
         const d = document.createElement('div');
-        offen = d;
+        openDialog = d;
         d.className = 'backdrop';
         d.innerHTML =
           '<div class="card"><b class="cardTitle"></b>' +
@@ -377,27 +377,27 @@
           '<div class="cardButtons">' +
           '<button class="btn" data-w="0">ABBRECHEN</button>' +
           '<button class="btn primary" data-w="1">OK</button></div></div>';
-        $$('.cardTitle', d).textContent = titel;
+        $$('.cardTitle', d).textContent = title;
         $$('.dialogText', d).textContent = text;
         const field = $$('.promptInput', d);
-        field.value = vorgabe;
+        field.value = preset;
 
         const close = (wert) => {
           d.remove();
-          offen = null;
-          document.removeEventListener('keydown', taste, true);
-          fertig(wert);
+          openDialog = null;
+          document.removeEventListener('keydown', onKey, true);
+          done(wert);
         };
         for (const b of d.querySelectorAll('[data-w]')) {
           b.addEventListener('click', () => close(b.dataset.w === '1' ? field.value.trim() : null));
         }
         d.addEventListener('mousedown', (e) => { if (e.target === d) close(null); });
 
-        function taste(e) {
+        function onKey(e) {
           if (e.key === 'Escape') { e.stopPropagation(); close(null); }
           if (e.key === 'Enter') { e.preventDefault(); close(field.value.trim()); }
         }
-        document.addEventListener('keydown', taste, true);
+        document.addEventListener('keydown', onKey, true);
 
         document.body.appendChild(d);
         field.focus();

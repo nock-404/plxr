@@ -54,8 +54,8 @@ def anwenden(text, karte):
             # A template string is not text all the way through: inside ${…}
             # there is executable code. Skipping it would mean that
             # `${shortText(x)}` keeps the old name while the function is
-            # already called something else — and JavaScript says nothing until it
-            # zur Laufzeit knallt.
+            # already called something else — and JavaScript says nothing
+            # until it blows up at runtime.
             s = re.sub(r'\$\{([^{}]*)\}',
                        lambda m: '${' + _im_code(m.group(1), karte) + '}', s)
         stuecke.append(s)

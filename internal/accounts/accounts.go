@@ -1,6 +1,6 @@
 // Package accounts manages several Claude Code accounts on one machine.
 //
-// Claude Code legt alles unter einem Konfigurationsverzeichnis ab — normal
+// Claude Code keeps everything under one config directory — normally
 // ~/.claude, redirectable via CLAUDE_CONFIG_DIR. Anyone with several accounts
 // therefore starts with different directories. This package finds them.
 package accounts

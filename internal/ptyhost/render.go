@@ -9,11 +9,12 @@ const maxCol = 1000
 //
 // Important for callers: the start has to sit on a sequence boundary. Entering
 // in the middle of an escape sequence loses its introducer — and the
-// Reste ("0q", "1u4;2m") landen sichtbar im Text.
+// Leftovers ("0q", "1u4;2m") end up visible in the text.
 //
 // A regex filter is not enough for this: Claude Code places every word
 // individually at an absolute column with CSI<n>G instead of sending spaces.
-// Sequenzen nur wegwirft, bekommt "Quicksafetycheck" statt "Quick safety check".
+// Whoever only throws the sequences away gets "Quicksafetycheck" instead of
+// "Quick safety check".
 // So a single line is actually laid out here — cursor left/right, erase line,
 // erase display. A preview needs no more terminal than that.
 func renderPlain(raw string) []string {

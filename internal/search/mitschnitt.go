@@ -17,18 +17,18 @@ type RecordingHit struct {
 	Count     int    `json:"count"`
 	Excerpt   string `json:"excerpt"`
 
-	/* Danach ist, was nach der Fundstelle im Terminal stand.
+	/* After is whatever stood in the terminal below the hit.
 
-	   Der Treffer allein hilft nicht. Dieselbe Fehlermeldung hat man schon
-	   dreimal gesehen; was man sucht, ist was danach kam — der Befehl, der es
-	   damals behoben hat. Der steht ein paar Zeilen weiter unten. */
+	   The hit alone is no help. You have seen the same error message three
+	   times already; what you are after is what came next — the command that
+	   fixed it back then. It sits a few lines further down. */
 	After []string `json:"after,omitempty"`
 
-	/* Offset ist, wo die erste Fundstelle im Mitschnitt beginnt.
+	/* Offset is where the first hit begins inside the recording.
 
-	   Ohne die Angabe kann ein Klick auf einen Treffer die Wiedergabe nur bei
-	   null starten — man findet die Fehlermeldung und darf die Session dann von
-	   vorn ansehen. Mit ihr springt die Wiedergabe dorthin. */
+	   Without it a click on a hit can only start the playback at zero — you
+	   find the error message and then get to watch the session from the
+	   beginning. With it the playback jumps straight there. */
 	Offset int64 `json:"offset"`
 }
 

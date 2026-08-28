@@ -3,7 +3,7 @@
 // It owns the PTYs, brings registry, fleet state and agent profiles
 // together and knows no transport. Two interchangeable layers sit on top:
 // the desktop window (Wails) and an HTTP server for the browser.
-// Deshalb steht hier weder http noch wails im Import.
+// That is why neither http nor wails appears in the imports here.
 package core
 
 import (
@@ -269,8 +269,8 @@ func (c *Core) ThemeDelete(name string) error { return theme.Delete(name) }
 
 func (c *Core) Templates() []template.Template { return template.Load(daemon.Root()) }
 
-// TemplateStart opens every session of a template. Failures on individual
-// werden gesammelt statt abgebrochen — sieben von acht Sessions sind besser
+// TemplateStart opens every session of a template. Failures on individual ones
+// are collected rather than aborted on — seven out of eight sessions are better
 // than none just because one directory has gone.
 func (c *Core) TemplateStart(name string) ([]string, error) {
 	for _, v := range c.Templates() {
@@ -335,7 +335,7 @@ func (c *Core) Search(question string, ownOnly bool) []search.Hit {
 	return search.Search(c.Accounts(), question, ownOnly)
 }
 
-// SucheTerminals durchsucht, was je in einem Terminal stand — auch in
+// SearchTerminals searches whatever once stood in a terminal — including in
 // sessions that are long gone.
 func (c *Core) SearchTerminals(question string) []search.RecordingHit {
 	names := map[string]search.RecordingHit{}
@@ -479,8 +479,7 @@ var Version = "dev"
 // After an update Version points at what sits on disk — not at what this process
 // was started with. The daemon deliberately keeps running, it owns the sessions;
 // but it still has to report what is installed. Otherwise the "new version"
-// notice would stay up and would download
-// dasselbe Paket immer wieder.
+// notice would stay up and would download the same archive over and over.
 var versionMu sync.RWMutex
 
 func currentVersion() string {
@@ -492,8 +491,7 @@ func currentVersion() string {
 func (c *Core) VersionStatus() update.Status { return update.Check(currentVersion()) }
 
 // UpdateStatus is the progress of a running update. The UI polls it instead of
-// waiting on a call that can take minutes
-// dauern kann.
+// waiting on a call that can take minutes.
 type UpdateStatus struct {
 	Running bool   `json:"running"`
 	Percent int    `json:"percent"`
@@ -761,8 +759,8 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 	return files.Read(root, path)
 }
 
-// Vorschlaege hilft beim Eintippen eines Pfades. Bewusst ohne Sessionbezug:
-// what is being looked for is a directory with no session running in it yet.
+// Suggestions helps while a path is being typed. Deliberately unrelated to any
+// session: what is being looked for is a directory with no session in it yet.
 func (c *Core) Suggestions(input string) []string {
 	return files.Suggestions(input, 40)
 }
@@ -869,9 +867,9 @@ func (c *Core) checkEdge(sess session.Session) {
 	if !now || wasBefore {
 		return
 	}
-	// Ganz frisch gestartete Sessions kurz in Ruhe lassen: Claude Code zeigt
-	// sometimes shows a trust dialog on first start that has nothing to do with
-	// eigentlichen Arbeit zu tun hat.
+	// Leave freshly started sessions alone for a moment: on first start Claude
+	// Code sometimes shows a trust dialog that has nothing to do with the
+	// actual work.
 	if time.Since(time.UnixMilli(sess.StartedAt)) < 3*time.Second {
 		return
 	}
