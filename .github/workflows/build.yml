@@ -68,6 +68,13 @@ jobs:
       - name: Linux-Abhängigkeiten
         if: runner.os == 'Linux'
         run: |
+          # Die Läufer-Abbilder bringen Paketquellen mit, die wir nicht
+          # brauchen — Azure CLI und Microsoft prod. Antwortet eine davon mit
+          # 403, bricht apt-get update mit Code 100 ab und der ganze Bau fällt
+          # um, obwohl an unserem Code nichts ist. Genau das ist bei v0.20.1
+          # passiert. Also weg damit, bevor aktualisiert wird.
+          sudo rm -f /etc/apt/sources.list.d/microsoft*.list \
+                     /etc/apt/sources.list.d/azure*.list || true
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
