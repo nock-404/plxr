@@ -44,7 +44,7 @@ type Tile struct {
 	// Frozen says the session is suspended. Without it the quiet heuristic
 	// would call a stopped session idle after a few seconds, and the tile
 	// would look calm while nothing is moving at all.
-	Frozen bool `json:"eingefroren,omitempty"`
+	Frozen bool `json:"frozen,omitempty"`
 
 	// Question is the part of the screen holding the pending question — for the
 	// inbox, so it can be answered without opening the session.
@@ -337,7 +337,7 @@ func (c *Core) Search(question string, ownOnly bool) []search.Hit {
 
 // SucheTerminals durchsucht, was je in einem Terminal stand — auch in
 // sessions that are long gone.
-func (c *Core) SucheTerminals(question string) []search.RecordingHit {
+func (c *Core) SearchTerminals(question string) []search.RecordingHit {
 	names := map[string]search.RecordingHit{}
 	for _, s := range c.reg.List() {
 		names[s.ID] = search.RecordingHit{Name: s.Label(), Cwd: s.Cwd}
@@ -427,7 +427,7 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 
 // ---- Verbrauch ----
 
-func (c *Core) Verbrauch(days int) usage.Report { return usage.Compute(c.Accounts(), days) }
+func (c *Core) Usage(days int) usage.Report { return usage.Compute(c.Accounts(), days) }
 
 // ---- Anbindung an Claude Code ----
 
@@ -445,16 +445,16 @@ func (c *Core) HookStatus() map[string]any {
 		}
 	}
 	return map[string]any{
-		"eingerichtet": len(all) > 0 && len(missing) == 0,
-		"dir":          acc.Dir,
-		"konten":       len(all),
-		"fehlen":       missing,
+		"installed": len(all) > 0 && len(missing) == 0,
+		"dir":       acc.Dir,
+		"accounts":  len(all),
+		"missing":   missing,
 	}
 }
 
 // HookSet registers or unregisters plxr — in every account found, because anyone
 // running several of them wants to see the state from all.
-func (c *Core) HookSetzen(on bool) error {
+func (c *Core) HookSet(on bool) error {
 	all := c.Accounts()
 	if len(all) == 0 {
 		return errors.New("kein Claude-Code-Verzeichnis gefunden")
@@ -506,7 +506,7 @@ type UpdateStatus struct {
 var updateStatus UpdateStatus
 var updateMu sync.Mutex
 
-func (c *Core) UpdateFortschritt() UpdateStatus {
+func (c *Core) UpdateProgress() UpdateStatus {
 	updateMu.Lock()
 	defer updateMu.Unlock()
 	return updateStatus
@@ -586,7 +586,7 @@ func (c *Core) Update() error {
 // conversation carries on with --resume. What it saves is an app in which
 // nothing works and nobody can tell why.
 func (c *Core) Restart() error {
-	st := c.UpdateFortschritt()
+	st := c.UpdateProgress()
 	if st.Path == "" {
 		return errors.New("nichts eingesetzt")
 	}

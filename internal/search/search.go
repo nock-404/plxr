@@ -28,9 +28,9 @@ type Hit struct {
 	Project   string `json:"project"`
 	Title     string `json:"title"`
 	Mod       int64  `json:"mod"`
-	Rolle     string `json:"rolle"` // "user" oder "assistant"
-	Auszug    string `json:"auszug"`
-	Count     int    `json:"anzahl"` // Treffer in dieser Session
+	Role      string `json:"role"` // "user" oder "assistant"
+	Excerpt   string `json:"excerpt"`
+	Count     int    `json:"count"` // Treffer in dieser Session
 }
 
 // line is the part of a transcript entry that we need.
@@ -210,9 +210,9 @@ func scan(d file, small string, ownOnly bool) (Hit, bool) {
 			continue
 		}
 		t.Count++
-		if t.Auszug == "" {
-			t.Rolle = role
-			t.Auszug = excerpt(text, i, len(small))
+		if t.Excerpt == "" {
+			t.Role = role
+			t.Excerpt = excerpt(text, i, len(small))
 		}
 		if t.Count >= maxProSession && t.Title != "" {
 			break

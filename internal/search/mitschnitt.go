@@ -14,15 +14,15 @@ type RecordingHit struct {
 	Name      string `json:"name"`
 	Cwd       string `json:"cwd"`
 	Mod       int64  `json:"mod"`
-	Count     int    `json:"anzahl"`
-	Auszug    string `json:"auszug"`
+	Count     int    `json:"count"`
+	Excerpt   string `json:"excerpt"`
 
 	/* Danach ist, was nach der Fundstelle im Terminal stand.
 
 	   Der Treffer allein hilft nicht. Dieselbe Fehlermeldung hat man schon
 	   dreimal gesehen; was man sucht, ist was danach kam — der Befehl, der es
 	   damals behoben hat. Der steht ein paar Zeilen weiter unten. */
-	Danach []string `json:"danach,omitempty"`
+	After []string `json:"after,omitempty"`
 
 	/* Offset ist, wo die erste Fundstelle im Mitschnitt beginnt.
 
@@ -67,7 +67,7 @@ func SearchRecordings(dir, question string, names map[string]RecordingHit) []Rec
 		id := strings.TrimSuffix(filepath.Base(p), ".log")
 		t := RecordingHit{
 			SessionID: id, Mod: info.ModTime().UnixMilli(),
-			Count: res.count, Auszug: res.excerpt, Danach: res.after,
+			Count: res.count, Excerpt: res.excerpt, After: res.after,
 			Offset: res.offset,
 		}
 		if known, ok := names[id]; ok {

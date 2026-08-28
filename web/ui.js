@@ -14,8 +14,8 @@
   /* ---------- Auswahlliste ---------- */
 
   function makeSelect(sel) {
-    if (sel.dataset.eigen) return;
-    sel.dataset.eigen = 'ja';
+    if (sel.dataset.wrapped) return;
+    sel.dataset.wrapped = 'yes';
     sel.hidden = true;
 
     const wurzel = document.createElement('div');
@@ -50,7 +50,7 @@
       d.className = 'selectRow';
       d.textContent = o.textContent;
       d.dataset.wert = o.value;
-      if (o.value === sel.value) d.dataset.picked = 'ja';
+      if (o.value === sel.value) d.dataset.picked = 'yes';
       d.addEventListener('click', () => {
         sel.value = o.value;
         // The rest of the code listens for 'change' on the real element.
@@ -94,7 +94,7 @@
       render();
       document.body.appendChild(list);
       list.hidden = false;
-      wurzel.dataset.offen = 'ja';
+      wurzel.dataset.open = 'yes';
       platzieren();
       const g = $$('[data-picked]', list);
       if (g) g.scrollIntoView({ block: 'nearest' });
@@ -104,7 +104,7 @@
     };
     const zu = () => {
       list.hidden = true;
-      delete wurzel.dataset.offen;
+      delete wurzel.dataset.open;
       window.removeEventListener('scroll', platzieren, true);
       window.removeEventListener('resize', platzieren);
       // Zurueck ins Feld: dort sucht render() sie, und sie stirbt mit ihm.

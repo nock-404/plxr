@@ -34,7 +34,7 @@ type Session struct {
 	// Orphaned means: the daemon died and took the session with it. Unlike a
 	// normal exit this is not something anyone wanted — so the entry stays
 	// until it has been seen.
-	Orphaned bool `json:"verwaist,omitempty"`
+	Orphaned bool `json:"orphaned,omitempty"`
 
 	Account         string `json:"account,omitempty"`     // Claude account it runs under
 	Agent           string `json:"agent,omitempty"`       // erkanntes CLI, z.B. "claude"

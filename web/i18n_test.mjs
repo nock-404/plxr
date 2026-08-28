@@ -137,6 +137,10 @@ const KEIN_TEXT = new Set([
   'pid',       // Kennung, heisst ueberall so
   ', pid',     // dieselbe Kennung mit Trenner
   'shell',     // Kennung einer eingebauten Vorlage, kein Text
+  'Claude Code', // Produktname, wird nicht uebersetzt
+  'plxr',      // der eigene Name
+  ' MB',       // Einheit
+  '·  MB',     // dieselbe Einheit im Vorlagentext
 ]);
 
 const ZIELE = /(?:\.textContent\s*=|\.placeholder\s*=|plxrUI\.notice\(|plxrUI\.confirm\(|showEmpty\()/g;
@@ -146,11 +150,19 @@ for (const [datei, src] of jsQuellen) {
   for (const m of ohneKommentar.matchAll(ZIELE)) {
     // Der Ausdruck bis zum Zeilen- oder Anweisungsende.
     const rest = ohneKommentar.slice(m.index + m[0].length, m.index + m[0].length + 400);
-    const ausdruck = rest.split(/;\n|\n\s*\n/)[0].split('\n').slice(0, 4).join('\n');
-    if (/\btr\(/.test(ausdruck)) continue;
-    for (const lit of ausdruck.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`]*)`/g)) {
+    /* Am ersten Semikolon abschneiden, nicht nach vier Zeilen: das Fenster
+       reichte ueber das Ende der Anweisung hinaus und hat das 'click' des
+       naechsten addEventListener als unuebersetzten Text gemeldet. */
+    const ausdruck = rest.split(';')[0].split('\n').slice(0, 4).join('\n');
+    /* tr(…) herausschneiden statt den ganzen Ausdruck zu ueberspringen.
+       Vorher genuegte EIN tr() irgendwo im Aufruf, und der zweite Text war
+       unsichtbar: plxrUI.notice(tr('brake.nothingRunning'), 'Nichts
+       anzuhalten') ist so jahrelang durchgerutscht. */
+    const ohneTr = ausdruck.replace(/\btr\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, ' ');
+    for (const lit of ohneTr.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`]*)`/g)) {
       const txt = (lit[1] ?? lit[2] ?? lit[3] ?? '').replace(/\$\{[^{}]*\}/g, '');
       if (!/[A-Za-zÄÖÜäöü]{2,}/.test(txt)) continue;      // '', '·', '%' sind kein Text
+      if (/^#[A-Za-z][\w-]*$/.test(txt.trim())) continue; // '#brake' ist ein Waehler, kein Text
       if (KEIN_TEXT.has(txt.trim())) continue;
       ungefiltert.push(`${datei}: ${txt.trim().slice(0, 50)}`);
       break;

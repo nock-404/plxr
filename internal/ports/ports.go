@@ -18,7 +18,7 @@ type Entry struct {
 	Port    int    `json:"port"`
 	Addr    string `json:"addr"`
 	User    string `json:"user"`
-	Eigen   bool   `json:"eigen"` // belongs to a plxr session
+	Own     bool   `json:"own"` // belongs to a plxr session
 }
 
 // List reads the listening TCP ports. own maps PIDs to plxr sessions.
@@ -65,7 +65,7 @@ func List(own map[int]bool) []Entry {
 			seen[key] = true
 			res = append(res, Entry{
 				PID: pid, Command: cmd, Port: port,
-				Addr: addr[:i], User: user, Eigen: own[pid],
+				Addr: addr[:i], User: user, Own: own[pid],
 			})
 		}
 	}

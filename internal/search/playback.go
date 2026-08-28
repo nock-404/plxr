@@ -25,14 +25,19 @@ import (
 // is not playback, it is a freeze.
 const MaxPlayback = 8 << 20
 
+// Playback never goes out as JSON: /api/playback answers with the raw byte
+// stream and puts the numbers into headers, because base64 would treble the
+// size of a terminal recording. The json tags this struct used to carry
+// promised a contract that did not exist — and made every field look like an
+// unread one to the field check.
 type Playback struct {
-	ID     string         `json:"id"`
-	Size   int64          `json:"groesse"`
-	From   int64          `json:"ab"`
-	Data   []byte         `json:"-"`
-	Marks  []ptyhost.Mark `json:"marken"`
-	Cut    bool           `json:"beschnitten"`
-	HasIdx bool           `json:"zeitachse"`
+	ID     string
+	Size   int64
+	From   int64
+	Data   []byte
+	Marks  []ptyhost.Mark
+	Cut    bool
+	HasIdx bool
 }
 
 // ReadPlayback returns a slice of the recording starting at from.

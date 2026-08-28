@@ -333,7 +333,7 @@ html, body {
 .fieldName { display: block; }
 
 /* An orphaned session is not a normal state — it has to stand out. */
-.tile[data-status="verwaist"] { cursor: pointer; }
+.tile[data-status="orphaned"] { cursor: pointer; }
 
 /* Ladebalken im Update-Hinweis. */
 .progress { flex: 0 0 auto; width: 220px; height: 8px; position: relative; overflow: hidden; }
@@ -413,16 +413,16 @@ html, body {
 
 /* Warning coat. Placement here, appearance in the skin — a yellow-and-black
    band belongs differently to win95 than to sketch. */
-.tile[data-untamed="ja"] { position: relative; }
-.tile[data-untamed="ja"]::before {
+.tile[data-untamed="yes"] { position: relative; }
+.tile[data-untamed="yes"]::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
 }
 
 /* Frozen. The state has to reach across the whole interface, not just one
    dot: when everything stands still, the window should look like it. */
-:root[data-eingefroren="ja"] .grid,
-:root[data-eingefroren="ja"] .pane { filter: saturate(.25); }
-.dot.eingefroren { letter-spacing: -1px; }
+:root[data-frozen="yes"] .grid,
+:root[data-frozen="yes"] .pane { filter: saturate(.25); }
+.dot.frozen { letter-spacing: -1px; }
 
 /* Crest: one glyph per working directory. Placement here, the glyphs
    themselves come from the skin through --crest. */
@@ -448,7 +448,7 @@ html, body {
    skin's business: the crt breathes at the edge, sketch tints the paper, win95
    colours the desktop.
 
-   Three states on <html data-raum>: working, waiting, idle. Plus --busy,
+   Three states on <html data-room>: working, waiting, idle. Plus --busy,
    --waiting-count and --session-count as numbers to compute with. */
 .fx::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;

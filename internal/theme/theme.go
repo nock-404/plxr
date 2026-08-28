@@ -44,7 +44,7 @@ type Theme struct {
 
 	// Own marks a theme the user created — only those may be overwritten and
 	// deleted.
-	Eigen bool `json:"eigen,omitempty"`
+	Own bool `json:"own,omitempty"`
 }
 
 // Allowed limits which palette entries may reach the CSS — an imported theme
@@ -128,7 +128,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 		if t.valid(skins) != nil {
 			return
 		}
-		t.Eigen = custom
+		t.Own = custom
 		byName[t.Name] = t
 	}
 

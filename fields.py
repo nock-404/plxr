@@ -50,13 +50,13 @@ OHNE_LESER = {
     'cache_read_input_tokens': 'Transkript, eingehend',
     'usage': 'Transkript, eingehend',
     'timestamp': 'Transkript, eingehend',
-    'role': 'Transkript, eingehend',
+    'role': 'zweimal vergeben: eingehend aus dem Transkript, und Hit.Role — die\n             #        Trefferliste zeigt die Rolle nicht an',
     'content': 'Transkript, eingehend',
     # Zwischenspeicher auf der Platte, eigenes Format.
     'version': 'Zwischenspeicher',
     'groesse': 'Zwischenspeicher',
     'mod': 'Zwischenspeicher',
-    'tage': 'Zwischenspeicher',
+    'days': 'Zwischenspeicher auf der Platte, nie an die Oberfläche',
     # Nur serverseitig gebraucht.
     'assetUrl': 'nur der Updater lädt damit',
     'assetName': 'nur der Updater lädt damit',
@@ -69,15 +69,13 @@ OHNE_LESER = {
     # Freigabe: entweder liest die Oberfläche das Feld unter falschem Namen
     # (dann ist es ein Fehler wie "frage" gegen tile.confirm), oder es wird
     # wirklich nicht gebraucht und der Tag gehört weg.
-    'ab': 'ungeprüft',
     'aiTitle': 'ungeprüft',
     'author': 'ungeprüft',
     'claude_session_id': 'ungeprüft',
-    'ebene': 'ungeprüft',
+    'level': 'geprüft: die Regelansicht zeigt Art, Name, Beschreibung und Pfad —\n             #        die Ebene dient nur der Sortierung im Server',
     'ended_at': 'ungeprüft',
     'gitBranch': 'ungeprüft',
     'loop': 'ungeprüft',
-    'rolle': 'ungeprüft',
     'started_at': 'ungeprüft',
     'termFont': 'ungeprüft',
     'tty': 'ungeprüft',

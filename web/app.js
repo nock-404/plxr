@@ -167,7 +167,7 @@ const b64 = (s) => {
 const attachments = new Map();
 
 const api = {
-  fenster: WAILS,
+  inWindow: WAILS,
 
   env: () => (WAILS ? Native.Env() : Promise.resolve({ platform: 'web', titlebarInset: false })),
   pickDirectory: () => (WAILS ? Native.PickDirectory() : Promise.resolve('')),
@@ -177,45 +177,48 @@ const api = {
   themeDelete: (name) => req(`/api/themes/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   /* The stream comes as bytes, not JSON — base64 would treble its size. Hence
      around req, which expects JSON. */
-  wiedergabe: async (id, ab = 0) => {
-    const r = await fetch(`${BASE}/api/playback/${encodeURIComponent(id)}?ab=${ab}`,
+  playback: async (id, from = 0) => {
+    const r = await fetch(`${BASE}/api/playback/${encodeURIComponent(id)}?from=${from}`,
       { headers: { 'X-Plxr-Token': TOKEN } });
     if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
     return {
-      daten: new Uint8Array(await r.arrayBuffer()),
-      resize: Number(r.headers.get('X-Plxr-Size') || 0),
-      beschnitten: r.headers.get('X-Plxr-Cut') === 'true',
+      // "resize" stand hier fuer die Groesse — ein Rest der Blanket-Regex, die
+      // damals groesse zu resize gemacht hat. Es gibt keine Groessenaenderung,
+      // es ist die Laenge der Aufzeichnung.
+      data: new Uint8Array(await r.arrayBuffer()),
+      size: Number(r.headers.get('X-Plxr-Size') || 0),
+      truncated: r.headers.get('X-Plxr-Cut') === 'true',
     };
   },
-  zeitachse: (id) => req(`/api/playback/${encodeURIComponent(id)}/zeitachse`),
+  timeline: (id) => req(`/api/playback/${encodeURIComponent(id)}/timeline`),
   emergencyBrake: () => req('/api/freeze', { method: 'POST' }),
   unfreeze: () => req('/api/unfreeze', { method: 'POST' }),
-  konten: () => req('/api/accounts'),
-  templates: () => req('/api/vorlagen'),
-  templateStart: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}/start`, { method: 'POST' }),
+  accounts: () => req('/api/accounts'),
+  templates: () => req('/api/templates'),
+  templateStart: (name) => req(`/api/templates/${encodeURIComponent(name)}/start`, { method: 'POST' }),
   templateSave: (name, label) =>
-    req('/api/vorlagen', { method: 'POST', body: JSON.stringify({ Name: name, Label: label }) }),
-  templateDelete: (name) => req(`/api/vorlagen/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  regeln: (session) => req('/api/rules?session=' + encodeURIComponent(session || '')),
+    req('/api/templates', { method: 'POST', body: JSON.stringify({ Name: name, Label: label }) }),
+  templateDelete: (name) => req(`/api/templates/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  rules: (session) => req('/api/rules?session=' + encodeURIComponent(session || '')),
   ports: () => req('/api/ports'),
-  portBeenden: (pid, hart) => req(`/api/ports/${pid}${hart ? '?hart=1' : ''}`, { method: 'DELETE' }),
-  verbrauch: (tage) => req('/api/usage?tage=' + tage),
-  tempo: () => req('/api/tempo'),
+  portKill: (pid, hard) => req(`/api/ports/${pid}${hard ? '?hard=1' : ''}`, { method: 'DELETE' }),
+  usage: (days) => req('/api/usage?days=' + days),
+  pace: () => req('/api/tempo'),
   version: () => req('/api/version'),
-  updateStand: () => req('/api/update'),
-  neuStarten: () => req('/api/restart', { method: 'POST' }),
-  hookStand: () => req('/api/hook'),
+  updateStatus: () => req('/api/update'),
+  restart: () => req('/api/restart', { method: 'POST' }),
+  hookStatus: () => req('/api/hook'),
   setHook: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
-  aktualisieren: () => req('/api/update', { method: 'POST' }),
+  update: () => req('/api/update', { method: 'POST' }),
 
-  ordner: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
-  pfade: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
+  folder: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
+  paths: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
   shell: () => req('/api/shell'),
-  datei: (id, pfad) => req(`/api/file/${id}?path=${encodeURIComponent(pfad)}`),
-  dateiSchreiben: (id, pfad, text, mod) =>
+  file: (id, pfad) => req(`/api/file/${id}?path=${encodeURIComponent(pfad)}`),
+  fileWrite: (id, pfad, text, mod) =>
     req(`/api/file/${id}`, { method: 'PUT', body: JSON.stringify({ path: pfad, text, mod }) }),
 
-  archiv: (pfad) => req('/api/archive' + (pfad ? '?path=' + encodeURIComponent(pfad) : '')),
+  archive: (pfad) => req('/api/archive' + (pfad ? '?path=' + encodeURIComponent(pfad) : '')),
   archiveDelete: (id, konto) => req(`/api/archive/${id}?account=${encodeURIComponent(konto || '')}`, { method: 'DELETE' }),
   archiveResume: (id, konto, ziel) =>
     req(`/api/archive/${id}/resume?account=${encodeURIComponent(konto || '')}&target=${encodeURIComponent(ziel || '')}`,
@@ -223,13 +226,13 @@ const api = {
   search: (q) => req('/api/search?q=' + encodeURIComponent(q)),
   searchTerminals: (q) => req('/api/search/terminals?q=' + encodeURIComponent(q)),
 
-  starten: (cwd, cmd, konto) =>
+  start: (cwd, cmd, konto) =>
     req('/api/sessions', { method: 'POST', body: JSON.stringify({ cwd, cmd, account: konto }) }),
-  beenden: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
-  kontoWechseln: (id, ziel) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(ziel)}`, { method: 'POST' }),
-  wiederaufnehmen: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
-  sendReply: (id, text, roh) =>
-    req(`/api/sessions/${id}/antwort${roh ? '?roh=1' : ''}`, { method: 'POST', body: text }),
+  kill: (id) => req('/api/sessions/' + id, { method: 'DELETE' }),
+  switchAccount: (id, target) => req(`/api/sessions/${id}/account?target=${encodeURIComponent(target)}`, { method: 'POST' }),
+  resume: (id) => req(`/api/sessions/${id}/resume`, { method: 'POST' }),
+  sendReply: (id, text, raw) =>
+    req(`/api/sessions/${id}/reply${raw ? '?raw=1' : ''}`, { method: 'POST', body: text }),
 
   // --- Gesamtzustand ---
   _tiles: null,
@@ -299,7 +302,7 @@ let connectionOk = true;
 function showConnection(ok) {
   if (ok === connectionOk) return;
   connectionOk = ok;
-  document.documentElement.dataset.offline = ok ? '' : 'ja';
+  document.documentElement.dataset.offline = ok ? '' : 'yes';
   if (!ok) {
     $('#counts').textContent = tr('conn.lost');
     return;
@@ -446,7 +449,7 @@ function xtermTheme() {
 /* Deleting exists only for own themes: the built-in ones live inside the
    application and would be back after the next update anyway. */
 function showDeleteButton(t) {
-  $('#themeDelete').hidden = !(t || currentTheme())?.eigen;
+  $('#themeDelete').hidden = !(t || currentTheme())?.own;
 }
 
 function currentTheme() {
@@ -487,7 +490,7 @@ $('#themeSel').addEventListener('change', () => {
 
 $('#themeDelete').addEventListener('click', async () => {
   const t = currentTheme();
-  if (!t?.eigen) return;
+  if (!t?.own) return;
   if (!(await plxrUI.confirm(t.label, tr('theme.deleteAsk')))) return;
   try {
     await api.themeDelete(t.name);
@@ -514,7 +517,7 @@ async function openSettings() {
   try {
     const v = await api.version();
     $('#settingsVersion').textContent =
-      `plxr ${v.aktuell}` + ` · ${v.available ? tr('version.available', { v: v.latest }) : tr('version.current')}`;
+      `plxr ${v.current}` + ` · ${v.available ? tr('version.available', { v: v.latest }) : tr('version.current')}`;
   } catch {
     $('#settingsVersion').textContent = '';
   }
@@ -543,7 +546,7 @@ $('#settingsBtn').addEventListener('click', openSettings);
 function raumzustand({ running, blocked, orphaned, total }) {
   const w = document.documentElement;
   const lage = blocked || orphaned ? 'waiting' : (running ? 'working' : 'idle');
-  if (w.dataset.raum !== lage) w.dataset.raum = lage;
+  if (w.dataset.room !== lage) w.dataset.room = lage;
 
   // Als CSS-Variable, damit ein Skin daran rechnen kann statt zu raten.
   const setz = (k, v) => {
@@ -715,7 +718,7 @@ function toggleRow(name, welcher) {
   const button = row.querySelector('.styleToggle');
   const lesen = () => document.documentElement.dataset[welcher] !== 'off';
   const show = () => {
-    button.dataset.an = lesen() ? 'ja' : 'nein';
+    button.dataset.on = lesen() ? 'yes' : 'no';
     button.textContent = lesen() ? tr('common.on') : tr('common.off');
   };
   button.addEventListener('click', () => {
@@ -766,7 +769,7 @@ $('#styleSave').addEventListener('click', async () => {
     await api.themeImport(JSON.stringify(theme));
     await loadThemes(sauber);
     styleState.changes = {};
-    plxrUI.notice(tr('theme.saved', { name }), 'Gespeichert');
+    plxrUI.notice(tr('theme.saved', { name }), tr('theme.savedTitle'));
   } catch (e) {
     plxrUI.notice(e.message || String(e), tr('common.notSaved'));
   }
@@ -775,15 +778,15 @@ $('#settingsClose').addEventListener('click', () => { $('#settings').hidden = tr
 
 async function showHookStatus() {
   try {
-    const st = await api.hookStand();
-    const mehrere = (st.konten || 1) > 1 ? ` (${st.konten} Konten)` : '';
-    $('#hookHint').textContent = st.eingerichtet
-      ? tr('hook.connectedHint', { accounts: mehrere })
-      : st.fehlen?.length
-        ? tr('hook.missingHint', { missing: st.fehlen.join(', ') })
+    const st = await api.hookStatus();
+    const several = (st.accounts || 1) > 1 ? tr('hook.accountCount', { n: st.accounts }) : '';
+    $('#hookHint').textContent = st.installed
+      ? tr('hook.connectedHint', { accounts: several })
+      : st.missing?.length
+        ? tr('hook.missingHint', { missing: st.missing.join(', ') })
         : tr('hook.notConnected');
-    $('#hookBtn').textContent = st.eingerichtet ? tr('hook.detach') : tr('hook.attach');
-    $('#hookBtn').dataset.an = st.eingerichtet ? 'ja' : 'nein';
+    $('#hookBtn').textContent = st.installed ? tr('hook.detach') : tr('hook.attach');
+    $('#hookBtn').dataset.on = st.installed ? 'yes' : 'no';
   } catch {
     $('#hookHint').textContent = tr('hook.unknown');
     $('#hookBtn').textContent = tr('hook.attach');
@@ -791,7 +794,7 @@ async function showHookStatus() {
 }
 
 $('#hookBtn').addEventListener('click', async () => {
-  const an = $('#hookBtn').dataset.an === 'ja';
+  const an = $('#hookBtn').dataset.on === 'yes';
   try {
     await api.setHook(!an);
     await showHookStatus();
@@ -1105,7 +1108,7 @@ $('#railUsage').addEventListener('click', showUsage);
 
 /* ═════════════════════════ Schiene ═════════════════════════ */
 
-const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', eingefroren: '❙❙' };
+const ZEICHEN = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', frozen: '❙❙' };
 const WORT = {
   working: 'arbeitet', waiting: 'wartet', permission: tr('state.needsYou'),
   dead: 'beendet', unknown: tr('state.running'),
@@ -1117,7 +1120,7 @@ const WORT = {
    the hook keeps reporting "working", the quiet heuristic eventually says
    "unknown", and both would be a lie. */
 const tileState = (t) =>
-  t.eingefroren ? 'eingefroren' : (t.verwaist ? 'verwaist' : (t.status || 'unknown'));
+  t.frozen ? 'frozen' : (t.orphaned ? 'orphaned' : (t.status || 'unknown'));
 const ZEICHEN_VERWAIST = '⚠';
 
 /* Crest — one glyph per working directory.
@@ -1223,14 +1226,14 @@ function renderRail() {
       el.classList.toggle('active', state.panes.includes(t.id));
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
-      punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+      punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
       const rw = el.querySelector('.crest');
       rw.textContent = crest(t.cwd);
       rw.style.color = crestHue(t.cwd);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
-      el.querySelector('.rsub').textContent = t.verwaist
+      el.querySelector('.rsub').textContent = t.orphaned
         ? tr('state.crashed')
-        : [t.alive ? WORT[st] : 'beendet', t.agent].filter(Boolean).join(' · ');
+        : [t.alive ? WORT[st] : tr('state.ended'), t.agent].filter(Boolean).join(' · ');
       el.dataset.tip = `${t.name} — ${t.cwd}`;
     }
   }
@@ -1286,10 +1289,10 @@ function renderGrid() {
     el.dataset.status = st;
     /* Warning coat: a session with permission prompts skipped otherwise looks
        like every other one — four calm borders, one not. */
-    el.dataset.untamed = isUntamed(t) ? 'ja' : '';
+    el.dataset.untamed = isUntamed(t) ? 'yes' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
-    punkt.textContent = t.verwaist ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
+    punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (ZEICHEN[st] || '·');
     const w = el.querySelector('.crest');
     w.textContent = crest(t.cwd);
     w.style.color = crestHue(t.cwd);
@@ -1297,7 +1300,7 @@ function renderGrid() {
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
     el.querySelector('.tbody').textContent = t.preview || '';
-    el.querySelector('.act').textContent = t.verwaist
+    el.querySelector('.act').textContent = t.orphaned
       ? tr('tile.crashedHint')
       : (t.alive ? (t.activity || t.last_message || '') : tr('state.ended', { code: t.exit_code }));
     el.querySelector('.agent').textContent = t.agent_label || t.agent || '';
@@ -1317,9 +1320,9 @@ function renderAll(tiles) {
   /* Laeuft nichts, gibt es nichts anzuhalten — dann steht der Knopf auch nicht
      da. Eingerastet bleibt er sichtbar, sonst kaeme man nicht mehr heraus. */
   const brake = $('#brake');
-  brake.hidden = running === 0 && brake.dataset.an !== 'ja';
+  brake.hidden = running === 0 && brake.dataset.on !== 'yes';
   const blocked = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
-  const orphaned = state.tiles.filter((t) => t.verwaist).length;
+  const orphaned = state.tiles.filter((t) => t.orphaned).length;
   // A counter on the rail, so that even from inside a session you can see
   // dass jemand wartet.
   const wartet = blocked;
@@ -1391,7 +1394,7 @@ function pathComplete(field, onPick) {
       b.type = 'button';
       b.className = 'selectRow';
       b.textContent = pfad;
-      if (i === picked) b.dataset.picked = 'ja';
+      if (i === picked) b.dataset.picked = 'yes';
       b.addEventListener('mousedown', (e) => { e.preventDefault(); pick(pfad); });
       list.appendChild(b);
     });
@@ -1410,7 +1413,7 @@ function pathComplete(field, onPick) {
   const load = () => {
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      treffer = await api.pfade(field.value);
+      treffer = await api.paths(field.value);
       picked = -1;
       render();
     }, 120);
@@ -1474,19 +1477,19 @@ function openSession(id) {
 function addPane(id) {
   if (panes.has(id)) { paneActivate(id); return; }
   if (state.panes.length >= MAX_PANES) {
-    plxrUI.notice(tr('pane.tooMany', { n: MAX_PANES }), 'Genug geteilt');
+    plxrUI.notice(tr('pane.tooMany', { n: MAX_PANES }), tr('pane.tooManyTitle'));
     return;
   }
   const t = state.tiles.find((x) => x.id === id);
   if (!t) return;
-  if (t.verwaist) {
+  if (t.orphaned) {
     // The daemon ended while the session was running. With Claude Code the
     // Unterhaltung im Transkript — von dort geht es weiter.
-    plxrUI.confirm(tr('session.resumeAsk', { name: t.name, cwd: t.cwd }), 'Wiederaufnehmen?')
+    plxrUI.confirm(tr('session.resumeAsk', { name: t.name, cwd: t.cwd }), tr('session.resumeTitle'))
       .then(async (ja) => {
         if (!ja) return;
         try {
-          const neu = await api.wiederaufnehmen(t.id);
+          const neu = await api.resume(t.id);
           setTimeout(() => openSession(neu.id), 700);
         } catch (e) {
           plxrUI.notice(e.message || String(e), tr('archive.notResumed'));
@@ -1565,7 +1568,7 @@ function addPane(id) {
 
   // Clickable addresses. Without this every URL has to be typed out by hand.
   term.loadAddon(new WebLinksAddon.WebLinksAddon((_, url) => {
-    if (api.fenster) Native.OpenURL?.(url); else window.open(url, '_blank', 'noopener');
+    if (api.inWindow) Native.OpenURL?.(url); else window.open(url, '_blank', 'noopener');
   }));
 
   // Zeichenbreiten nach Unicode 11, inklusive zusammengesetzter Emoji —
@@ -1689,7 +1692,7 @@ function paneActivate(id) {
   // the file tree rebuilds on every drag.
   if (state.aktiv === id && panes.has(id)) return;
   state.aktiv = id;
-  for (const p of paneList()) p.el.dataset.aktiv = p.id === id ? 'ja' : 'nein';
+  for (const p of paneList()) p.el.dataset.active = p.id === id ? 'yes' : 'no';
   updateHeader();
   const t = state.tiles.find((x) => x.id === id);
   if (t) loadFileTree(t);
@@ -1738,7 +1741,7 @@ $('#sessKill').addEventListener('click', async () => {
   if (!state.aktiv) return;
   const t = state.tiles.find((x) => x.id === state.aktiv);
   if (!(await plxrUI.confirm(t?.name || '', tr('session.killAsk')))) return;
-  await api.beenden(state.aktiv);
+  await api.kill(state.aktiv);
   closePane(state.aktiv);
 });
 
@@ -1943,7 +1946,7 @@ async function fillAccounts(sel) {
   const el = $(sel);
   if (el.options.length) return;
   try {
-    kontenCache = kontenCache || await api.konten();
+    kontenCache = kontenCache || await api.accounts();
     for (const k of kontenCache) {
       const o = document.createElement('option');
       o.value = k.name;
@@ -1965,7 +1968,7 @@ $('#sessAccount').addEventListener('change', async (e) => {
     tr('session.switchAsk', { account: ziel }), tr('session.switchTitle'));
   if (!weiter) { e.target.value = t.account || ''; return; }
   try {
-    const neu = await api.kontoWechseln(state.aktiv, ziel);
+    const neu = await api.switchAccount(state.aktiv, ziel);
     closePane(state.aktiv);
     setTimeout(() => openSession(neu.id), 700);
   } catch (err) {
@@ -2007,9 +2010,9 @@ async function loadFileTree(t) {
 }
 
 async function renderMarkLayer(box, dir, tiefe, sid) {
-  const entries = await api.ordner(sid, dir);
+  const entries = await api.folder(sid, dir);
   if (tiefe === 0 && (!entries || !entries.length)) {
-    showEmpty(box, 'leerer ordner', tr('file.nothingHere'));
+    showEmpty(box, tr('file.emptyFolder'), tr('file.nothingHere'));
     return;
   }
   for (const e of entries || []) {
@@ -2056,7 +2059,7 @@ function setDirty(ja) {
 
 async function openFile(e, sid) {
   try {
-    const c = await api.datei(sid, e.path);
+    const c = await api.file(sid, e.path);
     datei.sid = sid;
     datei.pfad = c.path;
     datei.mod = c.mod;
@@ -2104,7 +2107,7 @@ async function saveFile() {
   const text = $('#viewerBody').value;
   $('#viewerSave').disabled = true;
   try {
-    const c = await api.dateiSchreiben(datei.sid, datei.pfad, text, datei.mod);
+    const c = await api.fileWrite(datei.sid, datei.pfad, text, datei.mod);
     datei.mod = c.mod;
     datei.original = text;
     setDirty(false);
@@ -2328,7 +2331,7 @@ const player = {
   marken: [],       // [{offset, at}]
   pos: 0,           // wie weit bereits geschrieben wurde
   running: false,
-  tempo: 1,
+  pace: 1,
   skipIdle: true,
   timer: null,
   id: null,
@@ -2368,12 +2371,12 @@ async function openPlayer(id, name, abOffset) {
 
   try {
     const [strom, marken] = await Promise.all([
-      api.wiedergabe(id),
-      api.zeitachse(id),
+      api.playback(id),
+      api.timeline(id),
     ]);
-    player.daten = strom.daten;
-    player.beschnitten = strom.beschnitten;
-    player.marken = marken;
+    player.data = strom.data;
+    player.truncated = strom.truncated;
+    player.marks = marken;
   } catch (e) {
     $('#playerMeta').textContent = '';
     closePlayer();
@@ -2386,24 +2389,24 @@ async function openPlayer(id, name, abOffset) {
   playerShowPosition();
 
   // Coming from a search hit: straight to the spot.
-  if (abOffset > 0) playerSeek(Math.min(abOffset, player.daten.length));
+  if (abOffset > 0) playerSeek(Math.min(abOffset, player.data.length));
   playerPlay(true);
 }
 
 function closePlayer() {
   playerPause();
   $('#player').hidden = true;
-  player.daten = null;
-  player.marken = [];
+  player.data = null;
+  player.marks = [];
   player.id = null;
 }
 
 /* How much time passed between two points in the stream. Without a timeline —
    a recording from before it existed — playback runs at a constant rate. */
 function playerGap(vonOffset, bisOffset) {
-  if (!player.marken.length) return 16;   // roughly one frame
+  if (!player.marks.length) return 16;   // roughly one frame
   let a = null, b = null;
-  for (const m of player.marken) {
+  for (const m of player.marks) {
     if (m.offset <= vonOffset) a = m;
     if (m.offset <= bisOffset) b = m;
   }
@@ -2414,16 +2417,16 @@ function playerGap(vonOffset, bisOffset) {
 // The next mark past the current position — everything up to there is written
 // geschrieben, danach gewartet.
 function playerNextMark(pos) {
-  for (const m of player.marken) if (m.offset > pos) return m.offset;
-  return player.daten ? player.daten.length : pos;
+  for (const m of player.marks) if (m.offset > pos) return m.offset;
+  return player.data ? player.data.length : pos;
 }
 
 function playerStep() {
-  if (!player.running || !player.daten) return;
-  if (player.pos >= player.daten.length) { playerPause(); return; }
+  if (!player.running || !player.data) return;
+  if (player.pos >= player.data.length) { playerPause(); return; }
 
-  const bis = Math.min(playerNextMark(player.pos), player.daten.length);
-  player.term.write(player.daten.subarray(player.pos, bis));
+  const bis = Math.min(playerNextMark(player.pos), player.data.length);
+  player.term.write(player.data.subarray(player.pos, bis));
   const vorher = player.pos;
   player.pos = bis;
   playerShowPosition();
@@ -2449,32 +2452,32 @@ function playerPause() {
 /* Seeking. xterm cannot rewind, so start over: clear the terminal and write
    everything up to the target in one go. */
 function playerSeek(ziel) {
-  if (!player.daten) return;
+  if (!player.data) return;
   const lief = player.running;
   playerPause();
   player.term.reset();
-  player.pos = Math.max(0, Math.min(ziel, player.daten.length));
-  if (player.pos > 0) player.term.write(player.daten.subarray(0, player.pos));
+  player.pos = Math.max(0, Math.min(ziel, player.data.length));
+  if (player.pos > 0) player.term.write(player.data.subarray(0, player.pos));
   playerShowPosition();
   if (lief) playerPlay(true);
 }
 
 function playerShowPosition() {
-  if (!player.daten) return;
-  const anteil = player.daten.length ? player.pos / player.daten.length : 0;
+  if (!player.data) return;
+  const anteil = player.data.length ? player.pos / player.data.length : 0;
   const regler = $('#playerSeek');
   // Do not set it while it is being dragged.
   if (document.activeElement !== regler) regler.value = Math.round(anteil * 1000);
 
-  const gesamt = player.marken.length > 1
-    ? (player.marken[player.marken.length - 1].at - player.marken[0].at) / 1000
+  const gesamt = player.marks.length > 1
+    ? (player.marks[player.marks.length - 1].at - player.marks[0].at) / 1000
     : 0;
   $('#playerTime').textContent = gesamt
     ? `${playerClock(gesamt * anteil)} / ${playerClock(gesamt)}`
     : `${Math.round(anteil * 100)} %`;
-  $('#playerMeta').textContent = player.beschnitten
+  $('#playerMeta').textContent = player.truncated
     ? tr('player.cut')
-    : (player.marken.length ? '' : tr('player.noTimeline'));
+    : (player.marks.length ? '' : tr('player.noTimeline'));
 }
 
 const playerClock = (sek) => {
@@ -2485,8 +2488,8 @@ const playerClock = (sek) => {
 $('#playerClose').addEventListener('click', closePlayer);
 $('#playerPlay').addEventListener('click', () => playerPlay(!player.running));
 $('#playerSeek').addEventListener('input', (e) => {
-  if (!player.daten) return;
-  playerSeek(Math.round((e.target.value / 1000) * player.daten.length));
+  if (!player.data) return;
+  playerSeek(Math.round((e.target.value / 1000) * player.data.length));
 });
 $('#playerSpeed').addEventListener('click', () => {
   const i = (PLAYER_SPEEDS.indexOf(player.tempo) + 1) % PLAYER_SPEEDS.length;
@@ -2495,7 +2498,7 @@ $('#playerSpeed').addEventListener('click', () => {
 });
 $('#playerSkipIdle').addEventListener('click', () => {
   player.skipIdle = !player.skipIdle;
-  $('#playerSkipIdle').dataset.an = player.skipIdle ? 'ja' : '';
+  $('#playerSkipIdle').dataset.on = player.skipIdle ? 'yes' : '';
 });
 document.addEventListener('keydown', (e) => {
   if ($('#player').hidden) return;
@@ -2521,7 +2524,7 @@ $('#rulesToggle').addEventListener('click', async () => {
   $('#viewer').hidden = true;
   rulesShow(true);
   $('#rulesMeta').textContent = tr('common.loading');
-  const list = await api.regeln(state.aktiv);
+  const list = await api.rules(state.aktiv);
   $('#rulesMeta').textContent = list.length === 1
     ? tr('rules.oneFile')
     : tr('rules.nFiles', { n: list.length });
@@ -2535,10 +2538,10 @@ $('#rulesToggle').addEventListener('click', async () => {
   for (const e of list) {
     const row = document.createElement('div');
     row.className = 'rrow';
-    row.dataset.art = e.art;
+    row.dataset.kind = e.kind;
     row.innerHTML = '<span class="rart"></span><span class="rmain">' +
       '<b class="rtitle"></b><span class="rdesc"></span></span><span class="rpath"></span>';
-    row.querySelector('.rart').textContent = ARTNAME[e.art] || e.art;
+    row.querySelector('.rart').textContent = ARTNAME[e.kind] || e.kind;
     row.querySelector('.rtitle').textContent = e.name;
     row.querySelector('.rdesc').textContent = e.description || '';
     row.querySelector('.rpath').textContent = e.path;
@@ -2571,7 +2574,7 @@ const archiv = { alle: [], search: '', treffer: null, terminals: null };
 async function loadArchive() {
   $('#archInfo').textContent = tr('common.loading');
   await fillAccounts('#archAccount');
-  archiv.alle = await api.archiv(state.filter);
+  archiv.alle = await api.archive(state.filter);
   archiv.treffer = null;
   archiv.terminals = null;
   $('#archiveCount').textContent = archiv.alle.length;
@@ -2642,7 +2645,7 @@ function renderArchive() {
     const wonach = $('#archSearch').value.trim();
     $('#archInfo').textContent = archiv.terminals.length === 1
       ? tr('archive.oneTerminal', { q: wonach })
-      : `${archiv.terminals.length} Terminals enthalten „${wonach}"`;
+      : tr('archive.nTerminals', { n: archiv.terminals.length, q: wonach });
     if (!archiv.terminals.length) {
       showEmpty(box, tr('archive.noTerminal'),
         tr('archive.noTerminalHit', { q: wonach }));
@@ -2657,18 +2660,18 @@ function renderArchive() {
         '<span class="hitProject"></span><span class="hitValue"></span>';
       row.querySelector('.hitDate').textContent = shortDate(t.mod);
       row.querySelector('.hitTitle').textContent = t.name;
-      row.querySelector('.hitExcerpt').textContent = t.auszug;
+      row.querySelector('.hitExcerpt').textContent = t.excerpt;
       row.querySelector('.hitProject').textContent = t.cwd ? t.cwd.split('/').pop() : '';
-      row.querySelector('.hitValue').textContent = t.anzahl + '×';
+      row.querySelector('.hitValue').textContent = t.count + '×';
       row.dataset.tip = t.cwd || '';
 
       /* What came after is the actual find: the same error has been seen three
          times already — what is wanted is the command that fixed it back
          then. */
-      if (t.danach?.length) {
+      if (t.after?.length) {
         const nach = document.createElement('pre');
         nach.className = 'hitAfter';
-        nach.textContent = t.danach.join('\n');
+        nach.textContent = t.after.join('\n');
         row.appendChild(nach);
       }
 
@@ -2705,9 +2708,9 @@ function renderArchive() {
         '<span class="hitAction"><button class="btn">FORTSETZEN</button></span>';
       row.querySelector('.hitDate').textContent = shortDate(t.mod);
       row.querySelector('.hitTitle').textContent = t.title || tr('archive.untitled');
-      row.querySelector('.hitExcerpt').textContent = t.auszug;
+      row.querySelector('.hitExcerpt').textContent = t.excerpt;
       row.querySelector('.hitProject').textContent = t.project;
-      row.querySelector('.hitValue').textContent = t.anzahl + '×';
+      row.querySelector('.hitValue').textContent = t.count + '×';
       row.dataset.tip = t.cwd;
       row.querySelector('button').addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -2738,8 +2741,7 @@ function renderArchive() {
       showEmpty(box, tr('archive.noneUnderPath'),
         tr('archive.filtered', { path: state.filter }));
     } else {
-      showEmpty(box, tr('archive.none'),
-        'Hier erscheinen abgelegte Claude-Code-Unterhaltungen, sobald welche existieren.');
+      showEmpty(box, tr('archive.none'), tr('archive.noneHint'));
     }
     return;
   }
@@ -2802,14 +2804,17 @@ async function loadPorts() {
   for (const p of list) {
     const row = document.createElement('div');
     row.className = 'row';
-    row.dataset.eigen = p.eigen ? 'ja' : 'nein';
+    row.dataset.own = p.own ? 'yes' : 'no';
     row.innerHTML =
       '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
       '<span class="hitValue"></span>' +
       '<span class="hitAction"><button class="btn" data-h="0">BEENDEN</button>' +
       '<button class="btn" data-h="1">HART</button></span>';
     row.querySelector('.hitDate').textContent = p.port;
-    row.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · ' + tr('ports.ownSession') : '');
+    /* Das Merkmal, auf das alle vier Skins seit jeher zielen — gesetzt hat es
+       nie jemand, also war die Hervorhebung eigener Sessions tot. */
+    row.dataset.own = p.own ? 'yes' : '';
+    row.querySelector('.hitTitle').textContent = p.command + (p.own ? '  · ' + tr('ports.ownSession') : '');
     row.querySelector('.hitProject').textContent = p.addr;
     row.querySelector('.hitValue').textContent = 'pid ' + p.pid;
     for (const hart of [false, true]) {
@@ -2818,7 +2823,7 @@ async function loadPorts() {
         const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`,
           tr('ports.killAsk', { port: p.port, how: wie }));
         if (!ja) return;
-        try { await api.portBeenden(p.pid, hart); setTimeout(loadPorts, 500); }
+        try { await api.portKill(p.pid, hart); setTimeout(loadPorts, 500); }
         catch (e) { plxrUI.notice(e.message || String(e), tr('ports.killFailed')); }
       });
     }
@@ -2845,9 +2850,9 @@ $('#usageRange').addEventListener('change', loadUsage);
 
 async function loadUsage() {
   $('#usageInfo').textContent = tr('usage.calculating');
-  const b = await api.verbrauch($('#usageRange').value);
+  const b = await api.usage($('#usageRange').value);
   $('#usageInfo').textContent =
-    tr(b.dateien === 1 ? 'archive.transcript' : 'archive.transcripts', { n: b.dateien }) + ' · ' + b.dauer;
+    tr(b.files === 1 ? 'archive.transcript' : 'archive.transcripts', { n: b.files }) + ' · ' + b.duration;
 
   const box = $('#usageBody');
   box.innerHTML = '';
@@ -2855,11 +2860,11 @@ async function loadUsage() {
   const summe = document.createElement('div');
   summe.className = 'usum';
   for (const [wert, was] of [
-    [b.summe.aus, 'ausgabe'],
-    [b.summe.ein, 'eingabe'],
-    [b.summe.cacheNeu, 'cache geschrieben'],
-    [b.summe.cacheLesen, 'cache gelesen'],
-    [b.summe.nachrichten, 'antworten'],
+    [b.sum.output, 'ausgabe'],
+    [b.sum.input, 'eingabe'],
+    [b.sum.cacheWrite, 'cache geschrieben'],
+    [b.sum.cacheRead, 'cache gelesen'],
+    [b.sum.messages, 'antworten'],
   ]) {
     const d = document.createElement('div');
     d.className = 'ubox';
@@ -2870,7 +2875,7 @@ async function loadUsage() {
   }
   box.appendChild(summe);
 
-  const gesamt = (z) => z.ein + z.aus + z.cacheNeu + z.cacheLesen;
+  const gesamt = (z) => z.input + z.output + z.cacheWrite + z.cacheRead;
   const block = (titel, rows, grenze) => {
     if (!rows || !rows.length) return;
     const d = document.createElement('div');
@@ -2890,16 +2895,16 @@ async function loadUsage() {
     box.appendChild(d);
   };
 
-  if (!b.nachTag.length) {
+  if (!b.byDay.length) {
     showEmpty(box, tr('usage.none'),
       tr('usage.noneHint'));
     return;
   }
 
-  block('nach Tag', b.nachTag, 30);
-  block('nach Projekt', b.nachProjekt, 12);
-  block('nach Modell', b.nachModell, 8);
-  block(tr('usage.byAccount'), b.nachKonto, 8);
+  block('nach Tag', b.byDay, 30);
+  block('nach Projekt', b.byProject, 12);
+  block('nach Modell', b.byModel, 8);
+  block(tr('usage.byAccount'), b.byAccount, 8);
 }
 
 /* ═════════════════════════ Spending pace ═════════════════════════
@@ -2912,7 +2917,7 @@ async function loadUsage() {
    published nowhere. So it does not claim when the end comes, it shows how fast
    things are going right now and whether the pace is rising. */
 
-const TREND = { steigt: '↑', falling: '↓', gleich: '·' };
+const TREND = { rising: '↑', falling: '↓', flat: '·' };
 
 function tokShort(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
@@ -2923,24 +2928,24 @@ function tokShort(n) {
 
 async function checkPace() {
   let t;
-  try { t = await api.tempo(); } catch { return; }
+  try { t = await api.pace(); } catch { return; }
   const el = $('#pace');
-  if (!t.proStunde && !t.fenster5h) { el.hidden = true; return; }
+  if (!t.perHour && !t.window5h) { el.hidden = true; return; }
 
   el.hidden = false;
   el.textContent =
-    `${tokShort(t.proStunde)}/h ${TREND[t.trend] || ''} · 5h ${tokShort(t.fenster5h)}` +
-    (t.aktive ? ` · ${tr('pace.active', { n: t.aktive })}` : '');
+    `${tokShort(t.perHour)}/h ${TREND[t.trend] || ''} · 5h ${tokShort(t.window5h)}` +
+    (t.active ? ` · ${tr('pace.active', { n: t.active })}` : '');
   el.title =
     tr('pace.tooltip', {
-      hour: t.proStunde.toLocaleString(sprache),
-      window5h: t.fenster5h.toLocaleString(sprache),
-      active: t.aktive,
+      hour: t.perHour.toLocaleString(sprache),
+      window5h: t.window5h.toLocaleString(sprache),
+      active: t.active,
     });
 
   // Past three billion an hour it gets tight on the common plans — that is a
   // mark from experience, not an official limit.
-  el.dataset.warnung = t.proStunde > 3e9 && t.trend !== 'faellt' ? 'ja' : '';
+  el.dataset.warning = t.perHour > 3e9 && t.trend !== 'falling' ? 'yes' : '';
 }
 
 /* ═════════════════════════ Fassung ═════════════════════════ */
@@ -3002,7 +3007,7 @@ $('#updateGo').addEventListener('click', async () => {
   $('#updateProgress').hidden = false;
 
   try {
-    await api.aktualisieren();
+    await api.update();
   } catch (e) {
     updateFehler(e.message || String(e));
     return;
@@ -3022,7 +3027,7 @@ function updateVerfolgen() {
   const tick = setInterval(async () => {
     let st;
     try {
-      st = await api.updateStand();
+      st = await api.updateStatus();
     } catch {
       return; // connection briefly gone — back on the next attempt
     }
@@ -3040,7 +3045,7 @@ function updateVerfolgen() {
     // Leave it up briefly so it is visible that it worked.
     setTimeout(async () => {
       try {
-        await api.neuStarten();
+        await api.restart();
         // Die neue Fassung laeuft. Dieses Fenster tritt ab, der Daemon
         // beendet sich gleich selbst — beide kommen neu und zusammen.
         if (WAILS) Native.Quit();
@@ -3082,14 +3087,14 @@ async function fillChoice() {
 }
 
 function setChoice(id) {
-  for (const b of $('#newCmdChoice').children) b.dataset.picked = b.dataset.id === id ? 'ja' : 'nein';
+  for (const b of $('#newCmdChoice').children) b.dataset.picked = b.dataset.id === id ? 'yes' : 'no';
   $('#newCmdInput').hidden = id !== 'eigenes';
   localStorage.setItem('plxr.startart', id);
   if (id === 'eigenes') $('#newCmd').focus();
 }
 
 function chosenCommand() {
-  const id = [...$('#newCmdChoice').children].find((b) => b.dataset.picked === 'ja')?.dataset.id || 'shell';
+  const id = [...$('#newCmdChoice').children].find((b) => b.dataset.picked === 'yes')?.dataset.id || 'shell';
   if (id === 'shell') return shellCmd || [];
   if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
   return STARTBAR.find((w) => w.id === id).cmd;
@@ -3155,7 +3160,7 @@ $('#templatesSave').addEventListener('click', async () => {
   if (!offen) { plxrUI.notice(tr('templates.nothingToSave'), tr('templates.nothingToSaveTitle')); return; }
   const label = await plxrUI.prompt(
     tr(offen === 1 ? 'templates.saveAskOne' : 'templates.saveAskMany', { n: offen }),
-    tr('templates.nameAsk'), 'Arbeitstag');
+    tr('templates.nameAsk'), tr('templates.nameExample'));
   if (!label) return;
   const name = label.toLowerCase().replace(/[^a-z0-9-]/g, '-');
   try {
@@ -3175,7 +3180,7 @@ $('#newBtn').addEventListener('click', async () => {
 $('#newCancel').addEventListener('click', () => { $('#dialog').hidden = true; });
 
 // Der Ordnerdialog des Systems gibt es nur im Fenster.
-if (api.fenster) {
+if (api.inWindow) {
   $('#pickDir').hidden = false;
   $('#pickDir').addEventListener('click', async () => {
     const d = await api.pickDirectory();
@@ -3188,7 +3193,7 @@ $('#newForm').addEventListener('submit', async (e) => {
   const cwd = $('#newCwd').value.trim();
   const cmd = chosenCommand();
   try {
-    const s = await api.starten(cwd, cmd, $('#newAccount').value);
+    const s = await api.start(cwd, cmd, $('#newAccount').value);
     localStorage.setItem('plxr.lastCwd', cwd);
     $('#dialog').hidden = true;
     setTimeout(() => openSession(s.id), 400);
@@ -3247,25 +3252,25 @@ plxrUI.tippBinden();
    brake is the same as no brake at all. The second click undoes it. */
 async function emergencyBrake() {
   const button = $('#brake');
-  if (button.dataset.an === 'ja') {
+  if (button.dataset.on === 'yes') {
     try {
       const r = await api.unfreeze();
-      button.dataset.an = '';
+      button.dataset.on = '';
       button.textContent = tr('header.brake');
-      document.documentElement.dataset.eingefroren = '';
-      $('#counts').textContent = tr('brake.resumed', { n: r.fortgesetzt });
+      document.documentElement.dataset.frozen = '';
+      $('#counts').textContent = tr('brake.resumed', { n: r.resumed });
     } catch (e) { plxrUI.notice(e.message || String(e), tr('brake.notResumed')); }
     return;
   }
   try {
     const r = await api.emergencyBrake();
-    if (!r.betroffen) { plxrUI.notice(tr('brake.nothingRunning'), 'Nichts anzuhalten'); return; }
-    button.dataset.an = 'ja';
+    if (!r.affected) { plxrUI.notice(tr('brake.nothingRunning'), tr('brake.nothingTitle')); return; }
+    button.dataset.on = 'yes';
     button.textContent = tr('header.brakeRelease');
-    document.documentElement.dataset.eingefroren = 'ja';
-    $('#counts').textContent = r.eingefroren === r.betroffen
-      ? tr('brake.halted', { n: r.eingefroren })
-      : tr('brake.partial', { done: r.eingefroren, total: r.betroffen });
+    document.documentElement.dataset.frozen = 'yes';
+    $('#counts').textContent = r.frozen === r.affected
+      ? tr('brake.halted', { n: r.frozen })
+      : tr('brake.partial', { done: r.frozen, total: r.affected });
   } catch (e) { plxrUI.notice(e.message || String(e), tr('brake.failed')); }
 }
 $('#brake').addEventListener('click', emergencyBrake);
@@ -3288,7 +3293,7 @@ spracheLaden()
     api.aufZustand(renderAll);
     checkVersion(true);
     // If an update was still running in the last window, keep following it here.
-    api.updateStand().then((st) => {
+    api.updateStatus().then((st) => {
       if (st.running) { $('#updateBar').hidden = false; $('#updateProgress').hidden = false; updateVerfolgen(); }
     }).catch(() => {});
     setInterval(checkVersion, VERSION_INTERVAL);

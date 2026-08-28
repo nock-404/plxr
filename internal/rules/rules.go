@@ -18,24 +18,24 @@ import (
 	"strings"
 )
 
-type Art string
+type Kind string
 
 const (
-	Global  Art = "global"  // ~/.claude/CLAUDE.md
-	Projekt Art = "projekt" // CLAUDE.md im Baum
-	Lokal   Art = "lokal"   // CLAUDE.local.md
-	Import  Art = "import"  // per @pfad eingebunden
-	Skill   Art = "skill"
-	Agent   Art = "agent"
+	Global  Kind = "global"  // ~/.claude/CLAUDE.md
+	Project Kind = "projekt" // CLAUDE.md im Baum
+	Local   Kind = "lokal"   // CLAUDE.local.md
+	Import  Kind = "import"  // per @pfad eingebunden
+	Skill   Kind = "skill"
+	Agent   Kind = "agent"
 )
 
 type Entry struct {
-	Art         Art    `json:"art"`
+	Kind        Kind   `json:"kind"`
 	Name        string `json:"name"`
 	Path        string `json:"path"`
 	Description string `json:"description"`
 	Size        int64  `json:"size"`
-	Ebene       int    `json:"ebene"` // 0 = global, then depth in the tree
+	Level       int    `json:"level"` // 0 = global, then depth in the tree
 }
 
 const maxImportDepth = 3
@@ -46,7 +46,7 @@ func Resolve(cwd, configDir string) []Entry {
 	out := []Entry{}
 	seen := map[string]bool{}
 
-	add := func(kind Art, p string, level int) {
+	add := func(kind Kind, p string, level int) {
 		p = filepath.Clean(p)
 		if seen[p] {
 			return
@@ -57,8 +57,8 @@ func Resolve(cwd, configDir string) []Entry {
 		}
 		seen[p] = true
 		out = append(out, Entry{
-			Art: kind, Name: shortName(kind, p), Path: p,
-			Description: describe(p), Size: info.Size(), Ebene: level,
+			Kind: kind, Name: shortName(kind, p), Path: p,
+			Description: describe(p), Size: info.Size(), Level: level,
 		})
 		for _, imp := range imports(p, 1) {
 			if seen[imp] {
@@ -67,8 +67,8 @@ func Resolve(cwd, configDir string) []Entry {
 			if info, err := os.Stat(imp); err == nil && !info.IsDir() {
 				seen[imp] = true
 				out = append(out, Entry{
-					Art: Import, Name: filepath.Base(imp), Path: imp,
-					Description: describe(imp), Size: info.Size(), Ebene: level,
+					Kind: Import, Name: filepath.Base(imp), Path: imp,
+					Description: describe(imp), Size: info.Size(), Level: level,
 				})
 			}
 		}
@@ -94,9 +94,9 @@ func Resolve(cwd, configDir string) []Entry {
 		chain[i], chain[j] = chain[j], chain[i]
 	}
 	for level, d := range chain {
-		add(Projekt, filepath.Join(d, "CLAUDE.md"), level+1)
-		add(Projekt, filepath.Join(d, ".claude", "CLAUDE.md"), level+1)
-		add(Lokal, filepath.Join(d, "CLAUDE.local.md"), level+1)
+		add(Project, filepath.Join(d, "CLAUDE.md"), level+1)
+		add(Project, filepath.Join(d, ".claude", "CLAUDE.md"), level+1)
+		add(Local, filepath.Join(d, "CLAUDE.local.md"), level+1)
 	}
 
 	// 3. Skills and agents, local and global
@@ -116,13 +116,13 @@ func Resolve(cwd, configDir string) []Entry {
 		}
 	}
 
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Ebene < out[j].Ebene })
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Level < out[j].Level })
 	return out
 }
 
 func glob(p string) []string { m, _ := filepath.Glob(p); sort.Strings(m); return m }
 
-func shortName(kind Art, p string) string {
+func shortName(kind Kind, p string) string {
 	if kind == Skill {
 		return filepath.Base(filepath.Dir(p))
 	}

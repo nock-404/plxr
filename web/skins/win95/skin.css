@@ -58,7 +58,7 @@ body {
 .btn:disabled { color: var(--sh); text-shadow: 1px 1px 0 var(--hi); }
 
 .statusrow, .meta { color: var(--dk); font-size: .9em; }
-:root[data-offline="ja"] #counts { color: var(--blocked); font-weight: bold; }
+:root[data-offline="yes"] #counts { color: var(--blocked); font-weight: bold; }
 .updatebar { border-bottom: 2px solid var(--accent); }
 
 /* ---------- Schiene ---------- */
@@ -116,7 +116,7 @@ body {
 .hitTitle { color: #000; }
 .hitExcerpt { color: var(--dim); font-size: .92em; }
 .row .btn { padding: 1px 8px; font-size: .95em; }
-.row[data-eigen="ja"] .hitTitle { color: var(--working); font-weight: bold; }
+.row[data-own="yes"] .hitTitle { color: var(--working); font-weight: bold; }
 
 .ublock { background: #fff; border-bottom: 1px solid #dfdfdf; }
 .uhead { color: var(--dk); font-weight: bold; }
@@ -151,7 +151,7 @@ body {
 }
 .panelabel { background: var(--panel); color: var(--dk); font-weight: bold; font-size: .9em; border: 1px solid var(--sh); }
 .paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.pane[data-aktiv="ja"] .panelabel { background: var(--accent); color: #fff; }
+.pane[data-active="yes"] .panelabel { background: var(--accent); color: #fff; }
 
 .overlay { background: var(--panel); }
 .overlayName { font-weight: bold; color: var(--dk); }
@@ -214,12 +214,12 @@ body {
 /* --- Hit by a crash ---
    The daemon ended while the session was running. Not a normal exit: the entry
    stays and can be picked up again with a click. */
-.dot.verwaist { color: #800000; animation: verwaistblink 1.4s steps(2) infinite; }
-.railitem[data-status="verwaist"] { color: #800000; }
-.railitem[data-status="verwaist"] .rsub { color: #800000; opacity: .8; }
-.tile[data-status="verwaist"] { border-color: #800000; background: #c0c0c0; opacity: 1; }
-.tile[data-status="verwaist"] .tfoot .act { color: #800000; opacity: 1; }
-@keyframes verwaistblink { 50% { opacity: .3 } }
+.dot.orphaned { color: #800000; animation: orphanedblink 1.4s steps(2) infinite; }
+.railitem[data-status="orphaned"] { color: #800000; }
+.railitem[data-status="orphaned"] .rsub { color: #800000; opacity: .8; }
+.tile[data-status="orphaned"] { border-color: #800000; background: #c0c0c0; opacity: 1; }
+.tile[data-status="orphaned"] .tfoot .act { color: #800000; opacity: 1; }
+@keyframes orphanedblink { 50% { opacity: .3 } }
 
 /* ---------- Caught up: panes and small parts ----------
    Only some skins used to style these. The check in klassen.py makes sure none
@@ -241,14 +241,14 @@ body {
 
 /* Auswahl im Startdialog. */
 .choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.choiceButton[data-picked="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.choiceButton[data-picked="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dk); font-size: .92em; text-transform: none; }
 .styleNumber { color: var(--dk); }
 .styleNumber button { color: var(--dk); }
 .styleToggle { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
-.styleToggle[data-an="ja"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.styleToggle[data-on="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 .swatch { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
 .swatchField { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .swatchHex { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); color: #000; }
@@ -273,7 +273,7 @@ body {
 
 /* Verbrauchstempo. */
 .pace { color: var(--dk); }
-.pace[data-warnung="ja"] { color: var(--blocked); font-weight: bold; }
+.pace[data-warning="yes"] { color: var(--blocked); font-weight: bold; }
 
 /* Hover states: whatever is clickable should show it. */
 .choiceButton:hover { background: #d4d0c8; }
@@ -286,16 +286,16 @@ body {
 .tip { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-untamed="ja"]::before {
+.tile[data-untamed="yes"]::before {
   border: 3px solid #000;
   background: repeating-linear-gradient(45deg, #ffd800 0 10px, #000 10px 20px);
   opacity: .16;
 }
 
 /* Frozen */
-.dot.eingefroren { color: #000080; }
-.tile[data-status="eingefroren"] { border-style: dotted; }
-#brake[data-an="ja"] { background: #800000; color: #fff; }
+.dot.frozen { color: #000080; }
+.tile[data-status="frozen"] { border-style: dotted; }
+#brake[data-on="yes"] { background: #800000; color: #fff; }
 
 /* Crest: this skin draws directories with these glyphs. Anyone writing their
    own skin sets their own here — JavaScript knows nothing about it. */
@@ -313,6 +313,6 @@ body {
 
 /* Raumzustand */
 /* Kein Atmen — Windows 95 hat nicht geatmet. Der Schreibtisch färbt sich. */
-:root[data-raum="working"] body { background: #0a7d7d; }
-:root[data-raum="waiting"] body { background: #7d4a0a; }
-:root[data-raum="idle"] body { background: var(--bg); }
+:root[data-room="working"] body { background: #0a7d7d; }
+:root[data-room="waiting"] body { background: #7d4a0a; }
+:root[data-room="idle"] body { background: var(--bg); }

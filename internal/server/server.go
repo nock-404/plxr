@@ -45,13 +45,13 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/sessions", s.listSessions)
 	mux.HandleFunc("POST /api/sessions", s.createSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}", s.killSession)
-	mux.HandleFunc("POST /api/sessions/{id}/antwort", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/sessions/{id}/reply", func(w http.ResponseWriter, r *http.Request) {
 		b, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := s.c.Answer(r.PathValue("id"), string(b), r.URL.Query().Get("roh") == "1"); err != nil {
+		if err := s.c.Answer(r.PathValue("id"), string(b), r.URL.Query().Get("raw") == "1"); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -70,10 +70,10 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	mux.HandleFunc("GET /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/templates", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Templates())
 	})
-	mux.HandleFunc("POST /api/vorlagen/{name}/start", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/templates/{name}/start", func(w http.ResponseWriter, r *http.Request) {
 		ids, err := s.c.TemplateStart(r.PathValue("name"))
 		if err != nil && len(ids) == 0 {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -85,7 +85,7 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		writeJSON(w, answer)
 	})
-	mux.HandleFunc("POST /api/vorlagen", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/templates", func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ Name, Label string }
 		if json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req) != nil {
 			http.Error(w, "kaputtes JSON", http.StatusBadRequest)
@@ -97,7 +97,7 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		writeJSON(w, s.c.Templates())
 	})
-	mux.HandleFunc("DELETE /api/vorlagen/{name}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("DELETE /api/templates/{name}", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.TemplateDelete(r.PathValue("name")); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -112,7 +112,7 @@ func (s *Server) Routes() *http.ServeMux {
 	   terminal stream and would triple in size base64-encoded. The timeline goes
 	   into headers instead, so the body stays exactly what went over the wire. */
 	mux.HandleFunc("GET /api/playback/{id}", func(w http.ResponseWriter, r *http.Request) {
-		from, _ := strconv.ParseInt(r.URL.Query().Get("ab"), 10, 64)
+		from, _ := strconv.ParseInt(r.URL.Query().Get("from"), 10, 64)
 		pb, err := s.c.Playback(r.PathValue("id"), from)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -138,7 +138,7 @@ func (s *Server) Routes() *http.ServeMux {
 
 	   Separating them has a second benefit: the stream is fetched in chunks,
 	   the timeline only once. */
-	mux.HandleFunc("GET /api/playback/{id}/zeitachse", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /api/playback/{id}/timeline", func(w http.ResponseWriter, r *http.Request) {
 		marks, err := s.c.Timeline(r.PathValue("id"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -147,7 +147,7 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, marks)
 	})
 	mux.HandleFunc("GET /api/search/terminals", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.SucheTerminals(r.URL.Query().Get("q")))
+		writeJSON(w, s.c.SearchTerminals(r.URL.Query().Get("q")))
 	})
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -174,10 +174,10 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("POST /api/freeze", func(w http.ResponseWriter, r *http.Request) {
 		frozen, total := s.c.FreezeAll()
-		writeJSON(w, map[string]int{"eingefroren": frozen, "betroffen": total})
+		writeJSON(w, map[string]int{"frozen": frozen, "affected": total})
 	})
 	mux.HandleFunc("POST /api/unfreeze", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]int{"fortgesetzt": s.c.UnfreezeAll()})
+		writeJSON(w, map[string]int{"resumed": s.c.UnfreezeAll()})
 	})
 	mux.HandleFunc("POST /api/sessions/{id}/account", s.switchAccount)
 	mux.HandleFunc("POST /api/sessions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
@@ -196,7 +196,7 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.HookStatus())
 	})
 	mux.HandleFunc("POST /api/hook", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.HookSetzen(r.URL.Query().Get("an") == "1"); err != nil {
+		if err := s.c.HookSet(r.URL.Query().Get("an") == "1"); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -210,10 +210,10 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, s.c.UpdateFortschritt())
+		writeJSON(w, s.c.UpdateProgress())
 	})
 	mux.HandleFunc("GET /api/update", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.UpdateFortschritt())
+		writeJSON(w, s.c.UpdateProgress())
 	})
 	// Starts the new version. The daemon explicitly does NOT exit here: it owns
 	// the PTYs, and exiting would kill every running session on update — the exact
@@ -227,8 +227,8 @@ func (s *Server) Routes() *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/usage", func(w http.ResponseWriter, r *http.Request) {
-		days, _ := strconv.Atoi(r.URL.Query().Get("tage"))
-		writeJSON(w, s.c.Verbrauch(days))
+		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
+		writeJSON(w, s.c.Usage(days))
 	})
 	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Pace())
@@ -310,7 +310,7 @@ func (s *Server) killPort(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "keine gültige Prozess-ID", http.StatusBadRequest)
 		return
 	}
-	if err := s.c.KillPort(pid, r.URL.Query().Get("hart") == "1"); err != nil {
+	if err := s.c.KillPort(pid, r.URL.Query().Get("hard") == "1"); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

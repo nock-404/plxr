@@ -25,11 +25,11 @@ import (
 )
 
 type Item struct {
-	In         int64 `json:"ein"`        // input_tokens
-	Out        int64 `json:"aus"`        // output_tokens
-	CacheWrite int64 `json:"cacheNeu"`   // cache_creation_input_tokens
-	CacheRead  int64 `json:"cacheLesen"` // cache_read_input_tokens
-	Messages   int64 `json:"nachrichten"`
+	In         int64 `json:"input"`      // input_tokens
+	Out        int64 `json:"output"`     // output_tokens
+	CacheWrite int64 `json:"cacheWrite"` // cache_creation_input_tokens
+	CacheRead  int64 `json:"cacheRead"`  // cache_read_input_tokens
+	Messages   int64 `json:"messages"`
 }
 
 func (p *Item) add(o Item) {
@@ -49,13 +49,13 @@ type Line struct {
 }
 
 type Report struct {
-	Sum       Item   `json:"summe"`
-	ByDay     []Line `json:"nachTag"`
-	ByProject []Line `json:"nachProjekt"`
-	ByModel   []Line `json:"nachModell"`
-	ByAccount []Line `json:"nachKonto"`
-	Files     int    `json:"dateien"`
-	Dauer     string `json:"dauer"`
+	Sum       Item   `json:"sum"`
+	ByDay     []Line `json:"byDay"`
+	ByProject []Line `json:"byProject"`
+	ByModel   []Line `json:"byModel"`
+	ByAccount []Line `json:"byAccount"`
+	Files     int    `json:"files"`
+	Duration  string `json:"duration"`
 }
 
 // ---- Zwischenspeicher ----
@@ -66,8 +66,8 @@ type entry struct {
 	Version int                        `json:"version"`
 	Size    int64                      `json:"groesse"`
 	Mod     int64                      `json:"mod"`
-	Tage    map[string]map[string]Item `json:"tage"` // Tag -> Modell -> Posten
-	Projekt string                     `json:"projekt"`
+	Days    map[string]map[string]Item `json:"days"` // Tag -> Modell -> Posten
+	Project string                     `json:"project"`
 }
 
 // cacheVersion invalidates older caches when the shape changes.
@@ -75,7 +75,7 @@ const cacheVersion = 2
 
 type store struct {
 	mu      sync.Mutex
-	File    map[string]entry `json:"datei"`
+	File    map[string]entry `json:"file"`
 	path    string
 	changed bool
 }
@@ -223,11 +223,11 @@ func Compute(accs []accounts.Account, days int) Report {
 	}
 
 	for r := range results {
-		project := r.e.Projekt
+		project := r.e.Project
 		if project == "" {
 			project = "(unbekannt)"
 		}
-		for t, byModel := range r.e.Tage {
+		for t, byModel := range r.e.Days {
 			if cutoff != "" && t < cutoff {
 				continue
 			}
@@ -254,7 +254,7 @@ func Compute(accs []accounts.Account, days int) Report {
 	if len(b.ByAccount) < 2 {
 		b.ByAccount = []Line{}
 	}
-	b.Dauer = time.Since(start).Round(time.Millisecond).String()
+	b.Duration = time.Since(start).Round(time.Millisecond).String()
 	return b
 }
 
@@ -274,7 +274,7 @@ func sorted(m map[string]*Item, byKey bool) []Line {
 }
 
 func readAll(path string) entry {
-	e := entry{Tage: map[string]map[string]Item{}}
+	e := entry{Days: map[string]map[string]Item{}}
 	f, err := os.Open(path)
 	if err != nil {
 		return e
@@ -292,8 +292,8 @@ func readAll(path string) entry {
 		if json.Unmarshal(raw, &z) != nil {
 			continue
 		}
-		if z.Cwd != "" && e.Projekt == "" {
-			e.Projekt = filepath.Base(z.Cwd)
+		if z.Cwd != "" && e.Project == "" {
+			e.Project = filepath.Base(z.Cwd)
 		}
 		if z.Type != "assistant" {
 			continue
@@ -312,12 +312,12 @@ func readAll(path string) entry {
 		if model == "<synthetic>" {
 			model = ""
 		}
-		if e.Tage[tag] == nil {
-			e.Tage[tag] = map[string]Item{}
+		if e.Days[tag] == nil {
+			e.Days[tag] = map[string]Item{}
 		}
-		old := e.Tage[tag][model]
+		old := e.Days[tag][model]
 		old.add(p)
-		e.Tage[tag][model] = old
+		e.Days[tag][model] = old
 	}
 	return e
 }
@@ -332,13 +332,13 @@ func readAll(path string) entry {
 // rate.
 type Pace struct {
 	// Window5h is the spend of the last five hours.
-	Fenster5h int64 `json:"fenster5h"`
+	Window5h int64 `json:"window5h"`
 	// PerHour is the rate of the last hour, extrapolated.
-	ProStunde int64 `json:"proStunde"`
+	PerHour int64 `json:"perHour"`
 	// Active is the number of sessions that spent something in the last hour —
 	// that is what explains the rate.
-	Aktive int `json:"aktive"`
-	// Trend is "steigt", "faellt" or "gleich", compared with the hour before.
+	Active int `json:"active"`
+	// Trend is "rising", "falling" or "flat", compared with the hour before.
 	Trend string `json:"trend"`
 }
 
@@ -375,8 +375,8 @@ func ComputePace(accs []accounts.Account) Pace {
 				seen[f.Name()] = true
 				path := filepath.Join(pdir, f.Name())
 				f5, f1, f2 := window(path, cut5h, cut1h, cut2h)
-				t.Fenster5h += f5
-				t.ProStunde += f1
+				t.Window5h += f5
+				t.PerHour += f1
 				prevHour += f2
 				if f1 > 0 {
 					active[f.Name()] = true
@@ -385,16 +385,16 @@ func ComputePace(accs []accounts.Account) Pace {
 		}
 	}
 
-	t.Aktive = len(active)
+	t.Active = len(active)
 	switch {
-	case prevHour == 0 && t.ProStunde > 0:
-		t.Trend = "steigt"
-	case t.ProStunde > prevHour*6/5:
-		t.Trend = "steigt"
-	case t.ProStunde*6/5 < prevHour:
-		t.Trend = "faellt"
+	case prevHour == 0 && t.PerHour > 0:
+		t.Trend = "rising"
+	case t.PerHour > prevHour*6/5:
+		t.Trend = "rising"
+	case t.PerHour*6/5 < prevHour:
+		t.Trend = "falling"
 	default:
-		t.Trend = "gleich"
+		t.Trend = "flat"
 	}
 	return t
 }

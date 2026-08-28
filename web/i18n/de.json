@@ -180,7 +180,7 @@
   "inbox.sendTip": "„{what}“ senden",
   "inbox.enterKey": "Eingabetaste",
   "inbox.notSent": "Nicht gesendet",
-  "state.ended": "beendet ({code})",
+  "state.ended": "beendet",
   "counts.waiting": "{n} wartet auf dich",
   "session.inactive": "Nicht mehr aktiv",
   "pane.endedLine": "Prozess beendet.",
@@ -245,5 +245,14 @@
   "ports.killHard": "HART beenden (SIGKILL)",
   "ports.killSoft": "beenden (SIGTERM)",
   "ports.killAsk": "Port {port} {how}?",
-  "template.shellLabel": "Shell ({cmd})"
+  "template.shellLabel": "Shell ({cmd})",
+  "brake.nothingTitle": "Nichts anzuhalten",
+  "theme.savedTitle": "Gespeichert",
+  "pane.tooManyTitle": "Genug geteilt",
+  "session.resumeTitle": "Wiederaufnehmen?",
+  "file.emptyFolder": "leerer Ordner",
+  "archive.nTerminals": "{n} Terminals enthalten „{q}“",
+  "archive.noneHint": "Hier erscheinen abgelegte Claude-Code-Unterhaltungen, sobald welche existieren.",
+  "templates.nameExample": "Arbeitstag",
+  "hook.accountCount": " ({n} Konten)"
 }

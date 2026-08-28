@@ -36,7 +36,7 @@ func TestSearchReturnsWhatCameAfter(t *testing.T) {
 	if len(hits) != 1 {
 		t.Fatalf("%d hits instead of 1", len(hits))
 	}
-	after := strings.Join(hits[0].Danach, "\n")
+	after := strings.Join(hits[0].After, "\n")
 	if !strings.Contains(after, "npm rebuild sharp") {
 		t.Errorf("the fix is missing from the context:\n%s", after)
 	}
@@ -60,12 +60,12 @@ func TestContextOnlyAfterFirstHit(t *testing.T) {
 	if hits[0].Count != 5 {
 		t.Errorf("counted %d hits instead of 5", hits[0].Count)
 	}
-	if len(hits[0].Danach) > AfterLines {
-		t.Errorf("%d context lines, at most %d expected", len(hits[0].Danach), AfterLines)
+	if len(hits[0].After) > AfterLines {
+		t.Errorf("%d context lines, at most %d expected", len(hits[0].After), AfterLines)
 	}
 	// The context has to start right after the FIRST hit.
-	if len(hits[0].Danach) == 0 || !strings.Contains(hits[0].Danach[0], "danach-a") {
-		t.Errorf("context does not start after the first hit: %v", hits[0].Danach)
+	if len(hits[0].After) == 0 || !strings.Contains(hits[0].After[0], "danach-a") {
+		t.Errorf("context does not start after the first hit: %v", hits[0].After)
 	}
 }
 
@@ -77,8 +77,8 @@ func TestHitOnLastLine(t *testing.T) {
 	if len(hits) != 1 {
 		t.Fatalf("%d hits", len(hits))
 	}
-	if len(hits[0].Danach) != 0 {
-		t.Errorf("context appeared out of nowhere: %v", hits[0].Danach)
+	if len(hits[0].After) != 0 {
+		t.Errorf("context appeared out of nowhere: %v", hits[0].After)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestContextIsCleaned(t *testing.T) {
 	dir := t.TempDir()
 	logfile(t, dir, "abc", "FEHLER\n\x1b[31mrot\x1b[0m und weiter")
 	hits := SearchRecordings(dir, "FEHLER", nil)
-	after := strings.Join(hits[0].Danach, "\n")
+	after := strings.Join(hits[0].After, "\n")
 	if strings.Contains(after, "\x1b") {
 		t.Errorf("escape sequence reached the context: %q", after)
 	}
@@ -101,8 +101,8 @@ func TestContextSkipsEmptyLines(t *testing.T) {
 	dir := t.TempDir()
 	logfile(t, dir, "abc", "FEHLER\n\n\n   \nendlich etwas")
 	hits := SearchRecordings(dir, "FEHLER", nil)
-	if len(hits[0].Danach) != 1 || !strings.Contains(hits[0].Danach[0], "endlich etwas") {
-		t.Errorf("empty lines were not skipped: %v", hits[0].Danach)
+	if len(hits[0].After) != 1 || !strings.Contains(hits[0].After[0], "endlich etwas") {
+		t.Errorf("empty lines were not skipped: %v", hits[0].After)
 	}
 }
 

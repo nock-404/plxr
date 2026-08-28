@@ -123,14 +123,14 @@ func Ports(c *Client) error {
 		Command string `json:"command"`
 		Port    int    `json:"port"`
 		Addr    string `json:"addr"`
-		Eigen   bool   `json:"eigen"`
+		Own     bool   `json:"own"`
 	}
 	if err := c.fetch("/api/ports", &list); err != nil {
 		return err
 	}
 	for _, p := range list {
 		marker := ""
-		if p.Eigen {
+		if p.Own {
 			marker = green + " · plxr" + reset
 		}
 		fmt.Printf("%5d  %-20s %spid %-7d %s%s%s\n", p.Port, p.Command, dim, p.PID, p.Addr, reset, marker)

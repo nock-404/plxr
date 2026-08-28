@@ -76,7 +76,7 @@ func TestEveryViewFromTheWindow(t *testing.T) {
 	s, token := setup(t)
 
 	paths := []string{
-		"/api/health", "/api/sessions", "/api/themes", "/api/vorlagen",
+		"/api/health", "/api/sessions", "/api/themes", "/api/templates",
 		"/api/accounts", "/api/archive", "/api/ports", "/api/usage",
 		"/api/rules", "/api/hook", "/api/tempo", "/api/shell", "/api/paths",
 	}
@@ -249,8 +249,8 @@ func TestFreezeAndUnfreeze(t *testing.T) {
 		t.Fatalf("freeze: %d — %s", res.StatusCode, b)
 	}
 	var frozen struct {
-		Frozen   int `json:"eingefroren"`
-		Affected int `json:"betroffen"`
+		Frozen   int `json:"frozen"`
+		Affected int `json:"affected"`
 	}
 	json.Unmarshal(b, &frozen)
 	if frozen.Frozen < 1 || frozen.Frozen != frozen.Affected {
@@ -259,7 +259,7 @@ func TestFreezeAndUnfreeze(t *testing.T) {
 
 	// The session has to still be alive — frozen is not dead.
 	_, b = call(t, s, token, "GET", "/api/sessions", "")
-	if !strings.Contains(string(b), `"eingefroren":true`) {
+	if !strings.Contains(string(b), `"frozen":true`) {
 		t.Error("the snapshot does not report the session as frozen")
 	}
 	if !strings.Contains(string(b), `"alive":true`) {
@@ -270,7 +270,7 @@ func TestFreezeAndUnfreeze(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("unfreeze: %d — %s", res.StatusCode, b)
 	}
-	if !strings.Contains(string(b), `"fortgesetzt":1`) {
+	if !strings.Contains(string(b), `"resumed":1`) {
 		t.Errorf("unfreeze reported: %s", b)
 	}
 	call(t, s, token, "DELETE", "/api/sessions/"+created.ID, "")

@@ -180,7 +180,7 @@
   "inbox.sendTip": "send „{what}“",
   "inbox.enterKey": "Enter",
   "inbox.notSent": "Not sent",
-  "state.ended": "ended ({code})",
+  "state.ended": "ended",
   "counts.waiting": "{n} waiting for you",
   "session.inactive": "No longer active",
   "pane.endedLine": "process ended.",
@@ -245,5 +245,14 @@
   "ports.killHard": "kill hard (SIGKILL)",
   "ports.killSoft": "terminate (SIGTERM)",
   "ports.killAsk": "Port {port} — {how}?",
-  "template.shellLabel": "Shell ({cmd})"
+  "template.shellLabel": "Shell ({cmd})",
+  "brake.nothingTitle": "Nothing to halt",
+  "theme.savedTitle": "Saved",
+  "pane.tooManyTitle": "Enough split",
+  "session.resumeTitle": "Resume?",
+  "file.emptyFolder": "empty folder",
+  "archive.nTerminals": "{n} terminals contain “{q}”",
+  "archive.noneHint": "Archived Claude Code conversations show up here once there are any.",
+  "templates.nameExample": "workday",
+  "hook.accountCount": " ({n} accounts)"
 }

@@ -61,7 +61,7 @@ body {
 
 .statusrow { color: var(--dim); font-size: .82em; border-bottom: 1px dashed var(--line); }
 .meta { color: var(--dim); font-size: .82em; }
-:root[data-offline="ja"] #counts { color: var(--blocked); }
+:root[data-offline="yes"] #counts { color: var(--blocked); }
 .updatebar { border-bottom: 2px solid var(--accent); background: #eaf2f8; }
 
 /* ---------- Schiene ---------- */
@@ -122,7 +122,7 @@ body {
 .hitMain .hitTitle { color: var(--accent); }
 .hitExcerpt { color: var(--dim); font-family: 'SpaceMono', monospace; font-size: 11px; }
 .row .btn { padding: 0 10px; font-size: .85em; }
-.row[data-eigen="ja"] .hitTitle { color: var(--working); }
+.row[data-own="yes"] .hitTitle { color: var(--working); }
 
 .ublock { border-bottom: 1px dashed var(--line); }
 .uhead { color: var(--dim); font-size: .85em; }
@@ -151,8 +151,8 @@ body {
 .pterm { background: var(--term-bg); border: 2px solid var(--fg); border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
 .panelabel { background: var(--bg); color: var(--dim); font-size: .8em; }
 .paneclose { background: var(--bg); color: var(--dim); }
-.pane[data-aktiv="ja"] .pterm { border-color: var(--accent); }
-.pane[data-aktiv="ja"] .panelabel { color: var(--accent); }
+.pane[data-active="yes"] .pterm { border-color: var(--accent); }
+.pane[data-active="yes"] .panelabel { color: var(--accent); }
 
 .overlay { background: var(--panel); }
 .overlayBar { border-bottom: 1px dashed var(--line); }
@@ -207,12 +207,12 @@ body {
 /* --- Hit by a crash ---
    The daemon ended while the session was running. Not a normal exit: the entry
    stays and can be picked up again with a click. */
-.dot.verwaist { color: var(--blocked); animation: verwaistblink 1.4s steps(2) infinite; }
-.railitem[data-status="verwaist"] { color: var(--blocked); }
-.railitem[data-status="verwaist"] .rsub { color: var(--blocked); opacity: .8; }
-.tile[data-status="verwaist"] { border-color: var(--blocked); background: var(--panel); opacity: 1; }
-.tile[data-status="verwaist"] .tfoot .act { color: var(--blocked); opacity: 1; }
-@keyframes verwaistblink { 50% { opacity: .3 } }
+.dot.orphaned { color: var(--blocked); animation: orphanedblink 1.4s steps(2) infinite; }
+.railitem[data-status="orphaned"] { color: var(--blocked); }
+.railitem[data-status="orphaned"] .rsub { color: var(--blocked); opacity: .8; }
+.tile[data-status="orphaned"] { border-color: var(--blocked); background: var(--panel); opacity: 1; }
+.tile[data-status="orphaned"] .tfoot .act { color: var(--blocked); opacity: 1; }
+@keyframes orphanedblink { 50% { opacity: .3 } }
 
 /* ---------- Caught up: panes and small parts ----------
    Only some skins used to style these. The check in klassen.py makes sure none
@@ -230,14 +230,14 @@ body {
 
 /* Auswahl im Startdialog. */
 .choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
-.choiceButton[data-picked="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.choiceButton[data-picked="yes"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .85em; text-transform: none; }
 .styleNumber { color: var(--fg); }
 .styleNumber button { color: var(--accent); }
 .styleToggle { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
-.styleToggle[data-an="ja"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.styleToggle[data-on="yes"] { background: var(--accent); color: #fff; border-color: var(--accent); }
 .swatch { border: 2px solid var(--fg); border-radius: 6px 3px 5px 2px / 2px 5px 3px 6px; }
 .swatchField { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
 .swatchHex { background: transparent; border: 2px solid var(--dim); border-radius: 8px 3px 7px 2px / 2px 7px 3px 8px; text-align: center; }
@@ -264,7 +264,7 @@ body {
 
 /* Verbrauchstempo. */
 .pace { color: var(--dim); }
-.pace[data-warnung="ja"] { color: var(--blocked); }
+.pace[data-warning="yes"] { color: var(--blocked); }
 
 /* Hover states: whatever is clickable should show it. */
 .choiceButton:hover { background: #efe9d8; }
@@ -276,7 +276,7 @@ body {
 .tip { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
 
 /* Warning coat: permission prompts skipped */
-.tile[data-untamed="ja"]::before {
+.tile[data-untamed="yes"]::before {
   border: 2px solid var(--blocked);
   border-radius: 12px 4px 10px 5px;
   background: repeating-linear-gradient(48deg,
@@ -285,9 +285,9 @@ body {
 }
 
 /* Frozen */
-.dot.eingefroren { color: var(--waiting); }
-.tile[data-status="eingefroren"] { border-style: dashed; }
-#brake[data-an="ja"] { background: var(--blocked); color: #fff; }
+.dot.frozen { color: var(--waiting); }
+.tile[data-status="frozen"] { border-style: dashed; }
+#brake[data-on="yes"] { background: var(--blocked); color: #fff; }
 
 /* Crest: this skin draws directories with these glyphs. Anyone writing their
    own skin sets their own here — JavaScript knows nothing about it. */
@@ -305,11 +305,11 @@ body {
 
 /* Raumzustand */
 /* Das Papier nimmt einen Ton an, als läge Licht darauf. */
-:root[data-raum="working"] .fx::after {
+:root[data-room="working"] .fx::after {
   background: radial-gradient(120% 90% at 50% 0%,
     color-mix(in srgb, var(--working) 7%, transparent), transparent 70%);
 }
-:root[data-raum="waiting"] .fx::after {
+:root[data-room="waiting"] .fx::after {
   background: radial-gradient(120% 90% at 50% 0%,
     color-mix(in srgb, var(--blocked) 12%, transparent), transparent 70%);
   animation: sketchPuls 3s ease-in-out infinite;
