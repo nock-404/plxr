@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""Benennt CSS-Klassen um, ohne deutschen Fließtext anzufassen.
+"""Rename CSS classes without touching German prose.
 
-Eine Klasse wie `karte` steht auch mitten in einem Satz, den der Nutzer zu
-sehen bekommt. Stumpf zu ersetzen würde aus "die Karte ist leer" englischen
-Kauderwelsch machen. Deshalb wird nur dort ersetzt, wo ein Klassenname
-tatsächlich als Klassenname steht:
+A class such as `karte` also occurs in the middle of a sentence the user gets
+to see. Replacing bluntly would turn "die Karte ist leer" into English
+gibberish. So the replacement only happens where a class name really stands as
+a class name:
 
   CSS   .karte, .karte:hover, .a .karte, .karte.aktiv
   HTML  class="karte etwas"
   JS    querySelector('.karte'), className = 'karte', classList.add('karte'),
-        und class="karte" in zusammengebauten HTML-Schnipseln
+        and class="karte" inside assembled HTML snippets
 
-Alles andere bleibt unberührt. Zur Kontrolle wird vorher und nachher gezählt,
-wie oft der alte Name noch irgendwo steht — bleibt etwas übrig, wird es
-gemeldet statt stillschweigend hingenommen.
+Everything else stays untouched. As a control, the old name is counted before
+and afterwards — whatever is left over gets reported instead of quietly
+accepted.
 """
 import json
 import re
@@ -22,19 +22,19 @@ from pathlib import Path
 
 
 def css_ersetzen(text, karte):
-    """In CSS zählt nur, was hinter einem Punkt steht."""
+    """In CSS only what follows a dot counts."""
     def tausch(m):
         return '.' + karte.get(m.group(1), m.group(1))
     return re.sub(r'\.([A-Za-z][A-Za-z0-9]*)\b', tausch, text)
 
 
 def klassenliste(wert, karte):
-    """Ein class-Attribut ist eine Liste durch Leerzeichen getrennter Namen."""
+    """A class attribute is a list of names separated by spaces."""
     return ' '.join(karte.get(t, t) for t in wert.split(' '))
 
 
 def html_ersetzen(text, karte):
-    """In HTML nur innerhalb von class="…"."""
+    """In HTML only inside class="…"."""
     return re.sub(
         r'(\bclass=")([^"]*)(")',
         lambda m: m.group(1) + klassenliste(m.group(2), karte) + m.group(3),
@@ -42,24 +42,24 @@ def html_ersetzen(text, karte):
     )
 
 
-# Zeichenketten in JS, die Klassennamen tragen können.
+# Strings in JS that can carry class names.
 SELEKTOR = re.compile(r"^[.#][A-Za-z][\w .#>:\[\]=\"'-]*$")
 
 
 def js_ersetzen(text, karte):
-    """In JS: Selektoren, class-Attribute in HTML-Schnipseln, classList/className.
+    """In JS: selectors, class attributes in HTML snippets, classList/className.
 
-    Zeichenketten werden einzeln angesehen. Sieht eine wie ein Selektor aus,
-    werden ihre Klassenteile ersetzt; enthält sie class="…", nur das. Ein
-    deutscher Satz erfüllt beides nicht und bleibt, wie er ist.
+    Strings are looked at one by one. If one looks like a selector, its class
+    parts are replaced; if it contains class="…", only that. A German sentence
+    satisfies neither and stays as it is.
     """
     def in_zeichenkette(inhalt):
         if 'class="' in inhalt:
             return html_ersetzen(inhalt, karte)
         if SELEKTOR.match(inhalt):
             return css_ersetzen(inhalt, karte)
-        # Bare Klassennamen, wie sie an classList.add() gehen: ein einzelnes
-        # Wort, das genau einer bekannten Klasse entspricht.
+        # Bare class names, as they go to classList.add(): a single word that
+        # matches exactly one known class.
         teile = inhalt.split(' ')
         if teile and all(t in karte for t in teile if t):
             return klassenliste(inhalt, karte)
@@ -76,10 +76,11 @@ def js_ersetzen(text, karte):
 
 
 def id_ersetzen(text, karte, ist_js):
-    """Element-IDs: id="x" im HTML, '#x' als Selektor im JavaScript.
+    """Element ids: id="x" in the HTML, '#x' as a selector in the JavaScript.
 
-    IDs sind eindeutiger als Klassen — sie stehen selten mitten in einem Satz.
-    Trotzdem gilt dieselbe Regel: nur im Zusammenhang ersetzen, nie im Fließtext.
+    Ids are less ambiguous than classes — they rarely sit in the middle of a
+    sentence. The same rule applies anyway: replace in context only, never in
+    prose.
     """
     text = re.sub(
         r'(\bid=")([A-Za-z][A-Za-z0-9]*)(")',
@@ -92,7 +93,7 @@ def id_ersetzen(text, karte, ist_js):
             lambda m: m.group(1) + karte.get(m.group(2), m.group(2)),
             text,
         )
-        # getElementById und querySelector('#…') kommen auch vor
+        # getElementById and querySelector('#…') occur as well
         text = re.sub(
             r"(getElementById\(['\"])([A-Za-z][A-Za-z0-9]*)",
             lambda m: m.group(1) + karte.get(m.group(2), m.group(2)),
@@ -130,8 +131,8 @@ def main():
             geaendert += 1
     print(f'  {geaendert} Datei(en) geändert')
 
-    # Was ist vom alten Namen noch übrig? Wenn hier etwas auftaucht, steckt es
-    # an einer Stelle, die dieses Werkzeug nicht kennt — dann lieber wissen.
+    # What is left of the old name? If something shows up here it sits in a spot
+    # this tool does not know about — better to know.
     rest = {}
     for p in sys.argv[2:]:
         text = Path(p).read_text()

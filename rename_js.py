@@ -1,25 +1,24 @@
 #!/usr/bin/env python3
-"""Benennt JavaScript-Bezeichner um, ohne Zeichenketten und Kommentare anzufassen.
+"""Rename JavaScript identifiers without touching strings and comments.
 
-Dasselbe Vorgehen wie auf der Go-Seite: der Quelltext wird in Code und
-Nicht-Code zerlegt, ersetzt wird nur im Code. Was der Nutzer zu sehen bekommt,
-steht in Zeichenketten und bleibt unberührt; die Kommentare kommen in einem
-eigenen Durchgang dran.
+Same approach as on the Go side: the source is split into code and non-code,
+and only the code is replaced. What the user gets to see sits in strings and
+stays untouched; the comments are handled in a pass of their own.
 
-Anders als Go hat JavaScript keinen Compiler, der eine vergessene Stelle
-meldet. Deshalb wird hinterher geprüft, dass sich an den Zeichenketten
-nachweislich nichts geändert hat — und der Rest muss über classes.py,
-bindings.py, den Parser-Test und `node --check` fallen.
+Unlike Go, JavaScript has no compiler that reports a forgotten spot. So
+afterwards it is verified that the strings demonstrably did not change — and
+the rest has to fall out of classes.py, bindings.py, the parser test and
+`node --check`.
 """
 import json
 import re
 import sys
 from pathlib import Path
 
-# Zeichenketten, Vorlagen-Zeichenketten und Kommentare. Regex-Literale werden
-# bewusst NICHT erkannt: sie sicher von einer Division zu unterscheiden braucht
-# einen halben Parser. Stattdessen wird hinterher geprüft, ob eines sich
-# verändert hat — dann fliegt es auf, statt still zu passieren.
+# Strings, template strings and comments. Regex literals are deliberately
+# NOT recognised: telling them apart from a division reliably takes half a
+# parser. Instead it is checked afterwards whether one of them changed —
+# then it comes out, instead of happening quietly.
 STUECKE = re.compile(
     r"""('(?:[^'\\\n]|\\.)*')"""      # 'einfach'
     r"""|("(?:[^"\\\n]|\\.)*")"""     # "doppelt"
@@ -52,10 +51,10 @@ def anwenden(text, karte):
         if art == 'code':
             s = _im_code(s, karte)
         elif s.startswith('`'):
-            # Eine Vorlagen-Zeichenkette ist nicht durchgehend Text: in ${…}
-            # steht ausfuehrbarer Code. Den zu ueberspringen hiesse, dass
-            # `${kurzText(x)}` den alten Namen behaelt, waehrend die Funktion
-            # schon anders heisst — und JavaScript sagt dazu nichts, bis es
+            # A template string is not text all the way through: inside ${…}
+            # there is executable code. Skipping it would mean that
+            # `${shortText(x)}` keeps the old name while the function is
+            # already called something else — and JavaScript says nothing until it
             # zur Laufzeit knallt.
             s = re.sub(r'\$\{([^{}]*)\}',
                        lambda m: '${' + _im_code(m.group(1), karte) + '}', s)
@@ -64,11 +63,10 @@ def anwenden(text, karte):
 
 
 def unberuehrt(text):
-    """Alles, was sich nicht ändern darf.
+    """Everything that must not change.
 
-    Vorlagen-Zeichenketten sind ausgenommen: in ihren ${…} steht Code, der
-    mit umbenannt werden muss. Geprüft wird bei ihnen deshalb nur der Text
-    außerhalb der Einsetzungen.
+    Template strings are exempt: their ${…} hold code that has to be renamed
+    along. For them only the text outside the substitutions is checked.
     """
     out = []
     for art, s in teile(text):

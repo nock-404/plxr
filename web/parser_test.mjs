@@ -98,7 +98,7 @@ else console.log(`  ok   ${dupes} Kollision(en) bei ${paths.length} Pfaden`);
 if (crestFor('/w/mono') !== crestFor('/w/mono')) { failures++; console.log('  FEHL nicht deterministisch'); }
 else console.log('  ok   derselbe Pfad, dasselbe Zeichen');
 
-// Und ueber viele Pfade halbwegs gleichmaessig streuen.
+// And spread reasonably evenly across many paths.
 const buckets = new Map();
 for (let i = 0; i < 2000; i++) {
   const z = crestFor('/repo/projekt-' + i);
@@ -116,8 +116,8 @@ if (buckets.size < glyphs.length || skew > 1.6) {
 
 
 console.log('  --- Raumzustand ---');
-// Nur drei Zustaende, und "jemand wartet" schlaegt alles andere: aus dem
-// Augenwinkel sind feinere Abstufungen nicht mehr unterscheidbar.
+// Only three states, and "somebody is waiting" beats everything else: out of
+// the corner of your eye finer gradations are no longer distinguishable.
 const lage = ({ laufen, blockiert, verwaist }) =>
   blockiert || verwaist ? 'waiting' : (laufen ? 'working' : 'idle');
 
@@ -135,10 +135,10 @@ for (const [zustand, want, name] of roomCases) {
 }
 
 console.log('  --- Sammelfrage ---');
-/* Zusammengefasst wird nur bei woertlich gleicher Frage. Der teuerste
-   denkbare Fehler waere, zwei verschiedene Fragen in eine Karte zu ziehen:
-   dann geht eine Antwort an eine Session, die etwas anderes gefragt hat.
-   Deshalb pruefen die Faelle vor allem, was NICHT zusammenkommt. */
+/* Grouping happens only for word-for-word identical questions. The most
+   expensive mistake imaginable would be pulling two different questions into
+   one card: one answer would then go to a session that asked something else.
+   So the cases check above all what does NOT come together. */
 const F = 'Do you want to proceed?';
 const groupCases = [
   ['gleiche Frage kommt zusammen',
