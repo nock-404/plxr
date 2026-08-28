@@ -41,6 +41,10 @@
 
 * { box-sizing: border-box; }
 
+/* Anordnungsmasse, die zwei Stellen kennen muessen. Farben stehen nicht hier:
+   die bringt der Skin mit. */
+:root { --files-w: 260px; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -211,7 +215,14 @@ html, body {
 
 .sesssplit { position: relative; flex: 1; min-height: 0; display: flex; }
 
-.files { flex: 0 0 auto; width: 260px; display: flex; flex-direction: column; min-height: 0; }
+.files { flex: 0 0 auto; width: var(--files-w); display: flex; flex-direction: column; min-height: 0; }
+
+/* Der Dateibetrachter laesst den Baum stehen.
+   Vorher lag er als .overlay ueber der ganzen Flaeche, also auch ueber der
+   Dateileiste — man klickte eine Datei an und verlor die Stelle im Baum, aus
+   der man kam. Regeln und Wiedergabe duerfen weiter alles verdecken: die
+   haben mit dem Baum nichts zu tun. */
+.sesssplit[data-files="open"] #viewer { left: var(--files-w); }
 .filesbar { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 5px 8px; }
 .filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .filetree { flex: 1; overflow: auto; padding: 4px 0 12px; }

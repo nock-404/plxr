@@ -568,17 +568,59 @@ func (c *Core) Update() error {
 	return nil
 }
 
-// Restart starts the swapped-in app and ends this one.
+// Restart starts the swapped-in app and ends this one — the daemon included.
 //
-// The daemon keeps running — it is a process of its own, and the sessions belong
-// to it. Only the window comes back new, with the new version. That is exactly
-// deshalb bleibt beim Update alles beim Alten.
+// The daemon used to stay deliberately: it owns the sessions, and only the
+// window came back new. That was wrong, and it cost a whole evening.
+//
+// The reason: the daemon does not only hold the sessions, it also answers for
+// the interface. After an update a new window talked to an old daemon — one
+// out of a bundle the swap had already deleted. Everything the new version
+// brought along was missing there: the language files came back 404, the
+// interface stood unstyled, and nothing said why. Two versions that only have
+// to agree on names will disagree sooner or later, and there is no way to see
+// it from outside.
+//
+// So both go. What it costs is bounded and foreseen: registry.load() marks
+// sessions that were running as orphaned and keeps the Claude id, so the
+// conversation carries on with --resume. What it saves is an app in which
+// nothing works and nobody can tell why.
 func (c *Core) Restart() error {
 	st := c.UpdateFortschritt()
 	if st.Path == "" {
 		return errors.New("nichts eingesetzt")
 	}
-	return update.Restart(st.Path)
+	if err := update.Restart(st.Path); err != nil {
+		return err
+	}
+	go func() {
+		// The answer to /api/restart still has to get out.
+		time.Sleep(700 * time.Millisecond)
+		c.endSessions()
+		os.Exit(0)
+	}()
+	return nil
+}
+
+// endSessions ends every session before the daemon goes.
+//
+// Without this the shells would survive their owner: the operating system
+// hands them to init, and they keep running with nobody attached — invisible,
+// and holding on to the working directory and the ports.
+func (c *Core) endSessions() {
+	c.mu.Lock()
+	hosts := make([]*ptyhost.Host, 0, len(c.hosts))
+	for _, h := range c.hosts {
+		hosts = append(hosts, h)
+	}
+	c.mu.Unlock()
+	for _, h := range hosts {
+		h.Kill()
+	}
+	if len(hosts) > 0 {
+		// Kill() asks politely first and follows up after the grace period.
+		time.Sleep(ptyhost.KillGrace + 500*time.Millisecond)
+	}
 }
 
 // Timeline hands out only the marks of a recording. Separate from Playback,

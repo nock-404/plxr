@@ -117,6 +117,52 @@ for (const [datei, src] of jsQuellen) {
     if (DEUTSCH.test(txt)) deutscheReste.push(`${datei}: ${txt.slice(0, 60)}`);
   }
 }
+/* Was auf den Schirm geht, muss durch tr().
+
+   Die Wortliste oben ist ein festes Vokabular und faengt nur, was jemand
+   hineingeschrieben hat: "liest …", "Ein lauschender Port" und "Transkripte"
+   sind ihr durchgerutscht, jahrelang sichtbar. Diese Pruefung fragt nicht
+   nach der Sprache, sondern nach der Herkunft — eine Zeichenkette, die als
+   Text gesetzt wird, ohne durch tr() gegangen zu sein, ist unuebersetzbar,
+   ganz gleich wie sie klingt. */
+/* Bausteine ohne Uebersetzung: Einheiten, Kennungen, Praefixe. Sie stehen im
+   Code, weil sie in jeder Sprache gleich heissen, nicht weil jemand sie
+   vergessen hat.
+
+   Im Zweifel gehoert eine Zeichenkette NICHT hierher — genau so verschwindet
+   der naechste deutsche Rest aus dem Blick. Jeder Eintrag hat seinen Grund. */
+const KEIN_TEXT = new Set([
+  'claude-',   // Praefix, das beim Kuerzen eines Modellnamens abgeschnitten wird
+  'kB',        // Einheit
+  'pid',       // Kennung, heisst ueberall so
+  ', pid',     // dieselbe Kennung mit Trenner
+  'shell',     // Kennung einer eingebauten Vorlage, kein Text
+]);
+
+const ZIELE = /(?:\.textContent\s*=|\.placeholder\s*=|plxrUI\.notice\(|plxrUI\.confirm\(|showEmpty\()/g;
+const ungefiltert = [];
+for (const [datei, src] of jsQuellen) {
+  const ohneKommentar = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+  for (const m of ohneKommentar.matchAll(ZIELE)) {
+    // Der Ausdruck bis zum Zeilen- oder Anweisungsende.
+    const rest = ohneKommentar.slice(m.index + m[0].length, m.index + m[0].length + 400);
+    const ausdruck = rest.split(/;\n|\n\s*\n/)[0].split('\n').slice(0, 4).join('\n');
+    if (/\btr\(/.test(ausdruck)) continue;
+    for (const lit of ausdruck.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`]*)`/g)) {
+      const txt = (lit[1] ?? lit[2] ?? lit[3] ?? '').replace(/\$\{[^{}]*\}/g, '');
+      if (!/[A-Za-zÄÖÜäöü]{2,}/.test(txt)) continue;      // '', '·', '%' sind kein Text
+      if (KEIN_TEXT.has(txt.trim())) continue;
+      ungefiltert.push(`${datei}: ${txt.trim().slice(0, 50)}`);
+      break;
+    }
+  }
+}
+if (ungefiltert.length) {
+  fehler = 1;
+  console.log(`  ${ungefiltert.length} Texte gehen ohne tr() auf den Schirm:`);
+  for (const t of ungefiltert) console.log(`      ${t}`);
+}
+
 if (deutscheReste.length) {
   fehler = 1;
   console.log(`  ${deutscheReste.length} deutsche Texte stehen noch fest im Quelltext:`);

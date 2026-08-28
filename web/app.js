@@ -301,7 +301,7 @@ function showConnection(ok) {
   connectionOk = ok;
   document.documentElement.dataset.offline = ok ? '' : 'ja';
   if (!ok) {
-    $('#counts').textContent = 'Verbindung verloren, versuche erneut …';
+    $('#counts').textContent = tr('conn.lost');
     return;
   }
   /* Once the connection is back the sentence has to go immediately. Leaving it
@@ -716,7 +716,7 @@ function toggleRow(name, welcher) {
   const lesen = () => document.documentElement.dataset[welcher] !== 'off';
   const show = () => {
     button.dataset.an = lesen() ? 'ja' : 'nein';
-    button.textContent = lesen() ? 'AN' : 'AUS';
+    button.textContent = lesen() ? tr('common.on') : tr('common.off');
   };
   button.addEventListener('click', () => {
     document.documentElement.dataset[welcher] = lesen() ? 'off' : 'on';
@@ -782,11 +782,11 @@ async function showHookStatus() {
       : st.fehlen?.length
         ? tr('hook.missingHint', { missing: st.fehlen.join(', ') })
         : tr('hook.notConnected');
-    $('#hookBtn').textContent = st.eingerichtet ? tr('hook.detach') : 'EINRICHTEN';
+    $('#hookBtn').textContent = st.eingerichtet ? tr('hook.detach') : tr('hook.attach');
     $('#hookBtn').dataset.an = st.eingerichtet ? 'ja' : 'nein';
   } catch {
-    $('#hookHint').textContent = 'Zustand unbekannt.';
-    $('#hookBtn').textContent = 'EINRICHTEN';
+    $('#hookHint').textContent = tr('hook.unknown');
+    $('#hookBtn').textContent = tr('hook.attach');
   }
 }
 
@@ -812,7 +812,7 @@ $('#themeFile').addEventListener('change', async (e) => {
     const t = await api.themeImport(await f.text());
     await loadThemes(t.name);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), 'Theme abgelehnt');
+    plxrUI.notice(err.message || String(err), tr('theme.rejected'));
   }
   e.target.value = '';
 });
@@ -1489,7 +1489,7 @@ function addPane(id) {
           const neu = await api.wiederaufnehmen(t.id);
           setTimeout(() => openSession(neu.id), 700);
         } catch (e) {
-          plxrUI.notice(e.message || String(e), 'Nicht wiederaufgenommen');
+          plxrUI.notice(e.message || String(e), tr('archive.notResumed'));
         }
       });
     return;
@@ -1872,6 +1872,8 @@ $('#filesToggle').addEventListener('click', () => {
   const f = $('#files');
   f.hidden = !f.hidden;
   $('#filesToggle').classList.toggle('on', !f.hidden);
+  // Der Betrachter braucht die Breite als Merkmal, nicht als Vermutung.
+  $('#files').closest('.sesssplit').dataset.files = f.hidden ? '' : 'open';
   // On opening, the tree has to be loaded: while the panel was closed,
   // hat dateibaumLaden nichts getan.
   if (!f.hidden) {
@@ -1914,7 +1916,7 @@ document.addEventListener('keydown', (e) => {
   for (const d of DIALOGS) if (!$(d).hidden) { $(d).hidden = true; return; }
   if (!$('#find').hidden) { closeFind(); return; }
   if (!$('#viewer').hidden) { closeViewer(); return; }
-  if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
+  if (!$('#rulesPane').hidden) { rulesShow(false); return; }
   if (state.panes.length) showGrid();
 });
 
@@ -1967,7 +1969,7 @@ $('#sessAccount').addEventListener('change', async (e) => {
     closePane(state.aktiv);
     setTimeout(() => openSession(neu.id), 700);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), 'Wechsel fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), tr('session.switchFailed'));
     e.target.value = t.account || '';
   }
 });
@@ -2375,7 +2377,7 @@ async function openPlayer(id, name, abOffset) {
   } catch (e) {
     $('#playerMeta').textContent = '';
     closePlayer();
-    plxrUI.notice(e.message || String(e), 'Keine Aufzeichnung');
+    plxrUI.notice(e.message || String(e), tr('player.noRecording'));
     return;
   }
 
@@ -2505,11 +2507,19 @@ document.addEventListener('keydown', (e) => {
 
 const ARTNAME = { global: 'global', projekt: 'projekt', lokal: 'lokal', import: 'import', skill: 'skill', agent: 'agent' };
 
+/* Der Knopf zeigt an, ob die Regeln offen sind — wie der fuer die Dateien.
+   Ohne diese Anzeige sieht man dem Reiter nicht an, in welchem Zustand er ist,
+   und der einzige sichtbare Weg zurueck ist, nochmal draufzudruecken. */
+function rulesShow(offen) {
+  $('#rulesPane').hidden = !offen;
+  $('#rulesToggle').classList.toggle('on', offen);
+}
+
 $('#rulesToggle').addEventListener('click', async () => {
-  if (!$('#rulesPane').hidden) { $('#rulesPane').hidden = true; return; }
+  if (!$('#rulesPane').hidden) { rulesShow(false); return; }
   if (!state.aktiv) return;
   $('#viewer').hidden = true;
-  $('#rulesPane').hidden = false;
+  rulesShow(true);
   $('#rulesMeta').textContent = tr('common.loading');
   const list = await api.regeln(state.aktiv);
   $('#rulesMeta').textContent = list.length === 1
@@ -2536,7 +2546,7 @@ $('#rulesToggle').addEventListener('click', async () => {
     box.appendChild(row);
   }
 });
-$('#rulesClose').addEventListener('click', () => { $('#rulesPane').hidden = true; });
+$('#rulesClose').addEventListener('click', () => rulesShow(false));
 
 /* An empty list without an explanation is a state that looks like a failure.
    Every list says why it is empty. */
@@ -2590,7 +2600,7 @@ async function searchTerminals() {
     archiv.treffer = null;
     renderArchive();
   } catch (e) {
-    $('#archInfo').textContent = 'Suche fehlgeschlagen: ' + (e.message || e);
+    $('#archInfo').textContent = tr('archive.searchFailed', { err: e.message || e });
   }
 }
 
@@ -2605,12 +2615,12 @@ async function fullTextSearch() {
     archiv.treffer = await api.search(q);
     renderArchive();
   } catch (e) {
-    $('#archInfo').textContent = 'Suche fehlgeschlagen: ' + (e.message || e);
+    $('#archInfo').textContent = tr('archive.searchFailed', { err: e.message || e });
   }
 }
 
 function shortDate(ms) {
-  return new Date(ms).toLocaleString('de-DE',
+  return new Date(ms).toLocaleString(sprache,
     { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
@@ -2620,7 +2630,7 @@ async function resumeSession(id, konto) {
     showGrid();
     setTimeout(() => openSession(s.id), 500);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), 'Fortsetzen fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), tr('archive.resumeFailed'));
   }
 }
 
@@ -2694,7 +2704,7 @@ function renderArchive() {
         '<span class="hitProject"></span><span class="hitValue"></span>' +
         '<span class="hitAction"><button class="btn">FORTSETZEN</button></span>';
       row.querySelector('.hitDate').textContent = shortDate(t.mod);
-      row.querySelector('.hitTitle').textContent = t.title || '(ohne Titel)';
+      row.querySelector('.hitTitle').textContent = t.title || tr('archive.untitled');
       row.querySelector('.hitExcerpt').textContent = t.auszug;
       row.querySelector('.hitProject').textContent = t.project;
       row.querySelector('.hitValue').textContent = t.anzahl + '×';
@@ -2718,7 +2728,7 @@ function renderArchive() {
 
   $('#archInfo').textContent = q
     ? tr('find.count', { i: list.length, n: archiv.alle.length })
-    : `${archiv.alle.length} ${archiv.alle.length === 1 ? 'Transkript' : 'Transkripte'}`;
+    : tr(archiv.alle.length === 1 ? 'archive.transcript' : 'archive.transcripts', { n: archiv.alle.length });
 
   if (!list.length) {
     if (archiv.alle.length) {
@@ -2743,7 +2753,7 @@ function renderArchive() {
       `<span class="hitAction"><button class="btn" data-t="auf">${tr('archive.resume')}</button>` +
       `<button class="btn" data-t="weg">${tr('common.delete')}</button></span>`;
     row.querySelector('.hitDate').textContent = shortDate(e.mod);
-    row.querySelector('.hitTitle').textContent = e.title || '(ohne Titel)';
+    row.querySelector('.hitTitle').textContent = e.title || tr('archive.untitled');
     row.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
     row.querySelector('.hitSmall').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
     row.querySelector('.hitValue').textContent = (e.size / 1024).toFixed(0) + ' kB';
@@ -2776,12 +2786,12 @@ function renderArchive() {
    must not be shot down by accident. */
 
 async function loadPorts() {
-  $('#portsInfo').textContent = 'liest …';
+  $('#portsInfo').textContent = tr('ports.reading');
   const list = await api.ports();
   $('#portsCount').textContent = list.length;
   $('#portsInfo').textContent = list.length === 1
-    ? 'Ein lauschender Port'
-    : `${list.length} lauschende Ports`;
+    ? tr('ports.onePort')
+    : tr('ports.nPorts', { n: list.length });
   const box = $('#portsList');
   box.innerHTML = '';
   if (!list.length) {
@@ -2799,16 +2809,17 @@ async function loadPorts() {
       '<span class="hitAction"><button class="btn" data-h="0">BEENDEN</button>' +
       '<button class="btn" data-h="1">HART</button></span>';
     row.querySelector('.hitDate').textContent = p.port;
-    row.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · plxr-session' : '');
+    row.querySelector('.hitTitle').textContent = p.command + (p.eigen ? '  · ' + tr('ports.ownSession') : '');
     row.querySelector('.hitProject').textContent = p.addr;
     row.querySelector('.hitValue').textContent = 'pid ' + p.pid;
     for (const hart of [false, true]) {
       row.querySelector(`[data-h="${hart ? 1 : 0}"]`).addEventListener('click', async () => {
-        const wie = hart ? 'HART beenden (SIGKILL)' : 'beenden (SIGTERM)';
-        const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`, `Port ${p.port} ${wie}?`);
+        const wie = tr(hart ? 'ports.killHard' : 'ports.killSoft');
+        const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`,
+          tr('ports.killAsk', { port: p.port, how: wie }));
         if (!ja) return;
         try { await api.portBeenden(p.pid, hart); setTimeout(loadPorts, 500); }
-        catch (e) { plxrUI.notice(e.message || String(e), 'Beenden fehlgeschlagen'); }
+        catch (e) { plxrUI.notice(e.message || String(e), tr('ports.killFailed')); }
       });
     }
     box.appendChild(row);
@@ -2833,10 +2844,10 @@ function tok(n) {
 $('#usageRange').addEventListener('change', loadUsage);
 
 async function loadUsage() {
-  $('#usageInfo').textContent = 'rechnet …';
+  $('#usageInfo').textContent = tr('usage.calculating');
   const b = await api.verbrauch($('#usageRange').value);
   $('#usageInfo').textContent =
-    `${b.dateien} ${b.dateien === 1 ? 'Transkript' : 'Transkripte'} · ${b.dauer}`;
+    tr(b.dateien === 1 ? 'archive.transcript' : 'archive.transcripts', { n: b.dateien }) + ' · ' + b.dauer;
 
   const box = $('#usageBody');
   box.innerHTML = '';
@@ -2973,13 +2984,16 @@ $('#updateHide').addEventListener('click', () => {
 $('#updateNotes').addEventListener('click', () => {
   plxrUI.notice(versionStatus?.notes || tr('update.noNotes'), tr('update.notesTitle'));
 });
-/* The flow you expect: notice, click, progress bar, restart. The sessions
-   notice none of it — they belong to the daemon, and it keeps running. Only the
-   window comes back new. */
+/* Der erwartete Ablauf: Hinweis, Klick, Fortschritt, Neustart.
+   Neu daran ist, dass der Daemon mitgeht — sonst redet ein neues Fenster mit
+   einem alten Daemon, und das ist ein Zustand, in dem nichts mehr geht und
+   nichts sagt warum. Was das kostet, steht deshalb VOR dem Klick da und nicht
+   danach: laufende Sessions werden zu verwaisten. */
 $('#updateGo').addEventListener('click', async () => {
-  const ja = await plxrUI.confirm(
-    tr('update.confirm'),
-    tr('update.installAsk', { v: versionStatus?.latest || '' }));
+  const laufende = state.tiles.filter((t) => t.alive).length;
+  const frage = tr('update.installAsk', { v: versionStatus?.latest || '' }) +
+    (laufende ? '\n\n' + tr('update.sessionsWarn', { n: laufende }) : '');
+  const ja = await plxrUI.confirm(tr('update.confirm'), frage);
   if (!ja) return;
 
   $('#updateGo').disabled = true;
@@ -2997,7 +3011,7 @@ $('#updateGo').addEventListener('click', async () => {
 });
 
 function updateFehler(text) {
-  $('#updateText').textContent = 'fehlgeschlagen: ' + text;
+  $('#updateText').textContent = tr('update.failedWith', { err: text });
   $('#updateProgress').hidden = true;
   $('#updateGo').disabled = false;
   $('#updateNotes').hidden = false;
@@ -3027,8 +3041,8 @@ function updateVerfolgen() {
     setTimeout(async () => {
       try {
         await api.neuStarten();
-        // The new version is running now. This window bows out —
-        // the daemon stays, so the sessions notice nothing.
+        // Die neue Fassung laeuft. Dieses Fenster tritt ab, der Daemon
+        // beendet sich gleich selbst — beide kommen neu und zusammen.
         if (WAILS) Native.Quit();
       } catch {
         $('#updateText').textContent = tr('update.installed');
@@ -3060,7 +3074,7 @@ async function fillChoice() {
     b.type = 'button';
     b.className = 'choiceButton';
     b.dataset.id = w.id;
-    b.textContent = w.id === 'shell' ? `Shell (${shellCmd[0].split('/').pop()})` : w.label;
+    b.textContent = w.id === 'shell' ? tr('template.shellLabel', { cmd: shellCmd[0].split('/').pop() }) : w.label;
     b.addEventListener('click', () => setChoice(w.id));
     box.appendChild(b);
   }
@@ -3122,7 +3136,7 @@ async function openTemplates() {
         const r = await api.templateStart(v.name);
         if (r.teilweise) plxrUI.notice(r.teilweise, tr('templates.startFailed'));
       } catch (e) {
-        plxrUI.notice(e.message || String(e), 'Nicht gestartet');
+        plxrUI.notice(e.message || String(e), tr('template.notStarted'));
       }
     });
 
@@ -3179,7 +3193,7 @@ $('#newForm').addEventListener('submit', async (e) => {
     $('#dialog').hidden = true;
     setTimeout(() => openSession(s.id), 400);
   } catch (err) {
-    plxrUI.notice(err.message || String(err), 'Start fehlgeschlagen');
+    plxrUI.notice(err.message || String(err), tr('session.startFailed'));
   }
 });
 
@@ -3217,7 +3231,7 @@ api.env().then((e) => {
   }, 22);
 })();
 
-setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString('de-DE'); }, 1000);
+setInterval(() => { $('#clock').textContent = new Date().toLocaleTimeString(sprache); }, 1000);
 
 // Register our own tooltips — title="" would be a box from the system.
 plxrUI.tippBinden();
@@ -3252,7 +3266,7 @@ async function emergencyBrake() {
     $('#counts').textContent = r.eingefroren === r.betroffen
       ? tr('brake.halted', { n: r.eingefroren })
       : tr('brake.partial', { done: r.eingefroren, total: r.betroffen });
-  } catch (e) { plxrUI.notice(e.message || String(e), 'Notbremse fehlgeschlagen'); }
+  } catch (e) { plxrUI.notice(e.message || String(e), tr('brake.failed')); }
 }
 $('#brake').addEventListener('click', emergencyBrake);
 
