@@ -328,3 +328,6 @@ body {
 
 /* What was answered to this question before. */
 .memoryHead { color: var(--dim); font-size: .9em; }
+
+/* Going in circles: the tile is green and it is still stuck. */
+.tile[data-stuck="yes"] .act { color: #800000; font-weight: bold; }

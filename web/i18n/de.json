@@ -375,5 +375,10 @@
   "agents.deleteAsk": "Profil {name} löschen?",
   "agents.saved": "{name} gespeichert — wirkt beim nächsten Zustandsstrom",
   "agents.editing": "bearbeite {name}",
-  "agents.noneRunning": "Noch passt keine laufende Session dazu — es greift, sobald eine läuft."
+  "agents.noneRunning": "Noch passt keine laufende Session dazu — es greift, sobald eine läuft.",
+  "tile.stuck": "geht im Kreis: {files} — {n} Anweisungen",
+  "workbench.savedAndPicked": "gespeichert — und als Theme „{name}“ eingeschaltet",
+  "workbench.themeFailed": "Der Skin ist gespeichert, das Theme dazu nicht",
+  "waiting.empty": "noch nichts gezählt — es beginnt mit dem nächsten Statuswechsel einer Session",
+  "marks.noneHookHint": "Vor jeder Anweisung wird einer angelegt — aber erst, wenn Claude Code seinen Zustand meldet: Einstellungen → Agenten → EINRICHTEN."
 }

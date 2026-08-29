@@ -1397,9 +1397,16 @@ function renderGrid() {
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
     el.querySelector('.tbody').textContent = t.preview || '';
+    /* Going in circles beats the activity text. The tile looks healthy in that
+       case — green, something scrolling — and that is exactly the state in
+       which nobody looks closer. So it has to stand where the activity would
+       otherwise be, not somewhere beside it. */
+    el.dataset.stuck = t.stuck ? 'yes' : '';
     el.querySelector('.act').textContent = t.orphaned
       ? tr('tile.crashedHint')
-      : (t.alive ? (t.activity || t.last_message || '') : tr('state.ended', { code: t.exit_code }));
+      : t.stuck
+        ? tr('tile.stuck', { n: t.stuck.runs, files: t.stuck.files.slice(0, 2).join(', ') })
+        : (t.alive ? (t.activity || t.last_message || '') : tr('state.ended', { code: t.exit_code }));
     el.querySelector('.agent').textContent = t.agent_label || t.agent || '';
     el.querySelector('.ctx').textContent =
       [t.model?.replace('claude-', ''), t.effort, ctxShort(t.context), agoText(t.since)]
@@ -2878,7 +2885,8 @@ $('#marksToggle').addEventListener('click', async () => {
   try { list = await api.marks(state.active); } catch { list = []; }
   $('#marksMeta').textContent = '';
   if (!list.length) {
-    showEmpty(box, tr('marks.none'), tr('marks.noneHint'));
+    showEmpty(box, tr('marks.none'),
+      hookInstalled === false ? tr('marks.noneHookHint') : tr('marks.noneHint'));
     return;
   }
   for (const m of list.slice(0, 50)) await marksRow(box, m);
@@ -2985,10 +2993,31 @@ async function wbSave() {
   if (!name) { plxrUI.notice(tr('workbench.nameNeeded'), tr('workbench.title')); return; }
   try {
     await api.skinWrite(name, $('#wbCss').value);
-    $('#wbMeta').textContent = tr('workbench.saved');
   } catch (e) {
     plxrUI.notice(errText(e), tr('workbench.title'));
+    return;
   }
+
+  /* A skin alone cannot be selected — switching goes through a THEME that
+     points at a skin. Saving under a new name and finding it nowhere would be
+     a dead end: the file is written, and nothing has changed.
+
+     So if no theme uses this skin yet, one is created, named after it, and
+     selected. Now the thing that was just written is actually on screen. */
+  const has = (state.themes || []).some((t) => t.skin === name);
+  if (!has) {
+    try {
+      await api.themeImport(JSON.stringify({ name, label: name, skin: name }));
+      await loadThemes(name);
+      localStorage.setItem('plxr.theme', name);
+      $('#wbMeta').textContent = tr('workbench.savedAndPicked', { name });
+      return;
+    } catch (e) {
+      // The skin is saved either way — say what is missing, do not swallow it.
+      plxrUI.notice(errText(e), tr('workbench.themeFailed'));
+    }
+  }
+  $('#wbMeta').textContent = tr('workbench.saved');
 }
 
 $('#wbCss').addEventListener('input', () => {
@@ -3429,8 +3458,6 @@ async function loadWaiting(box, days) {
   } catch {
     return;   // the usage view is worth more than this block
   }
-  if (!w.worked && !w.waited) return;
-
   const d = document.createElement('div');
   d.className = 'ublock';
   d.innerHTML = '<b class="uhead"></b>';
@@ -3463,8 +3490,21 @@ async function loadWaiting(box, days) {
     d.appendChild(note);
   }
 
-  const max = Math.max(...w.byDay.map((l) => l.worked + l.waited), 1);
-  for (const l of w.byDay.slice(0, 30)) {
+  /* Nothing collected yet? Then say so, rather than hiding the block. It only
+     starts counting at the first change of status, and a section that is simply
+     absent teaches nobody that it exists. */
+  if (!w.worked && !w.waited) {
+    const note = document.createElement('div');
+    note.className = 'urow';
+    note.innerHTML = '<span class="ukey"></span>';
+    note.querySelector('.ukey').textContent = tr('waiting.empty');
+    d.appendChild(note);
+    box.appendChild(d);
+    return;
+  }
+
+  const max = Math.max(...(w.byDay || []).map((l) => l.worked + l.waited), 1);
+  for (const l of (w.byDay || []).slice(0, 30)) {
     const row = document.createElement('div');
     row.className = 'urow';
     row.innerHTML = '<span class="ukey"></span><span class="ubar"><i class="ufill"></i></span><span class="uval"></span>';

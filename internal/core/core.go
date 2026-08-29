@@ -51,6 +51,11 @@ type Tile struct {
 	// would look calm while nothing is moving at all.
 	Frozen bool `json:"frozen,omitempty"`
 
+	// Stuck is set when the agent has been changing the same files back and
+	// forth for a while. The tile looks healthy in that case — green, output
+	// scrolling — and that is exactly why it has to be said out loud.
+	Stuck *marks.Stuck `json:"stuck,omitempty"`
+
 	// Question is the part of the screen holding the pending question — for the
 	// inbox, so it can be answered without opening the session.
 	Question string `json:"question,omitempty"`
@@ -859,6 +864,12 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		t := Tile{Session: sess, Preview: screen, Frozen: frozen}
 		if sess.Alive && sess.Status == session.StatusPermission {
 			t.Question = questionFromScreen(screen)
+		}
+		// Only while it is running: a loop in a session that ended is history,
+		// not a warning. IsStuck caches by the newest mark, so this costs
+		// nothing on the ticks where nothing has changed.
+		if sess.Alive {
+			t.Stuck = marks.IsStuck(sess.ClaudeSessionID)
 		}
 		out = append(out, t)
 		c.checkEdge(sess)

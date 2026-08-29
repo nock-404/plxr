@@ -375,5 +375,10 @@
   "agents.deleteAsk": "Delete the profile {name}?",
   "agents.saved": "{name} saved — takes effect on the next status update",
   "agents.editing": "editing {name}",
-  "agents.noneRunning": "No running session matches it yet — it takes effect as soon as one does."
+  "agents.noneRunning": "No running session matches it yet — it takes effect as soon as one does.",
+  "tile.stuck": "going in circles: {files} — {n} instructions",
+  "workbench.savedAndPicked": "saved — and switched on as the theme “{name}”",
+  "workbench.themeFailed": "The skin is saved, the theme for it is not",
+  "waiting.empty": "nothing counted yet — it starts with the next change of status in a session",
+  "marks.noneHookHint": "A mark is taken before every instruction — but only once Claude Code reports its state: settings → agents → ATTACH."
 }
