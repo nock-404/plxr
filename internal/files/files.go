@@ -157,8 +157,24 @@ func Read(root, path string) (*Content, error) {
 		return c, nil
 	}
 	c.Text = string(buf)
-	c.Lines = bytes.Count(buf, []byte{'\n'}) + 1
+	c.Lines = countLines(buf)
 	return c, nil
+}
+
+// countLines counts what an editor shows as lines.
+//
+// The obvious `Count('\n') + 1` is wrong for the normal case: nearly every
+// text file ends in a newline, and that closes the last line, it does not open
+// a new one. A one-line file was showing "2 lines". An empty file has none.
+func countLines(buf []byte) int {
+	if len(buf) == 0 {
+		return 0
+	}
+	n := bytes.Count(buf, []byte{'\n'})
+	if buf[len(buf)-1] != '\n' {
+		n++ // the last line has no closing newline and still counts
+	}
+	return n
 }
 
 // MaxWrite limits what may be written through the UI.

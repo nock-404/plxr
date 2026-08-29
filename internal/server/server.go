@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"plxr/internal/theme"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -544,9 +545,42 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 	c.WriteMessage(websocket.TextMessage, []byte("\r\n[plxr] Prozess beendet.\r\n"))
 }
 
+// writeJSON answers with v as JSON — and never with a bare null.
+//
+// Go marshals a nil slice to `null`, not to `[]`. The interface does not see
+// the difference until it reads a length: `list.length` on null throws, the
+// call itself succeeded, so no catch fires and the view stays empty without a
+// word. That is exactly how the marks pane swallowed its own empty state — a
+// session without marks showed nothing at all instead of "no marks yet".
+//
+// It is fixed here rather than at the 37 call sites, because the next handler
+// to be written would have the same hole and nobody would notice.
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
+	if err := json.NewEncoder(w).Encode(emptyNotNull(v)); err != nil {
 		log.Println("json:", err)
 	}
+}
+
+// emptyNotNull turns a nil slice into an empty one and a nil map into an empty
+// map. Everything else is passed through untouched: a nil pointer stays null,
+// because there the interface really is meant to see "nothing there".
+func emptyNotNull(v any) any {
+	if v == nil {
+		return v
+	}
+	rv := reflect.ValueOf(v)
+	// The kind has to be settled BEFORE IsNil — on a struct, and usage returns
+	// one, IsNil panics outright.
+	switch rv.Kind() {
+	case reflect.Slice:
+		if rv.IsNil() {
+			return reflect.MakeSlice(rv.Type(), 0, 0).Interface()
+		}
+	case reflect.Map:
+		if rv.IsNil() {
+			return reflect.MakeMap(rv.Type()).Interface()
+		}
+	}
+	return v
 }

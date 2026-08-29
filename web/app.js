@@ -63,6 +63,18 @@ async function loadLanguage(welche) {
    argument. Deliberately no plural rules: the languages this deals with get by
    with one branch in the caller, and half a pluralisation library would be
    more work than it is worth. */
+/* One or many. German and English both change the noun at one, and writing
+   "1 Zeilen" is the kind of small wrongness that makes a whole interface look
+   unfinished. The convention was already half there — counts.session next to
+   counts.sessions — this only makes it a rule: <key>.one and <key>.other, and
+   check.sh sees to it that neither half ever stands alone.
+
+   Deliberately not a full plural library. Both languages this speaks have
+   exactly two forms; Polish would need more, and then this is the place. */
+function trN(base, n, values) {
+  return tr(`${base}.${Number(n) === 1 ? 'one' : 'other'}`, { ...values, n });
+}
+
 function tr(keyName, values) {
   let s = texts[keyName] ?? textsEn[keyName] ?? keyName;
   if (values) {
@@ -1121,7 +1133,7 @@ function renderInbox() {
       ? tr('inbox.groupName')
       : (first.title || first.name);
     const count = card.querySelector('.inboxCount');
-    count.textContent = many ? tr('inbox.groupCount', { n: group.tiles.length }) : '';
+    count.textContent = many ? trN('inbox.groupCount', group.tiles.length) : '';
     count.hidden = !many;
     card.querySelector('.inboxPath').textContent = many
       ? group.tiles.map((k) => k.title || k.name).join('  ·  ')
@@ -2259,7 +2271,7 @@ async function openFile(e, sid) {
     $('#viewerName').textContent = e.name;
     $('#viewerMeta').textContent = c.binary
       ? tr('file.binary')
-      : tr('file.meta', { lines: c.lines, kb: (c.size / 1024).toFixed(1) }) +
+      : trN('file.meta', c.lines, { lines: c.lines, size: sizeText(c.size) }) +
         (c.truncated ? tr('file.truncated') : '');
 
     const field = $('#viewerBody');
@@ -2301,7 +2313,7 @@ async function saveFile() {
     doc.mod = c.mod;
     doc.original = text;
     setDirty(false);
-    $('#viewerMeta').textContent = tr('file.metaSaved', { lines: c.lines, kb: (c.size / 1024).toFixed(1) });
+    $('#viewerMeta').textContent = trN('file.metaSaved', c.lines, { lines: c.lines, size: sizeText(c.size) });
   } catch (err) {
     setDirty(true);
     plxrUI.notice(errText(err), tr('common.notSaved'));
@@ -2841,7 +2853,7 @@ async function marksRow(box, m) {
     let list = [];
     try { list = await api.markChanges(state.active, m.tree); } catch { return; }
     desc.textContent = list.length
-      ? tr('marks.nChanged', { n: list.length }) : tr('marks.unchanged');
+      ? trN('marks.nChanged', list.length) : tr('marks.unchanged');
     for (const c of list) {
       const f = document.createElement('div');
       f.className = 'rrow';
@@ -3137,7 +3149,7 @@ $('#rulesToggle').addEventListener('click', async () => {
   const list = await api.rules(state.active);
   $('#rulesMeta').textContent = list.length === 1
     ? tr('rules.oneFile')
-    : tr('rules.nFiles', { n: list.length });
+    : trN('rules.nFiles', list.length);
   const box = $('#rulesBody');
   box.innerHTML = '';
   if (!list.length) {
@@ -3255,7 +3267,7 @@ function renderArchive() {
     const wonach = $('#archSearch').value.trim();
     $('#archInfo').textContent = archiv.terminals.length === 1
       ? tr('archive.oneTerminal', { q: wonach })
-      : tr('archive.nTerminals', { n: archiv.terminals.length, q: wonach });
+      : trN('archive.nTerminals', archiv.terminals.length, { q: wonach });
     if (!archiv.terminals.length) {
       showEmpty(box, tr('archive.noTerminal'),
         tr('archive.noTerminalHit', { q: wonach }));
@@ -3302,7 +3314,7 @@ function renderArchive() {
     const wonach = $('#archSearch').value.trim();
     $('#archInfo').textContent = archiv.hit.length === 1
       ? tr('archive.oneSession', { q: wonach })
-      : tr('archive.nSessions', { n: archiv.hit.length, q: wonach });
+      : trN('archive.nSessions', archiv.hit.length, { q: wonach });
     if (!archiv.hit.length) {
       showEmpty(box, tr('find.noHit'),
         tr('archive.noFullTextHit', { q: wonach }));
@@ -3368,7 +3380,7 @@ function renderArchive() {
     row.querySelector('.hitTitle').textContent = e.title || tr('archive.untitled');
     row.querySelector('.hitProject').textContent = [e.project, e.branch].filter(Boolean).join(' · ');
     row.querySelector('.hitSmall').textContent = (e.accounts || []).length > 1 ? (e.accounts || []).length + '×' : '';
-    row.querySelector('.hitValue').textContent = (e.size / 1024).toFixed(0) + ' kB';
+    row.querySelector('.hitValue').textContent = sizeText(e.size);
     row.dataset.tip = e.cwd;
 
     row.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
@@ -3403,7 +3415,7 @@ async function loadPorts() {
   $('#portsCount').textContent = list.length;
   $('#portsInfo').textContent = list.length === 1
     ? tr('ports.onePort')
-    : tr('ports.nPorts', { n: list.length });
+    : trN('ports.nPorts', list.length);
   const box = $('#portsList');
   box.innerHTML = '';
   if (!list.length) {
@@ -3450,10 +3462,21 @@ $('#portsReload').addEventListener('click', loadPorts);
    rather than hidden inside a total. */
 
 function tok(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(1) + ' Mrd';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + ' Mio';
-  if (n >= 1e3) return (n / 1e3).toFixed(0) + ' Tsd';
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + ' ' + tr('unit.giga');
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + ' ' + tr('unit.mega');
+  if (n >= 1e3) return (n / 1e3).toFixed(0) + ' ' + tr('unit.kilo');
   return String(n);
+}
+
+/* Sizes in one place, because three call sites each divided by 1024 in their
+   own way — and every one of them showed "0.0 kB" for a small file. A six byte
+   file reads as 6 B here. */
+function sizeText(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024) return n + ' ' + tr('unit.byte');
+  if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10 * 1024 ? 1 : 0) + ' kB';
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
 }
 
 $('#usageRange').addEventListener('change', loadUsage);
@@ -3671,7 +3694,7 @@ async function checkVersion(force) {
     if (localStorage.getItem('plxr.updateIgnoriert') === st.latest) return;
     $('#updateText').textContent =
       tr('update.banner', { latest: st.latest, current: st.current }) +
-      (st.size ? ` · ${(st.size / (1 << 20)).toFixed(1)} MB` : '');
+      (st.size ? ` · ${sizeText(st.size)}` : '');
     $('#updateBar').hidden = false;
   } catch {}
 }
@@ -3691,7 +3714,7 @@ $('#updateNotes').addEventListener('click', () => {
 $('#updateGo').addEventListener('click', async () => {
   const laufende = state.tiles.filter((t) => t.alive).length;
   const question = tr('update.installAsk', { v: versionStatus?.latest || '' }) +
-    (laufende ? '\n\n' + tr('update.sessionsWarn', { n: laufende }) : '');
+    (laufende ? '\n\n' + trN('update.sessionsWarn', laufende) : '');
   const ja = await plxrUI.confirm(tr('update.confirm'), question);
   if (!ja) return;
 

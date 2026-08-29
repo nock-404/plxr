@@ -134,15 +134,25 @@ Eigene Themes liegen in `~/.plxr/themes/*.json`:
 ```
 
 `check.sh` läuft vor jedem Commit. `smoke.sh` baut aus dem Arbeitsstand ein
-Binary, startet einen eigenen Daemon in einem Wegwerf-Verzeichnis, öffnet die
-Oberfläche in Chrome, klickt jede Ansicht und jeden Dialog an und legt
-Bildschirmfotos aller vier Skins ab. Es ist bewusst **nicht** Teil von
-`check.sh`: es braucht einen Browser, und eine Stufe, die sich still
-überspringt, ist eine Stufe, die lügt.
+Binary, startet einen eigenen Daemon in einem Wegwerf-Verzeichnis, legt dort
+ein kleines Git-Repo an, **startet darin eine echte Session** und klickt die
+Oberfläche dann in Chrome durch: jede Ansicht, jeden Dialog, Dateien, Regeln,
+Merkpunkte, den Betrachter. Bildschirmfotos aller vier Skins landen daneben.
+Es ist bewusst **nicht** Teil von `check.sh`: es braucht einen Browser, und
+eine Stufe, die sich still überspringt, ist eine Stufe, die lügt.
+
+Die Session ist der Punkt. Die erste Fassung lief gegen eine leere App und kam
+deshalb an die halbe Oberfläche gar nicht heran — ein Merkpunkte-Bereich, der
+bei jedem Öffnen warf, hat so einen grünen Durchlauf überlebt.
+
+Am Ende liest der Prüfer das Protokoll der Werkbank aus dem laufenden Fenster
+aus. Das ist strenger als Zuschauen von außen: eine abgewiesene Promise meldet
+der Browser nicht als Fehler, die Werkbank schon.
 
 Es fängt genau das, was keine statische Prüfung sieht: ein Wurf beim Start, ein
 Dialog, der nicht erscheint, eine Ansicht ohne Fläche, rohe
-Übersetzungsschlüssel auf dem Schirm, ein Skin, der nicht lädt.
+Übersetzungsschlüssel auf dem Schirm, ein Skin, der nicht lädt, eine Liste, die
+leer bleibt statt ihren Leerzustand zu zeigen.
 
 ## Bauen
 

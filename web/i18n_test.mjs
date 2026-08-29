@@ -21,6 +21,10 @@ const sources = ['web/app.js', 'web/ui.js', 'web/index.html'].map((f) => readFil
    keys as well. A test that cries wolf on correct code gets switched off
    instead of read. */
 const used = new Set([
+  /* trN('file.meta', n) reaches for file.meta.one and file.meta.other. Without
+     this both halves look unused and the base key looks untranslated — the
+     gate would then demand exactly the wrong thing. */
+  ...[...sources.matchAll(/\btrN\(\s*['"]([\w.]+)['"]/g)].flatMap((m) => [m[1] + '.one', m[1] + '.other']),
   ...[...sources.matchAll(/\btr\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)/g)]
     /* A key starts with a word character and holds a dot: tr('a.b', { x: '.' + y })
        also carries a bare '.' — and that then counts as a missing translation. */
@@ -174,7 +178,9 @@ for (const [file, src] of jsSources) {
        Before, ONE tr() anywhere in the call was enough and the second text was
        invisible: plxrUI.notice(tr('brake.nothingRunning'), 'Nichts anzuhalten')
        slipped through that way for years. */
-    const withoutTr = expression.replace(/\btr\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, ' ');
+    /* trN(…) counts as translated too — its first argument is a key, not a
+       text. Cut before tr(, otherwise the 'N' is left standing as a literal. */
+    const withoutTr = expression.replace(/\btrN?\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, ' ');
     for (const lit of withoutTr.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`]*)`/g)) {
       const txt = (lit[1] ?? lit[2] ?? lit[3] ?? '').replace(/\$\{[^{}]*\}/g, '');
       if (!/[A-Za-zÄÖÜäöü]{2,}/.test(txt)) continue;      // '', '·', '%' are not text
@@ -185,6 +191,25 @@ for (const [file, src] of jsSources) {
     }
   }
 }
+/* One or many: never one half on its own.
+   trN() reaches for <key>.one and <key>.other. If only one of them is there,
+   the other reads as a raw key on screen — and precisely at the count nobody
+   tests with, which is usually one. */
+const halves = [];
+for (const [lang, table] of Object.entries(tables)) {
+  for (const k of Object.keys(table)) {
+    const m = k.match(/^(.+)\.(one|other)$/);
+    if (!m) continue;
+    const twin = `${m[1]}.${m[2] === 'one' ? 'other' : 'one'}`;
+    if (!(twin in table)) halves.push(`${lang}.json: ${k} has no ${twin}`);
+  }
+}
+if (halves.length) {
+  failed = 1;
+  console.log(`  ${halves.length} plural forms stand alone:`);
+  for (const h of halves) console.log(`      ${h}`);
+}
+
 if (unfiltered.length) {
   failed = 1;
   console.log(`  ${unfiltered.length} texts go on screen without tr():`);
