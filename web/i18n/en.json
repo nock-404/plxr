@@ -311,7 +311,7 @@
   "workbench.open": "WORKBENCH",
   "workbench.openTip": "Write the current skin while the real sessions stand behind it",
   "workbench.nameNeeded": "The skin needs a name",
-  "workbench.missingHead": "still missing",
+  "workbench.missingHead": "in the window, not in your skin",
   "workbench.nothingMissing": "nothing missing",
   "workbench.livePreview": "live · not saved yet",
   "waiting.title": "Waiting account",
@@ -380,5 +380,12 @@
   "workbench.savedAndPicked": "saved — and switched on as the theme “{name}”",
   "workbench.themeFailed": "The skin is saved, the theme for it is not",
   "waiting.empty": "nothing counted yet — it starts with the next change of status in a session",
-  "marks.noneHookHint": "A mark is taken before every instruction — but only once Claude Code reports its state: settings → agents → ATTACH."
+  "marks.noneHookHint": "A mark is taken before every instruction — but only once Claude Code reports its state: settings → agents → ATTACH.",
+  "workbench.about": "A skin is the whole look of plxr: frames, buttons, typefaces, colours. Here you write it, and the window on the left changes with every keystroke.",
+  "workbench.pick": "PICK",
+  "workbench.pickTip": "Click something in the window — the rule for it is written down here",
+  "workbench.picking": "Click anything in the window on the left. Escape stops.",
+  "workbench.picked": "wrote a rule for {what} — now give it a colour",
+  "workbench.pickNothing": "nothing there that a skin can address",
+  "workbench.skinLabel": "skin:"
 }

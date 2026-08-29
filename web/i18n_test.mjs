@@ -22,7 +22,9 @@ const sources = ['web/app.js', 'web/ui.js', 'web/index.html'].map((f) => readFil
    instead of read. */
 const used = new Set([
   ...[...sources.matchAll(/\btr\(((?:[^()]|\((?:[^()]|\([^()]*\))*\))*)\)/g)]
-    .flatMap((m) => [...m[1].matchAll(/['"]([\w.]+)['"]/g)].map((k) => k[1])),
+    /* A key starts with a word character and holds a dot: tr('a.b', { x: '.' + y })
+       also carries a bare '.' — and that then counts as a missing translation. */
+    .flatMap((m) => [...m[1].matchAll(/['"](\w[\w.]*\.[\w.]+)['"]/g)].map((k) => k[1])),
   ...[...sources.matchAll(/data-i18n(?:-tip|-ph)?="([\w.]+)"/g)].map((m) => m[1]),
 ]);
 

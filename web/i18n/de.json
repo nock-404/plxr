@@ -311,7 +311,7 @@
   "workbench.open": "WERKSTATT",
   "workbench.openTip": "Den aktuellen Skin schreiben, während die echten Sessions dahinterstehen",
   "workbench.nameNeeded": "Der Skin braucht einen Namen",
-  "workbench.missingHead": "fehlt noch",
+  "workbench.missingHead": "im Fenster, nicht in deinem Skin",
   "workbench.nothingMissing": "nichts fehlt",
   "workbench.livePreview": "live · noch nicht gespeichert",
   "waiting.title": "Wartekonto",
@@ -380,5 +380,12 @@
   "workbench.savedAndPicked": "gespeichert — und als Theme „{name}“ eingeschaltet",
   "workbench.themeFailed": "Der Skin ist gespeichert, das Theme dazu nicht",
   "waiting.empty": "noch nichts gezählt — es beginnt mit dem nächsten Statuswechsel einer Session",
-  "marks.noneHookHint": "Vor jeder Anweisung wird einer angelegt — aber erst, wenn Claude Code seinen Zustand meldet: Einstellungen → Agenten → EINRICHTEN."
+  "marks.noneHookHint": "Vor jeder Anweisung wird einer angelegt — aber erst, wenn Claude Code seinen Zustand meldet: Einstellungen → Agenten → EINRICHTEN.",
+  "workbench.about": "Ein Skin ist das ganze Aussehen von plxr: Rahmen, Knöpfe, Schriften, Farben. Hier schreibst du ihn, und das Fenster links ändert sich mit jedem Tastendruck.",
+  "workbench.pick": "ZEIGEN",
+  "workbench.pickTip": "Klick im Fenster auf etwas — die Regel dafür wird hier hingeschrieben",
+  "workbench.picking": "Klick links im Fenster auf irgendetwas. Escape hört auf.",
+  "workbench.picked": "Regel für {what} hingeschrieben — jetzt gib ihr eine Farbe",
+  "workbench.pickNothing": "da ist nichts, was ein Skin ansprechen kann",
+  "workbench.skinLabel": "Skin:"
 }

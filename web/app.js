@@ -2931,6 +2931,81 @@ function wbStyledBy(css) {
   return new Set([...clean.matchAll(/\.([A-Za-z][\w-]*)/g)].map((m) => m[1]));
 }
 
+/* Picking.
+
+   The real hurdle in front of a stylesheet is not the syntax, it is the
+   question which of two hundred class names belongs to the thing you want to
+   change. Nobody knows that from memory, and a text area full of CSS says
+   nothing about it.
+
+   So: click the thing. The workbench finds the class a skin can address and
+   writes the rule for it — then all that is left is a colour. */
+let wbPicking = false;
+let wbBox = null;
+
+/* Which class can a skin actually address? The innermost one that is not pure
+   layout, because that is the one a skin colours. */
+function wbClassFor(el) {
+  const layout = new Set(['app', 'body', 'content', 'spacer', 'hidden', 'panes', 'tools', 'brand']);
+  for (let node = el; node && node !== document.body; node = node.parentElement) {
+    for (const c of node.classList) {
+      if (!layout.has(c) && !c.startsWith('dev') && !c.startsWith('wb') && !c.startsWith('xterm')) {
+        return c;
+      }
+    }
+  }
+  return '';
+}
+
+function wbPickStop() {
+  wbPicking = false;
+  $('#wbPick').classList.remove('on');
+  if (wbBox) { wbBox.remove(); wbBox = null; }
+  $('#wbMeta').textContent = tr('workbench.hint');
+}
+
+function wbPickStart() {
+  wbPicking = true;
+  $('#wbPick').classList.add('on');
+  $('#wbMeta').textContent = tr('workbench.picking');
+  wbBox = document.createElement('div');
+  wbBox.className = 'wbTarget';
+  document.body.appendChild(wbBox);
+}
+
+document.addEventListener('mousemove', (e) => {
+  if (!wbPicking || !wbBox) return;
+  if ($('#workbench').contains(e.target)) { wbBox.hidden = true; return; }
+  const r = e.target.getBoundingClientRect();
+  Object.assign(wbBox.style, {
+    left: r.left + 'px', top: r.top + 'px',
+    width: r.width + 'px', height: r.height + 'px',
+  });
+  wbBox.hidden = false;
+}, true);
+
+document.addEventListener('click', (e) => {
+  if (!wbPicking) return;
+  if ($('#workbench').contains(e.target)) return;
+  // Do not let the click through: picking must not open a session on the way.
+  e.preventDefault();
+  e.stopPropagation();
+  const cls = wbClassFor(e.target);
+  if (!cls) { $('#wbMeta').textContent = tr('workbench.pickNothing'); return; }
+
+  const field = $('#wbCss');
+  field.value = field.value.replace(/\s*$/, '\n') + `\n.${cls} {\n  \n}\n`;
+  field.focus();
+  // The cursor lands inside the braces — that is where the next thing is typed.
+  const at = field.value.length - 3;
+  field.setSelectionRange(at, at);
+  field.scrollTop = field.scrollHeight;
+  wbRender();
+  $('#wbMeta').textContent = tr('workbench.picked', { what: '.' + cls });
+}, true);
+
+$('#wbPick').addEventListener('click', () => (wbPicking ? wbPickStop() : wbPickStart()));
+
 function wbRender() {
   const css = $('#wbCss').value;
   if (!wbLive) {
@@ -2974,6 +3049,7 @@ async function openWorkbench() {
   $('#settings').hidden = true;
   $('#workbench').hidden = false;
   wbRender();
+  $('#wbAbout').textContent = tr('workbench.about');
   $('#wbMeta').textContent = tr('workbench.hint');
   // The panel takes width away from the interface — without a refit the
   // terminals keep their old number of columns and wrap in the middle of a line.
@@ -2982,6 +3058,7 @@ async function openWorkbench() {
 }
 
 function closeWorkbench() {
+  if (wbPicking) wbPickStop();
   $('#workbench').hidden = true;
   // The preview goes with it: what was not saved must not stay behind.
   if (wbLive) { wbLive.remove(); wbLive = null; }
@@ -3029,7 +3106,10 @@ $('#wbSave').addEventListener('click', wbSave);
 $('#wbClose').addEventListener('click', closeWorkbench);
 $('#workbench').addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); wbSave(); }
-  if (e.key === 'Escape') { e.preventDefault(); closeWorkbench(); }
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (wbPicking) wbPickStop(); else closeWorkbench();
+  }
 });
 
 /* ═════════════════════════ Regeln ═════════════════════════ */

@@ -253,11 +253,14 @@
     <aside id="workbench" class="workbench" hidden>
       <div class="wbBar">
         <span class="overlayName" data-i18n="workbench.title">Workbench</span>
+        <span class="wbHint" data-i18n="workbench.skinLabel">skin:</span>
         <input id="wbName" spellcheck="false" data-i18n-ph="workbench.namePlaceholder">
         <span class="spacer"></span>
+        <button class="btn tiny" id="wbPick" data-i18n-tip="workbench.pickTip" data-i18n="workbench.pick">PICK</button>
         <button class="btn tiny" id="wbSave" data-i18n-tip="workbench.saveTip" data-i18n="workbench.save">SAVE</button>
         <button class="btn tiny" id="wbClose" data-i18n-tip="workbench.closeTip">✕</button>
       </div>
+      <p id="wbAbout" class="wbAbout"></p>
       <span id="wbMeta" class="wbHint"></span>
       <textarea id="wbCss" class="viewerbody" spellcheck="false"></textarea>
       <div id="wbMissing" class="ruleslist"></div>

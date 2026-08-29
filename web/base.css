@@ -451,6 +451,15 @@ html, body {
 .wbBar { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; padding: 6px 10px; }
 .wbBar input { flex: 0 1 140px; min-width: 0; font: inherit; color: inherit; }
 .wbHint { flex: 0 0 auto; padding: 0 10px 4px; font-size: .85em; }
+.wbAbout { flex: 0 0 auto; margin: 0; padding: 6px 10px 2px; font-size: .85em; line-height: 1.4; }
+
+/* While picking: a frame around whatever is under the pointer. Deliberately a
+   box of its own and not an outline on the element — an outline would change
+   the very layout you are looking at. */
+.wbTarget {
+  position: fixed; z-index: 500; pointer-events: none;
+  border: 2px solid currentColor; opacity: .8;
+}
 .workbench > .viewerbody { flex: 1 1 auto; min-height: 0; }
 .workbench > .ruleslist { flex: 0 0 34%; overflow-y: auto; }
 
