@@ -37,6 +37,7 @@ step "js calls" node calls.mjs web/app.js web/ui.js
 step "js properties" node props.mjs web/app.js web/ui.js web/devpanel.js
 step "routes" python3 routes.py
 step "fields" python3 fields.py
+step "palette" python3 palette.py
 step "workbench" node web/devpanel_test.mjs
 step "i18n" node web/i18n_test.mjs
 step "error codes" python3 errors.py

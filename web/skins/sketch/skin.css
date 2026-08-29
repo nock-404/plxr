@@ -10,8 +10,8 @@
   /* Terminal colours — deliberately separate from the interface: a light
      skin still needs a readable, dark terminal. */
   --term-bg: #2b2b2b; --term-fg: #e8e4d8;
-  --bg: #f6f3e9; --panel: #fffdf6; --fg: #2b2b2b; --dim: #8a8578;
-  --accent: #1b6ca8; --line: #cfc9b8;
+  --bg: #f6f3e9; --panel: #fffdf6; --fg: #2b2b2b; --dim: #716d62;
+  --accent: #1b6ca8; --onAccent: #ffffff; --line: #cfc9b8;
   --working: #2e8b57; --waiting: #8a8578; --blocked: #c1440e; --dead: #b9b3a4;
 }
 
@@ -53,10 +53,10 @@ body {
 
 .btn, .selectButton { padding: 3px 14px; color: var(--fg); cursor: pointer; }
 .btn:hover, .selectButton:hover { background: #efe9d8; transform: rotate(-.6deg); }
-.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn.primary::after { border-color: #fff; }
+.btn.primary { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
+.btn.primary::after { border-color: var(--onAccent, #fff); }
 .btn.tiny { padding: 0 8px; font-size: .85em; }
-.btn.tiny.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.tiny.on { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
 .btn:disabled { opacity: .4; }
 
 .statusrow { color: var(--dim); font-size: .82em; border-bottom: 1px dashed var(--line); }
@@ -69,8 +69,12 @@ body {
 .rail { border-right: 2px solid var(--fg); background: color-mix(in srgb, var(--panel) 60%, transparent); }
 .railitem { color: var(--fg); }
 .railitem:hover { background: #efe9d8; }
-.railitem.active { background: var(--accent); color: #fff; }
-.railitem.active .rsub { color: #d8e8f4; }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
+   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
 .railgroup { color: var(--dim); font-size: .78em; border-bottom: 1px dashed var(--line); }
 .rsub { color: var(--dim); font-size: .78em; }
@@ -92,7 +96,9 @@ body {
 .tproj { color: var(--dim); font-size: .8em; }
 .tbody {
   font-family: 'SpaceMono', ui-monospace, monospace; font-size: 11px; line-height: 1.4;
-  color: #4a4a4a; max-height: 170px;
+  /* Nicht fest: auf der blueprint-Palette liegt dieses Grau mit 1.03 zu 1
+     auf dem dunkelblauen Panel. */
+  color: var(--fg); opacity: .82; max-height: 170px;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
   mask-image: linear-gradient(to bottom, transparent, #000 28px);
 }
@@ -230,14 +236,14 @@ body {
 
 /* Auswahl im Startdialog. */
 .choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
-.choiceButton[data-picked="yes"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .85em; text-transform: none; }
 .styleNumber { color: var(--fg); }
 .styleNumber button { color: var(--accent); }
 .styleToggle { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
-.styleToggle[data-on="yes"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+.styleToggle[data-on="yes"] { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
 .swatch { border: 2px solid var(--fg); border-radius: 6px 3px 5px 2px / 2px 5px 3px 6px; }
 .swatchField { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
 .swatchHex { background: transparent; border: 2px solid var(--dim); border-radius: 8px 3px 7px 2px / 2px 7px 3px 8px; text-align: center; }
@@ -332,3 +338,13 @@ body {
 
 /* The hook is missing — that is the one thing worth saying here. */
 .emptyhook { color: var(--blocked); }
+
+/* Drawn by hand: the corners are all slightly different, which is what makes
+   the line look like ink rather than a border. */
+.keyCap {
+  min-width: 2.4em; padding: 1px 9px;
+  color: var(--fg); background: var(--panel);
+  border: 1.5px solid var(--fg);
+  border-radius: 12px 7px 11px 8px / 7px 12px 8px 11px;
+  font-size: .9em;
+}

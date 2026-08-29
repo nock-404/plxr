@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,6 +60,9 @@ var Allowed = map[string]bool{
 	"working": true, "waiting": true, "blocked": true, "dead": true,
 	"panel": true, "line": true,
 	"term-bg": true, "term-fg": true,
+	// The text that sits ON the accent surface. Hard-wired as #fff before, and
+	// on a palette with a yellow accent that is 1.03:1 — white on yellow.
+	"onAccent": true,
 }
 
 func (t *Theme) valid(skins map[string]bool) error {
@@ -121,18 +125,37 @@ func Skins(skinFS fs.FS) map[string]bool {
 	return out
 }
 
+// complain reports a theme that could not be read.
+//
+// A built-in one is our own mistake and has to be loud: it is compiled into
+// the binary, so it can only be wrong because somebody wrote it wrong — and it
+// vanished from the list without a word. One added palette key cost three
+// themes that way, and nothing anywhere said so.
+//
+// One of the user's own is a different matter: their file, their typo. It is
+// noted and the rest keeps working.
+func complain(own bool, name string, err error) {
+	if own {
+		log.Printf("theme %s ignored: %v", name, err)
+		return
+	}
+	log.Printf("BUILT-IN theme %s is broken: %v", name, err)
+}
+
 // Load reads built-in and own themes. On a name clash the own one wins.
 func Load(builtin, skinFS fs.FS) []Theme {
 	skins := Skins(skinFS)
 	byName := map[string]Theme{}
 	custom := false
 
-	add := func(b []byte) {
+	add := func(name string, b []byte) {
 		var t Theme
-		if json.Unmarshal(b, &t) != nil {
+		if err := json.Unmarshal(b, &t); err != nil {
+			complain(custom, name, err)
 			return
 		}
-		if t.valid(skins) != nil {
+		if err := t.valid(skins); err != nil {
+			complain(custom, name, err)
 			return
 		}
 		t.Own = custom
@@ -145,7 +168,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 				return nil
 			}
 			if b, e := fs.ReadFile(builtin, p); e == nil {
-				add(b)
+				add(p, b)
 			}
 			return nil
 		})
@@ -154,7 +177,7 @@ func Load(builtin, skinFS fs.FS) []Theme {
 	for _, p := range paths {
 		if b, err := os.ReadFile(p); err == nil {
 			custom = true
-			add(b)
+			add(p, b)
 			custom = false
 		}
 	}

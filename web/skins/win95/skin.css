@@ -9,8 +9,8 @@
   --bg: #008080;        /* the teal desktop */
   --panel: #c0c0c0;     /* window surface */
   --fg: #000000;
-  --dim: #5a5a5a;
-  --accent: #000080;    /* Titelleisten-Navy */
+  --dim: #4d4d4d;
+  --accent: #000080; --onAccent: #ffffff;   /* title bar navy */
   --line: #808080;
   --working: #007000; --waiting: #5a5a5a; --blocked: #800000; --dead: #9a9a9a;
   --hi: #ffffff; --sh: #808080; --dk: #000000;
@@ -66,13 +66,19 @@ body {
 .rail { background: var(--panel); border-right: 2px solid var(--hi); box-shadow: inset -1px 0 0 var(--sh); }
 .railitem { color: var(--dk); }
 .railitem:hover { background: #d4d0c8; }
-.railitem.active { background: var(--accent); color: #fff; }
-.railitem.active .rsub { color: #cfd8ff; }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
+   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
 .railgroup { color: var(--dk); font-weight: bold; font-size: .95em; background: #d4d0c8; }
 .rsub { color: var(--dim); font-size: .9em; }
 .railitem[data-status="permission"] .rdot { color: var(--blocked); }
-.rmeta { color: var(--sh); }
+/* Nicht --sh: das ist die Kante der 3D-Raender, #808080 auf #c0c0c0 —
+   ein Verhaeltnis von 1.01 zu 1. */
+.rmeta { color: var(--dim); }
 
 /* ---------- Tiles: each one is a little window ---------- */
 
@@ -85,6 +91,15 @@ body {
   background: linear-gradient(90deg, var(--accent), #1084d0);
   color: #fff; font-weight: bold;
 }
+/* The title bar is a gradient, not window grey — a status colour meant for a
+   pale surface stands on dark navy at 1.89:1 there.
+ 
+   Doubling the class is not a trick but the point: .dot.working comes later in
+   this file and would otherwise win. The status is not lost with it, the glyph
+   still carries it (● ○ ◉ ✕), and the title bar itself changes colour for a
+   session that is waiting or dead. */
+.thead .dot.dot { color: inherit; }
+
 .tname { color: #fff; }
 .tproj { color: #cfd8ff; font-weight: normal; font-size: .9em; }
 .tile[data-status="permission"] .thead { background: linear-gradient(90deg, #800000, #c04040); }
@@ -159,7 +174,7 @@ body {
 }
 .panelabel { background: var(--panel); color: var(--dk); font-weight: bold; font-size: .9em; border: 1px solid var(--sh); }
 .paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
-.pane[data-active="yes"] .panelabel { background: var(--accent); color: #fff; }
+.pane[data-active="yes"] .panelabel { background: var(--accent); color: var(--onAccent, #fff); }
 
 .overlay { background: var(--panel); }
 .overlayName { font-weight: bold; color: var(--dk); }
@@ -181,7 +196,7 @@ body {
 .cardTitle { font-weight: bold; font-size: 1.1em; color: var(--dk); }
 .fieldName { color: var(--dk); }
 .splitRow { color: var(--dk); }
-.splitRow:hover { background: var(--accent); color: #fff; }
+.splitRow:hover { background: var(--accent); color: var(--onAccent, #fff); }
 
 /* ---------- Auswahlliste ---------- */
 
@@ -189,7 +204,7 @@ body {
 .selectArrow { color: var(--dk); font-size: .8em; }
 .selectList { padding: 2px; }
 .selectRow { color: var(--dk); }
-.selectRow:hover { background: var(--accent); color: #fff; }
+.selectRow:hover { background: var(--accent); color: var(--onAccent, #fff); }
 .selectRow[data-picked] { font-weight: bold; }
 .selectGroup { color: var(--dim); font-weight: bold; font-size: .9em; }
 
@@ -342,3 +357,13 @@ body {
 
 /* The hook is missing — that is the one thing worth saying here. */
 .emptyhook { color: #800000; }
+
+/* A raised key, the way the system draws one: light above and left, dark
+   below and right, and a shadow underneath. */
+.keyCap {
+  min-width: 2.4em; padding: 1px 7px;
+  color: var(--dk); background: var(--panel);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: 1px 1px 0 var(--sh);
+  font-weight: bold; font-size: .9em;
+}

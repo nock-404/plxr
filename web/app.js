@@ -414,7 +414,15 @@ function reconnect() {
 
 /* ═════════════════════════ Themes and skins ═════════════════════════ */
 
-const PALETTE = ['bg','fg','dim','accent','panel','line','working','waiting','blocked','dead'];
+/* Which palette entries a theme may set. This list has a twin in Go —
+   theme.Allowed — and the two have to agree: Go lets a key through, this one
+   decides whether it ever reaches the CSS. They had drifted apart, and the
+   consequence was invisible in both directions: `onAccent` passed validation
+   and was then dropped here, so white stayed standing on a yellow accent; and
+   `term-bg`/`term-fg` were never applied at all, which is why a theme could
+   not colour its terminal. check.sh compares the two lists now. */
+const PALETTE = ['bg','fg','dim','accent','panel','line','working','waiting','blocked','dead',
+                 'onAccent','term-bg','term-fg'];
 
 /* A skin change is double buffered: load the new sheet alongside, wait for
    onload, only then remove the old one. Redirecting href instead leaves a few
@@ -462,6 +470,14 @@ function applyTheme(t) {
       if (PALETTE.includes(k)) root.style.setProperty('--' + k, v);
     }
     for (const p of paneList()) p.term.options.theme = xtermTheme();
+
+    /* Draw again. The crest colours are worked out against the surface they
+       land on, and that surface has just changed — without this they keep the
+       brightness of the previous theme. On the very first draw the palette is
+       not in place yet at all, so they were computed against black and came
+       out far too dark for every light theme. */
+    renderRail();
+    renderGrid();
 
     /* A different theme brings a different palette — own colour changes no longer
        apply. Leaving them would mean: the style editor shows the old theme's
@@ -1218,10 +1234,17 @@ $('#railUsage').addEventListener('click', showUsage);
 /* ═════════════════════════ Schiene ═════════════════════════ */
 
 const GLYPHS = { working: '●', waiting: '○', permission: '◉', dead: '✕', unknown: '·', frozen: '❙❙' };
-const WORD = {
-  working: 'arbeitet', waiting: 'waiting', permission: tr('state.needsYou'),
-  dead: 'beendet', unknown: tr('state.running'),
-};
+/* A function, not a table.
+   As a table this ran while the file was being loaded — before the language
+   tables had arrived. tr() then gives back the key itself, and the sidebar
+   read "state.running · generic". Two of the five entries were German
+   literals on top of that, which no gate saw because a lookup table is not an
+   assignment to textContent. */
+const word = (state) => tr({
+  working: 'state.working', waiting: 'state.waiting', permission: 'state.needsYou',
+  dead: 'state.ended', unknown: 'state.running', frozen: 'state.frozen',
+  orphaned: 'state.orphaned',
+}[state] || 'state.running');
 
 /* Orphaned is not a status from the daemon but a note: the session was still
    running when the daemon ended. For display it counts as one all the same. */
@@ -1230,7 +1253,7 @@ const WORD = {
    "unknown", and both would be a lie. */
 const tileState = (t) =>
   t.frozen ? 'frozen' : (t.orphaned ? 'orphaned' : (t.status || 'unknown'));
-const ZEICHEN_VERWAIST = '⚠';
+const ORPHAN_MARK = '⚠';
 
 /* Crest — one glyph per working directory.
 
@@ -1277,11 +1300,95 @@ function crest(path) {
 
 /* The colour comes from the same hash but from a different part of it —
    otherwise identical glyphs would always carry the same colour and the second
-   cue would be no cue at all. */
-function crestHue(path) {
+   cue would be no cue at all.
+
+   The lightness is not part of the hash. It used to be a fixed 60%, which is
+   the same violet on the paper skin as on the black terminal one — readable on
+   neither reliably. It follows the theme now: light glyphs on a dark ground,
+   dark ones on a light ground. The hue stays the cue, the brightness is the
+   theme's business. */
+function crestHue(path, on) {
   if (!path) return '';
-  return `hsl(${(hash32(path + '#ton') % 360)} 60% 60%)`;
+  const hue = hash32(path + '#ton') % 360;
+  return `hsl(${hue} 55% ${crestLightness(hue, on)}%)`;
 }
+
+/* How light the glyph has to be is arithmetic, not taste: a yellow at 68%
+   lightness stands on the dark green tile at 2:1, a blue at the same lightness
+   at 6:1. A single number for every hue therefore leaves half the directories
+   unreadable — so the lightness is walked until the glyph clears the surface
+   it actually lands on. */
+function crestLightness(hue, on) {
+  const ground = surfaceLuminance(on);
+  const up = ground < 0.18;
+  for (let i = 0; i <= 28; i++) {
+    const l = up ? 52 + i * 1.5 : 48 - i * 1.5;
+    /* 5.2, nicht 4.5: was hier gerechnet wird und was am Ende gemessen wird,
+       liegt leicht auseinander — eine Titelleiste mit Verlauf, eine Flaeche
+       aus color-mix. Ohne Reserve landen die Glyphen bei 4.3 und der Pruefer
+       meldet sie zu Recht. */
+    if (contrastOf(hslLuminance(hue, 55, l), ground) >= 5.2) return Math.round(l);
+  }
+  return up ? 94 : 6;
+}
+
+function contrastOf(a, b) {
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const channelLuminance = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+
+function hslLuminance(h, s, l) {
+  s /= 100; l /= 100;
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return 0.2126 * channelLuminance(f(0)) + 0.7152 * channelLuminance(f(8))
+    + 0.0722 * channelLuminance(f(4));
+}
+
+/* The surface a crest sits on.
+   Given the element, the surface is read where it actually stands — a tile is
+   not the panel colour once a skin mixes it, and inside the active rail row it
+   is the accent. Falling back to --panel is the answer for a crest that has
+   not been hung anywhere yet. */
+function surfaceLuminance(on) {
+  for (let n = on; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    let c = cs.backgroundColor;
+    /* Ein Verlauf faerbt genauso, hat aber keine backgroundColor. Ohne das
+       laeuft der Aufstieg an der Titelleiste vorbei und rechnet gegen das
+       Fenstergrau dahinter. */
+    let p = (c.match(/[\d.]+/g) || []).map(Number);
+    if ((p.length < 3 || (p.length > 3 && p[3] < 0.85)) && cs.backgroundImage !== 'none') {
+      const g = cs.backgroundImage.match(/rgba?\([^)]+\)/);
+      if (g) p = (g[0].match(/[\d.]+/g) || []).map(Number);
+    }
+    if (p.length >= 3 && (p.length < 4 || p[3] > 0.85)) {
+      const [r, g, b] = p.slice(0, 3).map((v) => channelLuminance(v / 255));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
+  }
+  const root = getComputedStyle(document.documentElement);
+  const v = (root.getPropertyValue('--panel') || root.getPropertyValue('--bg')).trim();
+  const m = v.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (m) {
+    const [r, g, b] = m.slice(1).map((h) => channelLuminance(parseInt(h, 16) / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+  /* Last resort the page itself, never a plain 0. Assuming black meant every
+     colour cleared the check and the glyphs came out dark on a dark ground —
+     exactly the failure this whole function exists to prevent. */
+  const body = (getComputedStyle(document.body).backgroundColor.match(/[\d.]+/g) || [])
+    .slice(0, 3).map(Number);
+  if (body.length === 3) {
+    const [r, g, b] = body.map((x) => channelLuminance(x / 255));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+  return 0.5;
+}
+
 
 /* The rail is the reason a session is not a full-screen overlay: whoever is
    inside one session should still see when somebody elsewhere is stuck. */
@@ -1335,14 +1442,14 @@ function renderRail() {
       el.classList.toggle('active', state.panes.includes(t.id));
       const punkt = el.querySelector('.rdot');
       punkt.className = 'rdot dot ' + st;
-      punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (GLYPHS[st] || '·');
+      punkt.textContent = t.orphaned ? ORPHAN_MARK : (GLYPHS[st] || '·');
       const rw = el.querySelector('.crest');
       rw.textContent = crest(t.cwd);
-      rw.style.color = crestHue(t.cwd);
+      rw.style.color = crestHue(t.cwd, rw);
       el.querySelector('.rname').textContent = t.title || t.name || t.id.slice(0, 8);
       el.querySelector('.rsub').textContent = t.orphaned
         ? tr('state.crashed')
-        : [t.alive ? WORD[st] : tr('state.ended'), t.agent].filter(Boolean).join(' · ');
+        : [t.alive ? word(st) : tr('state.ended'), t.agent].filter(Boolean).join(' · ');
       el.dataset.tip = `${t.name} — ${t.cwd}`;
     }
   }
@@ -1401,10 +1508,10 @@ function renderGrid() {
     el.dataset.untamed = isUntamed(t) ? 'yes' : '';
     const punkt = el.querySelector('.dot');
     punkt.className = 'dot ' + st;
-    punkt.textContent = t.orphaned ? ZEICHEN_VERWAIST : (GLYPHS[st] || '·');
+    punkt.textContent = t.orphaned ? ORPHAN_MARK : (GLYPHS[st] || '·');
     const w = el.querySelector('.crest');
     w.textContent = crest(t.cwd);
-    w.style.color = crestHue(t.cwd);
+    w.style.color = crestHue(t.cwd, w);
     w.dataset.tip = t.cwd || '';
     el.querySelector('.tname').textContent = t.title || t.name || t.id.slice(0, 8);
     el.querySelector('.tproj').textContent = [t.project, t.branch].filter(Boolean).join(' · ');
@@ -2015,9 +2122,14 @@ function showKeys() {
   ];
   for (const [combo, what] of rows) {
     const row = document.createElement('div');
+    /* A key combo is not a marginal note. It used to sit in .rart, the same
+       muted colour as a timestamp — on the ice palette that is 1.37:1 against
+       the background, which means it was on screen and unreadable. It gets a
+       cap of its own now, and the skins draw it as a key. */
     row.className = 'rrow';
-    row.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>';
-    row.querySelector('.rart').textContent = combo;
+    row.innerHTML = '<span class="keyCell"><kbd class="keyCap"></kbd></span>' +
+      '<span class="rmain"><b class="rtitle"></b></span>';
+    row.querySelector('.keyCap').textContent = combo;
     row.querySelector('.rtitle').textContent = what;
     box.appendChild(row);
   }

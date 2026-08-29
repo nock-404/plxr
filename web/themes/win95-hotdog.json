@@ -1,2 +1,14 @@
-{ "name": "win95-hotdog", "label": "Windows 95 · Hotdog Stand", "skin": "win95",
-  "palette": { "bg": "#ff0000", "accent": "#000000", "panel": "#c0c0c0", "working": "#008000" } }
+{
+  "name": "win95-hotdog",
+  "label": "Windows 95 · Hotdog Stand",
+  "skin": "win95",
+  "palette": {
+    "bg": "#ff0000",
+    "accent": "#000000",
+    "panel": "#c0c0c0",
+    "working": "#008000",
+    "dim": "#4d4d4d",
+    "waiting": "#4d4d4d",
+    "onAccent": "#ffffff"
+  }
+}

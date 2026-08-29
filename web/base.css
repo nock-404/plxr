@@ -271,6 +271,10 @@ html, body {
 .ruleslist { flex: 1; overflow: auto; padding: 8px 0 20px; }
 .rrow { display: flex; gap: 12px; align-items: baseline; padding: 6px 16px; }
 .rart { flex: 0 0 auto; width: 74px; }
+/* Wider than .rart on purpose: on Windows the combo reads
+   "Strg+Umschalt+T" and must not be cut in half. */
+.keyCell { flex: 0 0 auto; width: 140px; }
+.keyCap { display: inline-block; text-align: center; }
 .rmain { flex: 1; min-width: 0; }
 .rtitle, .rdesc { display: block; }
 .rpath { flex: 0 0 auto; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }

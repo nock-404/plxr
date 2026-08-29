@@ -1,1 +1,11 @@
-{ "name": "sketch", "label": "Skizze · Notizbuch", "skin": "sketch", "scanlines": false, "glow": false }
+{
+  "name": "sketch",
+  "label": "Skizze · Notizbuch",
+  "skin": "sketch",
+  "scanlines": false,
+  "glow": false,
+  "palette": {
+    "dim": "#716d62",
+    "waiting": "#716d62"
+  }
+}

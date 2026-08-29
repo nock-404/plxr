@@ -208,6 +208,103 @@ await page.screenshot({ path: shots + '/viewer.png' });
    promise as a pageerror — the marks bug was invisible in `noise` and stood in
    the workbench log in plain sight. Asking the app what it saw is stricter
    than watching it from outside. */
+/* 10. Every theme has to be readable — measured, not judged by eye.
+
+   This runs last on purpose: by now a session is open and a tile is standing,
+   so there is something to measure at all. Reading it out of the CSS was tried
+   first and thrown away — from the source it cannot be known what actually
+   lies behind a text. A rail at 60 per cent over paper, a gradient in a title
+   bar, a colour built with color-mix: each of those was reported as a failure
+   that did not exist, and one that did (keys at 1.37:1 on the ice palette) sat
+   in the middle of the noise.
+
+   Ten themes, not four skins. The palette is where readability is decided. */
+await page.click('#railHome');
+await page.waitForTimeout(400);
+const themeNames = await page.evaluate(() =>
+  [...document.querySelectorAll('#themeSel option')].map((o) => o.value));
+check(themeNames.length >= 10,
+  `only ${themeNames.length} themes offered — one has fallen out of the list`);
+
+const unreadable = [];
+for (const theme of themeNames) {
+  await page.evaluate((t) => {
+    const sel = document.querySelector('#themeSel');
+    sel.value = t;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  }, theme);
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${shots}/theme-${theme}.png` });
+
+  const weak = await page.evaluate(() => {
+    const num = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    /* Three spellings arrive: rgb(), rgba() and color(srgb …) with shares from
+       0 to 1. Reading the third as 0-255 gives near-black, and then the report
+       fills up with failures that are not there. */
+    const parse = (v) => {
+      if (!v) return null;
+      let m = v.match(/rgba?\(([^)]+)\)/);
+      if (m) { const q = m[1].split(/[,\s/]+/).filter(Boolean).map(Number);
+        return [q[0], q[1], q[2], q.length > 3 ? q[3] : 1]; }
+      m = v.match(/color\(srgb\s+([^)]+)\)/);
+      if (m) { const q = m[1].split(/[\s/]+/).filter(Boolean).map(Number);
+        return [q[0] * 255, q[1] * 255, q[2] * 255, q.length > 3 ? q[3] : 1]; }
+      return null;
+    };
+    const rootBg = () => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      const m = v.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+      return m ? [1, 2, 3].map((i) => parseInt(m[i], 16)) : [0, 0, 0];
+    };
+    /* Half-transparent surfaces get laid over one another instead of skipped:
+       the rail sits on the paper at 60 per cent, and what shows through has a
+       say. Once the background carries a gradient this is the only way left. */
+    const surface = (el) => {
+      const layers = [];
+      for (let n = el; n; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        let c = parse(cs.backgroundColor);
+        if ((!c || c[3] === 0) && cs.backgroundImage && cs.backgroundImage !== 'none') {
+          const g = cs.backgroundImage.match(/rgba?\([^)]+\)|color\(srgb[^)]+\)/);
+          if (g) c = parse(g[0]);
+        }
+        if (c && c[3] > 0) { layers.push(c); if (c[3] >= 0.999) break; }
+      }
+      let out = layers.length && layers[layers.length - 1][3] >= 0.999
+        ? layers.pop().slice(0, 3) : rootBg();
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const [r, g, b, a] = layers[i];
+        out = [r * a + out[0] * (1 - a), g * a + out[1] * (1 - a), b * a + out[2] * (1 - a)];
+      }
+      return out;
+    };
+    const chan = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+    const lum = ([r, g, b]) => 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
+    const ratio = (a, b) => { const x = lum(a), y = lum(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+    const out = [];
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.devPanel')) continue;   // brings its own colours on purpose
+      const own = [...el.childNodes].filter((n) => n.nodeType === 3)
+        .map((n) => n.textContent.trim()).join('').trim();
+      if (!own) continue;
+      const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+      const box = el.getBoundingClientRect();
+      if (box.width < 2 || box.height < 2) continue;
+      const v = ratio(num(cs.color).slice(0, 3), surface(el));
+      if (v < 4.5) out.push(`${v.toFixed(2)}:1 ${String(el.className).split(' ')[0] || el.tagName}`);
+    }
+    return out;
+  });
+  /* One line per class. The archive has a hundred and fifty rows, and the same
+     complaint a hundred and fifty times buries every other finding. */
+  for (const w of [...new Set(weak)]) unreadable.push(`${theme} ${w}`);
+}
+check(unreadable.length === 0,
+  `${unreadable.length} texts too weak: ${unreadable.slice(0, 10).join(' | ')}`);
+
 const own = await ownLog();
 check(own.length === 0, 'the workbench recorded: ' + own.join(' | '));
 

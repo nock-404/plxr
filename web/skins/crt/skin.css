@@ -8,9 +8,9 @@
   /* Terminal colours — deliberately separate from the interface: a light
      skin still needs a readable, dark terminal. */
   --term-bg: #0b0906; --term-fg: #ffb000;
-  --bg: #0b0906; --fg: #ffb000; --dim: #8a5f12; --accent: #ffcf5c;
+  --bg: #0b0906; --fg: #ffb000; --dim: #a77316; --accent: #ffcf5c; --onAccent: #ffffff;
   --panel: #14100a; --line: #3a2a10;
-  --working: #ffcf5c; --waiting: #8a5f12; --blocked: #ff6b3d; --dead: #4a3a1c;
+  --working: #ffcf5c; --waiting: #a77316; --blocked: #ff6b3d; --dead: #957539;
 }
 
 body {
@@ -57,7 +57,7 @@ body {
 }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn.primary { border-color: var(--accent); color: var(--accent); }
-.btn.primary:hover { background: var(--accent); color: var(--bg); text-shadow: none; }
+.btn.primary:hover { background: var(--accent); color: var(--onAccent, #fff); text-shadow: none; }
 .btn.tiny { padding: 0 6px; font-size: .8em; }
 .btn.tiny.on { border-color: var(--accent); color: var(--accent); }
 .btn:disabled { opacity: .4; cursor: default; }
@@ -98,6 +98,10 @@ body {
 }
 .rsub { color: var(--dim); font-size: .68em; letter-spacing: .08em; text-transform: uppercase; }
 .railitem.active .rsub { color: var(--accent); opacity: .75; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
+   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
 .railitem[data-status="permission"] .rsub { color: var(--blocked); }
 .rmeta { color: var(--dead); font-size: .78em; }
 
@@ -392,3 +396,13 @@ body {
 
 /* The hook is missing — that is the one thing worth saying here. */
 .emptyhook { color: var(--blocked); }
+
+/* The keys in the shortcut list, as caps. Drawn in --fg, never in a muted
+   colour: they are the content of that dialog, not a note beside it. */
+.keyCap {
+  min-width: 2.4em; padding: 2px 8px;
+  color: var(--fg); background: var(--bg);
+  border: 1px solid var(--fg);
+  font-size: .82em; letter-spacing: .12em; text-transform: uppercase;
+  text-shadow: inherit;
+}

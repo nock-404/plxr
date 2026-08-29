@@ -9,8 +9,8 @@
      skin still needs a readable, dark terminal. */
   --term-bg: #0f0f1b; --term-fg: #e8e8f0;
   --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #8b8fb0;
-  --accent: #ffd23f; --line: #3a3f6b;
-  --working: #6ee7a0; --waiting: #8b8fb0; --blocked: #ff5c6c; --dead: #4a4d70;
+  --accent: #ffd23f; --onAccent: #0f0f1b; --line: #3a3f6b;
+  --working: #6ee7a0; --waiting: #8b8fb0; --blocked: #ff5c6c; --dead: #898cb1;
   --px: 4px;
 }
 
@@ -51,9 +51,9 @@ body {
 .btn, .selectButton { background: var(--panel); color: var(--fg); padding: 8px 12px; margin: var(--px); cursor: pointer; }
 .btn:hover, .selectButton:hover { background: var(--line); color: var(--accent); }
 .btn:active { transform: translateY(2px); }
-.btn.primary { background: var(--accent); color: var(--bg); }
+.btn.primary { background: var(--accent); color: var(--onAccent, #fff); }
 .btn.tiny { padding: 4px 7px; font-size: .8em; margin: 0; }
-.btn.tiny.on { background: var(--accent); color: var(--bg); }
+.btn.tiny.on { background: var(--accent); color: var(--onAccent, #fff); }
 .btn:disabled { opacity: .35; }
 
 .statusrow { color: var(--dim); font-size: .8em; padding: 10px 20px; border-bottom: var(--px) solid var(--line); }
@@ -66,8 +66,12 @@ body {
 .rail { border-right: var(--px) solid var(--line); background: var(--panel); }
 .railitem { color: var(--dim); font-size: .8em; padding: 10px; }
 .railitem:hover { background: var(--line); color: var(--fg); }
-.railitem.active { background: var(--accent); color: var(--bg); }
-.railitem.active .rsub { color: var(--bg); opacity: .75; }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
+   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { border-bottom: var(--px) solid var(--line); }
 .railgroup { color: var(--accent); font-size: .72em; padding: 12px 10px 4px; }
 .rsub { color: var(--dim); font-size: .78em; }
@@ -149,7 +153,7 @@ body {
 .pterm { background: var(--term-bg); margin: var(--px); }
 .panelabel { background: var(--panel); color: var(--dim); font-size: .7em; padding: 2px 6px; }
 .paneclose { background: var(--panel); color: var(--dead); font-size: .7em; }
-.pane[data-active="yes"] .panelabel { background: var(--accent); color: var(--bg); }
+.pane[data-active="yes"] .panelabel { background: var(--accent); color: var(--onAccent, #fff); }
 
 .overlay { background: var(--bg); }
 .overlayBar { border-bottom: var(--px) solid var(--line); padding: 10px 14px; }
@@ -226,14 +230,14 @@ body {
 /* Auswahl im Startdialog. */
 .choiceButton { background: var(--panel); color: var(--dim); font-size: .8em; padding: 7px 12px;
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
-.choiceButton[data-picked="yes"] { background: var(--accent); color: var(--bg); }
+.choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); }
 
 /* Style editor and colour picker. */
 .styleName { color: var(--dim); font-size: .68em; text-transform: none; }
 .styleNumber { color: var(--fg); font-size: .7em; }
 .styleNumber button { color: var(--accent); }
 .styleToggle { background: var(--panel); color: var(--dim); font-size: .68em; padding: 5px 9px; }
-.styleToggle[data-on="yes"] { background: var(--accent); color: var(--bg); }
+.styleToggle[data-on="yes"] { background: var(--accent); color: var(--onAccent, #fff); }
 .swatch { box-shadow: 0 -3px 0 0 var(--line), 0 3px 0 0 var(--line), -3px 0 0 0 var(--line), 3px 0 0 0 var(--line); margin: 3px; }
 .swatchField { background: var(--panel); box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); }
 .swatchHex { background: var(--bg); color: var(--fg); border: 0; font-size: 10px; text-align: center; }
@@ -257,7 +261,7 @@ body {
 .inboxReply input { background: var(--bg); color: var(--fg); border: 0; outline: none;
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
 .inboxQuick button { background: var(--panel); color: var(--dim); font-size: .7em; padding: 5px 9px; }
-.inboxQuick button:hover { background: var(--accent); color: var(--bg); }
+.inboxQuick button:hover { background: var(--accent); color: var(--onAccent, #fff); }
 
 /* Verbrauchstempo. */
 .pace { color: var(--dim); }
@@ -312,7 +316,7 @@ body {
 @keyframes pixelBlink { 50% { opacity: .25; } }
 
 /* A tool button that is engaged — see crt for why this was missing. */
-.btn.on { background: var(--accent); color: var(--bg); }
+.btn.on { background: var(--accent); color: var(--onAccent, #fff); }
 
 /* Workbench — same surface as the file panel, mirrored. */
 .workbench { border-left: var(--px) solid var(--line); background: var(--panel); }
@@ -327,3 +331,11 @@ body {
 
 /* The hook is missing — that is the one thing worth saying here. */
 .emptyhook { color: var(--blocked); }
+
+/* Hard edges and an offset shadow — no radius anywhere in this skin. */
+.keyCap {
+  min-width: 2.6em; padding: 2px 7px;
+  color: var(--fg); background: var(--panel);
+  border: 2px solid var(--fg); box-shadow: 3px 3px 0 var(--line);
+  font-size: .78em;
+}
