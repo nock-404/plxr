@@ -32,7 +32,7 @@ body {
   box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
 }
 /* Bevel facing in: sunken. For anything that takes input. */
-.filter input, .listbar input, .card input, .viewerbody, .tbody, .files {
+.filter input, .listbar input, .card input, .card textarea, .viewerbody, .tbody, .files {
   background: #fff; color: #000;
   border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
   box-shadow: inset 1px 1px 0 var(--dk);
@@ -48,7 +48,7 @@ body {
 .mark { color: var(--accent); }
 .wordmark { font-size: 1.3em; font-weight: bold; color: var(--dk); }
 .prompt { color: var(--dk); }
-.filter input, .listbar input, .card input { padding: 3px 5px; outline: none; }
+.filter input, .listbar input, .card input, .card textarea { padding: 3px 5px; outline: none; }
 
 .btn { padding: 3px 12px; cursor: pointer; }
 .btn:active { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; padding: 4px 11px 2px 13px; }

@@ -32,14 +32,16 @@ Erledigtes fliegt raus, nicht ins Archiv.
   Session neben der beendeten statt an deren Stelle; nach zweimal Fortsetzen
   stehen drei Kacheln desselben Verzeichnisses da, zwei davon „beendet". Seine
   Worte: „fortsetzen lässt das da drin stehen. brauch ich dann doch nicht…"
-- **Agentenverwaltung.** Zweite Beanstandung — vorher schon „ich weiß immer noch
-  nicht wie ich agenten adde", jetzt „sieht kacke aus, versteht keiner und
-  funktioniert nicht". Der Editor zeigt rohes JSON, wird oben abgeschnitten und
-  legt sich über die Liste. Braucht ein richtiges Formular: Name, Kennungen,
-  Sätze, auf die reagiert wird — und eine Antwort darauf, was genau nicht geht.
-
+- **Agentenverwaltung: Probe für einzelne Zeilen fehlt noch bei „Erkennt am
+  Kommando".** Die Probe prüft bisher nur die beiden Satzlisten.
 ## Gemessen, noch nicht behoben
 
+- **Deutsche Klassennamen im CSS und JavaScript.** `zeile2`, `griff`, `feld`,
+  `auswahl`, `auswahlText`, `pfadListe`, `farbwert`, `stil`, `stilzeile`,
+  `farbwahl`, `farbflaeche`, `farbton`, `farbpunkt`, `farbtonpunkt`, `wahl` —
+  stehen so in `classes.py` unter LAYOUT_ONLY. Dazu einzelne Bezeichner wie
+  `gewuenscht` in `app.js` und deutsche Abschnittsüberschriften in `base.css`
+  und `win95/skin.css`.
 - **60 Zeilen Deutsch im Go-Code.** Fehlermeldungen (`kein gültiges Token`,
   `Daemon ist nicht hochgekommen`), CLI-Hilfe, Kommentare, halbübersetzte
   Sätze. Dazu deutsche Dateinamen (`internal/search/mitschnitt.go`), ein

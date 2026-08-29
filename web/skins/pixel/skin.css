@@ -25,7 +25,7 @@ body {
 
 /* Gestufter Blockrahmen: vier harte Schatten statt eines Rahmens. */
 .tile, .btn, .selectButton, .selectList, .card, .filter input,
-.listbar input, .card input, .pterm {
+.listbar input, .card input, .card textarea, .pterm {
   box-shadow:
     0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
     calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
@@ -39,10 +39,10 @@ body {
 .wordmark { font-size: 1.6em; color: var(--accent); letter-spacing: .05em; }
 .prompt { color: var(--accent); }
 
-.filter input, .listbar input, .card input {
+.filter input, .listbar input, .card input, .card textarea {
   background: var(--bg); color: var(--fg); outline: none; padding: 7px 9px; margin: var(--px);
 }
-.filter input:focus, .listbar input:focus, .card input:focus {
+.filter input:focus, .listbar input:focus, .card input:focus, .card textarea:focus {
   box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent),
               -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent);
 }

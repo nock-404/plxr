@@ -225,11 +225,11 @@ body {
 .card { background: var(--bg); border: 1px solid var(--accent); }
 .cardTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
 .fieldName { color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-size: .76em; }
-.card input {
+.card input, .card textarea {
   background: transparent; border: 1px solid var(--dim); outline: none;
   text-shadow: inherit; text-transform: none; letter-spacing: 0;
 }
-.card input:focus { border-color: var(--accent); }
+.card input:focus, .card textarea:focus { border-color: var(--accent); }
 .splitRow { color: var(--fg); }
 .splitRow:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 

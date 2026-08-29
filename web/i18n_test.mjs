@@ -30,6 +30,11 @@ const used = new Set([
        also carries a bare '.' — and that then counts as a missing translation. */
     .flatMap((m) => [...m[1].matchAll(/['"](\w[\w.]*\.[\w.]+)['"]/g)].map((k) => k[1])),
   ...[...sources.matchAll(/data-i18n(?:-tip|-ph)?="([\w.]+)"/g)].map((m) => m[1]),
+  /* A select fills its own options: data-i18n-options names the values,
+     data-i18n-option-key the prefix. Without this the entries look unused and
+     the gate asks for them to be deleted — which would empty the list. */
+  ...[...sources.matchAll(/data-i18n-options="([^"]+)"[^>]*data-i18n-option-key="([\w.]+)"/g)]
+    .flatMap((m) => m[1].split(/\s+/).filter(Boolean).map((v) => `${m[2]}.${v}`)),
 ]);
 
 /* Keys that go through a variable — the shortcut table holds the key, not the
@@ -161,6 +166,7 @@ const NOT_TEXT = new Set([
   'plxr',      // our own name
   ' MB',       // unit
   '·  MB',     // the same unit inside a template
+  '~/.plxr/agents/.json', // a path, and it reads the same in every language
 ]);
 
 const TARGETS = /(?:\.textContent\s*=|\.placeholder\s*=|plxrUI\.notice\(|plxrUI\.confirm\(|showEmpty\()/g;

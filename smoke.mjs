@@ -133,6 +133,37 @@ await page.waitForTimeout(600);
 const agents = await page.locator('#agentList .splitRow').count();
 check(agents > 0, 'no agent profile listed');
 
+/* The agent form. It used to be the file in a text box, scrolled to its own
+   end, opening below the list where nobody saw it. Checked here is what makes
+   it usable at all: the fields carry the file's content, nothing is cut off,
+   and the probe answers. */
+await page.locator('#agentList .splitRow', { hasText: 'Claude Code' }).click();
+await page.waitForTimeout(600);
+check(await page.locator('#agentBrowse').isHidden(), 'the list stays behind the editor');
+check((await page.inputValue('#agentLabel')).length > 0, 'the name is not filled in');
+check((await page.inputValue('#agentBlocked')).split('\n').length > 1,
+  'the waiting phrases did not arrive in the field');
+/* A list that shows four of its five lines lies about its own length. */
+const cut = await page.evaluate(() => ['agentMatch', 'agentBlocked', 'agentWorking']
+  .filter((id) => { const el = document.getElementById(id);
+    return el.scrollHeight > el.clientHeight + 2; }));
+check(cut.length === 0, `cut off: ${cut.join(', ')}`);
+check(await page.locator('#agentDelete').isHidden(),
+  'a built-in profile offers DELETE');
+
+await page.fill('#agentTry', 'Do you want to proceed?');
+await page.waitForTimeout(300);
+const verdict = await page.textContent('#agentTryOut');
+check(/proceed/.test(verdict), `the probe does not recognise a question: "${verdict}"`);
+await page.fill('#agentTry', 'zzz nothing at all zzz');
+await page.waitForTimeout(300);
+check(!/proceed/.test(await page.textContent('#agentTryOut')),
+  'the probe reports a match where there is none');
+await page.screenshot({ path: shots + '/agent-form.png' });
+await page.click('#agentBack');
+await page.waitForTimeout(300);
+check(await page.locator('#agentBrowse').isVisible(), 'BACK does not bring the list back');
+
 await page.click('[data-tab="look"]');
 await page.waitForTimeout(300);
 await page.click('#wbOpen');

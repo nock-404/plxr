@@ -28,7 +28,7 @@ body {
 
 /* A hand-drawn frame: irregular radii, a second line slightly offset. */
 .tile, .btn, .selectButton, .selectList, .card,
-.filter input, .listbar input, .card input {
+.filter input, .listbar input, .card input, .card textarea {
   border: 2px solid var(--fg);
   border-radius: 14px 6px 12px 5px / 5px 12px 6px 14px;
   background: var(--panel);
@@ -47,8 +47,8 @@ body {
 .mark { color: var(--accent); transform: rotate(-3deg); }
 .wordmark { font-size: 1.7em; color: var(--fg); }
 .prompt { color: var(--dim); }
-.filter input, .listbar input, .card input { padding: 3px 10px; outline: none; background: transparent; }
-.filter input:focus, .listbar input:focus, .card input:focus { border-color: var(--accent); }
+.filter input, .listbar input, .card input, .card textarea { padding: 3px 10px; outline: none; background: transparent; }
+.filter input:focus, .listbar input:focus, .card input:focus, .card textarea:focus { border-color: var(--accent); }
 .filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
 
 .btn, .selectButton { padding: 3px 14px; color: var(--fg); cursor: pointer; }

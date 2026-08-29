@@ -435,6 +435,22 @@ html, body {
 /* The editor for an agent profile — small on purpose: a profile is twenty
    lines, and a field the height of the dialog would only look empty. */
 .agentText { min-height: 200px; width: 100%; }
+/* One line per entry, four lines visible — long enough to see a list is a list
+   without pushing the buttons off the bottom of the dialog. */
+/* Deliberately NOT .viewerbody: that one brings flex:1 and border:0 — made
+   for the file viewer, where it fills the pane and has no frame. In a form it
+   made the fields borderless and squashed them so the last line of a list was
+   cut off. Their look comes from `.card textarea`, like every other field. */
+/* Ohne Abstand klebt die Erklaerung eines Feldes optisch an der Ueberschrift
+   des naechsten — man liest sie zur falschen Zeile. */
+#agentEdit { display: flex; flex-direction: column; gap: 16px; }
+#agentEdit .notice { margin: 0; }
+
+.agentLines {
+  width: 100%; min-height: 76px; max-height: 260px;
+  font: inherit; resize: vertical; overflow: auto;
+  white-space: pre; tab-size: 2;
+}
 
 /* The reply memory sits between the question and the reply field — where the
    decision is made, not somewhere off to the side. Layout only; the skins give

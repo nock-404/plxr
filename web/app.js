@@ -113,6 +113,19 @@ function translateMarkup(root = document) {
   for (const el of root.querySelectorAll('[data-i18n-ph]')) {
     el.placeholder = tr(el.dataset.i18nPh);
   }
+  /* Options carry no data-i18n — they are built here, so they have to be
+     rebuilt here too when the language changes. */
+  for (const sel of root.querySelectorAll('[data-i18n-options]')) {
+    const keep = sel.value;
+    sel.innerHTML = '';
+    for (const value of sel.dataset.i18nOptions.split(' ')) {
+      const o = document.createElement('option');
+      o.value = value;
+      o.textContent = tr(`${sel.dataset.i18nOptionKey}.${value}`);
+      sel.appendChild(o);
+    }
+    if (keep) sel.value = keep;
+  }
   document.documentElement.lang = language;
 }
 
@@ -585,6 +598,11 @@ async function openSettings() {
     tr('settings.themeHint');
   pickTab('look');
   buildStyleEditor();
+  /* Back to the list every time. Whoever closed the dialog with Escape while a
+     profile was open found the list gone on the next visit — the editor was
+     still standing over it, with the previous profile in it. */
+  agentEditing = null;
+  agentShow(false);
   renderAgents();
   showDeleteButton();
   fillLanguages();
@@ -2832,9 +2850,153 @@ document.addEventListener('keydown', (e) => {
    session matches it. */
 
 let agentEditing = null;
+let agentIsOwn = false;
 
 function agentUsers(name) {
   return state.tiles.filter((t) => t.alive && (t.agent || 'generic') === name);
+}
+
+
+/* The editor.
+
+   It used to be the file itself in a text box: whoever wanted a profile of
+   their own had to know the field names, know that "blocked" holds regular
+   expressions, and know that a decimal point belongs in idle_seconds. And it
+   scrolled to the end by itself, so the first thing on screen was the bottom
+   half of a JSON object.
+
+   The form asks the same questions in words. The file stays what it is — it is
+   read, filled in, and written back — and anyone who prefers the raw thing can
+   still open it. */
+
+const IDLE_STATES = ['waiting', 'working', 'unknown'];
+
+/* One entry per line. A list in a text box is the honest shape here: the
+   entries are phrases with spaces and backslashes in them, so a comma or a
+   space would be a separator you cannot type around. */
+const linesOf = (list) => (list || []).join('\n');
+const listOf = (text) => text.split('\n').map((l) => l.trim()).filter(Boolean);
+
+/* Grow to fit what is in them. Fixed at four lines the fifth entry of a list
+   was simply cut off — and a list that lies about its own length is worse than
+   no list. Capped, so the buttons stay reachable without scrolling forever. */
+function agentFit(field) {
+  field.style.height = 'auto';
+  field.style.height = Math.min(field.scrollHeight + 2, 260) + 'px';
+}
+
+function agentFitAll() {
+  for (const id of ['#agentMatch', '#agentBlocked', '#agentWorking']) agentFit($(id));
+}
+
+function agentShow(editing) {
+  $('#agentBrowse').hidden = editing;
+  $('#agentEdit').hidden = !editing;
+}
+
+async function agentOpen(name, own) {
+  let raw;
+  try { raw = await api.agentRead(name); } catch (e) {
+    plxrUI.notice(errText(e), tr('settings.agentProfiles'));
+    return;
+  }
+  let profile;
+  try { profile = JSON.parse(raw); } catch {
+    /* A file that cannot be parsed must not be swallowed by the form — the raw
+       text is the only truthful thing left to show. */
+    profile = null;
+  }
+  agentEditing = name;
+  agentIsOwn = !!own;
+  $('#agentText').value = raw;
+  // The label from the list, not the file name — that is what was clicked on.
+  $('#agentName').textContent = tr('agents.editing', {
+    name: (profile && profile.label) || name,
+  });
+  $('#agentOrigin').textContent = own ? tr('agents.originOwn') : tr('agents.originBuiltIn');
+  $('#agentWhere').textContent = own ? `~/.plxr/agents/${name}.json` : '';
+  $('#agentDelete').hidden = !own;
+
+  if (profile) {
+    $('#agentLabel').value = profile.label || '';
+    $('#agentMatch').value = linesOf(profile.match);
+    $('#agentBlocked').value = linesOf(profile.blocked);
+    $('#agentWorking').value = linesOf(profile.working);
+    $('#agentIdle').value = profile.idle_seconds ?? 3;
+    $('#agentIdleStatus').value = IDLE_STATES.includes(profile.idle_status)
+      ? profile.idle_status : 'waiting';
+  }
+  /* Cannot be read? Then the raw text is the only thing that helps, and it
+     opens by itself instead of hiding behind a button. */
+  agentRawShow(!profile);
+  $('#agentTry').value = '';
+  agentTry();
+  agentShow(true);
+  // Only once it is on screen: a hidden element has no scrollHeight.
+  agentFitAll();
+  $('#agentLabel').focus();
+}
+
+function agentRawShow(on) {
+  $('#agentRawBox').hidden = !on;
+  $('#agentRaw').classList.toggle('on', on);
+}
+
+/* What the form makes of it. The unknown fields of the file are kept: a
+   profile may well carry more than this form asks about, and saving must not
+   quietly throw that away. */
+function agentFromForm() {
+  let base = {};
+  try { base = JSON.parse($('#agentText').value) || {}; } catch { base = {}; }
+  return {
+    ...base,
+    name: agentEditing,
+    label: $('#agentLabel').value.trim() || agentEditing,
+    match: listOf($('#agentMatch').value),
+    blocked: listOf($('#agentBlocked').value),
+    working: listOf($('#agentWorking').value),
+    idle_seconds: Number($('#agentIdle').value) || 0,
+    idle_status: $('#agentIdleStatus').value,
+  };
+}
+
+/* The probe. Paste a line out of the terminal and see which rule catches it —
+   without this the three fields above are regular expressions to be guessed
+   at, and that is exactly how nobody ever wrote a profile. */
+function agentTry() {
+  const line = $('#agentTry').value;
+  const out = $('#agentTryOut');
+  if (!line) { out.textContent = ''; return; }
+  const hit = (text) => {
+    for (const rule of listOf(text)) {
+      try { if (new RegExp(rule).test(line)) return rule; } catch { /* invalid, reported below */ }
+    }
+    return null;
+  };
+  const blocked = hit($('#agentBlocked').value);
+  const working = hit($('#agentWorking').value);
+  /* Waiting wins over working — that is the order the daemon reads them in,
+     and a probe that answers differently from the running system is worse
+     than none. */
+  out.textContent = blocked
+    ? tr('agents.tryBlocked', { rule: blocked })
+    : working ? tr('agents.tryWorking', { rule: working })
+      : tr('agents.tryNothing');
+}
+
+/* An expression that does not compile is silently dead in the daemon: the line
+   never matches and the session hangs in the wrong state. Better said out loud
+   before saving. */
+function agentBadRules() {
+  const bad = [];
+  for (const [id, field] of [['#agentBlocked', 'agents.fieldBlocked'],
+                             ['#agentWorking', 'agents.fieldWorking'],
+                             ['#agentMatch', 'agents.fieldMatch']]) {
+    for (const rule of listOf($(id).value)) {
+      try { new RegExp(rule); } catch (e) { bad.push(`${tr(field)}: ${rule}`); }
+    }
+  }
+  return bad;
 }
 
 async function renderAgents() {
@@ -2857,56 +3019,85 @@ async function renderAgents() {
     row.querySelector('.rpath').textContent = users.length
       ? tr(users.length === 1 ? 'counts.session' : 'counts.sessions', { n: users.length })
       : (a.own ? tr('agents.own') : tr('agents.builtIn'));
-    row.addEventListener('click', () => agentOpen(a.name));
+    row.addEventListener('click', () => agentOpen(a.name, a.own));
     box.appendChild(row);
   }
 }
 
-async function agentOpen(name) {
-  try {
-    $('#agentText').value = await api.agentRead(name);
-  } catch (e) {
-    plxrUI.notice(errText(e), tr('settings.agentProfiles'));
-    return;
-  }
-  agentEditing = name;
-  $('#agentName').textContent = tr('agents.editing', { name });
-  $('#agentEdit').hidden = false;
-  $('#agentText').focus();
+$('#agentBack').addEventListener('click', () => { agentEditing = null; agentShow(false); });
+$('#agentRaw').addEventListener('click', () => {
+  // Opening it shows what would be saved, not what was read.
+  if ($('#agentRawBox').hidden) $('#agentText').value = agentJson();
+  agentRawShow($('#agentRawBox').hidden);
+});
+for (const id of ['#agentTry', '#agentBlocked', '#agentWorking']) {
+  $(id).addEventListener('input', agentTry);
 }
+for (const id of ['#agentMatch', '#agentBlocked', '#agentWorking']) {
+  $(id).addEventListener('input', (e) => agentFit(e.target));
+}
+
+const agentJson = () => JSON.stringify(agentFromForm(), null, 2) + '\n';
 
 $('#agentNew').addEventListener('click', async () => {
   const name = await plxrUI.prompt(tr('agents.nameAsk'), tr('agents.nameTitle'), '');
   if (!name) return;
   const clean = name.trim().toLowerCase();
-  try {
-    $('#agentText').value = await api.agentStarter(clean);
-  } catch (e) {
+  let raw;
+  try { raw = await api.agentStarter(clean); } catch (e) {
     plxrUI.notice(errText(e), tr('agents.nameTitle'));
     return;
   }
   agentEditing = clean;
+  agentIsOwn = true;
+  $('#agentText').value = raw;
+  let profile = {};
+  try { profile = JSON.parse(raw); } catch { profile = {}; }
   $('#agentName').textContent = tr('agents.editing', { name: clean });
-  $('#agentEdit').hidden = false;
-  $('#agentText').focus();
+  $('#agentOrigin').textContent = tr('agents.originNew');
+  $('#agentWhere').textContent = `~/.plxr/agents/${clean}.json`;
+  $('#agentDelete').hidden = true;
+  $('#agentLabel').value = profile.label || clean;
+  $('#agentMatch').value = linesOf(profile.match);
+  $('#agentBlocked').value = linesOf(profile.blocked);
+  $('#agentWorking').value = linesOf(profile.working);
+  $('#agentIdle').value = profile.idle_seconds ?? 3;
+  $('#agentIdleStatus').value = IDLE_STATES.includes(profile.idle_status)
+    ? profile.idle_status : 'waiting';
+  agentRawShow(false);
+  $('#agentTry').value = '';
+  agentTry();
+  agentShow(true);
+  agentFitAll();
+  $('#agentLabel').focus();
 });
 
 $('#agentSave').addEventListener('click', async () => {
   if (!agentEditing) return;
+  const bad = agentBadRules();
+  if (bad.length && !(await plxrUI.confirm(
+    tr('agents.badRules', { list: bad.join('\n') }), tr('settings.agentProfiles')))) return;
   try {
-    await api.agentWrite(agentEditing, $('#agentText').value);
+    await api.agentWrite(agentEditing, agentJson());
   } catch (e) {
     plxrUI.notice(errText(e), tr('settings.agentProfiles'));
     return;
   }
   /* Say what it now applies to. Otherwise saving is an act of faith: the
-     profile only shows its effect when a matching session happens to run. */
+     profile only shows its effect when a matching session happens to run.
+     And if this was a built-in one, say that a copy of your own now exists —
+     it used to happen silently, and the list looked unchanged. */
   const users = agentUsers(agentEditing);
+  const what = agentIsOwn ? '' : tr('agents.copyMade', { name: agentEditing }) + '\n\n';
   plxrUI.notice(
-    users.length
+    what + (users.length
       ? users.map((t) => t.title || t.name).join('\n')
-      : tr('agents.noneRunning'),
+      : tr('agents.noneRunning')),
     tr('agents.saved', { name: agentEditing }));
+  agentIsOwn = true;
+  $('#agentDelete').hidden = false;
+  $('#agentOrigin').textContent = tr('agents.originOwn');
+  $('#agentWhere').textContent = `~/.plxr/agents/${agentEditing}.json`;
   renderAgents();
 });
 
@@ -2920,7 +3111,7 @@ $('#agentDelete').addEventListener('click', async () => {
     return;
   }
   agentEditing = null;
-  $('#agentEdit').hidden = true;
+  agentShow(false);
   renderAgents();
 });
 
