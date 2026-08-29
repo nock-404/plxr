@@ -460,8 +460,14 @@ html, body {
   position: fixed; z-index: 500; pointer-events: none;
   border: 2px solid currentColor; opacity: .8;
 }
-.workbench > .viewerbody { flex: 1 1 auto; min-height: 0; }
-.workbench > .ruleslist { flex: 0 0 34%; overflow-y: auto; }
+/* Wrapping, not cut off: a stylesheet has long lines, and a text area without
+   wrapping simply hides the right-hand end. You then write against something
+   you cannot see. */
+.workbench > .viewerbody {
+  flex: 1 1 auto; min-height: 0;
+  white-space: pre-wrap; word-break: break-word; overflow-x: hidden;
+}
+.workbench > .ruleslist { flex: 0 0 28%; overflow-y: auto; }
 
 /* Playback. Layout here, looks in the skin. */
 .playterm { flex: 1; min-height: 0; overflow: hidden; padding: 6px 10px; }

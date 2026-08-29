@@ -1414,19 +1414,13 @@ function renderGrid() {
   }
   for (const el of [...raster.children]) if (!seen.has(el.dataset.id)) el.remove();
 
-  /* The very first screen.
-     Without a session the overview was completely blank — the first thing
-     anyone sees said nothing at all, not even what to do next. And the one
-     thing that makes plxr worth anything is the hook: without it a tile knows
-     only what stands on the screen, not what the agent is doing. So the hint
-     says that first, and only when it is missing. */
-  const note = raster.querySelector('.emptyNote');
-  if (state.tiles.length) {
-    if (note) note.remove();
-  } else if (!note) {
-    showEmpty(raster, tr('grid.none'),
-      hookInstalled === false ? tr('grid.noneHookHint') : tr('grid.noneHint'));
-  }
+  /* The empty state stands in the markup — .emptybox, right there in
+     index.html. I once added a second one here and never saw that it was
+     invisible behind the first: the audit only searched the JavaScript.
+     What is worth saying is the hook, and that belongs in the box that is
+     actually on screen. */
+  const hint = $('#emptyHook');
+  hint.hidden = hookInstalled !== false || state.tiles.length > 0;
 }
 
 // renderAll is the only receiver of the state stream.
@@ -2918,7 +2912,7 @@ let wbTimer = null;
 function wbClassesInUse() {
   const out = new Set();
   for (const el of document.querySelectorAll('[class]')) {
-    for (const c of el.classList) if (!c.startsWith('dev') && !c.startsWith('xterm')) out.add(c);
+    for (const c of el.classList) if (!wbSkipped(c)) out.add(c);
   }
   return [...out].sort();
 }
@@ -2943,16 +2937,26 @@ function wbStyledBy(css) {
 let wbPicking = false;
 let wbBox = null;
 
+/* What a skin has no business with: pure layout, the workbench itself, the
+   workbench console, xterm's own classes. The same list serves both the
+   picking and the "still missing" column — otherwise that column cries wolf
+   with a hundred entries nobody should ever style. */
+const WB_NOT_MINE = new Set([
+  'app', 'auswahl', 'auswahlText', 'body', 'brand', 'content',
+  'farbflaeche', 'farbpunkt', 'farbton', 'farbtonpunkt', 'farbwahl',
+  'farbwert', 'feld', 'griff', 'hidden', 'panes', 'pfadListe', 'rtext',
+  'sesssplit', 'spacer', 'stil', 'stilzeile', 'tools', 'wahl', 'xterm',
+  'xterm-screen', 'zeile2'
+]);
+
+const wbSkipped = (c) =>
+  WB_NOT_MINE.has(c) || c.startsWith('dev') || c.startsWith('wb') || c.startsWith('xterm');
+
 /* Which class can a skin actually address? The innermost one that is not pure
    layout, because that is the one a skin colours. */
 function wbClassFor(el) {
-  const layout = new Set(['app', 'body', 'content', 'spacer', 'hidden', 'panes', 'tools', 'brand']);
   for (let node = el; node && node !== document.body; node = node.parentElement) {
-    for (const c of node.classList) {
-      if (!layout.has(c) && !c.startsWith('dev') && !c.startsWith('wb') && !c.startsWith('xterm')) {
-        return c;
-      }
-    }
+    for (const c of node.classList) if (!wbSkipped(c)) return c;
   }
   return '';
 }
@@ -3023,7 +3027,7 @@ function wbRender() {
   const head = document.createElement('div');
   head.className = 'rrow';
   head.innerHTML = '<span class="rart"></span><span class="rmain"><b class="rtitle"></b></span>';
-  head.querySelector('.rart').textContent = String(styled.size);
+  head.querySelector('.rart').textContent = String(missing.length);
   head.querySelector('.rtitle').textContent = missing.length
     ? tr('workbench.missingHead') : tr('workbench.nothingMissing');
   box.appendChild(head);

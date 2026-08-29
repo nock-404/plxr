@@ -102,8 +102,16 @@ body {
 @keyframes w95blink { 50% { opacity: .2 } }
 
 .empty { color: #fff; }
-.emptyhead { font-weight: bold; }
-.emptyagents { color: #cfe8e8; }
+/* The empty state stood directly on the teal desktop: grey text on turquoise,
+   unreadable. In a skin whose whole language is "grey window with an edge" it
+   belongs on a window. */
+.emptybox {
+	background: var(--panel); color: var(--dk);
+	border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+	padding: 14px 18px;
+}
+.emptyhead { font-weight: bold; color: var(--accent); }
+.emptyagents { color: var(--dim); }
 
 /* ---------- Listen ---------- */
 
@@ -232,7 +240,7 @@ body {
 .grid, .filetree { background: transparent; }
 .rdot { opacity: .9; }
 .selectArrow { color: var(--dim); font-size: .8em; }
-.emptybox { color: var(--dim); }
+
 .hitMain .hitTitle { color: var(--accent); }
 .tfoot .act { color: var(--fg); opacity: .85; }
 
@@ -331,3 +339,6 @@ body {
 
 /* Going in circles: the tile is green and it is still stuck. */
 .tile[data-stuck="yes"] .act { color: #800000; font-weight: bold; }
+
+/* The hook is missing — that is the one thing worth saying here. */
+.emptyhook { color: #800000; }

@@ -120,12 +120,39 @@ def main():
             print(f'  {name}: {len(missing)} classes the other skins style:')
             print('      ' + ' '.join('.' + x for x in missing))
 
+    failed |= same_ignore_list()
     failed |= check_ids()
     failed |= check_overrides()
 
     if not failed:
         print('  classes and ids agree')
     return failed
+
+
+def same_ignore_list():
+    """Does the workbench ignore the same classes as this gate?
+
+    The workbench shows what a skin does not style yet. If its ignore list and
+    LAYOUT_ONLY drift apart, that column fills up with classes nobody should
+    ever style — a hundred entries, and the useful three drown in them. A
+    column that cries wolf gets ignored, and then it is worth nothing.
+    """
+    js = pathlib.Path('web/app.js').read_text()
+    m = re.search(r'const WB_NOT_MINE = new Set\(\[(.*?)\]\);', js, re.S)
+    if not m:
+        print('  the workbench has no ignore list any more')
+        return 1
+    theirs = set(re.findall(r"'([\w-]+)'", m.group(1)))
+    missing = sorted(LAYOUT_ONLY - theirs)
+    extra = sorted(theirs - LAYOUT_ONLY)
+    if missing or extra:
+        print('  the workbench ignores other classes than LAYOUT_ONLY:')
+        if missing:
+            print('      only here:           ' + ' '.join(missing))
+        if extra:
+            print('      only in the workbench: ' + ' '.join(extra))
+        return 1
+    return 0
 
 
 def check_overrides():

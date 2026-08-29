@@ -126,6 +126,24 @@ Eigene Themes liegen in `~/.plxr/themes/*.json`:
 }
 ```
 
+## Prüfen
+
+```sh
+./check.sh    # alles, was ohne Fenster prüfbar ist — 25 Stufen
+./smoke.sh    # klickt die Oberfläche mit einem echten Browser durch
+```
+
+`check.sh` läuft vor jedem Commit. `smoke.sh` baut aus dem Arbeitsstand ein
+Binary, startet einen eigenen Daemon in einem Wegwerf-Verzeichnis, öffnet die
+Oberfläche in Chrome, klickt jede Ansicht und jeden Dialog an und legt
+Bildschirmfotos aller vier Skins ab. Es ist bewusst **nicht** Teil von
+`check.sh`: es braucht einen Browser, und eine Stufe, die sich still
+überspringt, ist eine Stufe, die lügt.
+
+Es fängt genau das, was keine statische Prüfung sieht: ein Wurf beim Start, ein
+Dialog, der nicht erscheint, eine Ansicht ohne Fläche, rohe
+Übersetzungsschlüssel auf dem Schirm, ein Skin, der nicht lädt.
+
 ## Bauen
 
 ```sh

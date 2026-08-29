@@ -389,3 +389,6 @@ body {
 
 /* Going in circles: the tile is green and it is still stuck. */
 .tile[data-stuck="yes"] .act { color: var(--blocked); }
+
+/* The hook is missing — that is the one thing worth saying here. */
+.emptyhook { color: var(--blocked); }
