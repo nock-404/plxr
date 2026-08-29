@@ -60,6 +60,32 @@ for t in darwin/arm64 darwin/amd64 windows/amd64 linux/amd64 linux/arm64; do
 	fi
 done
 
+# Clicked through — in exactly this state, not in some earlier one.
+#
+# Every gate above reads the source. Not one of them can see an empty pane, a
+# button with no size, or a list that answers null and leaves the view blank
+# without a word. Only a running window shows that, and reading code and then
+# claiming the interface works is a lie with extra steps.
+#
+# So this does not ask whether smoke.sh was run at some point — it compares the
+# hash of the working tree against the state smoke.sh last passed on, and runs
+# it when they differ. There is no way to be green without having been looked
+# at, and there is deliberately no flag to skip it.
+printf '  %-20s ' "clicked through"
+tree=$(./treehash.sh 2>/dev/null)
+seen=$(cat "$(git rev-parse --git-dir 2>/dev/null)/plxr-smoke-passed" 2>/dev/null)
+if [ -n "$tree" ] && [ "$tree" = "$seen" ]; then
+	echo "ok (unchanged)"
+else
+	echo "running"
+	if out=$(./smoke.sh 2>&1); then
+		echo "$out" | sed 's/^/      /' | tail -3
+	else
+		echo "$out" | grep -E "FAILED|screenshots" | sed 's/^/      /' | head -12
+		failed=1
+	fi
+fi
+
 if [ "$failed" != "0" ]; then
 	echo
 	echo "  CHECK FAILED"

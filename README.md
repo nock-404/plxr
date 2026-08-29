@@ -129,9 +129,21 @@ Eigene Themes liegen in `~/.plxr/themes/*.json`:
 ## Prüfen
 
 ```sh
-./check.sh    # alles, was ohne Fenster prüfbar ist — 25 Stufen
-./smoke.sh    # klickt die Oberfläche mit einem echten Browser durch
+./check.sh    # 25 Stufen aus der Quelle + das Durchklicken als letzte
+./smoke.sh    # nur das Durchklicken, mit einem echten Browser
 ```
+
+`check.sh` endet mit der Stufe **clicked through**. Sie vergleicht den Hash des
+Arbeitsstands mit dem Stand, den `smoke.sh` zuletzt bestanden hat, und ruft
+`smoke.sh` auf, wenn die beiden auseinanderlaufen. Ein Stand, den niemand
+angesehen hat, kann damit nicht grün werden — und es gibt bewusst keinen
+Schalter, das zu überspringen.
+
+Der Grund: die 25 Stufen davor lesen alle nur die Quelle. Keine davon sieht
+einen leeren Bereich, einen Knopf ohne Fläche oder eine Liste, die `null`
+antwortet und die Ansicht wortlos leer lässt. Gegengeprobt — mit einem
+Merkpunkte-Bereich, der sich nicht öffnet, sagen alle 25 Stufen „ok" und
+`check.sh` geht trotzdem rot.
 
 `check.sh` läuft vor jedem Commit. `smoke.sh` baut aus dem Arbeitsstand ein
 Binary, startet einen eigenen Daemon in einem Wegwerf-Verzeichnis, legt dort

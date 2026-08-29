@@ -24,7 +24,19 @@ mkdir -p "$PLXR_PROBE"
 # does not appear in the process line — a pkill on it matches nothing, and the
 # test daemon stays behind. It did, the first time this ran.
 DAEMON=""
-cleanup() { [ -n "$DAEMON" ] && kill "$DAEMON" 2>/dev/null; rm -rf "$PLXR_PROBE"; }
+# The `wait` is not politeness: without it the shell prints "Terminated: 15"
+# for the background job after the run, and that line reads like a failure in
+# the middle of an otherwise clean report.
+cleanup() {
+	# `|| true` on both: wait returns 143 for the daemon that was just killed,
+	# and under `set -e` inside an EXIT trap that becomes the exit status of the
+	# whole script. A green run then reported itself as failed.
+	if [ -n "$DAEMON" ]; then
+		kill "$DAEMON" 2>/dev/null || true
+		wait "$DAEMON" 2>/dev/null || true
+	fi
+	rm -rf "$PLXR_PROBE"
+}
 trap cleanup EXIT
 
 # Playwright out of the npx cache — nothing lands in this repo.
@@ -62,11 +74,22 @@ curl -s -m 10 -X POST -H "X-Plxr-Token: $TOKEN" -H 'Content-Type: application/js
 	"http://127.0.0.1:$PORT/api/sessions" >/dev/null || { echo "  the session could not be started"; exit 1; }
 sleep 2
 
-node "$PLXR_PROBE/smoke.mjs"
-code=$?
+# `set -e` would abort on a failing node before the exit code could be read —
+# and then the screenshots of the run that actually found something never get
+# saved, which are the ones worth looking at.
+code=0
+node "$PLXR_PROBE/smoke.mjs" || code=$?
+
 echo "  screenshots: $PLXR_PROBE/shots"
 # rm first: cp -R into an existing directory nests instead of replacing, and
 # then you look at yesterday's picture and believe it is today's.
 rm -rf "${TMPDIR:-/tmp}/plxr-shots"
 cp -R "$PLXR_PROBE/shots" "${TMPDIR:-/tmp}/plxr-shots" 2>/dev/null || true
+
+# Note down WHICH state was clicked through. check.sh reads this and refuses to
+# call a tree green that nobody has looked at. Inside .git, so it can never end
+# up in a commit and never changes the hash it is describing.
+if [ "$code" = "0" ]; then
+	./treehash.sh >"$(git rev-parse --git-dir)/plxr-smoke-passed" 2>/dev/null || true
+fi
 exit $code
