@@ -428,6 +428,10 @@ html, body {
    themselves come from the skin through --crest. */
 .crest { flex: 0 0 auto; }
 
+/* The editor for an agent profile — small on purpose: a profile is twenty
+   lines, and a field the height of the dialog would only look empty. */
+.agentText { min-height: 200px; width: 100%; }
+
 /* The reply memory sits between the question and the reply field — where the
    decision is made, not somewhere off to the side. Layout only; the skins give
    it its look. */

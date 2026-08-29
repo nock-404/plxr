@@ -26,8 +26,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"plxr/internal/daemon"
@@ -182,4 +184,103 @@ func Restore(cwd, tree, path string) error {
 		return os.ErrInvalid
 	}
 	return os.WriteFile(target, content, 0o644)
+}
+
+// ---- Stuck: going round in circles ----
+
+/*
+An agent in a loop looks healthy from outside. The tile is green, something is
+happening, output is scrolling — and it has been changing the same two files
+back and forth for 45 minutes.
+
+The marks already hold what is needed: one tree per instruction. Comparing two
+consecutive ones says which files that instruction touched. A file that keeps
+coming back across many instructions is the signal.
+
+The numbers are chosen so that normal work does not trip it. Iterating twice on
+one file is work, not a loop; that is why it takes at least StuckRuns
+instructions, and they have to span StuckSpan — an agent that changes the same
+file five times in two minutes is simply fast.
+*/
+const (
+	StuckRuns = 5                // at least this many instructions in a row
+	StuckHits = 4                // and the file in at least this many of them
+	StuckSpan = 15 * time.Minute // spanning at least this long
+	StuckLook = 8                // never compare more than this many marks
+)
+
+// Stuck says whether a session is going in circles.
+type Stuck struct {
+	Files []string `json:"files"`
+	Runs  int      `json:"runs"`
+	Since int64    `json:"since"`
+}
+
+var (
+	stuckMu    sync.Mutex
+	stuckCache = map[string]stuckEntry{}
+)
+
+type stuckEntry struct {
+	newest string
+	count  int
+	result *Stuck
+}
+
+// IsStuck compares the last marks of a session.
+//
+// Cached by the newest mark AND how many there are. The tree alone is not
+// enough: a revert leads back to a tree that was already there, and the answer
+// would come out of the cache although the history has moved on.
+//
+// Cached at all because the tiles refresh every second, and a git diff per
+// session per second would be a fire the feature is not worth. Marks only
+// change on a new instruction — so the cache invalidates itself exactly then.
+func IsStuck(sessionID string) *Stuck {
+	all := List(sessionID)
+	if len(all) < StuckRuns+1 {
+		return nil
+	}
+	if len(all) > StuckLook {
+		all = all[:StuckLook]
+	}
+
+	stuckMu.Lock()
+	if e, ok := stuckCache[sessionID]; ok && e.newest == all[0].Tree && e.count == len(all) {
+		stuckMu.Unlock()
+		return e.result
+	}
+	stuckMu.Unlock()
+
+	seen := map[string]int{}
+	for i := 0; i+1 < len(all); i++ {
+		out, err := git(all[i].Cwd, "diff", "--name-only", all[i+1].Tree, all[i].Tree)
+		if err != nil {
+			continue
+		}
+		for _, f := range strings.Split(out, "\n") {
+			if f = strings.TrimSpace(f); f != "" {
+				seen[f]++
+			}
+		}
+	}
+
+	var files []string
+	for f, n := range seen {
+		if n >= StuckHits {
+			files = append(files, f)
+		}
+	}
+	span := time.Duration(all[0].At-all[len(all)-1].At) * time.Millisecond
+
+	var res *Stuck
+	if len(files) > 0 && span >= StuckSpan {
+		sort.Strings(files)
+		res = &Stuck{Files: files, Runs: len(all) - 1, Since: all[len(all)-1].At}
+	}
+
+	stuckMu.Lock()
+	stuckCache[sessionID] = stuckEntry{newest: all[0].Tree, count: len(all), result: res}
+	stuckMu.Unlock()
+	return res
 }

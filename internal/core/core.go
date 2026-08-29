@@ -9,7 +9,9 @@ package core
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -977,4 +979,70 @@ func (c *Core) MarkRestore(sessionID, tree, path string) error {
 		}
 	}
 	return uierr.New("err.mark.unknown")
+}
+
+// ---- Agent profiles ----
+
+// AgentList names every profile and where it comes from.
+func (c *Core) AgentList() []agent.Listed { return agent.Load(c.agents).List() }
+
+// AgentRead hands out the JSON of a profile. A built-in one comes out of the
+// binary, so a new one can start from it rather than from an empty page.
+func (c *Core) AgentRead(name string) (string, error) {
+	if p := agent.ProfilePath(name); p != "" {
+		if b, err := os.ReadFile(p); err == nil {
+			return string(b), nil
+		}
+	}
+	if c.agents != nil {
+		if b, err := fs.ReadFile(c.agents, name+".json"); err == nil {
+			return string(b), nil
+		}
+	}
+	return "", uierr.New("err.agent.unknown")
+}
+
+// AgentWrite saves a profile of your own.
+//
+// The JSON is checked, unlike the skin in the workbench: a broken stylesheet
+// costs the look, a broken profile costs the status of every session that
+// matches it — and silently, because a profile that will not parse is simply
+// skipped.
+func (c *Core) AgentWrite(name, text string) error {
+	p := agent.ProfilePath(name)
+	if p == "" {
+		return uierr.New("err.agent.badName")
+	}
+	var probe map[string]any
+	if err := json.Unmarshal([]byte(text), &probe); err != nil {
+		return uierr.With("err.agent.badJSON", err.Error())
+	}
+	if s, _ := probe["name"].(string); strings.TrimSpace(s) == "" {
+		return uierr.New("err.agent.noName")
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return uierr.With("err.agent.saveFailed", err.Error())
+	}
+	if err := os.WriteFile(p, []byte(text), 0o644); err != nil {
+		return uierr.With("err.agent.saveFailed", err.Error())
+	}
+	return nil
+}
+
+// AgentDelete removes a profile of your own. Built-in ones stay — they live in
+// the binary and would be back after the next update anyway.
+func (c *Core) AgentDelete(name string) error {
+	p := agent.ProfilePath(name)
+	if p == "" {
+		return uierr.New("err.agent.badName")
+	}
+	if err := os.Remove(p); err != nil {
+		return uierr.New("err.agent.notOwn")
+	}
+	return nil
+}
+
+// AgentStarter is what a new profile begins as.
+func (c *Core) AgentStarter(name string) string {
+	return fmt.Sprintf(agent.Starter, name, name, name)
 }

@@ -362,6 +362,29 @@
           <button type="button" class="btn" id="hookBtn" data-i18n-tip="hook.tip"></button>
         </span>
       </div>
+
+      <!-- The profiles could always be extended — through a JSON file in
+           ~/.plxr/agents. Only nothing ever said so, and a mechanism nobody can
+           find does not exist. -->
+      <div class="field">
+        <span class="fieldName" data-i18n="settings.agentProfiles">agent profiles</span>
+        <p class="notice" data-i18n="agents.explain"></p>
+        <div id="agentList" class="splitList"></div>
+        <span class="rowInline">
+          <span class="notice">~/.plxr/agents</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="agentNew" data-i18n-tip="agents.newTip" data-i18n="agents.new">NEW AGENT</button>
+        </span>
+        <div id="agentEdit" hidden>
+          <textarea id="agentText" class="viewerbody agentText" spellcheck="false"></textarea>
+          <span class="rowInline">
+            <span id="agentName" class="notice"></span>
+            <span class="spacer"></span>
+            <button type="button" class="btn" id="agentDelete" data-i18n-tip="agents.deleteTip" data-i18n="common.delete">DELETE</button>
+            <button type="button" class="btn primary" id="agentSave" data-i18n="common.save">SAVE</button>
+          </span>
+        </div>
+      </div>
     </div>
 
     <div class="dialogFoot">

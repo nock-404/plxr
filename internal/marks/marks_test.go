@@ -1,10 +1,12 @@
 package marks
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func repo(t *testing.T) string {
@@ -97,5 +99,55 @@ func TestOutsideARepoIsNoError(t *testing.T) {
 	tree, err := Take(t.TempDir())
 	if err != nil || tree != "" {
 		t.Errorf("outside a repo: %q %v", tree, err)
+	}
+}
+
+// Building a history of marks by hand: write the file, take a mark, repeat.
+func history(t *testing.T, dir, session string, rounds []string, apart time.Duration) {
+	t.Helper()
+	at := time.Now().Add(-time.Duration(len(rounds)) * apart)
+	for i, name := range rounds {
+		os.WriteFile(filepath.Join(dir, name), []byte(fmt.Sprint("round ", i)), 0o644)
+		tree, err := Take(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		Note(session, Mark{Tree: tree, At: at.UnixMilli(), Cwd: dir, Prompt: "p"})
+		at = at.Add(apart)
+	}
+}
+
+func TestGoingInCirclesIsSpotted(t *testing.T) {
+	t.Setenv("PLXR_HOME", t.TempDir())
+	dir := repo(t)
+	// The same file over and over, over an hour — that is a loop.
+	history(t, dir, "loop", []string{"a", "a", "a", "a", "a", "a", "a"}, 10*time.Minute)
+	got := IsStuck("loop")
+	if got == nil {
+		t.Fatal("the loop was not spotted")
+	}
+	if len(got.Files) != 1 || got.Files[0] != "a" {
+		t.Errorf("files %+v", got.Files)
+	}
+}
+
+// Working fast must not trip it. Five changes in two minutes is speed, not a
+// loop — without the time span this feature would cry wolf all day.
+func TestFastWorkIsNotALoop(t *testing.T) {
+	t.Setenv("PLXR_HOME", t.TempDir())
+	dir := repo(t)
+	history(t, dir, "fast", []string{"a", "a", "a", "a", "a", "a", "a"}, 20*time.Second)
+	if got := IsStuck("fast"); got != nil {
+		t.Errorf("fast work reported as a loop: %+v", got)
+	}
+}
+
+// Progress through a project is not a loop either, however long it takes.
+func TestMovingForwardIsNotALoop(t *testing.T) {
+	t.Setenv("PLXR_HOME", t.TempDir())
+	dir := repo(t)
+	history(t, dir, "forward", []string{"a", "b", "c", "d", "e", "f", "g"}, 10*time.Minute)
+	if got := IsStuck("forward"); got != nil {
+		t.Errorf("progress reported as a loop: %+v", got)
 	}
 }

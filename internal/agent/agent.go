@@ -24,8 +24,8 @@ import (
 type Profile struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
-	// Source: "fleet" uses the reported state, "screen" infers from the
-	// Bildschirmausgabe.
+	// Source: "fleet" uses the reported state, "screen" infers it from what is
+	// on the screen.
 	Source string `json:"source"`
 	// Match are substrings that have to match the command.
 	Match []string `json:"match"`
@@ -223,4 +223,61 @@ func lastLines(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
+}
+
+// ---- Profiles of your own ----
+
+// Listed is one profile as the interface shows it.
+type Listed struct {
+	Name  string   `json:"name"`
+	Label string   `json:"label"`
+	Match []string `json:"match"`
+	Own   bool     `json:"own"`
+}
+
+// ProfilePath is the file of a profile of your own — empty for a name that is
+// not allowed. The check is not cosmetic: the name comes out of an HTTP
+// request and would otherwise reach any file on the disk through "../".
+func ProfilePath(name string) string {
+	if name == "" || strings.ContainsAny(name, `/\.`) {
+		return ""
+	}
+	return filepath.Join(UserDir(), name+".json")
+}
+
+// Starter is what a new profile begins as.
+//
+// Not an empty file: nobody writes a profile from nothing, and an empty text
+// area says less than a filled one. What stands here is the shape plus the two
+// fields that actually decide anything.
+const Starter = `{
+  "name": "%s",
+  "label": "%s",
+  "source": "screen",
+  "match": ["%s"],
+  "blocked": ["\\(y/n\\)", "Continue\\?"],
+  "working": ["Thinking", "Running"],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}
+`
+
+// List names every profile and where it comes from.
+func (s *Set) List() []Listed {
+	own := map[string]bool{}
+	for _, p := range mustGlob(filepath.Join(UserDir(), "*.json")) {
+		name := strings.TrimSuffix(filepath.Base(p), ".json")
+		own[name] = true
+	}
+	out := make([]Listed, 0, len(s.profiles)+1)
+	for _, p := range append([]Profile{s.fallback}, s.profiles...) {
+		out = append(out, Listed{Name: p.Name, Label: p.Label, Match: p.Match, Own: own[p.Name]})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func mustGlob(pattern string) []string {
+	p, _ := filepath.Glob(pattern)
+	return p
 }

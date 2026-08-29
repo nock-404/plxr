@@ -239,6 +239,11 @@ const api = {
   usage: (days) => req('/api/usage?days=' + days),
   waiting: (days) => req('/api/waiting?days=' + days),
   replies: (q) => req('/api/replies?q=' + encodeURIComponent(q)),
+  agents: () => req('/api/agents'),
+  agentRead: (name) => req(`/api/agents/${encodeURIComponent(name)}`, { text: true }),
+  agentStarter: (name) => req(`/api/agents/${encodeURIComponent(name)}/starter`, { text: true }),
+  agentWrite: (name, text) => req(`/api/agents/${encodeURIComponent(name)}`, { method: 'PUT', body: text }),
+  agentDelete: (name) => req(`/api/agents/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   marks: (id) => req(`/api/marks/${encodeURIComponent(id)}`),
   markChanges: (id, tree) => req(`/api/marks/${encodeURIComponent(id)}/${tree}`),
   markRestore: (id, tree, path) =>
@@ -552,6 +557,7 @@ async function openSettings() {
     tr('settings.themeHint');
   pickTab('look');
   buildStyleEditor();
+  renderAgents();
   showDeleteButton();
   fillLanguages();
   try {
@@ -2686,6 +2692,112 @@ document.addEventListener('keydown', (e) => {
   if (e.key === ' ') { e.preventDefault(); playerPlay(!player.running); }
   if (e.key === 'Escape') { e.preventDefault(); closePlayer(); }
 }, true);
+
+/* ═════════════════════════ Agentenprofile ═════════════════════════
+
+   A profile teaches plxr to recognise a CLI: which command it is, when it is
+   waiting, when it is working. Profiles of your own could be dropped into
+   ~/.plxr/agents from the very beginning — and nothing ever said so. A
+   mechanism nobody can find does not exist.
+
+   What matters as much as the editor: the path afterwards. Saving a profile
+   and being left to wonder whether it did anything would be the same mistake
+   again. So the list says which running session uses which profile, and after
+   saving it says what the profile now applies to — or plainly that no running
+   session matches it. */
+
+let agentEditing = null;
+
+function agentUsers(name) {
+  return state.tiles.filter((t) => t.alive && (t.agent || 'generic') === name);
+}
+
+async function renderAgents() {
+  let list = [];
+  try { list = await api.agents(); } catch { return; }
+  const box = $('#agentList');
+  box.innerHTML = '';
+  for (const a of list) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'splitRow';
+    row.innerHTML = '<span class="rart"></span><span class="rmain">' +
+      '<b class="rtitle"></b><span class="rdesc"></span></span><span class="rpath"></span>';
+    row.querySelector('.rart').textContent = a.own ? '◆' : '·';
+    row.querySelector('.rtitle').textContent = a.label || a.name;
+    row.querySelector('.rdesc').textContent =
+      (a.match || []).length ? tr('agents.matches', { what: a.match.join(', ') }) : '';
+    // What it is doing right now — that is what makes the list worth reading.
+    const users = agentUsers(a.name);
+    row.querySelector('.rpath').textContent = users.length
+      ? tr(users.length === 1 ? 'counts.session' : 'counts.sessions', { n: users.length })
+      : (a.own ? tr('agents.own') : tr('agents.builtIn'));
+    row.addEventListener('click', () => agentOpen(a.name));
+    box.appendChild(row);
+  }
+}
+
+async function agentOpen(name) {
+  try {
+    $('#agentText').value = await api.agentRead(name);
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('settings.agentProfiles'));
+    return;
+  }
+  agentEditing = name;
+  $('#agentName').textContent = tr('agents.editing', { name });
+  $('#agentEdit').hidden = false;
+  $('#agentText').focus();
+}
+
+$('#agentNew').addEventListener('click', async () => {
+  const name = await plxrUI.prompt(tr('agents.nameAsk'), tr('agents.nameTitle'), '');
+  if (!name) return;
+  const clean = name.trim().toLowerCase();
+  try {
+    $('#agentText').value = await api.agentStarter(clean);
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('agents.nameTitle'));
+    return;
+  }
+  agentEditing = clean;
+  $('#agentName').textContent = tr('agents.editing', { name: clean });
+  $('#agentEdit').hidden = false;
+  $('#agentText').focus();
+});
+
+$('#agentSave').addEventListener('click', async () => {
+  if (!agentEditing) return;
+  try {
+    await api.agentWrite(agentEditing, $('#agentText').value);
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('settings.agentProfiles'));
+    return;
+  }
+  /* Say what it now applies to. Otherwise saving is an act of faith: the
+     profile only shows its effect when a matching session happens to run. */
+  const users = agentUsers(agentEditing);
+  plxrUI.notice(
+    users.length
+      ? users.map((t) => t.title || t.name).join('\n')
+      : tr('agents.noneRunning'),
+    tr('agents.saved', { name: agentEditing }));
+  renderAgents();
+});
+
+$('#agentDelete').addEventListener('click', async () => {
+  if (!agentEditing) return;
+  if (!(await plxrUI.confirm(tr('agents.deleteAsk', { name: agentEditing }), tr('settings.agentProfiles')))) return;
+  try {
+    await api.agentDelete(agentEditing);
+  } catch (e) {
+    plxrUI.notice(errText(e), tr('settings.agentProfiles'));
+    return;
+  }
+  agentEditing = null;
+  $('#agentEdit').hidden = true;
+  renderAgents();
+});
 
 /* ═════════════════════════ Merkpunkte ═════════════════════════
 
