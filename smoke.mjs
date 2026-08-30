@@ -510,6 +510,57 @@ await page.evaluate(() => {
   document.documentElement.style.removeProperty('--bgSolid');
 });
 
+/* Does what you set stay set?
+
+   Everything in the style editor applied at once and was gone on the next
+   start — it only survived if you went and saved a theme of your own, and
+   nothing said so. With the colour picker as the main way to set the look,
+   that meant the setting evaporated every time.
+
+   Reloading the page is the same thing here as starting again: the state lives
+   in the browser, and nothing of it is in the daemon. */
+await page.click('#settingsBtn');
+await page.waitForTimeout(500);
+// Back to CRT: the theme loop above leaves whichever came last, and the
+// phosphor colour only exists for this skin.
+await page.click('[data-tab="look"]');
+await page.evaluate(() => {
+  const sel = document.querySelector('#themeSel');
+  sel.value = 'crt';
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+});
+await page.waitForTimeout(800);
+await page.click('#phosphorRow .swatch');
+await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const hue = document.querySelector('#phosphorRow .swatchHue');
+  const r = hue.getBoundingClientRect();
+  hue.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true,
+    clientX: r.left + r.width * 0.55, clientY: r.top + 2 }));
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+});
+await page.waitForTimeout(500);
+const readFg = () => page.evaluate(() =>
+  getComputedStyle(document.documentElement).getPropertyValue('--fg').trim());
+const chosen = await readFg();
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+check(await readFg() === chosen,
+  `the chosen colour does not survive a restart: ${chosen} became ${await readFg()}`);
+
+/* And RESET has to forget it, otherwise it comes back on the next start and
+   the reset was a lie. */
+await page.click('#settingsBtn');
+await page.waitForTimeout(500);
+await page.click('[data-tab="colors"]');
+await page.waitForTimeout(400);
+await page.click('#styleReset');
+await page.waitForTimeout(900);
+await page.goto(url, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+check(await readFg() !== chosen,
+  `RESET did not forget the colour: it is still ${await readFg()}`);
+
 const own = await ownLog();
 check(own.length === 0, 'the workbench recorded: ' + own.join(' | '));
 

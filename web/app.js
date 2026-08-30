@@ -531,6 +531,7 @@ function applyTheme(t) {
        apply. Leaving them would mean: the style editor shows the old theme's
        colours, and saving would write them into the new one. */
     styleState.changes = {};
+    restoreStyle();
     showPhosphor(t);
     if (!$('#settings').hidden) buildStyleEditor();
   });
@@ -614,6 +615,7 @@ function applyPhosphor(colour, remember = true) {
     if (remember) styleState.changes[k] = v;
   }
   for (const p of paneList()) p.term.options.theme = xtermTheme();
+  if (remember) rememberStyle();
   if (!$('#settings').hidden) buildStyleEditor();
 }
 
@@ -934,6 +936,62 @@ const STYLE_COLORS = [
 
 const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0, gradient: 0, seethrough: 0, glowLevel: 50 };
 
+/* What you set stays set.
+
+   Everything in the style editor — the phosphor colour, the glow, the gradient,
+   the font sizes — applied at once and was gone on the next start. It only
+   survived if you went and saved a theme of your own, and nothing said so. With
+   the colour picker as the main way to set the look, that means the setting
+   evaporates every time.
+
+   Kept per theme, so switching does not mix one theme's colours into another,
+   and so going back to a theme brings its own adjustments with it. */
+const STYLE_MEMORY = 'plxr.style.';
+
+function rememberStyle() {
+  const name = $('#themeSel').value;
+  if (!name) return;
+  const keep = {
+    changes: styleState.changes,
+    fontSize: styleState.fontSize,
+    termSize: styleState.termSize,
+    glowLevel: styleState.glowLevel,
+    gradient: pageValue('gradient'),
+    seethrough: pageValue('seethrough'),
+    phosphor: phosphorColour,
+  };
+  try { localStorage.setItem(STYLE_MEMORY + name, JSON.stringify(keep)); } catch {}
+}
+
+function forgetStyle() {
+  const name = $('#themeSel').value;
+  try { localStorage.removeItem(STYLE_MEMORY + name); } catch {}
+}
+
+/* Put back what was kept. Runs after the theme's own palette is in place —
+   these are adjustments ON it, not instead of it. */
+function restoreStyle() {
+  const name = $('#themeSel').value;
+  let keep;
+  try { keep = JSON.parse(localStorage.getItem(STYLE_MEMORY + name) || 'null'); } catch { keep = null; }
+  if (!keep) return;
+  const root = document.documentElement;
+  styleState.changes = keep.changes || {};
+  styleState.fontSize = keep.fontSize || 0;
+  styleState.termSize = keep.termSize || 0;
+  styleState.glowLevel = keep.glowLevel ?? 50;
+  if (keep.phosphor) phosphorColour = keep.phosphor;
+  for (const [k, v] of Object.entries(styleState.changes)) {
+    if (PALETTE.includes(k)) root.style.setProperty('--' + k, v);
+  }
+  if (styleState.fontSize) root.style.setProperty('--size', styleState.fontSize + 'px');
+  pageBackground(keep.gradient || 0, keep.seethrough || 0);
+  for (const p of paneList()) {
+    p.term.options.theme = xtermTheme();
+    if (styleState.termSize) { p.term.options.fontSize = styleState.termSize; paneRefit(p); }
+  }
+}
+
 let builtForSkin = null;
 
 function buildStyleEditor() {
@@ -965,14 +1023,17 @@ function buildStyleEditor() {
       styleState.changes[key] = color;
       document.documentElement.style.setProperty('--' + key, color);
       if (key.startsWith('term-')) forEachPane((p) => { p.term.options.theme = xtermTheme(); });
+      rememberStyle();
     });
   }
 
   box.appendChild(numberRow(tr('style.fontUi'), 'fontSize', 11, 28, () => {
     document.documentElement.style.setProperty('--size', styleState.fontSize + 'px');
+    rememberStyle();
   }));
   box.appendChild(numberRow(tr('style.fontTerm'), 'termSize', 9, 24, () => {
     forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
+    rememberStyle();
   }));
   /* Only for CRT: the other skins are not one hue with a ladder, and a dial
      that does nothing is worse than no dial. */
@@ -988,14 +1049,17 @@ function buildStyleEditor() {
         styleState.changes[k] = v;
       }
       for (const p of paneList()) p.term.options.theme = xtermTheme();
+      rememberStyle();
     }, 10));
   }
   box.appendChild(numberRow(tr('style.gradient'), 'gradient', 0, 100, () => {
     pageBackground(styleState.gradient, pageValue('seethrough'));
+    rememberStyle();
   }, 10));
   box.appendChild(numberRow(tr('style.seethrough'), 'seethrough', 0, 60, () => {
     pageBackground(pageValue('gradient'), styleState.seethrough);
     applySeethrough(styleState.seethrough);
+    rememberStyle();
   }, 10));
   box.appendChild(toggleRow(tr('style.scanlines'), 'scan'));
   box.appendChild(toggleRow(tr('style.glow'), 'glow'));
@@ -1136,6 +1200,9 @@ function toggleRow(name, welcher) {
 const forEachPane = (fn) => { for (const p of paneList()) { try { fn(p); } catch {} } };
 
 $('#styleReset').addEventListener('click', () => {
+  // Also forget what was kept — otherwise it comes back on the next start and
+  // the reset was a lie.
+  forgetStyle();
   styleState.changes = {};
   styleState.fontSize = 0;
   styleState.termSize = 0;

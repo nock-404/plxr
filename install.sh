@@ -123,10 +123,33 @@ if [ -f "$INFO" ]; then
 			| grep -o '"alive":true' | wc -l | tr -d ' ')
 		if [ "${ALIVE:-0}" = 0 ]; then
 			bold "Restarting the daemon"
+			OLDPID=$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$INFO")
+			# The answer is cut off on purpose: the daemon ends itself while
+			# replying. Reading that as a failure is what the first version of
+			# this did — it reported "it did not answer" while the restart had
+			# worked perfectly.
 			curl -fsS -m 10 -X POST -H "X-Plxr-Token: $TOKEN" \
-				"http://127.0.0.1:$PORT/api/restart" >/dev/null 2>&1 \
-				&& dim "on the new version" \
-				|| dim "it did not answer — it will come back on the new version by itself"
+				"http://127.0.0.1:$PORT/api/restart" >/dev/null 2>&1 || true
+
+			# So it is not guessed but looked at: wait until a different process
+			# has written the file, then say which version answers.
+			i=0
+			while [ "$i" -lt 40 ]; do
+				NEWPID=$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$INFO" 2>/dev/null)
+				[ -n "$NEWPID" ] && [ "$NEWPID" != "$OLDPID" ] && break
+				sleep 0.25
+				i=$((i + 1))
+			done
+			NEWPORT=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$INFO" 2>/dev/null)
+			NEWTOKEN=$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$INFO" 2>/dev/null)
+			NOW=$(curl -fsS -m 8 -H "X-Plxr-Token: $NEWTOKEN" \
+				"http://127.0.0.1:$NEWPORT/api/running" 2>/dev/null \
+				| sed -n 's/.*"daemon": *"\([^"]*\)".*/\1/p')
+			if [ -n "$NOW" ]; then
+				dim "running: $NOW (PID ${NEWPID:-?})"
+			else
+				dim "it will come back by itself the next time plxr is opened"
+			fi
 		else
 			printf '\n  \033[33m%s session(s) are running.\033[0m\n' "$ALIVE"
 			printf '  The daemon keeps them alive and stays on the old version until it\n'
