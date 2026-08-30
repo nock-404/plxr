@@ -225,3 +225,45 @@ func Ensure() (Info, error) {
 	}
 	return Info{}, errors.New("Daemon ist nicht hochgekommen")
 }
+
+// WindowFile holds what the window needs to know BEFORE it exists.
+//
+// Everything else the interface decides for itself and keeps in the browser.
+// This one cannot: whether a window is translucent is settled when it is
+// created, and by then no page has been loaded that could say so. So it is
+// written to disk, and read again at the next start.
+type WindowFile struct {
+	// Seethrough is how much colour the page gives up, 0 to 100. Above zero
+	// the window is created translucent.
+	Seethrough int `json:"seethrough"`
+}
+
+func windowPath() string { return filepath.Join(Root(), "window.json") }
+
+// ReadWindow never fails: no file means the plain, opaque window.
+func ReadWindow() WindowFile {
+	var w WindowFile
+	b, err := os.ReadFile(windowPath())
+	if err != nil {
+		return w
+	}
+	_ = json.Unmarshal(b, &w)
+	if w.Seethrough < 0 {
+		w.Seethrough = 0
+	}
+	if w.Seethrough > 100 {
+		w.Seethrough = 100
+	}
+	return w
+}
+
+func WriteWindow(w WindowFile) error {
+	b, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(Root(), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(windowPath(), b, 0o644)
+}

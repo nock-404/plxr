@@ -96,3 +96,33 @@ func (a *App) PickDirectory() string {
 	}
 	return dir
 }
+
+// Seethrough is what a web page cannot do by itself: make the window let the
+// desktop through.
+//
+// Two halves, and they are not the same. The page giving up colour is CSS and
+// takes effect at once. The window being translucent at all is settled by
+// macOS when the window is created — so it is written down here and read at
+// the next start. Above zero this returns false, and the interface then says
+// that a restart is needed.
+//
+// Returns whether it is in effect now.
+func (a *App) Seethrough(percent int) bool {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	_ = daemon.WriteWindow(daemon.WindowFile{Seethrough: percent})
+
+	// Without a translucent window nothing shows through, however transparent
+	// the page makes itself — the frame behind it stays opaque.
+	if !translucent {
+		return percent == 0
+	}
+	// 0 lets the desktop through, 255 is solid. The page paints its own colour
+	// on top; what is set here is only how much of the frame remains.
+	wr.WindowSetBackgroundColour(a.ctx, 0, 0, 0, 0)
+	return true
+}

@@ -237,8 +237,20 @@ func runDaemon() {
 
 // runWindow is only a shell now: it serves the UI and tells it where the daemon
 // sits. Everything else runs directly between those two.
+// translucent says whether this window was created see-through.
+//
+// Not a setting that can be changed while running: macOS decides when the
+// window is made. So it is read from disk beforehand, and the interface is
+// told that a restart is needed when it is switched on.
+//
+// Deliberately off unless asked for. A translucent window is a different
+// window even when it looks the same, and nobody who does not want it should
+// get one.
+var translucent bool
+
 func runWindow(info daemon.Info) {
 	app := NewApp(info)
+	translucent = daemon.ReadWindow().Seethrough > 0
 	err := wails.Run(&options.App{
 		Title:     "plxr",
 		Width:     1440,
@@ -258,7 +270,7 @@ func runWindow(info daemon.Info) {
 		},
 		// The frame stays with the system, but the background belongs to the skin —
 		// otherwise white flashes through on every theme change.
-		BackgroundColour: &options.RGBA{R: 11, G: 9, B: 6, A: 1},
+		BackgroundColour: windowBackground(),
 		OnStartup:        app.startup,
 		Bind:             []any{app},
 		// Without a native Edit menu WKWebView does not pass Cmd+C and Cmd+V through
@@ -277,6 +289,11 @@ func runWindow(info daemon.Info) {
 		),
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
+			// Both, and only together: a transparent webview over an opaque
+			// window shows the window, a translucent window under an opaque
+			// page shows the page.
+			WebviewIsTransparent: translucent,
+			WindowIsTranslucent:  translucent,
 			About: &mac.AboutInfo{
 				Title:   "plxr",
 				Message: "Leitstand für Coding-CLI-Sessions",
@@ -286,6 +303,18 @@ func runWindow(info daemon.Info) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// windowBackground is the colour behind the page.
+//
+// Opaque by default, so no white flashes through on a theme change — that is
+// what it has always been for. See-through it has to give way, otherwise it
+// sits in front of the desktop and nothing is gained.
+func windowBackground() *options.RGBA {
+	if translucent {
+		return &options.RGBA{R: 0, G: 0, B: 0, A: 0}
+	}
+	return &options.RGBA{R: 11, G: 9, B: 6, A: 1}
 }
 
 func sub(dir string) fs.FS {

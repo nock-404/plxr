@@ -474,6 +474,8 @@ function applyTheme(t) {
   root.dataset.skin = t.skin;
   root.dataset.scan = t.scanlines === false ? 'off' : 'on';
   root.dataset.glow = t.glow === false ? 'off' : 'on';
+  pageBackground(t.gradient ?? 0, t.seethrough ?? 0);
+  applySeethrough(t.seethrough ?? 0);
 
   setSkin(t.skin).then(() => {
     // Set the palette only once the skin is in place: otherwise its :root block
@@ -718,12 +720,19 @@ $('#langSel').addEventListener('change', async (e) => {
    right. Changes take effect at once so you can see what you are doing; saving
    happens on request, as an own theme alongside the shipped ones. */
 
+/* Keys, not text.
+   As text this table was built while the file was loading — the tr() calls in
+   it ran before the language tables had arrived, so three entries stood in the
+   editor as "style.dim", "style.panel", "state.needsYou". The other nine were
+   German literals that no gate could see, because a table is not an assignment
+   to textContent. Both are resolved where the editor is built now. */
 const STYLE_COLORS = [
-  ['bg', 'Hintergrund'], ['fg', 'Text'], ['dim', tr('style.dim')],
-  ['accent', 'Hervorhebung'], ['panel', tr('style.panel')], ['line', 'Linien'],
-  ['working', 'arbeitet'], ['waiting', 'waiting'],
-  ['blocked', tr('state.needsYou')], ['dead', 'beendet'],
-  ['term-bg', 'Terminal Hintergrund'], ['term-fg', 'Terminal Text'],
+  ['bg', 'style.bg'], ['fg', 'style.fg'], ['dim', 'style.dim'],
+  ['accent', 'style.accent'], ['onAccent', 'style.onAccent'],
+  ['panel', 'style.panel'], ['line', 'style.line'],
+  ['working', 'style.working'], ['waiting', 'style.waiting'],
+  ['blocked', 'style.blocked'], ['dead', 'style.dead'],
+  ['term-bg', 'style.termBg'], ['term-fg', 'style.termFg'],
 ];
 
 const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0 };
@@ -737,11 +746,11 @@ function buildStyleEditor() {
     return;
   }
 
-  for (const [key, name] of STYLE_COLORS) {
+  for (const [key, label] of STYLE_COLORS) {
     const row = document.createElement('div');
     row.className = 'styleRow';
     row.innerHTML = '<span class="styleName"></span><input class="farbwert" hidden>';
-    row.querySelector('.styleName').textContent = name;
+    row.querySelector('.styleName').textContent = tr(label);
     const field = row.querySelector('.farbwert');
     field.value = currentColor(key);
     box.appendChild(row);
@@ -758,8 +767,82 @@ function buildStyleEditor() {
   box.appendChild(numberRow(tr('style.fontTerm'), 'termSize', 9, 24, () => {
     forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
   }));
-  box.appendChild(toggleRow('Zeilenraster', 'scan'));
-  box.appendChild(toggleRow('Schimmer', 'glow'));
+  box.appendChild(numberRow(tr('style.gradient'), 'gradient', 0, 100, () => {
+    pageBackground(styleState.gradient, pageValue('seethrough'));
+  }, 10));
+  box.appendChild(numberRow(tr('style.seethrough'), 'seethrough', 0, 60, () => {
+    pageBackground(pageValue('gradient'), styleState.seethrough);
+    applySeethrough(styleState.seethrough);
+  }, 10));
+  box.appendChild(toggleRow(tr('style.scanlines'), 'scan'));
+  box.appendChild(toggleRow(tr('style.glow'), 'glow'));
+}
+
+/* Gradient and see-through, both on the page background.
+
+   A gradient is drawn from the accent colour, from the top down and fading
+   out: strong enough at 100 to be seen, weak enough at 10 that you would not
+   swear it is there. Deliberately from --accent and not a colour of its own —
+   a theme that is set brings this along without a second decision.
+
+   See-through takes colour away from the page, never from the panels. That is
+   the whole trick: everything readable — rail, tiles, cards, terminal — sits
+   on a panel of its own and keeps its ground. What shows through is the space
+   between them. Otherwise the text would be standing on whatever happens to be
+   on the desktop, and no measurement could say whether it can be read.
+*/
+function pageBackground(gradient, seethrough) {
+  const root = document.documentElement;
+  const on = [];
+  if (gradient > 0) {
+    on.push('gradient');
+    root.style.setProperty('--pageGradient',
+      `radial-gradient(120% 90% at 50% -10%, ` +
+      `color-mix(in srgb, var(--accent) ${(gradient * 0.18).toFixed(1)}%, transparent), ` +
+      `transparent 65%)`);
+  } else {
+    root.style.removeProperty('--pageGradient');
+  }
+  if (seethrough > 0) {
+    on.push('seethrough');
+    root.style.setProperty('--bgSolid', `${100 - seethrough}%`);
+  } else {
+    root.style.removeProperty('--bgSolid');
+  }
+  if (on.length) root.dataset.pagebg = on.join(' ');
+  else delete root.dataset.pagebg;
+}
+
+const pageValue = (which) => {
+  const on = (document.documentElement.dataset.pagebg || '').split(' ');
+  if (!on.includes(which)) return 0;
+  if (which === 'seethrough') {
+    return 100 - parseFloat(document.documentElement.style.getPropertyValue('--bgSolid')) || 0;
+  }
+  const g = document.documentElement.style.getPropertyValue('--pageGradient');
+  const m = g.match(/([\d.]+)%, transparent\)/);
+  return m ? Math.round(parseFloat(m[1]) / 0.18) : 0;
+};
+
+/* The window half of see-through.
+
+   The page giving up colour is CSS and takes effect at once — that part is
+   already done by the time this runs. Whether the window lets anything through
+   at all is settled by the system when it is created, so switching it on for
+   the first time only shows once the window has been opened again. Said out
+   loud rather than left as a slider that does nothing.
+
+   In the browser there is no window to make translucent. The page still turns
+   see-through, and what shows through is the page behind it — which is
+   nothing. So it is not offered there. */
+let seethroughTold = false;
+async function applySeethrough(percent) {
+  if (!WAILS) return;
+  let now = false;
+  try { now = await Native.Seethrough(percent); } catch { return; }
+  if (now || seethroughTold) return;
+  seethroughTold = true;
+  plxrUI.notice(tr('style.seethroughRestart'), tr('style.seethrough'));
 }
 
 // The current value of a colour: our own change first, then whatever applies.
@@ -776,7 +859,7 @@ function rgbToHex(value) {
   return '#' + [r, g, b].map((n) => (n || 0).toString(16).padStart(2, '0')).join('');
 }
 
-function numberRow(name, field, min, max, anwenden) {
+function numberRow(name, field, min, max, apply, step = 1) {
   const row = document.createElement('div');
   row.className = 'styleRow';
   row.innerHTML = '<span class="styleName"></span>' +
@@ -785,16 +868,22 @@ function numberRow(name, field, min, max, anwenden) {
   row.querySelector('.styleName').textContent = name;
   const readout = row.querySelector('.styleNumber span');
 
-  const now = () => styleState[field] || (field === 'fontSize'
-    ? parseFloat(getComputedStyle(document.body).fontSize)
-    : (paneList()[0]?.term.options.fontSize || 13));
+  /* Where the current value comes from when nothing has been changed yet.
+     This used to be an if on the field name, which meant a third row could not
+     be added without the number reading as the terminal font size. */
+  const fallback = {
+    fontSize: () => parseFloat(getComputedStyle(document.body).fontSize),
+    termSize: () => paneList()[0]?.term.options.fontSize || 13,
+  };
+  const now = () => styleState[field] ?? (fallback[field] ? fallback[field]() : 0);
 
   const show = () => { readout.textContent = Math.round(now()); };
   for (const b of row.querySelectorAll('button')) {
     b.addEventListener('click', () => {
-      const fresh = Math.min(max, Math.max(min, Math.round(now()) + (b.dataset.r === '+' ? 1 : -1)));
+      const fresh = Math.min(max, Math.max(min,
+        Math.round(now()) + (b.dataset.r === '+' ? step : -step)));
       styleState[field] = fresh;
-      anwenden();
+      apply();
       show();
     });
   }
@@ -853,6 +942,11 @@ $('#styleSave').addEventListener('click', async () => {
     palette,
     scanlines: document.documentElement.dataset.scan !== 'off',
     glow: document.documentElement.dataset.glow !== 'off',
+    /* Read off the page, not out of styleState: whoever changed nothing still
+       wants the value of the theme they started from to be saved. A zero is
+       dropped on the Go side, so it costs nothing to always send them. */
+    gradient: pageValue('gradient'),
+    seethrough: pageValue('seethrough'),
   };
   if (styleState.fontSize) theme.fontSize = styleState.fontSize;
   if (styleState.termSize) theme.termSize = styleState.termSize;

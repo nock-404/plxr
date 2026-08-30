@@ -38,6 +38,15 @@ type Theme struct {
 	Scanlines *bool `json:"scanlines,omitempty"`
 	Glow      *bool `json:"glow,omitempty"`
 
+	// Gradient over the page background, 0 to 100. Drawn from the accent
+	// colour, so a theme brings it along without a second decision.
+	Gradient int `json:"gradient,omitempty"`
+
+	// How much colour the page gives up so the desktop shows through, 0 to
+	// 100. Only the page — panels keep their ground, and with it everything
+	// that has to be readable.
+	Seethrough int `json:"seethrough,omitempty"`
+
 	// Font size of the UI and of the terminal, each overridable.
 	// Empty means: the skin decides.
 	Font     string `json:"font,omitempty"`

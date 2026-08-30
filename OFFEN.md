@@ -10,10 +10,6 @@ Erledigtes fliegt raus, nicht ins Archiv.
 
 ## Zugesagt, noch nicht gebaut
 
-- **Transparenz.** Fenster durchscheinend, einstellbar.
-- **Verlauf im Hintergrund.** Ganz leicht, und einstellbar — Stärke, evtl.
-  Richtung. Hängt an der Lesbarkeit: ein Verlauf verschiebt die Fläche, gegen
-  die `contrast.py` misst, also muss die Messung den Verlauf kennen.
 - **Terminal soll zum Theme passen.** Aktuell hat es feste Farben und steht als
   dunkler Klotz in einem hellen Skin. Frage von ihm: „muss das terminal dann
   immer so GANZ anders aussehen?" — Nein. Die halbe Ursache ist schon gefunden:
@@ -22,6 +18,10 @@ Erledigtes fliegt raus, nicht ins Archiv.
   mitgelieferten Themes die Werte auch setzen.
 - **Bereichsbeschriftung überlappt.** „Unbekanntes CLI" liegt über der ersten
   Terminalzeile.
+- **Transparenz: die Fensterhälfte ist ungeprüft.** Der Regler und die Seite
+  sind durchgeklickt und gemessen. Ob macOS das Fenster wirklich durchscheinend
+  macht, kann ich hier nicht sehen — dafür braucht es das echte Fenster. Beim
+  ersten Einschalten sagt es, dass ein Neustart nötig ist.
 - **Kontowechsel wird angeboten, wo er nicht gehen kann.** Auf einer Session
   ohne Claude Code (Agent „generic", also eine normale Shell) steht der Knopf
   „Konto 1" trotzdem da; erst der Klick bringt „Wechsel fehlgeschlagen — Für

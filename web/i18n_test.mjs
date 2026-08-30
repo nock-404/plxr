@@ -197,6 +197,42 @@ for (const [file, src] of jsSources) {
     }
   }
 }
+/* A table of texts, built while the file is loading.
+
+   tr() then runs before the language files have arrived and gives back the key
+   itself. It looks like a translation that is missing, and it is not — the
+   entry is there, it was simply asked for too early. Three times now: the
+   status words in the sidebar stood as "state.running", the colour editor
+   showed "style.dim" and "style.panel" between German words.
+
+   Only array and object literals count. `const f = () => tr('x')` is fine —
+   what is inside a function runs later, which is the whole difference. */
+const tooEarly = [];
+for (const [file, src] of jsSources) {
+  const text = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const start = lines[i].match(/^const (\w+) = ([[{])/);
+    if (!start) continue;
+    let depth = 0, body = '', j = i;
+    do {
+      const line = lines[j];
+      body += line + '\n';
+      for (const c of line) {
+        if ('[{('.includes(c)) depth++;
+        else if (']})'.includes(c)) depth--;
+      }
+      j++;
+    } while (depth > 0 && j < lines.length && j - i < 60);
+    if (/\btr\(/.test(body)) tooEarly.push(`${file}:${i + 1} ${start[1]}`);
+  }
+}
+if (tooEarly.length) {
+  failed = 1;
+  console.log(`  ${tooEarly.length} tables call tr() while the file is loading:`);
+  for (const t of tooEarly) console.log(`      ${t}`);
+}
+
 /* One or many: never one half on its own.
    trN() reaches for <key>.one and <key>.other. If only one of them is there,
    the other reads as a raw key on screen — and precisely at the count nobody

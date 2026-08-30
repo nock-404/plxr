@@ -336,6 +336,59 @@ for (const theme of themeNames) {
 check(unreadable.length === 0,
   `${unreadable.length} texts too weak: ${unreadable.slice(0, 10).join(' | ')}`);
 
+/* 11. See-through: nothing readable may end up standing on the desktop.
+
+   The claim when this was built was that only the space between the panels
+   shows through. Measured, that was wrong — the whole header, the clock, the
+   session count and the empty state sat straight on the page. What is behind
+   the window cannot be measured, so the rule is the other way round: with
+   see-through switched on, every text has to find an opaque ground of its own
+   inside the page. */
+/* Under a named theme, not under whichever one the loop above happened to end
+   on. Some skins give the header a ground of their own, and then this passes
+   without proving anything — the first version of this check did exactly that
+   and stayed green with the rule deleted. */
+await page.evaluate(() => {
+  const sel = document.querySelector('#themeSel');
+  sel.value = 'crt-amber';
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+});
+await page.waitForTimeout(600);
+await page.evaluate(() => {
+  document.documentElement.dataset.pagebg = 'seethrough';
+  document.documentElement.style.setProperty('--bgSolid', '40%');
+});
+await page.waitForTimeout(400);
+const onDesktop = await page.evaluate(() => {
+  const out = new Set();
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('.devPanel')) continue;
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3)
+      .map((n) => n.textContent.trim()).join('').trim();
+    if (!own) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+    const box = el.getBoundingClientRect();
+    if (box.width < 2 || box.height < 2) continue;
+    let ground = null;
+    for (let n = el; n; n = n.parentElement) {
+      const v = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+      if (v.length >= 3 && (v.length < 4 || v[3] > 0.85)) { ground = n; break; }
+    }
+    if (!ground || ground === document.documentElement || ground === document.body) {
+      out.add(String(el.className).split(' ')[0] || el.tagName);
+    }
+  }
+  return [...out];
+});
+check(onDesktop.length === 0,
+  `${onDesktop.length} texts would stand on the desktop: ${onDesktop.slice(0, 8).join(', ')}`);
+await page.screenshot({ path: shots + '/seethrough.png' });
+await page.evaluate(() => {
+  delete document.documentElement.dataset.pagebg;
+  document.documentElement.style.removeProperty('--bgSolid');
+});
+
 const own = await ownLog();
 check(own.length === 0, 'the workbench recorded: ' + own.join(' | '));
 

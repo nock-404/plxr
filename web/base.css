@@ -53,6 +53,46 @@ html, body {
   color: var(--fg);
 }
 
+/* The background of the page, in one place.
+
+   Two things hang off it and neither may need a skin to be touched: the
+   gradient, and the window being see-through. Both are set on :root, and body
+   gives up its own background colour then — otherwise it would sit opaque on
+   top and nothing would show.
+
+   sketch and pixel draw their ruled paper as a background IMAGE on body. That
+   survives: only the colour behind it is taken away, the lines stay. */
+:root[data-pagebg] body { background-color: transparent; }
+
+:root[data-pagebg~="gradient"] {
+  background-image: var(--pageGradient);
+}
+
+:root[data-pagebg~="seethrough"] {
+  background-color: color-mix(in srgb, var(--bg) var(--bgSolid, 100%), transparent);
+}
+
+/* Everything readable keeps a ground of its own.
+ 
+   The claim was that only the space between the panels shows through. Measured,
+   it was wrong: the whole header — wordmark, path field, every button, the
+   session count, the clock — and the empty state sit straight on the page.
+   With the desktop behind them they would be standing on somebody's wallpaper,
+   and no measurement can say whether that can be read.
+ 
+   So they get a surface as soon as it is switched on, and only then. What
+   remains see-through is the area behind the tiles, which is the point of the
+   whole thing. */
+:root[data-pagebg~="seethrough"] .bar,
+:root[data-pagebg~="seethrough"] .statusrow,
+:root[data-pagebg~="seethrough"] .emptybox {
+  background-color: var(--panel);
+}
+:root[data-pagebg~="seethrough"] .emptybox {
+  padding: 18px 22px;
+  border-radius: 3px;
+}
+
 .app { position: relative; height: 100%; display: flex; flex-direction: column; }
 
 /* The skin's effect layer: scanlines, paper grain, vignette. Sits above
