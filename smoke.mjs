@@ -76,7 +76,12 @@ page.on('pageerror', (e) => noise.push('throw: ' + e.message));
 page.on('console', (m) => { if (m.type() === 'error') noise.push('console: ' + m.text()); });
 page.on('requestfailed', (r) => {
   // Wails bindings do not exist in the browser; the code handles that itself.
-  if (!/\/wails\//.test(r.url())) noise.push('request: ' + r.url());
+  if (/\/wails\//.test(r.url())) return;
+  /* A request cut off by the next page load is not a fault. This test reloads
+     on purpose to see what survives a restart, and settings on their way to
+     disk are in flight exactly then. */
+  if (r.failure()?.errorText === 'net::ERR_ABORTED') return;
+  noise.push('request: ' + r.url());
 });
 
 await page.goto(url, { waitUntil: 'networkidle' });

@@ -102,11 +102,16 @@ func Check(current string) Status {
 
 	// Notes and size are a bonus. A refusal here changes nothing about the
 	// update itself, so it is not reported as a fault.
+	//
+	// The address is NOT taken from here. The API hands out its own download
+	// address, and using it would put the download back under the same sixty an
+	// hour that this whole detour exists to get out from under. The one from
+	// the website works without a token and without a limit.
 	if r, apiErr := latestFromAPI(); apiErr == nil {
 		st.Notes = r.Body
 		for _, a := range r.Assets {
 			if a.Name == st.AssetName {
-				st.AssetURL, st.Size = a.URL, a.Size
+				st.Size = a.Size
 				break
 			}
 		}

@@ -114,14 +114,14 @@ func (a *App) PickDirectory() string {
 // that a restart is needed.
 //
 // Returns whether it is in effect now.
-func (a *App) Seethrough(percent int) bool {
+func (a *App) Seethrough(percent int, dark bool) bool {
 	if percent < 0 {
 		percent = 0
 	}
 	if percent > 100 {
 		percent = 100
 	}
-	_ = daemon.WriteWindow(daemon.WindowFile{Seethrough: percent})
+	_ = daemon.WriteWindow(daemon.WindowFile{Seethrough: percent, Dark: dark})
 
 	// Without a translucent window nothing shows through, however transparent
 	// the page makes itself — the frame behind it stays opaque.

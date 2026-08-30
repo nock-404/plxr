@@ -237,20 +237,22 @@ func runDaemon() {
 
 // runWindow is only a shell now: it serves the UI and tells it where the daemon
 // sits. Everything else runs directly between those two.
-// translucent says whether this window was created see-through.
-//
-// Not a setting that can be changed while running: macOS decides when the
-// window is made. So it is read from disk beforehand, and the interface is
-// told that a restart is needed when it is switched on.
-//
-// Deliberately off unless asked for. A translucent window is a different
-// window even when it looks the same, and nobody who does not want it should
-// get one.
-var translucent bool
+/* The window can always let something through — the page decides whether it
+   does.
+
+   This was the other way round first: translucent only when the setting said
+   so, read at startup. macOS settles it when the window is made, so switching
+   it on did nothing until the next start. What you got instead was a page that
+   took back its own colour over an opaque window — lighter, and nothing more.
+   "nur heller, null transparenz", and quite right.
+
+   Always translucent costs nothing while the page is opaque, which it is until
+   somebody moves the slider. And then it works at once. */
+const translucent = true
 
 func runWindow(info daemon.Info) {
 	app := NewApp(info)
-	translucent = daemon.ReadWindow().Seethrough > 0
+	window := daemon.ReadWindow()
 	err := wails.Run(&options.App{
 		Title:     "plxr",
 		Width:     1440,
@@ -289,6 +291,11 @@ func runWindow(info daemon.Info) {
 		),
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHiddenInset(),
+			// Which frosted glass macOS puts behind the window. In the light
+			// appearance that material is white, and a dark theme with
+			// see-through turned on went milky rather than showing anything
+			// through — the blur was there, the colour was wrong.
+			Appearance: appearance(window),
 			// Both, and only together: a transparent webview over an opaque
 			// window shows the window, a translucent window under an opaque
 			// page shows the page.
@@ -310,6 +317,21 @@ func runWindow(info daemon.Info) {
 // Opaque by default, so no white flashes through on a theme change — that is
 // what it has always been for. See-through it has to give way, otherwise it
 // sits in front of the desktop and nothing is gained.
+// appearance decides the colour of the material behind the window. Only worth
+// anything while translucent; otherwise the page covers it completely.
+// appearance decides the colour of the frosted glass macOS puts behind the
+// window. In the light appearance that material is WHITE, so a dark theme with
+// see-through turned on went milky instead of showing anything through.
+//
+// Startup only, unlike the slider — the material cannot be swapped while the
+// window stands. Dark is the default because the theme this is built around is.
+func appearance(w daemon.WindowFile) mac.AppearanceType {
+	if w.Dark || w.Seethrough == 0 {
+		return mac.NSAppearanceNameDarkAqua
+	}
+	return mac.NSAppearanceNameAqua
+}
+
 func windowBackground() *options.RGBA {
 	if translucent {
 		return &options.RGBA{R: 0, G: 0, B: 0, A: 0}

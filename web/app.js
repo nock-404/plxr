@@ -37,7 +37,7 @@ let textsEn = {};
 
 function pickLanguage() {
   try {
-    const eigen = localStorage.getItem('plxr.lang');
+    const eigen = pref('plxr.lang');
     if (eigen && LANGUAGES.includes(eigen)) return eigen;
   } catch {}
   // The system language is the best guess available without asking.
@@ -155,6 +155,83 @@ if (window.runtime && !WAILS) {
       '-skipbindings neu bauen.</pre>';
   });
 }
+
+/* What the interface remembers.
+
+   It used to be the window's own storage, and in the window that storage is
+   written nowhere: every WebKit directory the app has ever had is empty. Theme,
+   language, filter, the last directory, the chosen colours — all of it was gone
+   on the next start, and each time it looked like a bug in whatever had just
+   been changed. It was the same one every time.
+
+   So the daemon keeps it, in ~/.plxr/prefs.json, with everything else that has
+   to last. The browser's own storage is still written as well: it answers
+   without a round trip and works while the daemon is away.
+*/
+let prefs = {};
+
+/* The language is loaded before the connection — the interface must not flash
+   up in English and then switch. So the saved one can only be honoured once
+   the settings have arrived, and only if it is a different one. */
+async function keepLanguage() {
+  const wanted = pref('plxr.lang');
+  if (!wanted || wanted === language) return;
+  try {
+    await loadLanguage(wanted);
+    translateMarkup();
+  } catch { /* stays as it is */ }
+}
+
+async function loadPrefs() {
+  try { prefs = (await api.prefs()) || {}; } catch { prefs = {}; }
+}
+
+function pref(key, fallback = null) {
+  if (key in prefs && prefs[key] !== null) return prefs[key];
+  try {
+    const local = localStorage.getItem(key);
+    if (local !== null) return local;
+  } catch {}
+  return fallback;
+}
+
+/* Written to both, and to disk without waiting for it. A setting that has to
+   be confirmed before it takes effect would make every click sluggish.
+
+   Collected first, though. Dragging a colour picker produces a change per
+   pixel of travel, and one request each means dozens in flight at once — half
+   of them cut off by the next thing that happens. */
+let prefsPending = null;
+let prefsTimer = null;
+
+function setPref(key, value) {
+  const gone = value === null || value === undefined;
+  if (gone) delete prefs[key];
+  else prefs[key] = value;
+  try {
+    if (gone) localStorage.removeItem(key);
+    else localStorage.setItem(key, String(value));
+  } catch {}
+
+  prefsPending ||= {};
+  prefsPending[key] = gone ? null : value;
+  clearTimeout(prefsTimer);
+  prefsTimer = setTimeout(flushPrefs, 250);
+}
+
+function flushPrefs() {
+  const change = prefsPending;
+  prefsPending = null;
+  clearTimeout(prefsTimer);
+  prefsTimer = null;
+  if (!change) return;
+  api.setPrefs(change).catch(() => {});
+}
+
+/* On the way out as well: a change made a moment before closing would
+   otherwise sit in the timer and never be written. */
+window.addEventListener('pagehide', flushPrefs);
+window.addEventListener('beforeunload', flushPrefs);
 
 let BASE = '';
 let TOKEN = '';
@@ -302,6 +379,8 @@ const api = {
   updateStatus: () => req('/api/update'),
   restart: () => req('/api/restart', { method: 'POST' }),
   running: () => req('/api/running'),
+  prefs: () => req('/api/prefs'),
+  setPrefs: (change) => req('/api/prefs', { method: 'PUT', body: JSON.stringify(change) }),
   hookStatus: () => req('/api/hook'),
   setHook: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   update: () => req('/api/update', { method: 'POST' }),
@@ -436,6 +515,10 @@ function reconnect() {
   const attempt = async () => {
     try {
       await connect();
+      /* Before the theme: the theme, the colours and the see-through all come
+         out of here. Loading them afterwards would mean the interface is drawn
+         once in the wrong look and then again in the right one. */
+      await loadPrefs();
       await loadThemes($('#themeSel').value);
       api.aufZustand(renderAll);
       showConnection(true);
@@ -537,10 +620,10 @@ function applyTheme(t) {
   });
 
   try {
-    localStorage.setItem('plxr.theme', t.name);
+    setPref('plxr.theme', t.name);
     // Write the whole theme along: on the next start the look is there
     // immediately, without waiting for the daemon.
-    localStorage.setItem('plxr.themeCache', JSON.stringify(t));
+    setPref('plxr.themeCache', JSON.stringify(t));
   } catch {}
   showDeleteButton(t);
 }
@@ -674,7 +757,7 @@ async function loadThemes(preselect) {
     o.textContent = t.label;
     group.appendChild(o);
   }
-  const wanted = preselect || localStorage.getItem('plxr.theme') || 'crt';
+  const wanted = preselect || pref('plxr.theme') || 'crt';
   const gone = OLD_CRT[wanted];
   sel.value = list.some((t) => t.name === wanted)
     ? wanted : (gone !== undefined ? 'crt' : list[0].name);
@@ -904,7 +987,7 @@ const NAMES = { en: 'English', de: 'Deutsch' };
 
 $('#langSel').addEventListener('change', async (e) => {
   const gewuenscht = e.target.value;
-  try { localStorage.setItem('plxr.lang', gewuenscht); } catch {}
+  try { setPref('plxr.lang', gewuenscht); } catch {}
   await loadLanguage(gewuenscht);
   translateMarkup();
   // Whatever came out of JavaScript is redrawn by the next state update; the
@@ -960,12 +1043,12 @@ function rememberStyle() {
     seethrough: pageValue('seethrough'),
     phosphor: phosphorColour,
   };
-  try { localStorage.setItem(STYLE_MEMORY + name, JSON.stringify(keep)); } catch {}
+  setPref(STYLE_MEMORY + name, JSON.stringify(keep));
 }
 
 function forgetStyle() {
   const name = $('#themeSel').value;
-  try { localStorage.removeItem(STYLE_MEMORY + name); } catch {}
+  setPref(STYLE_MEMORY + name, null);
 }
 
 /* Put back what was kept. Runs after the theme's own palette is in place —
@@ -973,7 +1056,7 @@ function forgetStyle() {
 function restoreStyle() {
   const name = $('#themeSel').value;
   let keep;
-  try { keep = JSON.parse(localStorage.getItem(STYLE_MEMORY + name) || 'null'); } catch { keep = null; }
+  try { keep = JSON.parse(pref(STYLE_MEMORY + name) || 'null'); } catch { keep = null; }
   if (!keep) return;
   const root = document.documentElement;
   styleState.changes = keep.changes || {};
@@ -1093,8 +1176,13 @@ function pageBackground(gradient, seethrough) {
   if (seethrough > 0) {
     on.push('seethrough');
     root.style.setProperty('--bgSolid', `${100 - seethrough}%`);
+    /* The panels give way too, but less. Text sits on them, and a ground that
+       is still there reads better than one that is not — two thirds of what
+       the empty space gives up. */
+    root.style.setProperty('--panelSolid', `${100 - Math.round(seethrough * 0.66)}%`);
   } else {
     root.style.removeProperty('--bgSolid');
+    root.style.removeProperty('--panelSolid');
   }
   if (on.length) root.dataset.pagebg = on.join(' ');
   else delete root.dataset.pagebg;
@@ -1122,14 +1210,21 @@ const pageValue = (which) => {
    In the browser there is no window to make translucent. The page still turns
    see-through, and what shows through is the page behind it — which is
    nothing. So it is not offered there. */
-let seethroughTold = false;
 async function applySeethrough(percent) {
   if (!WAILS) return;
-  let now = false;
-  try { now = await Native.Seethrough(percent); } catch { return; }
-  if (now || seethroughTold) return;
-  seethroughTold = true;
-  plxrUI.notice(tr('style.seethroughRestart'), tr('style.seethrough'));
+  /* Two things, and only one of them waits.
+
+     Seeing through works at once — the window is always made able to let
+     something past, and whether it does is the page's own colour. That was the
+     other way round first and did nothing at all until the next start: what
+     you got was a page taking back its colour over an opaque window. Lighter,
+     and nothing more.
+
+     Which frosted glass macOS puts behind it is the part that cannot change
+     while the window stands. In the light appearance that material is WHITE,
+     which is exactly the milky look. So the theme decides, and it applies from
+     the next start. */
+  try { await Native.Seethrough(percent, surfaceLuminance() < 0.2); } catch { /* window only */ }
 }
 
 // The current value of a colour: our own change first, then whatever applies.
@@ -2088,7 +2183,7 @@ function applyFilter() {
   const filter = $('#pathFilter').value.trim().replace(/\/$/, '');
   if (filter === state.filter) return;
   state.filter = filter;
-  localStorage.setItem('plxr.filter', state.filter);
+  setPref('plxr.filter', state.filter);
   api.setFilter();
 }
 $('#pathFilter').addEventListener('change', applyFilter);
@@ -3789,7 +3884,7 @@ async function wbSave() {
     try {
       await api.themeImport(JSON.stringify({ name, label: name, skin: name }));
       await loadThemes(name);
-      localStorage.setItem('plxr.theme', name);
+      setPref('plxr.theme', name);
       $('#wbMeta').textContent = tr('workbench.savedAndPicked', { name });
       return;
     } catch (e) {
@@ -4378,7 +4473,7 @@ async function checkVersion(force) {
     const st = await api.version();
     versionStatus = st;
     if (!st.available) { $('#updateBar').hidden = true; return; }
-    if (localStorage.getItem('plxr.updateIgnoriert') === st.latest) return;
+    if (pref('plxr.updateIgnoriert') === st.latest) return;
     $('#updateText').textContent =
       tr('update.banner', { latest: st.latest, current: st.current }) +
       (st.size ? ` · ${sizeText(st.size)}` : '');
@@ -4387,7 +4482,7 @@ async function checkVersion(force) {
 }
 
 $('#updateHide').addEventListener('click', () => {
-  if (versionStatus) localStorage.setItem('plxr.updateIgnoriert', versionStatus.latest);
+  if (versionStatus) setPref('plxr.updateIgnoriert', versionStatus.latest);
   $('#updateBar').hidden = true;
 });
 $('#updateNotes').addEventListener('click', () => {
@@ -4477,7 +4572,7 @@ async function fillChoice() {
   const box = $('#newCmdChoice');
   if (box.children.length) return;
   try { shellCmd = (await api.shell()).cmd; } catch { shellCmd = ['/bin/sh', '-l']; }
-  const last = localStorage.getItem('plxr.startart') || 'shell';
+  const last = pref('plxr.startart') || 'shell';
   for (const w of STARTBAR) {
     const b = document.createElement('button');
     b.type = 'button';
@@ -4493,7 +4588,7 @@ async function fillChoice() {
 function setChoice(id) {
   for (const b of $('#newCmdChoice').children) b.dataset.picked = b.dataset.id === id ? 'yes' : 'no';
   $('#newCmdInput').hidden = id !== 'eigenes';
-  localStorage.setItem('plxr.startart', id);
+  setPref('plxr.startart', id);
   if (id === 'eigenes') $('#newCmd').focus();
 }
 
@@ -4576,7 +4671,7 @@ $('#templatesSave').addEventListener('click', async () => {
 });
 
 $('#newBtn').addEventListener('click', async () => {
-  $('#newCwd').value = state.filter || localStorage.getItem('plxr.lastCwd') || '';
+  $('#newCwd').value = state.filter || pref('plxr.lastCwd') || '';
   await Promise.all([fillAccounts('#newAccount'), fillChoice()]);
   $('#dialog').hidden = false;
   $('#newCwd').focus();
@@ -4598,7 +4693,7 @@ $('#newForm').addEventListener('submit', async (e) => {
   const cmd = chosenCommand();
   try {
     const s = await api.start(cwd, cmd, $('#newAccount').value);
-    localStorage.setItem('plxr.lastCwd', cwd);
+    setPref('plxr.lastCwd', cwd);
     $('#dialog').hidden = true;
     setTimeout(() => openSession(s.id), 400);
   } catch (err) {
@@ -4612,7 +4707,7 @@ $('#newForm').addEventListener('submit', async (e) => {
    daemon — that way the UI is never unstyled, even when the daemon is away. */
 (function themeAusSpeicher() {
   try {
-    const raw = localStorage.getItem('plxr.themeCache');
+    const raw = pref('plxr.themeCache');
     applyTheme(raw ? JSON.parse(raw) : { name: 'crt-amber', skin: 'crt', palette: {} });
   } catch {
     applyTheme({ name: 'crt-amber', skin: 'crt', palette: {} });
@@ -4715,7 +4810,7 @@ $('#brake').addEventListener('click', emergencyBrake);
 pathComplete($('#pathFilter'), applyFilter);
 pathComplete($('#newCwd'));
 
-state.filter = localStorage.getItem('plxr.filter') || '';
+state.filter = pref('plxr.filter') || '';
 $('#pathFilter').value = state.filter;
 
 /* Language before anything else: the interface must never flash up in English
@@ -4725,6 +4820,12 @@ loadLanguage()
   .then(translateMarkup)
   .catch((e) => console.error('Sprachdatei:', e))
   .then(connect)
+  /* The settings before the themes, and only after connect — they live with
+     the daemon. This step was missing here: it was only in the reconnect path,
+     so a normal start read nothing and every setting was back to default.
+     Which is exactly what it looked like from outside. */
+  .then(loadPrefs)
+  .then(keepLanguage)
   .then(() => loadThemes())
   .then(() => {
     api.aufZustand(renderAll);

@@ -14,6 +14,11 @@ import (
 // anybody could see. The interface just offered seven entries instead of ten,
 // and only counting them showed it.
 func TestEveryBuiltinThemeLoads(t *testing.T) {
+	// A home of its own: Load also reads the user's themes out of ~/.plxr, and
+	// counting those makes the test depend on whatever is lying around on the
+	// machine it runs on. It reported "7 on disk, 8 loaded" for exactly that.
+	t.Setenv("PLXR_HOME", t.TempDir())
+
 	dir := filepath.Join("..", "..", "web", "themes")
 	entries, err := os.ReadDir(dir)
 	if err != nil {

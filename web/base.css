@@ -72,21 +72,26 @@ html, body {
   background-color: color-mix(in srgb, var(--bg) var(--bgSolid, 100%), transparent);
 }
 
-/* Everything readable keeps a ground of its own.
- 
-   The claim was that only the space between the panels shows through. Measured,
-   it was wrong: the whole header — wordmark, path field, every button, the
-   session count, the clock — and the empty state sit straight on the page.
-   With the desktop behind them they would be standing on somebody's wallpaper,
-   and no measurement can say whether that can be read.
- 
-   So they get a surface as soon as it is switched on, and only then. What
-   remains see-through is the area behind the tiles, which is the point of the
-   whole thing. */
+/* See-through means the whole window, not the gaps between the panels.
+
+   It was the other way round first — page transparent, every panel opaque —
+   on the grounds that text must keep a ground it can be read against. That is
+   a real argument and it was made in the wrong place: the answer is a frosted
+   pane behind everything, not opaque islands floating on it.
+
+   So the panels give up their colour by the same amount, and what carries the
+   readability is the blur behind them plus what is left of their own tone. The
+   header, the rail and the cards stay a shade denser than the empty space:
+   text sits on them, and the sharper the ground the better it reads. */
 :root[data-pagebg~="seethrough"] .bar,
 :root[data-pagebg~="seethrough"] .statusrow,
-:root[data-pagebg~="seethrough"] .emptybox {
-  background-color: var(--panel);
+:root[data-pagebg~="seethrough"] .rail,
+:root[data-pagebg~="seethrough"] .tile,
+:root[data-pagebg~="seethrough"] .card,
+:root[data-pagebg~="seethrough"] .emptybox,
+:root[data-pagebg~="seethrough"] .listbar,
+:root[data-pagebg~="seethrough"] .sessbar {
+  background-color: color-mix(in srgb, var(--panel) var(--panelSolid, 100%), transparent);
 }
 :root[data-pagebg~="seethrough"] .emptybox {
   padding: 18px 22px;

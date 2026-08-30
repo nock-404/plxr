@@ -236,6 +236,13 @@ type WindowFile struct {
 	// Seethrough is how much colour the page gives up, 0 to 100. Above zero
 	// the window is created translucent.
 	Seethrough int `json:"seethrough"`
+
+	// Dark says which material macOS puts behind the window. It sounds like a
+	// detail and is the whole difference: in the light appearance the frosted
+	// glass is WHITE, so a dark theme with see-through turned on went milky
+	// instead of showing anything through. The blur was there all along, the
+	// colour was wrong.
+	Dark bool `json:"dark"`
 }
 
 func windowPath() string { return filepath.Join(Root(), "window.json") }

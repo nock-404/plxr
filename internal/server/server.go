@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"plxr/internal/core"
+	"plxr/internal/daemon"
 	"plxr/internal/shell"
+	"plxr/internal/uierr"
 
 	"github.com/gorilla/websocket"
 )
@@ -209,6 +211,21 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/running", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Running())
+	})
+	mux.HandleFunc("GET /api/prefs", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, daemon.ReadPrefs())
+	})
+	mux.HandleFunc("PUT /api/prefs", func(w http.ResponseWriter, r *http.Request) {
+		var change map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&change); err != nil {
+			http.Error(w, uierr.With("err.prefs.unreadable", err.Error()).Error(), http.StatusBadRequest)
+			return
+		}
+		if err := daemon.WritePrefs(change); err != nil {
+			http.Error(w, uierr.With("err.prefs.notWritten", err.Error()).Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.Update(); err != nil {
