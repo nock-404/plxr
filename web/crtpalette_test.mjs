@@ -49,6 +49,22 @@ for (let hue = 0; hue < 360; hue++) {
   check(contrast(p.onAccent, p.accent) >= 4.5, `hue ${hue}: text on the accent only reaches ${contrast(p.onAccent, p.accent).toFixed(2)}:1`);
 }
 
+/* Every saturation too. A grey phosphor is a legitimate choice and must not
+   turn the interface into something unreadable. */
+for (let hue = 0; hue < 360; hue += 11) {
+  for (const sat of [0, 20, 60, 100]) {
+    const p = crt(hue, 50, sat);
+    for (const role of ['fg', 'dim', 'dead', 'blocked']) {
+      const worst = Math.min(contrast(p[role], p.panel), contrast(p[role], p.bg));
+      check(worst >= 4.5, `hue ${hue} at saturation ${sat}: --${role} only reaches ${worst.toFixed(2)}:1`);
+    }
+  }
+}
+/* And the square has to do something — that is the whole reason it takes a
+   saturation at all. */
+check(crt(200, 50, 100).fg !== crt(200, 50, 20).fg,
+  'saturation changes nothing about the text colour');
+
 /* Turned all the way down it still has to be readable. That is the point of
    the floor: brightness is a dial, not a way to break the interface. */
 for (let hue = 0; hue < 360; hue += 7) {

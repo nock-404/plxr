@@ -51,11 +51,18 @@ type Env struct {
 	Platform      string `json:"platform"`
 	Arch          string `json:"arch"`
 	TitlebarInset bool   `json:"titlebarInset"`
+
+	// Version of THIS window. The daemon carries its own and the two can drift
+	// apart: an update replaces the bundle, the daemon keeps running as the
+	// process it was. What the interface then shows is the daemon's version,
+	// and the window quietly talks to code that is months old.
+	Version string `json:"version"`
 }
 
 func (a *App) Env() Env {
 	info := wr.Environment(a.ctx)
 	return Env{
+		Version:       version,
 		Platform:      info.Platform,
 		Arch:          info.Arch,
 		TitlebarInset: info.Platform == "darwin",

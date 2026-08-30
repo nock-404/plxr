@@ -41,7 +41,16 @@
     </div>
   </header>
 
-  <div class="updatebar" id="updateBar" hidden>
+  <!-- Window and daemon are two programs. An update by hand replaces only one
+     of them, and the interface then shows the daemon's version while the
+     window is a different one. -->
+<div class="updatebar" id="splitBar" hidden>
+  <span id="splitText"></span>
+  <span class="spacer"></span>
+  <button type="button" class="btn" id="splitHide" data-i18n="update.later">LATER</button>
+  <button type="button" class="btn primary" id="splitGo" data-i18n="version.splitGo">RESTART</button>
+</div>
+<div class="updatebar" id="updateBar" hidden>
     <span id="updateText"></span>
     <span class="progress" id="updateProgress" hidden><i id="updateFill"></i></span>
     <span class="spacer"></span>

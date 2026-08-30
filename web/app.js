@@ -565,15 +565,35 @@ let phosphorColour = '#ffb000';
 
 /* The phosphor colour: one hue, and the whole palette follows from it.
    Contrast is not a matter of taste here — see crtpalette.js. */
+/* The whole picker, not just the hue strip.
+
+   It offered a square to drag in and only the strip below it did anything —
+   dark and light made no difference at all, which is exactly what you would
+   call broken. All three now mean something: sideways is how much colour is in
+   the phosphor, up and down is how hard it glows, and the strip is the hue.
+
+   Up and down and the glow dial are the same value, so they are kept in step.
+   Two controls for one thing is fine; two controls that disagree is not. */
 function applyPhosphor(colour, remember = true) {
   phosphorColour = colour;
-  const palette = window.plxrPalette.crt(hueOf(colour), styleState.glowLevel ?? 50);
+  const { s, v } = hsvOf(colour);
+  styleState.glowLevel = Math.round(v);
+  const palette = window.plxrPalette.crt(hueOf(colour), styleState.glowLevel, s);
   for (const [k, v] of Object.entries(palette)) {
     document.documentElement.style.setProperty('--' + k, v);
     if (remember) styleState.changes[k] = v;
   }
   for (const p of paneList()) p.term.options.theme = xtermTheme();
   if (!$('#settings').hidden) buildStyleEditor();
+}
+
+/* Saturation and value of a picked colour, both 0 to 100. */
+function hsvOf(hex) {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return { s: 100, v: 50 };
+  const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  return { s: max ? ((max - min) / max) * 100 : 0, v: max * 100 };
 }
 
 function hueOf(hex) {
@@ -884,7 +904,16 @@ function buildStyleEditor() {
      that does nothing is worse than no dial. */
   if (document.documentElement.dataset.skin === 'crt') {
     box.appendChild(numberRow(tr('style.glowLevel'), 'glowLevel', 0, 100, () => {
-      applyPhosphor(phosphorColour);
+      /* Hue and saturation stay, only the brightness moves — going back
+         through applyPhosphor would read the value out of the colour again
+         and undo the very step just taken. */
+      const { s: sat } = hsvOf(phosphorColour);
+      const palette = window.plxrPalette.crt(hueOf(phosphorColour), styleState.glowLevel, sat);
+      for (const [k, v] of Object.entries(palette)) {
+        document.documentElement.style.setProperty('--' + k, v);
+        styleState.changes[k] = v;
+      }
+      for (const p of paneList()) p.term.options.theme = xtermTheme();
     }, 10));
   }
   box.appendChild(numberRow(tr('style.gradient'), 'gradient', 0, 100, () => {
@@ -4458,7 +4487,41 @@ fetch('/logo.svg').then((r) => r.text()).then((svg) => { $('#mark').innerHTML = 
 api.env().then((e) => {
   document.documentElement.dataset.platform = e.platform;
   if (e.titlebarInset) document.documentElement.dataset.titlebarInset = 'yes';
+  windowVersion = e.version || '';
+  checkVersionSplit();
 }).catch(() => {});
+
+/* Window and daemon are two programs, and an update does not necessarily reach
+   both. Installing by hand replaces the bundle; the daemon keeps running as
+   the process it already was, sometimes for weeks. From then on a new window
+   talks to old code, the version line shows the DAEMON's version, and nothing
+   anywhere says so — the interface simply behaves like the older one in places
+   nobody can predict.
+
+   Found the hard way: window 0.28.0 against a daemon 0.23.2, and the search
+   for why an update check kept failing led everywhere except here. */
+let windowVersion = '';
+async function checkVersionSplit() {
+  if (!WAILS || !windowVersion || windowVersion === 'dev') return;
+  let daemon = '';
+  try { daemon = (await api.version()).current; } catch { return; }
+  if (!daemon || daemon === windowVersion) return;
+  $('#splitText').textContent =
+    tr('version.split', { window: windowVersion, daemon: daemon });
+  $('#splitBar').hidden = false;
+}
+
+$('#splitGo').addEventListener('click', async () => {
+  const running = state.tiles.filter((t) => t.alive).length;
+  if (running && !(await plxrUI.confirm(
+    trN('update.sessionsWarn', running), tr('version.splitTitle')))) return;
+  try { await api.restart(); } catch { /* it is going away, that is the point */ }
+  $('#splitText').textContent = tr('version.splitRestarting');
+  // The daemon comes back on its own; the window finds it again by itself.
+  setTimeout(() => { $('#splitBar').hidden = true; }, 4000);
+});
+
+$('#splitHide').addEventListener('click', () => { $('#splitBar').hidden = true; });
 
 (function bootLine() {
   const el = $('#boot');

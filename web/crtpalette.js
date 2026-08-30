@@ -20,8 +20,12 @@
   const channelLuminance = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
   const contrastOf = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 
-  function crtPalette(hue, brightness = 50) {
+  function crtPalette(hue, brightness = 50, saturation = 100) {
     const h = ((Math.round(hue) % 360) + 360) % 360;
+    /* How much colour is in it. The picker offers a whole square and only the
+       hue strip used to do anything — an area you can drag that changes
+       nothing is worse than no area. Sideways is this. */
+    const sat = (v) => Math.round(v * Math.max(0, Math.min(100, saturation)) / 100);
     /* How hard the tube glows. 0 is a dim screen in a bright room, 100 a fresh
        one in the dark; 50 lands where the four hand-made palettes sat.
 
@@ -33,8 +37,8 @@
     const b = Math.max(0, Math.min(100, brightness));
     const textTarget = 6 + (b / 100) * 10;          // 6 … 16, 11 in the middle
     const accentTarget = Math.min(17, textTarget * 1.25);
-    const bg = hsl(h, 45, 3.5);
-    const panel = hsl(h, 48, 7);
+    const bg = hsl(h, sat(45), 3.5);
+    const panel = hsl(h, sat(48), 7);
     const grounds = [bg, panel];
     /* Text first and brightest, then the quieter roles below it — each one only
        as bright as it has to be, so the ladder survives. */
@@ -42,18 +46,18 @@
        this replaces, where text sat at about 11 to 1 against the panel and the
        accent at 14. Aiming at the readability floor instead gave a noticeably
        darker, more saturated picture than the amber everyone knows. */
-    const fg = lightEnough(h, 100, grounds, textTarget);
-    const accent = lightEnough(h, 100, grounds, accentTarget);
-    const dim = lightEnough(h, 62, grounds, 4.7);
-    const dead = lightEnough(h, 45, grounds, 4.6);
+    const fg = lightEnough(h, sat(100), grounds, textTarget);
+    const accent = lightEnough(h, sat(100), grounds, accentTarget);
+    const dim = lightEnough(h, sat(62), grounds, 4.7);
+    const dead = lightEnough(h, sat(45), grounds, 4.6);
     return {
       bg, panel, fg, accent, dim, dead,
-      line: hsl(h, 50, 16),
+      line: hsl(h, sat(50), 16),
       working: accent,
       waiting: dim,
       // A hue of its own, well away from the rest: a warning that carries the
       // same colour as everything else is no warning.
-      blocked: lightEnough((h + 150) % 360, 100, grounds, 4.6),
+      blocked: lightEnough((h + 150) % 360, Math.max(60, sat(100)), grounds, 4.6),
       onAccent: bg,
       'term-bg': bg,
       'term-fg': fg,

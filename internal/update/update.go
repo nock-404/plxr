@@ -63,39 +63,60 @@ func assetName() string {
 
 // Check asks GitHub for the latest version.
 //
-// Two ways, and the second one is not a nicety. The API allows sixty calls an
-// hour per address, without a token and shared with everything else on the
-// machine — one afternoon with the gh command and it answers 403. What
-// happened then was the worst of both: the check failed, Available stayed
-// false, and the interface said "up to date". A failure that looks like
-// success.
+// The website first, the API only to fill in. That order is the point.
 //
-// So when the API says no, the website is asked. /releases/latest redirects to
-// the tag, which is the one thing that really matters; release notes and the
-// size of the archive are lost with it, and the download address is put
-// together by hand. Better a plain update than a wrong all-clear.
+// The API allows sixty calls an hour per address, without a token and shared
+// with everything else on the machine — one afternoon on the gh command and it
+// answers 403. It was asked first because it carries the release notes and the
+// size of the archive. That is a poor reason to make the whole check depend on
+// it: the tag is what matters, and /releases/latest redirects straight to it,
+// with no limit worth speaking of.
+//
+// So the version and the download address come from the redirect and always
+// work. The API is asked afterwards, and when it refuses, all that is missing
+// is the notes and a number of bytes.
 func Check(current string) Status {
 	// Without a leading "v", exactly like Latest. Otherwise the update bar read
 	// "Version 0.3.5 is out (you have v0.3.4)" — once with, once without.
 	st := Status{Current: strings.TrimPrefix(current, "v")}
 
-	r, err := latestFromAPI()
+	tag, err := latestFromWeb()
 	if err != nil {
-		tag, second := latestFromWeb()
-		if second != nil {
-			st.Error = err.Error() // the first error is the one that explains
+		// Only now the API, and only so the message can say something better
+		// than "the website did not answer".
+		if r, apiErr := latestFromAPI(); apiErr == nil {
+			fillFromRelease(&st, r, current)
 			return st
 		}
-		st.Latest = strings.TrimPrefix(tag, "v")
-		st.Available = isNewer(st.Latest, current)
-		if st.Available {
-			st.AssetName = assetName()
-			st.AssetURL = "https://github.com/" + Repo + "/releases/download/" +
-				tag + "/" + st.AssetName
-		}
+		st.Error = uierr.With("err.update.unreachable", err.Error()).Error()
 		return st
 	}
 
+	st.Latest = strings.TrimPrefix(tag, "v")
+	st.Available = isNewer(st.Latest, current)
+	if st.Available {
+		st.AssetName = assetName()
+		st.AssetURL = "https://github.com/" + Repo + "/releases/download/" +
+			tag + "/" + st.AssetName
+	}
+
+	// Notes and size are a bonus. A refusal here changes nothing about the
+	// update itself, so it is not reported as a fault.
+	if r, apiErr := latestFromAPI(); apiErr == nil {
+		st.Notes = r.Body
+		for _, a := range r.Assets {
+			if a.Name == st.AssetName {
+				st.AssetURL, st.Size = a.URL, a.Size
+				break
+			}
+		}
+	}
+	return st
+}
+
+// fillFromRelease takes what the API gives when the website could not be
+// reached at all.
+func fillFromRelease(st *Status, r *Release, current string) {
 	st.Latest = strings.TrimPrefix(r.Tag, "v")
 	st.Notes = r.Body
 	st.Available = isNewer(st.Latest, current)
@@ -110,7 +131,6 @@ func Check(current string) Status {
 	if st.Available && st.AssetURL == "" {
 		st.Error = uierr.With("err.update.noArchive", st.Latest+" · "+want).Error()
 	}
-	return st
 }
 
 func latestFromAPI() (*Release, error) {

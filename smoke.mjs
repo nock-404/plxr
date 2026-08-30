@@ -171,6 +171,45 @@ check(await page.locator('#agentBrowse').isVisible(), 'BACK does not bring the l
 await page.click('[data-tab="look"]');
 await page.waitForTimeout(300);
 check(await page.locator('#phosphorRow').isVisible(), 'the phosphor colour is not offered for CRT');
+
+/* Every part of the picker has to do something. It offered a square to drag in
+   where only the hue strip below it had any effect — dark and light changed
+   nothing at all, because the palette was worked out from the hue alone.
+
+   Driven with dispatched events rather than the mouse: the picker listens for
+   mousedown and follows the pointer on the document, and a synthetic click
+   from outside does not reach it. This is about whether the handler produces
+   different colours, not about how the pointer gets there. */
+await page.click('#phosphorRow .swatch');
+await page.waitForTimeout(300);
+const pick = (fx, fy) => page.evaluate(([x, y]) => {
+  const pane = document.querySelector('#phosphorRow .swatchArea');
+  const r = pane.getBoundingClientRect();
+  pane.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true,
+    clientX: r.left + r.width * x, clientY: r.top + r.height * y }));
+  document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}, [fx, fy]);
+const paletteNow = () => page.evaluate(() => {
+  const c = getComputedStyle(document.documentElement);
+  return ['fg', 'dim', 'accent', 'bg'].map((k) => c.getPropertyValue('--' + k).trim()).join(' ');
+});
+await pick(0.95, 0.05); await page.waitForTimeout(250);
+const brightSaturated = await paletteNow();
+await pick(0.95, 0.95); await page.waitForTimeout(250);
+const darkSaturated = await paletteNow();
+await pick(0.05, 0.05); await page.waitForTimeout(250);
+const brightPale = await paletteNow();
+check(brightSaturated !== darkSaturated,
+  `up and down in the picker changes nothing: ${brightSaturated}`);
+check(brightSaturated !== brightPale,
+  `sideways in the picker changes nothing: ${brightSaturated}`);
+/* Back to a colour that has a hue. A near-grey leaves --fg without a defined
+   one, and the check below — that the glow dial does not drag the hue along —
+   would then be measuring noise. */
+await pick(0.95, 0.2);
+await page.waitForTimeout(250);
+await page.click('#settings .cardTitle');
+await page.waitForTimeout(200);
 await page.click('[data-tab="colors"]');
 await page.waitForTimeout(400);
 const glow = page.locator('.styleRow', { hasText: /Leuchtkraft|glow strength/ });
