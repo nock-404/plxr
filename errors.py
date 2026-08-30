@@ -19,10 +19,17 @@ import glob
 from pathlib import Path
 
 codes = set()
+with_detail = set()
 for path in glob.glob('**/*.go', recursive=True):
     if path.startswith('build/'):
         continue
-    codes |= set(re.findall(r'uierr\.(?:New|With)\("([\w.]+)"', Path(path).read_text(encoding='utf-8')))
+    text = Path(path).read_text(encoding='utf-8')
+    codes |= set(re.findall(r'uierr\.(?:New|With)\("([\w.]+)"', text))
+    # With() carries something the translation cannot know — a path, a name, a
+    # status code. If the sentence has no place for it, it is dropped on the
+    # way and the message says less than it was given: "GitHub answers with"
+    # and nothing behind it.
+    with_detail |= set(re.findall(r'uierr\.With\("([\w.]+)"', text))
 
 # Not every err. key comes from Go: the window raises a few itself — no token,
 # daemon gone. Those go through tr() like any other text.
@@ -44,6 +51,17 @@ for name, table in tables.items():
             print(f'      {c}')
 
 en = tables.get('en', {})
+silent = []
+for code in sorted(with_detail):
+    for lang, table in tables.items():
+        if code in table and '{detail}' not in table[code]:
+            silent.append(f'{lang}.json: {code} — "{table[code]}"')
+if silent:
+    failed = 1
+    print(f'  {len(silent)} messages drop their detail:')
+    for m in silent:
+        print(f'      {m}')
+
 dead = sorted(k for k in en if k.startswith('err.') and k not in codes and k not in from_js)
 if dead:
     failed = 1

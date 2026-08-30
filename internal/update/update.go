@@ -8,6 +8,7 @@ package update
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -61,33 +62,40 @@ func assetName() string {
 }
 
 // Check asks GitHub for the latest version.
+//
+// Two ways, and the second one is not a nicety. The API allows sixty calls an
+// hour per address, without a token and shared with everything else on the
+// machine — one afternoon with the gh command and it answers 403. What
+// happened then was the worst of both: the check failed, Available stayed
+// false, and the interface said "up to date". A failure that looks like
+// success.
+//
+// So when the API says no, the website is asked. /releases/latest redirects to
+// the tag, which is the one thing that really matters; release notes and the
+// size of the archive are lost with it, and the download address is put
+// together by hand. Better a plain update than a wrong all-clear.
 func Check(current string) Status {
 	// Without a leading "v", exactly like Latest. Otherwise the update bar read
 	// "Version 0.3.5 is out (you have v0.3.4)" — once with, once without.
 	st := Status{Current: strings.TrimPrefix(current, "v")}
 
-	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	res, err := (&http.Client{Timeout: 12 * time.Second}).Do(req)
+	r, err := latestFromAPI()
 	if err != nil {
-		st.Error = "GitHub nicht erreichbar: " + err.Error()
-		return st
-	}
-	defer res.Body.Close()
-	if res.StatusCode == 404 {
-		st.Error = "noch keine Veröffentlichung im Repo"
-		return st
-	}
-	if res.StatusCode != 200 {
-		st.Error = "GitHub antwortet mit " + strconv.Itoa(res.StatusCode)
+		tag, second := latestFromWeb()
+		if second != nil {
+			st.Error = err.Error() // the first error is the one that explains
+			return st
+		}
+		st.Latest = strings.TrimPrefix(tag, "v")
+		st.Available = isNewer(st.Latest, current)
+		if st.Available {
+			st.AssetName = assetName()
+			st.AssetURL = "https://github.com/" + Repo + "/releases/download/" +
+				tag + "/" + st.AssetName
+		}
 		return st
 	}
 
-	var r Release
-	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
-		st.Error = err.Error()
-		return st
-	}
 	st.Latest = strings.TrimPrefix(r.Tag, "v")
 	st.Notes = r.Body
 	st.Available = isNewer(st.Latest, current)
@@ -100,9 +108,56 @@ func Check(current string) Status {
 		}
 	}
 	if st.Available && st.AssetURL == "" {
-		st.Error = "Version " + st.Latest + " hat kein Archiv namens " + want
+		st.Error = uierr.With("err.update.noArchive", st.Latest+" · "+want).Error()
 	}
 	return st
+}
+
+func latestFromAPI() (*Release, error) {
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/"+Repo+"/releases/latest", nil)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	res, err := (&http.Client{Timeout: 12 * time.Second}).Do(req)
+	if err != nil {
+		return nil, uierr.With("err.update.unreachable", err.Error())
+	}
+	defer res.Body.Close()
+	if res.StatusCode == 404 {
+		return nil, uierr.New("err.update.noRelease")
+	}
+	if res.StatusCode != 200 {
+		return nil, uierr.With("err.update.status", strconv.Itoa(res.StatusCode))
+	}
+	var r Release
+	if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
+		return nil, uierr.With("err.update.unreadable", err.Error())
+	}
+	return &r, nil
+}
+
+// latestFromWeb reads the tag out of the redirect that /releases/latest sends.
+// No API, so no sixty-an-hour limit.
+func latestFromWeb() (string, error) {
+	c := &http.Client{
+		Timeout: 12 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	res, err := c.Get("https://github.com/" + Repo + "/releases/latest")
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	loc := res.Header.Get("Location")
+	i := strings.LastIndex(loc, "/releases/tag/")
+	if i < 0 {
+		return "", errors.New("no tag in the redirect")
+	}
+	tag := loc[i+len("/releases/tag/"):]
+	if tag == "" || strings.ContainsAny(tag, "/?#") {
+		return "", errors.New("tag in the redirect is not usable")
+	}
+	return tag, nil
 }
 
 // isNewer compares two versions of the form 1.2.3 component by component.

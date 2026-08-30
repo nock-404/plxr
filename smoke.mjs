@@ -289,6 +289,35 @@ await page.screenshot({ path: shots + '/viewer.png' });
    promise as a pageerror — the marks bug was invisible in `noise` and stood in
    the workbench log in plain sight. Asking the app what it saw is stricter
    than watching it from outside. */
+/* The version line has to admit when it does not know.
+
+   GitHub allows sixty API calls an hour per address, without a token and
+   shared with everything else on the machine. Once they are gone it answers
+   403 — and what the interface said then was "up to date", because a failed
+   check and no update look the same from outside. Here the answer is put in
+   front of it, so the failing case can be seen without waiting for a real
+   rate limit. */
+await page.click('#settingsBtn');
+await page.waitForTimeout(800);
+check(await page.locator('#versionCheck').isVisible(),
+  'there is no way to ask for an update at all');
+
+await page.route('**/api/version', (route) => route.fulfill({
+  status: 200,
+  contentType: 'application/json',
+  body: JSON.stringify({ current: '0.1.0', latest: '', available: false,
+                         error: 'err.update.status|403' }),
+}));
+await page.click('#versionCheck');
+await page.waitForTimeout(900);
+const said = (await page.textContent('#settingsVersion')).trim();
+check(/403/.test(said), `the failed check does not show its reason: "${said}"`);
+check(!/aktuell|up to date/i.test(said), `a failed check claims to be up to date: "${said}"`);
+await page.unroute('**/api/version');
+await page.screenshot({ path: shots + '/version-failed.png' });
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+
 /* 10. Every theme has to be readable — measured, not judged by eye.
 
    This runs last on purpose: by now a session is open and a tile is standing,

@@ -668,15 +668,58 @@ async function openSettings() {
   renderAgents();
   showDeleteButton();
   fillLanguages();
-  try {
-    const v = await api.version();
-    $('#settingsVersion').textContent =
-      `plxr ${v.current}` + ` · ${v.available ? tr('version.available', { v: v.latest }) : tr('version.current')}`;
-  } catch {
-    $('#settingsVersion').textContent = '';
-  }
+  showVersion();
   showHookStatus();
 }
+
+/* What the version line says — and it has to say when it does not know.
+
+   It read "up to date" whenever the check came back without an update. But the
+   check also comes back without one when it failed: GitHub allows sixty calls
+   an hour per address without a token, and an afternoon on the gh command uses
+   them up. Then the app claimed to be current while it had not asked anybody. */
+async function showVersion(fresh = false) {
+  const line = $('#settingsVersion');
+  const button = $('#versionCheck');
+  if (fresh) {
+    line.textContent = tr('version.asking');
+    button.disabled = true;
+  }
+  let v;
+  try {
+    v = await api.version();
+  } catch (e) {
+    line.textContent = tr('version.failed', { err: errText(e) });
+    button.disabled = false;
+    return;
+  }
+  versionStatus = v;
+  button.disabled = false;
+  if (v.error) {
+    line.textContent = `plxr ${v.current} · ` + tr('version.failed', { err: errText(new Error(v.error)) });
+    button.textContent = tr('version.check');
+    return;
+  }
+  if (v.available) {
+    line.textContent = `plxr ${v.current} · ` + tr('version.available', { v: v.latest });
+    button.textContent = tr('version.install', { v: v.latest });
+    return;
+  }
+  line.textContent = `plxr ${v.current} · ` + tr('version.current');
+  button.textContent = tr('version.check');
+}
+
+/* One button, two jobs — ask, and once there is something, fetch it. A second
+   button that is disabled most of the time would say less. */
+$('#versionCheck').addEventListener('click', () => {
+  if (versionStatus?.available && !versionStatus.error) {
+    $('#settings').hidden = true;
+    $('#updateBar').hidden = false;
+    $('#updateGo').click();
+    return;
+  }
+  showVersion(true);
+});
 $('#settingsBtn').addEventListener('click', openSettings);
 
 /* Room state — the whole room says what is going on.

@@ -164,6 +164,7 @@ const NOT_TEXT = new Set([
   'shell',     // id of a built-in template, not text
   'Claude Code', // product name, not translated
   'plxr',      // our own name
+  'plxr  ·',   // the same name with the version cut out and a separator
   ' MB',       // unit
   '·  MB',     // the same unit inside a template
   '~/.plxr/agents/.json', // a path, and it reads the same in every language

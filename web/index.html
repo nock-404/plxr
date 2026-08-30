@@ -462,6 +462,10 @@
 
     <div class="dialogFoot">
       <span id="settingsVersion" class="notice"></span>
+      <!-- Without this there is no way to ask at all: the banner only appears
+           when the check succeeded AND found something, so a failed check
+           looked exactly like being up to date. -->
+      <button type="button" class="btn" id="versionCheck" data-i18n="version.check">CHECK</button>
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="settingsClose" data-i18n="common.done">DONE</button>
     </div>
