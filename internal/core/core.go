@@ -288,7 +288,7 @@ func (c *Core) ImportTheme(raw []byte) (*theme.Theme, error) { return theme.Impo
 // rid of them again — the built-in ones stay untouchable.
 func (c *Core) ThemeDelete(name string) error { return theme.Delete(name) }
 
-// ---- Vorlagen ----
+// ---- Templates ----
 
 func (c *Core) Templates() []template.Template { return template.Load(daemon.Root()) }
 
@@ -353,7 +353,7 @@ func (c *Core) archiveFind(id, account string) (archive.Entry, bool) {
 	return archive.Entry{}, false
 }
 
-// Suche durchsucht alle Transkripte im Volltext.
+// Search runs a full-text search across every transcript.
 func (c *Core) Search(question string, ownOnly bool) []search.Hit {
 	return search.Search(c.Accounts(), question, ownOnly)
 }
@@ -461,10 +461,12 @@ func (c *Core) Usage(days int) usage.Report { return usage.Compute(c.Accounts(),
 func (c *Core) HookStatus() map[string]any {
 	all := c.Accounts()
 	acc, _ := accounts.ByName(all, "")
-	missing := []string{}
+	// The numbers, not a label: what these are called is the interface's
+	// business, and building the name here put German into the backend.
+	missing := []int{}
 	for _, a := range all {
 		if !hook.Installed(a.Dir) {
-			missing = append(missing, a.Label)
+			missing = append(missing, a.Number)
 		}
 	}
 	return map[string]any{
@@ -592,7 +594,11 @@ func (c *Core) Update() error {
 		updateMu.Unlock()
 		return uierr.New("err.update.upToDate")
 	}
-	updateStatus = UpdateStatus{Running: true, Phase: "lädt"}
+	/* A code, not a word.
+	   The interface compared this against its own TRANSLATED text — with the
+	   interface in English the comparison never matched, so the percentage
+	   never appeared and the German phase stood on screen instead. */
+	updateStatus = UpdateStatus{Running: true, Phase: "loading"}
 	updateMu.Unlock()
 
 	go func() {
@@ -603,7 +609,7 @@ func (c *Core) Update() error {
 			setStatus(func(u *UpdateStatus) {
 				u.Percent = int(read * 100 / total)
 				if u.Percent >= 100 {
-					u.Phase = "tauscht aus"
+					u.Phase = "swapping"
 				}
 			})
 		})
@@ -612,10 +618,10 @@ func (c *Core) Update() error {
 			u.Done = true
 			if err != nil {
 				u.Error = err.Error()
-				u.Phase = "fehlgeschlagen"
+				u.Phase = "failed"
 				return
 			}
-			u.Path, u.Phase, u.Percent = path, "fertig", 100
+			u.Path, u.Phase, u.Percent = path, "done", 100
 		})
 		versionMu.Lock()
 		Version = st.Latest
@@ -940,7 +946,10 @@ func (c *Core) checkEdge(sess session.Session) {
 
 	body := sess.Activity
 	if body == "" {
-		body = "wartet auf deine Antwort"
+		// The daemon has no language. What a notification says in words is the
+		// interface's business — this is the last resort when the session gave
+		// no activity line of its own.
+		body = "waiting for your answer"
 	}
 	notify.Send(sess.Label(), body)
 }
@@ -1001,13 +1010,17 @@ func (c *Core) Waiting(days int) hook.Report {
 func (c *Core) Marks(sessionID string) []marks.Mark { return marks.List(sessionID) }
 
 // MarkChanges says what has moved since a mark.
-func (c *Core) MarkChanges(sessionID, tree string) []marks.Change {
+//
+// A mark that is not there and a git that could not be asked are two different
+// answers, and both used to come back as an empty list — which the interface
+// reads as "nothing has changed since".
+func (c *Core) MarkChanges(sessionID, tree string) ([]marks.Change, error) {
 	for _, m := range marks.List(sessionID) {
 		if m.Tree == tree {
 			return marks.Changed(m.Cwd, tree)
 		}
 	}
-	return nil
+	return nil, uierr.New("err.marks.unknown")
 }
 
 // MarkRestore puts one file back the way it stood at the mark.

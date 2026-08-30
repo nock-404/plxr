@@ -18,20 +18,16 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 # Classes that are deliberately layout only and need not appear in any skin:
 # they carry no colour, no border, no typeface.
 #
-# This list was once too generous: .emptybox, .zhaupt and .auswahlPfeil were in
+# This list was once too generous: .emptybox, a status head and a select arrow were in
 # it although individual skins did colour them — and the gaps in the others
 # went unnoticed because of it. When in doubt a class does NOT belong here.
 LAYOUT_ONLY = {
     'app', 'body', 'content', 'spacer', 'hidden',
     'xterm', 'xterm-screen',        # belongs to xterm.js
     'panes', 'sesssplit', 'tools', 'brand', 'rtext',
-    'zeile2', 'griff', 'feld',
-    'auswahl', 'auswahlText',       # shell without a look of its own
-    'pfadListe',                    # inherits everything from .auswahlListe
-    'farbwert',                     # hidden field, holds only the value
-    'stil', 'stilzeile',            # grid inside the editor
-    'farbwahl', 'farbflaeche', 'farbton', 'farbpunkt', 'farbtonpunkt',
-    'wahl',                         # container of the start choice
+    'shellSelect', 'shellSelectText',  # shell without a look of its own
+    'pathList',                     # inherits everything from the select list
+    'colorValue',                   # hidden field, holds only the value
 }
 
 def classes_from_js():
@@ -213,9 +209,9 @@ def check_ids():
 
     # Also ids that do not sit next to $() but inside a list.
     #
-    # The reason: DIALOGS = ['#settings', '#vorlagen', …] and then $(d) in the
+    # The reason: DIALOGS = ['#settings', '#templates', …] and then $(d) in # german-ok: quotes the historical id that caused the bug the
     # loop. To the search above that is invisible, and that is exactly how
-    # '#vorlagen' survived the rename — the line threw at startup, everything
+    # the old id survived the rename — the line threw at startup, everything
     # after it in app.js never ran, and the interface stood there without a skin.
     #
     # Deliberately only lists whose entries are ALL id selectors. A single

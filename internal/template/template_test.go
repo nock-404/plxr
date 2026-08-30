@@ -10,7 +10,7 @@ import (
 // rename they must still show up — otherwise an update silently loses them.
 func TestOlderStorageIsAdopted(t *testing.T) {
 	root := t.TempDir()
-	old := filepath.Join(root, "vorlagen")
+	old := filepath.Join(root, "vorlagen") // german-ok: the old dir name being migrated from
 	if err := os.MkdirAll(old, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +31,8 @@ func TestOlderStorageIsAdopted(t *testing.T) {
 // If something already sits in the new folder, the migration must not overwrite it.
 func TestNewStorageWins(t *testing.T) {
 	root := t.TempDir()
-	os.MkdirAll(filepath.Join(root, "vorlagen"), 0o755)
-	os.WriteFile(filepath.Join(root, "vorlagen", "a.json"),
+	os.MkdirAll(filepath.Join(root, "vorlagen"), 0o755)     // german-ok: migration source
+	os.WriteFile(filepath.Join(root, "vorlagen", "a.json"), // german-ok: migration source
 		[]byte(`{"name":"a","sessions":[{"cwd":"/tmp"}]}`), 0o644)
 	os.MkdirAll(Dir(root), 0o755)
 	os.WriteFile(filepath.Join(Dir(root), "b.json"),
@@ -63,7 +63,7 @@ func TestSaveAndDelete(t *testing.T) {
 
 func TestNameValidation(t *testing.T) {
 	valid := []string{"arbeitstag", "a-b-c", "x1"}
-	invalid := []string{"", "Gross", "mit punkt.", "mit/schraeg", `{"json":1}`}
+	invalid := []string{"", "Upper", "with dot.", "with/slash", `{"json":1}`}
 	for _, n := range valid {
 		if !ValidName(n) {
 			t.Errorf("%q should be allowed", n)

@@ -7,7 +7,7 @@ const (
 	StatusWorking    Status = "working"    // Agent arbeitet
 	StatusWaiting    Status = "waiting"    // agent is waiting for input
 	StatusPermission Status = "permission" // agent is stuck on a question
-	StatusDead       Status = "dead"       // Prozess beendet
+	StatusDead       Status = "dead"       // process ended
 	StatusUnknown    Status = "unknown"    // running, but reporting nothing
 )
 

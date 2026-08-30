@@ -194,7 +194,7 @@ func (h *Host) pump() {
 			for c := range h.subs {
 				select {
 				case c <- chunk:
-				default: // langsamer Client verliert lieber Bytes als alle zu bremsen
+					// a slow client would rather drop bytes than hold everyone else up
 				}
 			}
 			h.mu.Unlock()
@@ -339,7 +339,7 @@ func (h *Host) Resize(rows, cols uint16) error {
 // itself — ignores SIGTERM, because otherwise any slip in a terminal would end
 // it. Without following up, "terminate" would stay without effect and the user
 // would get a 204 back while the session keeps running. Hence
-// nach einer Schonfrist SIGKILL.
+// SIGKILL after a grace period.
 func (h *Host) Kill() {
 	if h.cmd.Process == nil {
 		return

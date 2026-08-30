@@ -74,7 +74,7 @@ func Run(r *os.File) error {
 		return err
 	}
 	if v.SessionID == "" || !validID.MatchString(v.SessionID) {
-		return errors.New("keine brauchbare Session-ID")
+		return errors.New("no usable session id")
 	}
 	// Subagents have events of their own but are not sessions of their own.
 	if v.AgentID != "" {
@@ -254,7 +254,7 @@ func fromTranscript(path string, z *State) {
 	}
 	br := bufio.NewReader(f)
 	if from > 0 {
-		br.ReadString('\n') // angeschnittene Zeile verwerfen
+		br.ReadString('\n') // drop the partial line
 	}
 
 	sc := bufio.NewScanner(br)

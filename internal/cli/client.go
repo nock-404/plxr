@@ -96,7 +96,7 @@ func (c *Client) Find(which string) (core.Tile, error) {
 	}
 	switch len(hits) {
 	case 0:
-		return core.Tile{}, fmt.Errorf("keine Session passt zu %q", which)
+		return core.Tile{}, fmt.Errorf("no session matches %q", which)
 	case 1:
 		return hits[0], nil
 	default:

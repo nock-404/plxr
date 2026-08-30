@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Windows kennt keine Prozessgruppen im Unix-Sinn. TerminateProcess trifft
+// Windows has no process groups in the Unix sense. TerminateProcess hits
 // exactly one PID — if the session starts `npm run dev`, the node grandchild
 // survives and keeps holding its port. The counterpart is called a job object: a
 // container that processes are assigned to and that terminates them together.

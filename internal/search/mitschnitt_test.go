@@ -52,7 +52,7 @@ func TestContextOnlyAfterFirstHit(t *testing.T) {
 	dir := t.TempDir()
 	var lines []string
 	for i := 0; i < 5; i++ {
-		lines = append(lines, "ERROR hier", "after-"+string(rune('a'+i)))
+		lines = append(lines, "ERROR here", "after-"+string(rune('a'+i)))
 	}
 	logfile(t, dir, "abc", strings.Join(lines, "\n"))
 
@@ -150,7 +150,7 @@ func TestEarlyHitInLargeRecordingIsFound(t *testing.T) {
 	b.WriteString("EARLY ERROR right at the start\n")
 	// Comfortably past the old 8 MB cutoff.
 	for b.Len() < 10<<20 {
-		b.WriteString("belangloses Rauschen aus dem Build\n")
+		b.WriteString("irrelevant noise from the build\n")
 	}
 	logfile(t, dir, "gross", b.String())
 

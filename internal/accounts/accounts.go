@@ -11,13 +11,17 @@ import (
 	"path/filepath"
 	"plxr/internal/daemon"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 type Account struct {
-	Name     string `json:"name"`  // Kennung, z.B. "claude2"
-	Label    string `json:"label"` // Anzeigename
-	Dir      string `json:"dir"`   // absolutes Konfigurationsverzeichnis
+	Name string `json:"name"` // identifier, e.g. "claude2"
+	// Number is what the interface builds its label from. The label itself used
+	// to be assembled here — account 1 — which put German into the backend and
+	// left the English interface saying it too.
+	Number   int    `json:"number"`
+	Dir      string `json:"dir"` // absolute configuration directory
 	Sessions int    `json:"sessions"`
 }
 
@@ -64,11 +68,11 @@ func Discover() []Account {
 		if _, err := os.Stat(filepath.Join(dir, "projects")); err != nil {
 			continue
 		}
-		label := "Konto 1"
+		number := 1
 		if rest != "" {
-			label = "Konto " + rest
+			number, _ = strconv.Atoi(rest)
 		}
-		out = append(out, Account{Name: n[1:], Label: label, Dir: dir})
+		out = append(out, Account{Name: n[1:], Number: number, Dir: dir})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
 	return count(out)

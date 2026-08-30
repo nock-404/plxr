@@ -142,10 +142,19 @@ func List(sessionID string) []Mark {
 }
 
 // Changed lists what differs between a mark and the working tree right now.
-func Changed(cwd, tree string) []Change {
+//
+// The error is handed back rather than swallowed. It used to return nil for
+// both "nothing has changed" and "git could not be asked", and the interface
+// said "nothing changed since" to either — a repository that had been moved,
+// a mark whose tree object was gone, a git that is not installed at all, every
+// one of them read as an all-clear.
+func Changed(cwd, tree string) ([]Change, error) {
 	out, err := git(cwd, "diff", "--name-status", tree)
-	if err != nil || out == "" {
-		return nil
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return []Change{}, nil
 	}
 	var cs []Change
 	for _, line := range strings.Split(out, "\n") {
@@ -155,7 +164,7 @@ func Changed(cwd, tree string) []Change {
 		}
 		cs = append(cs, Change{Status: st, Path: path})
 	}
-	return cs
+	return cs, nil
 }
 
 // Restore writes one file back the way it stood at the mark.

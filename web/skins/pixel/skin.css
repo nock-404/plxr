@@ -69,8 +69,8 @@ body {
 .railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
 .railitem.active .rsub { color: inherit; opacity: .8; }
 .railitem.active .rdot, .railitem.active .dot { color: inherit; }
-/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
-   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
 .railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { border-bottom: var(--px) solid var(--line); }
 .railgroup { color: var(--accent); font-size: .72em; padding: 12px 10px 4px; }
@@ -227,7 +227,7 @@ body {
 .progress { background: var(--bg); }
 .progress i { background: var(--accent); }
 
-/* Auswahl im Startdialog. */
+/* The choice in the start dialog. */
 .choiceButton { background: var(--panel); color: var(--dim); font-size: .8em; padding: 7px 12px;
   box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
 .choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); }

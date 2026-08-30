@@ -20,11 +20,11 @@
 
     const root = document.createElement('div');
     root.className = 'select';
-    root.innerHTML = '<button type="button" class="selectButton"><span class="auswahlText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
+    root.innerHTML = '<button type="button" class="selectButton"><span class="shellSelectText"></span><i class="selectArrow">▾</i></button><div class="selectList" hidden></div>';
     sel.after(root);
 
     const button = $$('.selectButton', root);
-    const text = $$('.auswahlText', root);
+    const text = $$('.shellSelectText', root);
     const list = $$('.selectList', root);
     if (sel.dataset.tip) button.dataset.tip = sel.dataset.tip;
 
@@ -356,8 +356,8 @@
     colorPicker,
     bindTips,
     replaceSelects() { document.querySelectorAll('select').forEach(makeSelect); },
-    // Capitals as in the rest of the markup: crt sets text-transform, the other
-    // skins do not — a small "ja" next to a large "ABBRECHEN" stood out at once.
+    // Capitals as in the rest of the markup: crt sets text-transform, the
+    // other skins do not — a small yes next to a large CANCEL stood out at once.
     confirm: (text, title = window.tr ? window.tr('dialog.sureTitle') : 'Are you sure?') =>
       dialog(title, text, [{ text: window.tr ? window.tr('common.cancel') : 'CANCEL', value: false }, { text: window.tr ? window.tr('common.yes') : 'YES', value: true, primary: true }]),
     notice: (text, title = window.tr ? window.tr('dialog.noticeTitle') : 'Notice') =>

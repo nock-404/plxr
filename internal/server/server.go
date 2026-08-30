@@ -85,14 +85,14 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		answer := map[string]any{"ids": ids}
 		if err != nil {
-			answer["teilweise"] = err.Error()
+			answer["partial"] = err.Error()
 		}
 		writeJSON(w, answer)
 	})
 	mux.HandleFunc("POST /api/templates", func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ Name, Label string }
 		if json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req) != nil {
-			http.Error(w, "kaputtes JSON", http.StatusBadRequest)
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
 			return
 		}
 		if err := s.c.TemplateFromState(req.Name, req.Label); err != nil {
@@ -155,7 +155,7 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		writeJSON(w, s.c.Search(q.Get("q"), q.Get("nur") == "eigene"))
+		writeJSON(w, s.c.Search(q.Get("q"), q.Get("mine") == "1"))
 	})
 	mux.HandleFunc("DELETE /api/archive/{id}", s.archiveDelete)
 	mux.HandleFunc("POST /api/archive/{id}/resume", s.archiveResume)
@@ -164,14 +164,14 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/sessions/{id}/freeze", func(w http.ResponseWriter, r *http.Request) {
 		ok := s.c.Freeze(r.PathValue("id"))
 		if !ok {
-			http.Error(w, "Einfrieren ist auf diesem System nicht möglich", http.StatusBadRequest)
+			http.Error(w, uierr.New("err.freeze.unsupported").Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/sessions/{id}/unfreeze", func(w http.ResponseWriter, r *http.Request) {
 		if !s.c.Unfreeze(r.PathValue("id")) {
-			http.Error(w, "Fortsetzen fehlgeschlagen", http.StatusBadRequest)
+			http.Error(w, uierr.New("err.unfreeze.failed").Error(), http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -301,7 +301,12 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.Marks(r.PathValue("id")))
 	})
 	mux.HandleFunc("GET /api/marks/{id}/{tree}", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.c.MarkChanges(r.PathValue("id"), r.PathValue("tree")))
+		changes, err := s.c.MarkChanges(r.PathValue("id"), r.PathValue("tree"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, changes)
 	})
 	mux.HandleFunc("POST /api/marks/{id}/{tree}/restore", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.MarkRestore(r.PathValue("id"), r.PathValue("tree"), r.URL.Query().Get("path")); err != nil {
@@ -369,7 +374,7 @@ type createReq struct {
 func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 	var req createReq
 	if json.NewDecoder(r.Body).Decode(&req) != nil {
-		http.Error(w, "kaputtes JSON", http.StatusBadRequest)
+		http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
 		return
 	}
 	sess, err := s.c.Create(req.Cwd, req.Cmd, req.Name, req.Account)
@@ -419,7 +424,7 @@ func (s *Server) switchAccount(w http.ResponseWriter, r *http.Request) {
 func (s *Server) killPort(w http.ResponseWriter, r *http.Request) {
 	pid, err := strconv.Atoi(r.PathValue("pid"))
 	if err != nil {
-		http.Error(w, "keine gültige Prozess-ID", http.StatusBadRequest)
+		http.Error(w, uierr.New("err.badPID").Error(), http.StatusBadRequest)
 		return
 	}
 	if err := s.c.KillPort(pid, r.URL.Query().Get("hard") == "1"); err != nil {
@@ -461,7 +466,7 @@ type writeReq struct {
 func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 	var req writeReq
 	if json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&req) != nil {
-		http.Error(w, "kaputtes JSON", http.StatusBadRequest)
+		http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
 		return
 	}
 	out, err := s.c.WriteFile(r.PathValue("id"), req.Path, req.Text, req.Mod)
@@ -534,7 +539,7 @@ type inMsg struct {
 func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 	h := s.c.Host(r.PathValue("id"))
 	if h == nil {
-		http.Error(w, "keine laufende Session", http.StatusNotFound)
+		http.Error(w, uierr.New("err.noRunningSession").Error(), http.StatusNotFound)
 		return
 	}
 	c, err := s.up.Upgrade(w, r, nil)
@@ -578,7 +583,7 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	c.WriteMessage(websocket.TextMessage, []byte("\r\n[plxr] Prozess beendet.\r\n"))
+	c.WriteMessage(websocket.TextMessage, []byte("\r\n[plxr] process ended.\r\n"))
 }
 
 // writeJSON answers with v as JSON — and never with a bare null.

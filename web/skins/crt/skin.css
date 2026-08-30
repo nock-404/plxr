@@ -99,8 +99,8 @@ body {
 .rsub { color: var(--dim); font-size: .68em; letter-spacing: .08em; text-transform: uppercase; }
 .railitem.active .rsub { color: var(--accent); opacity: .75; }
 .railitem.active .rdot, .railitem.active .dot { color: inherit; }
-/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
-   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
 .railitem.active .rmeta { color: inherit; opacity: .8; }
 .railitem[data-status="permission"] .rsub { color: var(--blocked); }
 .rmeta { color: var(--dead); font-size: .78em; }
@@ -233,7 +233,7 @@ body {
 .splitRow { color: var(--fg); }
 .splitRow:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 
-/* ---------- Eigene Auswahlliste ---------- */
+/* ---------- Custom select list ---------- */
 
 .selectButton {
   background: transparent; color: var(--fg); border: 1px solid var(--dim);
@@ -290,7 +290,7 @@ body {
 .progress { background: color-mix(in srgb, var(--fg) 14%, transparent); }
 .progress i { background: var(--accent); }
 
-/* Auswahl im Startdialog. */
+/* The choice in the start dialog. */
 .choiceButton { border: 1px solid var(--dim); color: var(--dim); letter-spacing: .08em; text-shadow: inherit; }
 .choiceButton:hover { border-color: var(--accent); color: var(--accent); }
 .choiceButton[data-picked="yes"] { border-color: var(--accent); color: var(--bg); background: var(--accent); text-shadow: none; }

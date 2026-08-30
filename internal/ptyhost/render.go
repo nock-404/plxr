@@ -96,7 +96,7 @@ func renderPlain(raw string) []string {
 				}
 				i = j
 
-			case ']': // OSC bis BEL oder ST
+			case ']': // OSC until BEL or ST
 				j := i + 2
 				for j < len(rs) && rs[j] != 0x07 && rs[j] != 0x1b {
 					j++

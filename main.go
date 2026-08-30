@@ -41,6 +41,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	wr "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:web
@@ -64,7 +65,7 @@ func main() {
 	// package shows only the two switches and hides every subcommand.
 	flag.Usage = func() {
 		cli.Help()
-		fmt.Fprintln(os.Stderr, "\nSchalter:")
+		fmt.Fprintln(os.Stderr, "\nOptions:")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -76,7 +77,7 @@ func main() {
 
 	info, err := daemon.Ensure()
 	if err != nil {
-		log.Fatal("Daemon: ", err)
+		log.Fatal("daemon: ", err)
 	}
 
 	if *browser {
@@ -109,14 +110,14 @@ func command(name string, rest []string) bool {
 			os.Exit(1)
 		}
 		if remove {
-			fmt.Println("aus", path, "entfernt")
+			fmt.Println("removed from", path)
 		} else {
-			fmt.Println("eingetragen in", path)
-			fmt.Println("Neue Claude-Code-Sessions melden ihren Zustand ab sofort an plxr.")
+			fmt.Println("entered into", path)
+			fmt.Println("New Claude Code sessions report their state to plxr from now on.")
 		}
 		return true
 	}
-	if name == "help" || name == "hilfe" {
+	if name == "help" {
 		cli.Help()
 		return true
 	}
@@ -153,13 +154,13 @@ func command(name string, rest []string) bool {
 		err = cli.New(c, path, cmd)
 	case "attach":
 		if len(rest) == 0 {
-			err = errors.New("welche Session? `plxr ls` zeigt sie")
+			err = errors.New("which session? `plxr ls` lists them")
 		} else {
 			err = cli.Attach(c, rest[0])
 		}
 	case "kill":
 		if len(rest) == 0 {
-			err = errors.New("welche Session? `plxr ls` zeigt sie")
+			err = errors.New("which session? `plxr ls` lists them")
 		} else {
 			err = cli.Kill(c, rest[0])
 		}
@@ -195,15 +196,15 @@ func selfUpdate() error {
 		p := int(read * 100 / total)
 		if p != last && p%5 == 0 {
 			last = p
-			fmt.Printf("\r  laden … %d%%", p)
+			fmt.Printf("\r  downloading … %d%%", p)
 		}
 	})
 	if err != nil {
 		fmt.Println()
 		return err
 	}
-	fmt.Printf("\r  eingesetzt: %s\n", path)
-	fmt.Println("  fertig. Beim nächsten Start läuft die neue Fassung.")
+	fmt.Printf("\r  put in place: %s\n", path)
+	fmt.Println("  done. The next start runs the new version.")
 	return nil
 }
 
@@ -218,7 +219,8 @@ func runDaemon() {
 	ptyhost.Version = version
 	// The recording sits next to the rest of the state. That way the scrollback
 	// survives every restart — with tmux it is gone.
-	ptyhost.RecordingDir = filepath.Join(daemon.Root(), "mitschnitt")
+	ptyhost.RecordingDir = filepath.Join(daemon.Root(), "recordings")
+	migrateRecordings(daemon.Root())
 	c := core.New(reg, sub("web/themes"), sub("web/agents"), sub("web/skins"))
 	srv := server.New(c, sub("web"))
 
@@ -238,7 +240,7 @@ func runDaemon() {
 	// Clean up once at startup; more often is not worth it.
 	go c.PruneRecordings()
 
-	log.Printf("plxr daemon auf %s (PID %d)", info.URL(), info.PID)
+	log.Printf("plxr daemon on %s (PID %d)", info.URL(), info.PID)
 	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))
 }
 
@@ -251,7 +253,7 @@ func runDaemon() {
    so, read at startup. macOS settles it when the window is made, so switching
    it on did nothing until the next start. What you got instead was a page that
    took back its own colour over an opaque window — lighter, and nothing more.
-   "nur heller, null transparenz", and quite right.
+   "lighter, no transparency at all", and quite right.
 
    Always translucent costs nothing while the page is opaque, which it is until
    somebody moves the slider. And then it works at once. */
@@ -288,11 +290,17 @@ func runWindow(info daemon.Info) {
 		// that macOS knows the shortcuts.
 		Menu: menu.NewMenuFromItems(
 			menu.SubMenu("plxr", menu.NewMenuFromItems(
-				menu.Text("Über plxr", nil, func(*menu.CallbackData) {}),
+				menu.Text("About plxr", nil, func(*menu.CallbackData) {}),
 				menu.Separator(),
-				menu.Text("plxr ausblenden", keys.CmdOrCtrl("h"), func(*menu.CallbackData) {}),
+				/* Cmd+H used to be bound to an empty function here. That does not
+				   leave the system behaviour alone — it takes it away: the
+				   shortcut was claimed and then did nothing, so hiding the
+				   application no longer worked at all. */
+				menu.Text("Hide plxr", keys.CmdOrCtrl("h"), func(*menu.CallbackData) {
+					wr.WindowHide(app.ctx)
+				}),
 				menu.Separator(),
-				menu.Text("plxr beenden", keys.CmdOrCtrl("q"), func(*menu.CallbackData) { os.Exit(0) }),
+				menu.Text("Quit plxr", keys.CmdOrCtrl("q"), func(*menu.CallbackData) { os.Exit(0) }),
 			)),
 			menu.EditMenu(),
 		),
@@ -310,7 +318,7 @@ func runWindow(info daemon.Info) {
 			WindowIsTranslucent:  translucent,
 			About: &mac.AboutInfo{
 				Title:   "plxr",
-				Message: "Leitstand für Coding-CLI-Sessions",
+				Message: "A control room for coding CLI sessions",
 			},
 		},
 	})
@@ -319,13 +327,6 @@ func runWindow(info daemon.Info) {
 	}
 }
 
-// windowBackground is the colour behind the page.
-//
-// Opaque by default, so no white flashes through on a theme change — that is
-// what it has always been for. See-through it has to give way, otherwise it
-// sits in front of the desktop and nothing is gained.
-// appearance decides the colour of the material behind the window. Only worth
-// anything while translucent; otherwise the page covers it completely.
 // appearance decides the colour of the frosted glass macOS puts behind the
 // window. In the light appearance that material is WHITE, so a dark theme with
 // see-through turned on went milky instead of showing anything through.
@@ -339,11 +340,30 @@ func appearance(w daemon.WindowFile) mac.AppearanceType {
 	return mac.NSAppearanceNameAqua
 }
 
+// windowBackground is the colour behind the page. The window is always able to
+// let something through, so this gives way entirely — what covers the desktop
+// is the page's own colour, and that is opaque until somebody says otherwise.
 func windowBackground() *options.RGBA {
 	if translucent {
 		return &options.RGBA{R: 0, G: 0, B: 0, A: 0}
 	}
 	return &options.RGBA{R: 11, G: 9, B: 6, A: 1}
+}
+
+// migrateRecordings moves the scrollback written by earlier versions, which
+// kept it under a German directory name. Without this the recorded output of
+// every existing session would quietly stop being found after an update — the
+// same shape as the templates directory, which already carries this.
+func migrateRecordings(root string) {
+	fresh := filepath.Join(root, "recordings")
+	if _, err := os.Stat(fresh); err == nil {
+		return
+	}
+	old := filepath.Join(root, "mitschnitt") // german-ok: migrating away from the old name
+	if _, err := os.Stat(old); err != nil {
+		return
+	}
+	_ = os.Rename(old, fresh)
 }
 
 func sub(dir string) fs.FS {

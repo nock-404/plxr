@@ -183,7 +183,7 @@ func read(e *Entry) {
 	if e.Size > readLimit {
 		if _, err := f.Seek(-readLimit, io.SeekEnd); err == nil {
 			br := bufio.NewReader(f)
-			br.ReadString('\n') // angeschnittene erste Zeile verwerfen
+			br.ReadString('\n') // drop the partial first line
 			scan(bufio.NewScanner(br))
 		}
 	}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Match the package table in the README against the directories on disk.
 
-The reason: the table still listed internal/vorlage weeks after the package had
+The reason: the table still listed a package weeks after the package had
 been renamed to internal/template. Documentation that is wrong is worse than
 documentation that is missing — it sends the next person to a place that does
 not exist, and nothing ever complains.

@@ -57,7 +57,7 @@ func Watch(dir string, every time.Duration, fn func([]State)) {
 	}
 }
 
-// Read liest alle bekannten Verzeichnisse. Liegt dieselbe Session mehrfach
+// Read reads every known directory. If the same session lies in more than
 // twice, the more recent entry wins.
 func Read(_ string) []State {
 	var paths []string

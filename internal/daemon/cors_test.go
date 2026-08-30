@@ -43,7 +43,7 @@ func TestPreflightDoesNotOpenTheDoor(t *testing.T) {
 	})))
 
 	r := httptest.NewRequest("GET", "/api/sessions", nil)
-	r.Header.Set("Origin", "https://beliebige-seite.example")
+	r.Header.Set("Origin", "https://any-site.example")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
 	if w.Code != http.StatusForbidden {

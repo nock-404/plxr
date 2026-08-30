@@ -1,7 +1,7 @@
 /* Click through the interface and look at it — with an actual browser.
 
    Every interface bug of the last two days had to be found by hand, because
-   nothing here could open the window: #vorlagen threw at startup and left the
+   nothing here could open the window: the templates id threw at startup and left the
    whole thing unstyled, the workbench sat in a hidden section and simply did
    not appear, the update banner never showed because it read a field that does
    not exist. Not one of those is visible in the source. All of them are
@@ -87,7 +87,7 @@ page.on('requestfailed', (r) => {
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1500);
 
-// 1. Nothing thrown. This alone would have caught #vorlagen.
+// 1. Nothing thrown. This alone would have caught that startup throw.
 check(noise.length === 0, 'the window complains: ' + noise.join(' | '));
 
 // 2. A skin is on. The naked window of that evening had none.
@@ -321,11 +321,12 @@ await page.click('#filesToggle');
 await page.waitForTimeout(600);
 await page.click('.frow');
 await page.waitForTimeout(700);
-check((await page.inputValue('#viewerBody')).includes('hallo'), 'the file does not open');
+check((await page.inputValue('#viewerBody')).includes('hello'), 'the file does not open');
 const meta = (await page.textContent('#viewerMeta')).trim();
 /* Singular, not "1 Zeilen". The count being right is what made the plural
    wrong visible in the first place. */
-check(/^1 (Zeile|line)\b/.test(meta), `line count or plural is wrong: "${meta}"`);
+// singular, not "1 lines"
+check(/^1 (line)\b/.test(meta), `line count or plural is wrong: "${meta}"`);
 check(!/0[.,]0/.test(meta), `the size reads as nothing: "${meta}"`);
 await page.screenshot({ path: shots + '/viewer.png' });
 

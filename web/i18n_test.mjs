@@ -35,6 +35,11 @@ const used = new Set([
      the gate asks for them to be deleted — which would empty the list. */
   ...[...sources.matchAll(/data-i18n-options="([^"]+)"[^>]*data-i18n-option-key="([\w.]+)"/g)]
     .flatMap((m) => m[1].split(/\s+/).filter(Boolean).map((v) => `${m[2]}.${v}`)),
+  /* Keys built from a value the daemon sends: tr(`update.phase.${st.phase}`).
+     The prefix is what can be seen here; which words follow it is decided in
+     Go. Listing the prefix marks all of them as used — asking for each one by
+     name would mean keeping a second copy of the list in this file. */
+  ...[...sources.matchAll(/tr\(`([\w.]+)\.\$\{/g)].map((m) => m[1] + '.*'),
 ]);
 
 /* Keys that go through a variable — the shortcut table holds the key, not the
@@ -53,6 +58,7 @@ let failed = 0;
 const en = tables.en || {};
 
 for (const k of [...used].sort()) {
+  if (k.endsWith('.*')) continue;          // a prefix, not a key
   if (!(k in en)) { failed = 1; console.log(`  missing from en.json: ${k}`); }
 }
 
@@ -85,7 +91,10 @@ for (const [name, tab] of Object.entries(tables)) {
 /* Keys under err. are not used from here: Go sends the code, errText() turns
    it into a sentence. errors.py checks those against the Go side, in both
    directions. */
-const unused = Object.keys(en).filter((k) => !k.startsWith('_') && !k.startsWith('err.') && !used.has(k) && !mentioned.has(k));
+const prefixes = [...used].filter((k) => k.endsWith('.*')).map((k) => k.slice(0, -1));
+const unused = Object.keys(en).filter((k) =>
+  !k.startsWith('_') && !k.startsWith('err.') && !used.has(k) && !mentioned.has(k)
+  && !prefixes.some((p) => k.startsWith(p)));
 if (unused.length) {
   failed = 1;
   console.log(`  ${unused.length} keys in en.json are used nowhere:`);
@@ -94,7 +103,7 @@ if (unused.length) {
 
 /* And: is there still German text hard-wired into the source?
 
-   The first round looked for umlauts and articles — "Session wartet auf dich"
+   The first round looked for umlauts and articles — a waiting-message
    has neither and stood there for months. Hence a word list that aims at the
    language, not at its special characters.
 
@@ -106,7 +115,7 @@ if (unused.length) {
    The list below stays German on purpose. It is not prose, it is the
    vocabulary being searched for — translating it would make the check useless.
    Same reasoning as for the language files themselves. */
-const GERMAN = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine|senden|gesendet|oeffnen|geoeffnet|schliessen|speichern|gespeichert|loeschen|geloescht|abbrechen|Abbruch|Antwort|Antworten|Frage|Fragen|Eingabe|Eingabetaste|Taste|Sitzung|Fenster|Zeile|Zeilen|Ordner|Einstellungen|waehlen|Auswahl|neu|alle|mit|fuer|zum|zur|bei|dem|den|kann|muss|soll|hier|dort|jetzt|wieder|wurde|haben|hat)\b|[äöüßÄÖÜ]/;
+const GERMAN = /\b(auf|dich|wartet|warten|laeuft|laufen|kein|keine|nichts|noch|schon|mehr|gibt|steht|wird|werden|beendet|Fassung|Konto|von|bis|aktiv|angehalten|fortgesetzt|Datei|Dateien|Verzeichnis|der|die|das|und|ist|nicht|damit|eine|senden|gesendet|oeffnen|geoeffnet|schliessen|speichern|gespeichert|loeschen|geloescht|abbrechen|Abbruch|Antwort|Antworten|Frage|Fragen|Eingabe|Eingabetaste|Taste|Sitzung|Fenster|Zeile|Zeilen|Ordner|Einstellungen|waehlen|Auswahl|neu|alle|mit|fuer|zum|zur|bei|dem|den|kann|muss|soll|hier|dort|jetzt|wieder|wurde|haben|hat)\b|[äöüßÄÖÜ]/; // german-ok: this regex IS the vocabulary it detects
 /* No HTML entities in the values.
 
    The texts are set with textContent, and textContent decodes nothing: on
@@ -164,7 +173,9 @@ const NOT_TEXT = new Set([
   'shell',     // id of a built-in template, not text
   'Claude Code', // product name, not translated
   'plxr',      // our own name
+  'custom',    // a starter id compared against, not shown; its label uses tr
   'plxr  ·',   // the same name with the version cut out and a separator
+  'loading',   // the phase code the daemon sends, compared not shown
   ' MB',       // unit
   '·  MB',     // the same unit inside a template
   '~/.plxr/agents/.json', // a path, and it reads the same in every language
@@ -190,7 +201,7 @@ for (const [file, src] of jsSources) {
     const withoutTr = expression.replace(/\btrN?\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)/g, ' ');
     for (const lit of withoutTr.matchAll(/'([^'\\\n]*)'|"([^"\\\n]*)"|`([^`]*)`/g)) {
       const txt = (lit[1] ?? lit[2] ?? lit[3] ?? '').replace(/\$\{[^{}]*\}/g, '');
-      if (!/[A-Za-zÄÖÜäöü]{2,}/.test(txt)) continue;      // '', '·', '%' are not text
+      if (!/[A-Za-zÄÖÜäöü]{2,}/.test(txt)) continue; // german-ok: detects umlauts; '', '·', '%' are not text
       if (/^#[A-Za-z][\w-]*$/.test(txt.trim())) continue; // '#brake' is a selector, not text
       if (NOT_TEXT.has(txt.trim())) continue;
       unfiltered.push(`${file}: ${txt.trim().slice(0, 50)}`);
@@ -225,7 +236,14 @@ for (const [file, src] of jsSources) {
       }
       j++;
     } while (depth > 0 && j < lines.length && j - i < 60);
-    if (/\btr\(/.test(body)) tooEarly.push(`${file}:${i + 1} ${start[1]}`);
+    /* Only tr() that actually runs at load time. A tr() inside a function
+       value — `key: () => tr(...)` — runs when the function is called, not
+       when the table is built, so it is fine. Strip arrow and function bodies
+       before looking. */
+    const immediate = body
+      .replace(/=>\s*[^,\n]*/g, ' ')
+      .replace(/function\s*\([^)]*\)\s*\{[\s\S]*?\}/g, ' ');
+    if (/\btr\(/.test(immediate)) tooEarly.push(`${file}:${i + 1} ${start[1]}`);
   }
 }
 if (tooEarly.length) {

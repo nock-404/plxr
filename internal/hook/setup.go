@@ -25,14 +25,14 @@ func Install(configDir string, remove bool) (string, error) {
 		configDir = filepath.Join(home, ".claude")
 	}
 	if _, err := os.Stat(configDir); err != nil {
-		return "", errors.New("kein Claude-Code-Verzeichnis: " + configDir)
+		return "", errors.New("not a Claude Code directory: " + configDir)
 	}
 	path := filepath.Join(configDir, "settings.json")
 
 	settings := map[string]any{}
 	if b, err := os.ReadFile(path); err == nil && len(b) > 0 {
 		if err := json.Unmarshal(b, &settings); err != nil {
-			return "", errors.New(path + " ist kein gültiges JSON: " + err.Error())
+			return "", errors.New(path + " is not valid JSON: " + err.Error())
 		}
 	}
 

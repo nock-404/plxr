@@ -241,7 +241,7 @@ func Apply(assetURL string, progress func(read, total int64)) (string, error) {
 	if err := download(assetURL, zipPath, progress); err != nil {
 		return "", err
 	}
-	unpacked := filepath.Join(tmp, "aus")
+	unpacked := filepath.Join(tmp, "unpacked")
 	if err := unzip(zipPath, unpacked); err != nil {
 		return "", err
 	}
@@ -318,7 +318,7 @@ func download(url, dest string, progress func(int64, int64)) error {
 		resuming := res.StatusCode == http.StatusPartialContent
 		if res.StatusCode != http.StatusOK && !resuming {
 			res.Body.Close()
-			last = fmt.Errorf("Download antwortet mit %d", res.StatusCode)
+			last = fmt.Errorf("download answered with %d", res.StatusCode)
 			continue
 		}
 		if !resuming {

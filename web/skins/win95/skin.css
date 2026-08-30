@@ -69,14 +69,14 @@ body {
 .railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
 .railitem.active .rsub { color: inherit; opacity: .8; }
 .railitem.active .rdot, .railitem.active .dot { color: inherit; }
-/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
-   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
 .railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
 .railgroup { color: var(--dk); font-weight: bold; font-size: .95em; background: #d4d0c8; }
 .rsub { color: var(--dim); font-size: .9em; }
 .railitem[data-status="permission"] .rdot { color: var(--blocked); }
-/* Nicht --sh: das ist die Kante der 3D-Raender, #808080 auf #c0c0c0 —
+/* Not --sh: that is the edge of the 3D borders, #808080 on #c0c0c0 —
    ein Verhaeltnis von 1.01 zu 1. */
 .rmeta { color: var(--dim); }
 
@@ -263,7 +263,7 @@ body {
 .progress { background: #fff; }
 .progress i { background: var(--accent); }
 
-/* Auswahl im Startdialog. */
+/* The choice in the start dialog. */
 .choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
 .choiceButton[data-picked="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
 

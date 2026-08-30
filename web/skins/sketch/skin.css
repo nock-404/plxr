@@ -72,8 +72,8 @@ body {
 .railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
 .railitem.active .rsub { color: inherit; opacity: .8; }
 .railitem.active .rdot, .railitem.active .dot { color: inherit; }
-/* Der Zaehler sitzt auf der Akzentflaeche, sobald die Zeile aktiv ist —
-   mit der grauen Nebenfarbe war er dort nicht zu lesen. */
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
 .railitem.active .rmeta { color: inherit; opacity: .8; }
 .railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
 .railgroup { color: var(--dim); font-size: .78em; border-bottom: 1px dashed var(--line); }
@@ -96,8 +96,8 @@ body {
 .tproj { color: var(--dim); font-size: .8em; }
 .tbody {
   font-family: 'SpaceMono', ui-monospace, monospace; font-size: 11px; line-height: 1.4;
-  /* Nicht fest: auf der blueprint-Palette liegt dieses Grau mit 1.03 zu 1
-     auf dem dunkelblauen Panel. */
+  /* Not fixed: on the blueprint palette this grey sits at 1.03 to 1 on the
+     dark blue panel. */
   color: var(--fg); opacity: .82; max-height: 170px;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
   mask-image: linear-gradient(to bottom, transparent, #000 28px);
@@ -234,7 +234,7 @@ body {
 .progress { background: #e8e2d2; }
 .progress i { background: var(--accent); }
 
-/* Auswahl im Startdialog. */
+/* The choice in the start dialog. */
 .choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
 .choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
 

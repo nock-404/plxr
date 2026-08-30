@@ -40,15 +40,15 @@ var glyph = map[string]string{
 func word(status string) string {
 	switch status {
 	case "working":
-		return "arbeitet"
+		return "working"
 	case "waiting":
-		return "wartet"
+		return "waiting"
 	case "permission":
-		return "braucht dich"
+		return "needs you"
 	case "dead":
-		return "beendet"
+		return "ended"
 	}
-	return "läuft"
+	return "running"
 }
 
 // Ls lists the sessions.
@@ -112,7 +112,7 @@ func Kill(c *Client, which string) error {
 	if err := c.send("DELETE", "/api/sessions/"+t.ID+"?purge=1", nil, nil); err != nil {
 		return err
 	}
-	fmt.Printf("%s beendet\n", t.Name)
+	fmt.Printf("%s ended\n", t.Name)
 	return nil
 }
 
@@ -141,15 +141,15 @@ func Ports(c *Client) error {
 // Attach attaches the calling terminal to a session.
 //
 // The local screen goes into raw mode for that: keystrokes have to be passed
-// through unchanged, otherwise Ctrl-C would never reach the session
-// an, sondern beendet plxr.
+// through unchanged, otherwise Ctrl-C would not reach the session at all — it
+// would end plxr instead.
 func Attach(c *Client, which string) error {
 	t, err := c.Find(which)
 	if err != nil {
 		return err
 	}
 	if !t.Alive {
-		return fmt.Errorf("%s läuft nicht mehr", t.Name)
+		return fmt.Errorf("%s is no longer running", t.Name)
 	}
 
 	conn, err := c.ws("/ws/session/" + t.ID)
@@ -246,21 +246,21 @@ func Attach(c *Client, which string) error {
 
 // Help describes the commands.
 func Help() {
-	fmt.Print(`plxr — Leitstand für Coding-CLI-Sessions
+	fmt.Print(`plxr — a control room for coding CLI sessions
 
-  plxr                    Fenster öffnen
-  plxr ls                 laufende Sessions
-  plxr new [pfad] [-- kommando …]
-                          Session starten (Standard: claude im aktuellen Ordner)
-  plxr attach <was>       Terminal an eine Session hängen (Strg-Q zweimal löst)
-  plxr kill <was>         Session beenden
-  plxr ports              belegte Ports
-  plxr setup-hook [dir]   Claude Code beibringen, seinen Zustand zu melden
-                          (ohne Angabe ~/.claude; unsetup-hook nimmt es zurück)
-  plxr update             auf die neueste Fassung bringen
-  plxr daemon             Daemon im Vordergrund (macht plxr sonst selbst)
+  plxr                    open the window
+  plxr ls                 running sessions
+  plxr new [path] [-- command …]
+                          start a session (default: claude in the current folder)
+  plxr attach <which>     attach this terminal to a session (Ctrl-Q twice lets go)
+  plxr kill <which>       end a session
+  plxr ports              ports in use
+  plxr setup-hook [dir]   teach Claude Code to report its state
+                          (without an argument ~/.claude; unsetup-hook undoes it)
+  plxr update             fetch the newest version
+  plxr daemon             the daemon in the foreground (plxr does this itself otherwise)
 
-<was> ist der Anfang der ID oder ein Teil des Namens.
+<which> is the start of the id or a part of the name.
 `)
 }
 

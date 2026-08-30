@@ -418,7 +418,7 @@ func window(path string, g5, g1, g2 time.Time) (f5, f1, f2 int64) {
 	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 4<<20)
-	sc.Scan() // angeschnittene erste Zeile
+	sc.Scan() // the partial first line
 
 	for sc.Scan() {
 		raw := sc.Bytes()

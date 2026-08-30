@@ -58,7 +58,7 @@ for _ in $(seq 100); do [ -f "$PLXR_PROBE/daemon.json" ] && break; sleep 0.1; do
 # which is how a marks pane that threw on every open survived a green run.
 WORK="$PLXR_PROBE/work"
 mkdir -p "$WORK"
-printf 'hallo\n' >"$WORK/datei.txt"
+printf 'hello\n' >"$WORK/file.txt"
 git init -q "$WORK" 2>/dev/null || true
 git -C "$WORK" -c user.email=probe@plxr -c user.name=probe add -A >/dev/null 2>&1 || true
 git -C "$WORK" -c user.email=probe@plxr -c user.name=probe commit -qm probe >/dev/null 2>&1 || true

@@ -40,7 +40,7 @@ func migrate(root string) {
 	if _, err := os.Stat(fresh); err == nil {
 		return
 	}
-	old := filepath.Join(root, "vorlagen")
+	old := filepath.Join(root, "vorlagen") // german-ok: migrating away from the old name
 	if _, err := os.Stat(old); err != nil {
 		return
 	}

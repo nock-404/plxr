@@ -36,13 +36,14 @@ let texts = {};
 let textsEn = {};
 
 function pickLanguage() {
+  // English is the primary language. It is the default unless the user has
+  // chosen otherwise — the system language is NOT followed, because on a German
+  // machine that quietly brought the whole interface up in German.
   try {
-    const eigen = pref('plxr.lang');
-    if (eigen && LANGUAGES.includes(eigen)) return eigen;
+    const chosen = pref('plxr.lang');
+    if (chosen && LANGUAGES.includes(chosen)) return chosen;
   } catch {}
-  // The system language is the best guess available without asking.
-  const raw = (navigator.language || 'en').toLowerCase().split('-')[0];
-  return LANGUAGES.includes(raw) ? raw : 'en';
+  return 'en';
 }
 
 async function loadLanguage(welche) {
@@ -151,7 +152,7 @@ if (window.runtime && !WAILS) {
     document.body.innerHTML =
       '<pre style="padding:40px;font:14px ui-monospace;color:#ff6b3d;background:#0b0906;height:100%">' +
       'plxr: Wails-Laufzeit da, aber window.go.main.App fehlt.\n\n' +
-      'Die App wurde ohne Bindungen gebaut — mit "wails build" ohne\n' +
+      'The app was built without bindings — with "wails build" and no\n' +
       '-skipbindings neu bauen.</pre>';
   });
 }
@@ -225,7 +226,10 @@ function flushPrefs() {
   clearTimeout(prefsTimer);
   prefsTimer = null;
   if (!change) return;
-  api.setPrefs(change).catch(() => {});
+  // Not silently dropped: the value is already in localStorage for this
+  // session, but a daemon that refused the write is a real fault and belongs
+  // in the workbench log, not nowhere.
+  api.setPrefs(change).catch((e) => console.error('prefs not saved:', errText(e)));
 }
 
 /* On the way out as well: a change made a moment before closing would
@@ -331,7 +335,7 @@ const api = {
   inWindow: WAILS,
 
   env: () => (WAILS ? Native.Env() : Promise.resolve({ platform: 'web', titlebarInset: false })),
-  pickDirectory: () => (WAILS ? Native.PickDirectory() : Promise.resolve('')),
+  pickDirectory: () => (WAILS ? Native.PickDirectory(tr('newSession.pickDir')) : Promise.resolve('')),
 
   themes: () => req('/api/themes'),
   themeImport: (text) => req('/api/themes', { method: 'POST', body: text }),
@@ -473,7 +477,7 @@ const api = {
     const ws = this._verb.get(id);
     if (ws?.readyState === 1) ws.send(JSON.stringify(obj));
   },
-  tippen(id, daten) { this._send(id, { type: 'in', data: daten }); },
+  sendInput(id, data) { this._send(id, { type: 'in', data }); },
   resize(id, rows, cols) { this._send(id, { type: 'resize', rows, cols }); },
 };
 
@@ -797,7 +801,7 @@ $('#themeDelete').addEventListener('click', async () => {
   }
 });
 
-/* ═════════════════════════ Einstellungen ═════════════════════════ */
+/* ═════════════════════════ Settings ═════════════════════════ */
 
 /* Appearance and setup do not belong in the header: you set that once and
    never look at it again. */
@@ -836,7 +840,13 @@ async function showRunning() {
   const box = $('#runningList');
   box.innerHTML = '';
   let r;
-  try { r = await api.running(); } catch { return; }
+  try {
+    r = await api.running();
+  } catch (e) {
+    // Not left blank without a word — that reads as "nothing is running".
+    showEmpty(box, tr('running.notLoaded'), errText(e));
+    return;
+  }
 
   const line = (name, value, note) => {
     const row = document.createElement('div');
@@ -1000,9 +1010,9 @@ async function fillLanguages() {
 const NAMES = { en: 'English', de: 'Deutsch' };
 
 $('#langSel').addEventListener('change', async (e) => {
-  const gewuenscht = e.target.value;
-  try { setPref('plxr.lang', gewuenscht); } catch {}
-  await loadLanguage(gewuenscht);
+  const wanted = e.target.value;
+  try { setPref('plxr.lang', wanted); } catch {}
+  await loadLanguage(wanted);
   translateMarkup();
   // Whatever came out of JavaScript is redrawn by the next state update; the
   // views that load on demand are nudged here.
@@ -1111,9 +1121,9 @@ function buildStyleEditor() {
   for (const [key, label] of STYLE_COLORS) {
     const row = document.createElement('div');
     row.className = 'styleRow';
-    row.innerHTML = '<span class="styleName"></span><input class="farbwert" hidden>';
+    row.innerHTML = '<span class="styleName"></span><input class="colorValue" hidden>';
     row.querySelector('.styleName').textContent = tr(label);
-    const field = row.querySelector('.farbwert');
+    const field = row.querySelector('.colorValue');
     field.value = currentColor(key);
     box.appendChild(row);
     styleState.pickers[key] = plxrUI.colorPicker(field, (color) => {
@@ -1369,7 +1379,11 @@ async function showHookStatus() {
     $('#hookHint').textContent = st.installed
       ? tr('hook.connectedHint', { accounts: several })
       : st.missing?.length
-        ? tr('hook.missingHint', { missing: st.missing.join(', ') })
+        // Numbers arrive, names are made here — the daemon used to send
+        // account 1 — and the English interface repeated the German.
+        ? tr('hook.missingHint', {
+            missing: st.missing.map((n) => tr('accounts.numbered', { n })).join(', '),
+          })
         : tr('hook.notConnected');
     $('#hookBtn').textContent = st.installed ? tr('hook.detach') : tr('hook.attach');
     $('#hookBtn').dataset.on = st.installed ? 'yes' : 'no';
@@ -1468,7 +1482,7 @@ const QUICK_REPLIES = [
   { text: '2', label: '2' },
   { text: 'y', label: 'y' },
   { text: 'n', label: 'n' },
-  { text: '', label: 'Eingabe' },   // just confirm
+  { text: '', label: 'Enter' },   // just confirm
   { text: '\u001b', label: 'Esc' },
 ];
 
@@ -1509,17 +1523,17 @@ function shorten(t) {
 function yesNoFrom(confirm) {
   if (!/\(y\/n\)|\[y\/N\]|\[Y\/n\]/i.test(confirm || '')) return null;
   return [
-    { text: 'y', label: 'y · ja' },
-    { text: 'n', label: 'n · nein' },
+    { text: 'y', label: 'y · yes' },
+    { text: 'n', label: 'n · no' },
   ];
 }
 
 function quickRepliesFor(confirm) {
-  const eigene = optionsFrom(confirm) || yesNoFrom(confirm);
-  if (!eigene) return QUICK_REPLIES;
+  const own = optionsFrom(confirm) || yesNoFrom(confirm);
+  if (!own) return QUICK_REPLIES;
   // Confirm and cancel always belong.
-  return [...eigene,
-    { text: '', label: 'Eingabe' },
+  return [...own,
+    { text: '', label: 'Enter' },
     { text: '\u001b', label: 'Esc' }];
 }
 
@@ -1628,7 +1642,7 @@ function renderInbox() {
         '<div class="inboxHead"><span class="dot permission">◉</span>' +
         '<b class="inboxName"></b><span class="inboxCount"></span>' +
         '<span class="inboxPath"></span>' +
-        `<button class="btn tiny" data-t="oeffnen">${tr('inbox.open')}</button></div>` +
+        `<button class="btn tiny" data-t="open">${tr('inbox.open')}</button></div>` +
         '<pre class="inboxQuestion"></pre>' +
         '<div class="inboxMemory" hidden></div>' +
         '<div class="inboxReply"><input spellcheck="false"><span class="inboxQuick"></span></div>';
@@ -1637,7 +1651,7 @@ function renderInbox() {
          outlives the tick, the group is rebuilt every second. A click a minute
          from now must reach the sessions waiting then, not the ones that were
          waiting when the card was built. */
-      card.querySelector('[data-t="oeffnen"]').addEventListener(
+      card.querySelector('[data-t="open"]').addEventListener(
         'click', () => openSession(card.group.tiles[0].id));
 
       const field = card.querySelector('.inboxReply input');
@@ -1686,8 +1700,8 @@ function renderInbox() {
     }
 
     const quick = card.querySelector('.inboxQuick');
-    if (quick.dataset.fuer !== fresh) {
-      quick.dataset.fuer = fresh;
+    if (quick.dataset.for !== fresh) {
+      quick.dataset.for = fresh;
       quick.innerHTML = '';
       for (const a of quickRepliesFor(group.question)) {
         const b = document.createElement('button');
@@ -1834,10 +1848,10 @@ function crestLightness(hue, on) {
   const up = ground < 0.18;
   for (let i = 0; i <= 28; i++) {
     const l = up ? 52 + i * 1.5 : 48 - i * 1.5;
-    /* 5.2, nicht 4.5: was hier gerechnet wird und was am Ende gemessen wird,
-       liegt leicht auseinander — eine Titelleiste mit Verlauf, eine Flaeche
-       aus color-mix. Ohne Reserve landen die Glyphen bei 4.3 und der Pruefer
-       meldet sie zu Recht. */
+    /* 5.2, not 4.5: what is computed here and what is finally measured drift
+       slightly apart — a title bar with a gradient, a surface built from
+       color-mix. Without the headroom the glyphs land at 4.3 and the checker
+       flags them, rightly. */
     if (contrastOf(hslLuminance(hue, 55, l), ground) >= 5.2) return Math.round(l);
   }
   return up ? 94 : 6;
@@ -1868,9 +1882,9 @@ function surfaceLuminance(on) {
   for (let n = on; n; n = n.parentElement) {
     const cs = getComputedStyle(n);
     let c = cs.backgroundColor;
-    /* Ein Verlauf faerbt genauso, hat aber keine backgroundColor. Ohne das
-       laeuft der Aufstieg an der Titelleiste vorbei und rechnet gegen das
-       Fenstergrau dahinter. */
+    /* A gradient colours it just the same but has no backgroundColor. Without
+       this the walk up passes the title bar by and measures against the window
+       grey behind it. */
     let p = (c.match(/[\d.]+/g) || []).map(Number);
     if ((p.length < 3 || (p.length > 3 && p[3] < 0.85)) && cs.backgroundImage !== 'none') {
       const g = cs.backgroundImage.match(/rgba?\([^)]+\)/);
@@ -2237,8 +2251,8 @@ function addPane(id) {
     // The daemon ended while the session was running. With Claude Code the
     // conversation lives in the transcript — that is where it carries on.
     plxrUI.confirm(tr('session.resumeAsk', { name: t.name, cwd: t.cwd }), tr('session.resumeTitle'))
-      .then(async (ja) => {
-        if (!ja) return;
+      .then(async (ok) => {
+        if (!ok) return;
         try {
           const fresh = await api.resume(t.id);
           setTimeout(() => openSession(fresh.id), 700);
@@ -2348,7 +2362,7 @@ function addPane(id) {
     term.loadAddon(webgl);
   } catch {}
 
-  term.onData((d) => api.tippen(id, d));
+  term.onData((d) => api.sendInput(id, d));
 
   /* Keyboard shortcuts inside the terminal.
 
@@ -2361,7 +2375,7 @@ function addPane(id) {
   term.attachCustomKeyEventHandler((e) => {
     if (e.type !== 'keydown') return true;
     const cmd = e.metaKey && !e.ctrlKey;
-    const strgUmschalt = e.ctrlKey && e.shiftKey && !e.metaKey;
+    const ctrlShift = e.ctrlKey && e.shiftKey && !e.metaKey;
 
     /* Copy and paste.
 
@@ -2372,21 +2386,21 @@ function addPane(id) {
 
        Windows and Linux have no such menu; there Ctrl+Shift is the only
        way. */
-    const eigenesKopieren = MAC ? strgUmschalt : (cmd || strgUmschalt);
+    const copyKey = MAC ? ctrlShift : (cmd || ctrlShift);
 
-    if (eigenesKopieren && e.key.toLowerCase() === 'c' && term.hasSelection()) {
+    if (copyKey && e.key.toLowerCase() === 'c' && term.hasSelection()) {
       navigator.clipboard.writeText(term.getSelection()).catch(() => {});
       return false;
     }
-    if (eigenesKopieren && e.key.toLowerCase() === 'v') {
-      navigator.clipboard.readText().then((t) => t && api.tippen(id, t)).catch(() => {});
+    if (copyKey && e.key.toLowerCase() === 'v') {
+      navigator.clipboard.readText().then((t) => t && api.sendInput(id, t)).catch(() => {});
       return false;
     }
-    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'a') {
+    if ((cmd || ctrlShift) && e.key.toLowerCase() === 'a') {
       term.selectAll();
       return false;
     }
-    if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'f') { openFind(); return false; }
+    if ((cmd || ctrlShift) && e.key.toLowerCase() === 'f') { openFind(); return false; }
     if ((cmd || strgUmschalt) && e.key.toLowerCase() === 'k') { term.clear(); return false; }
     return true;
   });
@@ -2489,16 +2503,7 @@ function updateHeader() {
   renderFreezeButton();
 }
 
-/* Eine einzelne Session anhalten.
-
-   Der Daemon konnte das von Anfang an — /api/sessions/{id}/freeze steht dort
-   seit dem Bau der Notbremse. Nur kam man von der Oberflaeche aus nicht heran:
-   verdrahtet war allein die Notbremse fuer alle. Wer einen einzelnen Agenten
-   bremsen wollte, musste alle vier anhalten.
-
-   Der Knopf traegt seinen Zustand selbst, weil er zwei Bedeutungen hat und ein
-   Knopf, dem man nicht ansieht, was er als naechstes tut, schlimmer ist als
-   keiner. */
+/* Whether the active session is paused right now. */
 function frozenNow() {
   const t = state.tiles.find((x) => x.id === state.active);
   return !!t?.frozen;
@@ -2785,7 +2790,9 @@ async function fillAccounts(sel) {
     for (const k of kontenCache) {
       const o = document.createElement('option');
       o.value = k.name;
-      o.textContent = k.label;
+      // The label is built here, not in the daemon: it used to arrive as
+      // account 1 — and said so in the English interface too.
+      o.textContent = tr('accounts.numbered', { n: k.number });
       el.appendChild(o);
     }
     plxrUI.replaceSelects();
@@ -2897,9 +2904,9 @@ async function renderMarkLayer(box, dir, tiefe, sid) {
 
 const doc = { sid: null, path: null, mod: 0, original: '' };
 
-function setDirty(ja) {
-  $('#viewerDirty').hidden = !ja;
-  $('#viewerSave').disabled = !ja;
+function setDirty(dirty) {
+  $('#viewerDirty').hidden = !dirty;
+  $('#viewerSave').disabled = !dirty;
 }
 
 async function openFile(e, sid) {
@@ -3666,7 +3673,15 @@ async function marksRow(box, m) {
     files.innerHTML = '';
     if (!open) return;
     let list = [];
-    try { list = await api.markChanges(state.active, m.tree); } catch { return; }
+    /* An error is not "nothing has changed". The call used to be swallowed
+       here and the row then said the working tree was untouched — for a moved
+       repository, a mark whose tree object is gone, or a machine without git. */
+    try {
+      list = await api.markChanges(state.active, m.tree);
+    } catch (e) {
+      desc.textContent = errText(e);
+      return;
+    }
     desc.textContent = list.length
       ? trN('marks.nChanged', list.length) : tr('marks.unchanged');
     for (const c of list) {
@@ -3702,8 +3717,16 @@ $('#marksToggle').addEventListener('click', async () => {
   const box = $('#marksBody');
   box.innerHTML = '';
   $('#marksMeta').textContent = tr('common.loading');
-  let list = [];
-  try { list = await api.marks(state.active); } catch { list = []; }
+  let list;
+  try {
+    list = await api.marks(state.active);
+  } catch (e) {
+    // A failed load is not an empty list — that used to show "no marks yet"
+    // with the wrong hook hint underneath it.
+    $('#marksMeta').textContent = '';
+    showEmpty(box, tr('marks.notLoaded'), errText(e));
+    return;
+  }
   $('#marksMeta').textContent = '';
   if (!list.length) {
     showEmpty(box, tr('marks.none'),
@@ -3769,11 +3792,9 @@ let wbBox = null;
    picking and the "still missing" column — otherwise that column cries wolf
    with a hundred entries nobody should ever style. */
 const WB_NOT_MINE = new Set([
-  'app', 'auswahl', 'auswahlText', 'body', 'brand', 'content',
-  'farbflaeche', 'farbpunkt', 'farbton', 'farbtonpunkt', 'farbwahl',
-  'farbwert', 'feld', 'griff', 'hidden', 'panes', 'pfadListe', 'rtext',
-  'sesssplit', 'spacer', 'stil', 'stilzeile', 'tools', 'wahl', 'xterm',
-  'xterm-screen', 'zeile2'
+  'app', 'body', 'brand', 'colorValue', 'content', 'hidden', 'panes',
+  'pathList', 'rtext', 'sesssplit', 'shellSelect', 'shellSelectText', 'spacer',
+  'tools', 'xterm', 'xterm-screen',
 ]);
 
 const wbSkipped = (c) =>
@@ -3961,12 +3982,21 @@ $('#rulesToggle').addEventListener('click', async () => {
   $('#viewer').hidden = true;
   rulesShow(true);
   $('#rulesMeta').textContent = tr('common.loading');
-  const list = await api.rules(state.active);
+  const box = $('#rulesBody');
+  box.innerHTML = '';
+  /* A failed load is not "no rules". Without this the view stayed on "loading …"
+     with an empty body when the call threw — nothing said why. */
+  let list;
+  try {
+    list = await api.rules(state.active);
+  } catch (e) {
+    $('#rulesMeta').textContent = '';
+    showEmpty(box, tr('rules.notLoaded'), errText(e));
+    return;
+  }
   $('#rulesMeta').textContent = list.length === 1
     ? tr('rules.oneFile')
     : trN('rules.nFiles', list.length);
-  const box = $('#rulesBody');
-  box.innerHTML = '';
   if (!list.length) {
     showEmpty(box, tr('rules.none'),
       tr('rules.noneHint'));
@@ -4142,7 +4172,7 @@ function renderArchive() {
         '<span class="hitDate"></span>' +
         '<span class="hitMain"><b class="hitTitle"></b><span class="hitExcerpt"></span></span>' +
         '<span class="hitProject"></span><span class="hitValue"></span>' +
-        '<span class="hitAction"><button class="btn">FORTSETZEN</button></span>';
+        `<span class="hitAction"><button class="btn">${tr('archive.resume')}</button></span>`;
       row.querySelector('.hitDate').textContent = shortDate(t.mod);
       row.querySelector('.hitTitle').textContent = t.title || tr('archive.untitled');
       row.querySelector('.hitExcerpt').textContent = t.excerpt;
@@ -4189,7 +4219,7 @@ function renderArchive() {
     row.innerHTML =
       '<span class="hitDate"></span><span class="hitTitle"></span><span class="hitProject"></span>' +
       '<span class="hitSmall"></span><span class="hitValue"></span>' +
-      `<span class="hitAction"><button class="btn" data-t="auf">${tr('archive.resume')}</button>` +
+      `<span class="hitAction"><button class="btn" data-t="reveal">${tr('archive.resume')}</button>` +
       `<button class="btn" data-t="weg">${tr('common.delete')}</button></span>`;
     row.querySelector('.hitDate').textContent = shortDate(e.mod);
     row.querySelector('.hitTitle').textContent = e.title || tr('archive.untitled');
@@ -4198,7 +4228,7 @@ function renderArchive() {
     row.querySelector('.hitValue').textContent = sizeText(e.size);
     row.dataset.tip = e.cwd;
 
-    row.querySelector('[data-t="auf"]').addEventListener('click', (ev) => {
+    row.querySelector('[data-t="reveal"]').addEventListener('click', (ev) => {
       ev.stopPropagation();
       resumeSession(e.id, e.account);
     });
@@ -4257,9 +4287,9 @@ async function loadPorts() {
     for (const hard of [false, true]) {
       row.querySelector(`[data-h="${hard ? 1 : 0}"]`).addEventListener('click', async () => {
         const manner = tr(hard ? 'ports.killHard' : 'ports.killSoft');
-        const ja = await plxrUI.confirm(`${p.command}, pid ${p.pid}`,
+        const ok = await plxrUI.confirm(`${p.command}, pid ${p.pid}`,
           tr('ports.killAsk', { port: p.port, how: manner }));
-        if (!ja) return;
+        if (!ok) return;
         try { await api.portKill(p.pid, hard); setTimeout(loadPorts, 500); }
         catch (e) { plxrUI.notice(errText(e), tr('ports.killFailed')); }
       });
@@ -4308,11 +4338,11 @@ async function loadUsage() {
   const total = document.createElement('div');
   total.className = 'usum';
   for (const [amount, what] of [
-    [b.sum.output, 'ausgabe'],
-    [b.sum.input, 'eingabe'],
-    [b.sum.cacheWrite, 'cache geschrieben'],
-    [b.sum.cacheRead, 'cache gelesen'],
-    [b.sum.messages, 'antworten'],
+    [b.sum.output, tr('usage.output')],
+    [b.sum.input, tr('usage.input')],
+    [b.sum.cacheWrite, tr('usage.cacheWrite')],
+    [b.sum.cacheRead, tr('usage.cacheRead')],
+    [b.sum.messages, tr('usage.messages')],
   ]) {
     const d = document.createElement('div');
     d.className = 'ubox';
@@ -4323,21 +4353,21 @@ async function loadUsage() {
   }
   box.appendChild(total);
 
-  const gesamt = (z) => z.input + z.output + z.cacheWrite + z.cacheRead;
-  const block = (title, rows, grenze) => {
+  const sumOf = (z) => z.input + z.output + z.cacheWrite + z.cacheRead;
+  const block = (title, rows, limit) => {
     if (!rows || !rows.length) return;
     const d = document.createElement('div');
     d.className = 'ublock';
     d.innerHTML = '<b class="uhead"></b>';
     d.querySelector('.uhead').textContent = title;
     const max = Math.max(...rows.map(gesamt), 1);
-    for (const z of rows.slice(0, grenze)) {
+    for (const z of rows.slice(0, limit)) {
       const r = document.createElement('div');
       r.className = 'urow';
       r.innerHTML = '<span class="ukey"></span><span class="ubar"><i class="ufill"></i></span><span class="uval"></span>';
       r.querySelector('.ukey').textContent = z.key;
-      r.querySelector('.ufill').style.width = (gesamt(z) / max * 100).toFixed(1) + '%';
-      r.querySelector('.uval').textContent = tok(gesamt(z));
+      r.querySelector('.ufill').style.width = (sumOf(z) / max * 100).toFixed(1) + '%';
+      r.querySelector('.uval').textContent = tok(sumOf(z));
       d.appendChild(r);
     }
     box.appendChild(d);
@@ -4530,8 +4560,8 @@ $('#updateGo').addEventListener('click', async () => {
   const laufende = state.tiles.filter((t) => t.alive).length;
   const question = tr('update.installAsk', { v: versionStatus?.latest || '' }) +
     (laufende ? '\n\n' + trN('update.sessionsWarn', laufende) : '');
-  const ja = await plxrUI.confirm(tr('update.confirm'), question);
-  if (!ja) return;
+  const ok = await plxrUI.confirm(tr('update.confirm'), question);
+  if (!ok) return;
 
   $('#updateGo').disabled = true;
   $('#updateNotes').hidden = true;
@@ -4565,7 +4595,13 @@ function updateVerfolgen() {
     }
     $('#updateFill').style.width = st.percent + '%';
     $('#updateText').textContent =
-      st.phase === tr('update.loading') ? tr('update.progress', { pct: st.percent }) : st.phase;
+      /* Compared against the CODE the daemon sends, not against our own
+         translation of it. With the interface in English the old comparison
+         never matched — the percentage never appeared, and the German word
+         from the backend stood there instead. */
+      st.phase === 'loading'
+        ? tr('update.progress', { pct: st.percent })
+        : tr(`update.phase.${st.phase}`);
 
     if (!st.done) return;
     clearInterval(tick);
@@ -4595,11 +4631,11 @@ function updateVerfolgen() {
 /* What gets started. The shell comes first: plxr is a terminal that also runs
    agents — not the other way round. */
 const STARTBAR = [
-  { id: 'shell', label: 'Shell', cmd: null },  // cmd kommt vom Daemon
+  { id: 'shell', label: 'Shell', cmd: null },  // cmd comes from the daemon
   { id: 'claude', label: 'Claude Code', cmd: ['claude'] },
   { id: 'codex', label: 'Codex', cmd: ['codex'] },
   { id: 'opencode', label: 'opencode', cmd: ['opencode'] },
-  { id: 'eigenes', label: 'Eigenes …', cmd: null },
+  { id: 'custom', label: null, cmd: null },  // label from tr(), see fillChoice
 ];
 let shellCmd = null;
 
@@ -4613,7 +4649,9 @@ async function fillChoice() {
     b.type = 'button';
     b.className = 'choiceButton';
     b.dataset.id = w.id;
-    b.textContent = w.id === 'shell' ? tr('template.shellLabel', { cmd: shellCmd[0].split('/').pop() }) : w.label;
+    b.textContent = w.id === 'shell'
+      ? tr('template.shellLabel', { cmd: shellCmd[0].split('/').pop() })
+      : w.id === 'custom' ? tr('newSession.custom') : w.label;
     b.addEventListener('click', () => setChoice(w.id));
     box.appendChild(b);
   }
@@ -4622,15 +4660,15 @@ async function fillChoice() {
 
 function setChoice(id) {
   for (const b of $('#newCmdChoice').children) b.dataset.picked = b.dataset.id === id ? 'yes' : 'no';
-  $('#newCmdInput').hidden = id !== 'eigenes';
+  $('#newCmdInput').hidden = id !== 'custom';
   setPref('plxr.startart', id);
-  if (id === 'eigenes') $('#newCmd').focus();
+  if (id === 'custom') $('#newCmd').focus();
 }
 
 function chosenCommand() {
   const id = [...$('#newCmdChoice').children].find((b) => b.dataset.picked === 'yes')?.dataset.id || 'shell';
   if (id === 'shell') return shellCmd || [];
-  if (id === 'eigenes') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
+  if (id === 'custom') return $('#newCmd').value.trim().split(/\s+/).filter(Boolean);
   return STARTBAR.find((w) => w.id === id).cmd;
 }
 
@@ -4647,8 +4685,15 @@ async function openTemplates() {
   $('#templates').hidden = false;
   const box = $('#templatesList');
   box.innerHTML = '';
-  let list = [];
-  try { list = await api.templates(); } catch {}
+  let list;
+  try {
+    list = await api.templates();
+  } catch (e) {
+    // "no templates yet" is what an empty list says — a load that FAILED must
+    // not borrow that message and invite the user to create their first one.
+    showEmpty(box, tr('templates.notLoaded'), errText(e));
+    return;
+  }
 
   if (!list.length) {
     const d = document.createElement('div');

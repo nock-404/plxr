@@ -64,11 +64,11 @@ trap 'rm -rf "$TMP"' EXIT INT TERM
 
 bold "Downloading"
 curl -fL --progress-bar "$URL" -o "$TMP/plxr.zip"
-unzip -q "$TMP/plxr.zip" -d "$TMP/aus"
+unzip -q "$TMP/plxr.zip" -d "$TMP/unpacked"
 
 if [ "$OS" = macos ]; then
 	bold "Putting the app into /Applications"
-	APP=$(find "$TMP/aus" -maxdepth 1 -name '*.app' | head -1)
+	APP=$(find "$TMP/unpacked" -maxdepth 1 -name '*.app' | head -1)
 	[ -n "$APP" ] || die "the archive held no app bundle"
 	rm -rf /Applications/plxr.app
 	if command -v ditto >/dev/null; then ditto "$APP" /Applications/plxr.app
@@ -81,7 +81,7 @@ else
 	mkdir -p "$HOME/.local/lib/plxr"
 	rm -rf "$HOME/.local/lib/plxr"
 	mkdir -p "$HOME/.local/lib/plxr"
-	cp -R "$TMP/aus/." "$HOME/.local/lib/plxr/"
+	cp -R "$TMP/unpacked/." "$HOME/.local/lib/plxr/"
 	BIN=$(find "$HOME/.local/lib/plxr" -maxdepth 1 -type f -perm -u+x | head -1)
 	[ -n "$BIN" ] || die "the archive held nothing executable"
 	chmod +x "$BIN"

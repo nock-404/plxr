@@ -48,7 +48,7 @@ func TestPromptBlocksOnlyWhilePending(t *testing.T) {
 }
 
 func TestWaitingAtPrompt(t *testing.T) {
-	yes := []string{"Auswahl> ", "Passwort:", "Weiter?"}
+	yes := []string{"Choose> ", "Password:", "Continue?"}
 	// Shell prompts are the normal state, not a question.
 	no := []string{"GEWAEHLT: 2", "fertig.", "", "  2. No", "root@x:/#", "$ ", "user@host ~ %"}
 	for _, s := range yes {

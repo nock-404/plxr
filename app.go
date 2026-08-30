@@ -97,9 +97,14 @@ func (a *App) OpenURL(url string) {
 
 // PickDirectory opens the system's folder dialog. This is the one place where
 // the desktop app feels noticeably better than the browser.
-func (a *App) PickDirectory() string {
+// The title comes from the interface, which is the only side that knows the
+// language — Go has no access to the translation table.
+func (a *App) PickDirectory(title string) string {
+	if title == "" {
+		title = "Choose a folder"
+	}
 	dir, err := wr.OpenDirectoryDialog(a.ctx, wr.OpenDialogOptions{
-		Title: "Verzeichnis für die Session",
+		Title: title,
 	})
 	if err != nil {
 		return ""

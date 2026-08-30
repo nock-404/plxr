@@ -43,6 +43,7 @@ step "palette" python3 palette.py
 step "workbench" node web/devpanel_test.mjs
 step "crt palette" node web/crtpalette_test.mjs
 step "i18n" node web/i18n_test.mjs
+step "no german" python3 german.py
 step "error codes" python3 errors.py
 step "packages" python3 packages.py
 # gofmt is not cosmetic here: renaming shifts every aligned block, and drifted

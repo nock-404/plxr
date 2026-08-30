@@ -4,7 +4,7 @@
 // fast enough, and an index would have to be maintained and would be stale
 // after every Claude run. The search deliberately covers only what human and
 // assistant said — not tool output, otherwise
-// ertrinkt jeder Treffer in Dateiinhalten.
+// every hit would drown in file contents.
 package search
 
 import (
@@ -28,7 +28,7 @@ type Hit struct {
 	Project   string `json:"project"`
 	Title     string `json:"title"`
 	Mod       int64  `json:"mod"`
-	Role      string `json:"role"` // "user" oder "assistant"
+	Role      string `json:"role"` // "user" or "assistant"
 	Excerpt   string `json:"excerpt"`
 	Count     int    `json:"count"` // Treffer in dieser Session
 }

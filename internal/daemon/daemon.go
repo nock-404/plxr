@@ -60,7 +60,7 @@ func newToken() string {
 	return hex.EncodeToString(b)
 }
 
-// ---- Seite des Daemons ----
+// ---- Daemon side ----
 
 // held keeps the lock alive for as long as the process does. A local variable
 // would be collected and the lock released with it.
@@ -171,14 +171,14 @@ func Guard(token string, next http.Handler) http.Handler {
 			got = r.URL.Query().Get("token")
 		}
 		if subtle.ConstantTimeCompare([]byte(got), want) != 1 {
-			http.Error(w, "kein gültiges Token", http.StatusForbidden)
+			http.Error(w, "invalid token", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-// ---- Seite des Clients ----
+// ---- Client side ----
 
 func Read() (Info, error) {
 	b, err := os.ReadFile(infoPath())
@@ -190,7 +190,7 @@ func Read() (Info, error) {
 		return Info{}, err
 	}
 	if i.Port == 0 || i.Token == "" {
-		return Info{}, errors.New("daemon.json ist unvollständig")
+		return Info{}, errors.New("daemon.json is incomplete")
 	}
 	return i, nil
 }
@@ -245,7 +245,7 @@ func Ensure() (Info, error) {
 		}
 		time.Sleep(120 * time.Millisecond)
 	}
-	return Info{}, errors.New("Daemon ist nicht hochgekommen")
+	return Info{}, errors.New("the daemon did not come up")
 }
 
 // WindowFile holds what the window needs to know BEFORE it exists.

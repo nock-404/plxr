@@ -89,9 +89,21 @@ func TestChangedListsWhatMoved(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one"), 0o644)
 	tree, _ := Take(dir)
 	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("two"), 0o644)
-	cs := Changed(dir, tree)
+	cs, err := Changed(dir, tree)
+	if err != nil {
+		t.Fatalf("changed: %v", err)
+	}
 	if len(cs) != 1 || cs[0].Path != "a.txt" {
 		t.Fatalf("%+v", cs)
+	}
+}
+
+// A git that cannot be asked is not an all-clear. Both used to come back as an
+// empty list, and the interface said "nothing changed since" to either.
+func TestChangedReportsAGitFailure(t *testing.T) {
+	_, err := Changed(t.TempDir(), "0000000000000000000000000000000000000000")
+	if err == nil {
+		t.Fatal("a directory that is no repository came back without an error")
 	}
 }
 
