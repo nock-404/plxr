@@ -35,9 +35,28 @@ for tool in curl unzip; do
 done
 
 bold "Looking for the latest version"
-URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+
+# Two ways, and the second one is not a nicety. The API allows sixty calls an
+# hour per address, without a token and shared with everything else on the
+# machine — one afternoon on the gh command and it answers 403. Then this
+# script died with "no release found", which points at the wrong thing
+# entirely: the release is there, the asking was refused.
+#
+# So when the API says no, the website is asked. /releases/latest redirects to
+# the tag, and the download address follows from it.
+URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
 	| grep -o "https://[^\"]*$ASSET" | head -1)
-[ -n "$URL" ] || die "no release found containing $ASSET"
+
+if [ -z "$URL" ]; then
+	dim "the API is not answering — asking the website instead"
+	TAG=$(curl -fsSI "https://github.com/$REPO/releases/latest" \
+		| tr -d '\r' | sed -n 's|^[Ll]ocation:.*/releases/tag/||p' | head -1)
+	[ -n "$TAG" ] || die "no release found containing $ASSET"
+	URL="https://github.com/$REPO/releases/download/$TAG/$ASSET"
+	# Built by hand, so it has to be confirmed to exist — otherwise the error
+	# would only show up as an unzip failure further down.
+	curl -fsI "$URL" >/dev/null 2>&1 || die "$TAG has no $ASSET"
+fi
 dim "$URL"
 
 TMP=$(mktemp -d)
