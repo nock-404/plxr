@@ -1,6 +1,6 @@
 {
-  "name": "crt-amber",
-  "label": "CRT · Amber Phosphor",
+  "name": "crt",
+  "label": "CRT",
   "skin": "crt",
   "palette": {
     "bg": "#0b0906",

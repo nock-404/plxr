@@ -36,6 +36,8 @@ Erledigtes fliegt raus, nicht ins Archiv.
   Kommando".** Die Probe prüft bisher nur die beiden Satzlisten.
 ## Gemessen, noch nicht behoben
 
+- **Deutsche Bezeichner in `ui.js`** — `hexNachHsv`, `kasten` und weitere im
+  Farbwähler.
 - **Deutsche Klassennamen im CSS und JavaScript.** `zeile2`, `griff`, `feld`,
   `auswahl`, `auswahlText`, `pfadListe`, `farbwert`, `stil`, `stilzeile`,
   `farbwahl`, `farbflaeche`, `farbton`, `farbpunkt`, `farbtonpunkt`, `wahl` —

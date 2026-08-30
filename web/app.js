@@ -468,8 +468,11 @@ function setSkin(name) {
   });
 }
 
+/* Returns when the skin AND its palette are in place. Whoever wants to paint
+   over them has to wait for that — the palette is set inside the then(), and a
+   call straight afterwards was overwritten a moment later without a trace. */
 function applyTheme(t) {
-  if (!t || !t.skin) return;
+  if (!t || !t.skin) return Promise.resolve();
   const root = document.documentElement;
   root.dataset.skin = t.skin;
   root.dataset.scan = t.scanlines === false ? 'off' : 'on';
@@ -477,7 +480,7 @@ function applyTheme(t) {
   pageBackground(t.gradient ?? 0, t.seethrough ?? 0);
   applySeethrough(t.seethrough ?? 0);
 
-  setSkin(t.skin).then(() => {
+  return setSkin(t.skin).then(() => {
     // Set the palette only once the skin is in place: otherwise its :root block
     // overrides our values, because it is parsed later.
     for (const k of PALETTE) root.style.removeProperty('--' + k);
@@ -498,6 +501,7 @@ function applyTheme(t) {
        apply. Leaving them would mean: the style editor shows the old theme's
        colours, and saving would write them into the new one. */
     styleState.changes = {};
+    showPhosphor(t);
     if (!$('#settings').hidden) buildStyleEditor();
   });
 
@@ -546,6 +550,58 @@ function currentTheme() {
   return state.themes.find((t) => t.name === name) || { name: name, skin: name.split('-')[0], palette: {} };
 }
 
+/* The hue of a theme that no longer exists.
+   crt-green, crt-ice and crt-plasma were three entries for three hues. They
+   are gone; whoever had one chosen keeps the look — the colour is applied to
+   the one CRT theme instead of falling back to amber without a word. */
+const OLD_CRT = { 'crt-amber': 40, 'crt-green': 135, 'crt-ice': 200, 'crt-plasma': 313 };
+
+let phosphorPicker = null;
+/* The hue that is showing. Kept because the brightness dial has to work out
+   the palette again from the same colour — reading --fg back would work its
+   way down with every step, since the colour on screen is already the result
+   of the last calculation. */
+let phosphorColour = '#ffb000';
+
+/* The phosphor colour: one hue, and the whole palette follows from it.
+   Contrast is not a matter of taste here — see crtpalette.js. */
+function applyPhosphor(colour, remember = true) {
+  phosphorColour = colour;
+  const palette = window.plxrPalette.crt(hueOf(colour), styleState.glowLevel ?? 50);
+  for (const [k, v] of Object.entries(palette)) {
+    document.documentElement.style.setProperty('--' + k, v);
+    if (remember) styleState.changes[k] = v;
+  }
+  for (const p of paneList()) p.term.options.theme = xtermTheme();
+  if (!$('#settings').hidden) buildStyleEditor();
+}
+
+function hueOf(hex) {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return 40;
+  const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max === min) return 40;
+  const d = max - min;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return ((h * 60) + 360) % 360;
+}
+
+/* Shown only where it means anything. The other skins are not one hue with a
+   ladder — Game Boy, blueprint and hotdog each bring a scheme of their own, and
+   a colour picker would promise something it cannot keep there. */
+function showPhosphor(theme) {
+  const forCrt = theme && theme.skin === 'crt';
+  $('#phosphorRow').hidden = !forCrt;
+  if (!forCrt) return;
+  const now = cssVar('fg', '#ffb000');
+  if (!phosphorPicker) {
+    phosphorPicker = plxrUI.colorPicker($('#phosphorValue'), (colour) => applyPhosphor(colour));
+  }
+  phosphorColour = /^#[0-9a-f]{6}$/i.test(now) ? now : '#ffb000';
+  phosphorPicker.set(phosphorColour);
+}
+
 async function loadThemes(preselect) {
   const list = await api.themes();
   if (!list.length) return;
@@ -566,10 +622,14 @@ async function loadThemes(preselect) {
     o.textContent = t.label;
     group.appendChild(o);
   }
-  const wanted = preselect || localStorage.getItem('plxr.theme') || 'crt-amber';
-  sel.value = list.some((t) => t.name === wanted) ? wanted : list[0].name;
+  const wanted = preselect || localStorage.getItem('plxr.theme') || 'crt';
+  const gone = OLD_CRT[wanted];
+  sel.value = list.some((t) => t.name === wanted)
+    ? wanted : (gone !== undefined ? 'crt' : list[0].name);
   plxrUI.replaceSelects();
-  applyTheme(currentTheme());
+  await applyTheme(currentTheme());
+  // Only now: before the palette is in place, this would be painted over.
+  if (gone !== undefined) applyPhosphor(window.plxrPalette.hsl(gone, 100, 50), false);
 }
 
 $('#themeSel').addEventListener('change', () => {
@@ -735,16 +795,26 @@ const STYLE_COLORS = [
   ['term-bg', 'style.termBg'], ['term-fg', 'style.termFg'],
 ];
 
-const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0 };
+const styleState = { changes: {}, pickers: {}, fontSize: 0, termSize: 0, gradient: 0, seethrough: 0, glowLevel: 50 };
+
+let builtForSkin = null;
 
 function buildStyleEditor() {
   const box = $('#styleEditor');
-  // Already built: only refresh the values. Otherwise the swatches keep showing
-  // the old colours after a theme change.
-  if (box.children.length) {
+  const skin = document.documentElement.dataset.skin || '';
+  /* Already built: only refresh the values. Otherwise the swatches keep
+     showing the old colours after a theme change.
+
+     Unless the skin changed — not every row belongs to every skin. The glow
+     dial is for CRT, and after switching to win95 it stayed standing and did
+     nothing. */
+  if (box.children.length && builtForSkin === skin) {
     for (const [key] of STYLE_COLORS) styleState.pickers[key]?.set(currentColor(key));
     return;
   }
+  box.innerHTML = '';
+  styleState.pickers = {};
+  builtForSkin = skin;
 
   for (const [key, label] of STYLE_COLORS) {
     const row = document.createElement('div');
@@ -767,6 +837,13 @@ function buildStyleEditor() {
   box.appendChild(numberRow(tr('style.fontTerm'), 'termSize', 9, 24, () => {
     forEachPane((p) => { p.term.options.fontSize = styleState.termSize; paneRefit(p); });
   }));
+  /* Only for CRT: the other skins are not one hue with a ladder, and a dial
+     that does nothing is worse than no dial. */
+  if (document.documentElement.dataset.skin === 'crt') {
+    box.appendChild(numberRow(tr('style.glowLevel'), 'glowLevel', 0, 100, () => {
+      applyPhosphor(phosphorColour);
+    }, 10));
+  }
   box.appendChild(numberRow(tr('style.gradient'), 'gradient', 0, 100, () => {
     pageBackground(styleState.gradient, pageValue('seethrough'));
   }, 10));

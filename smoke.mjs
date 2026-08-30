@@ -164,6 +164,56 @@ await page.click('#agentBack');
 await page.waitForTimeout(300);
 check(await page.locator('#agentBrowse').isVisible(), 'BACK does not bring the list back');
 
+/* The phosphor picker and the glow dial. CRT is the main theme and its palette
+   comes out of one colour now — four list entries for four hues were four
+   times the same decision. Checked: the dial belongs to CRT and disappears
+   with it, and turning it does not drag the hue along. */
+await page.click('[data-tab="look"]');
+await page.waitForTimeout(300);
+check(await page.locator('#phosphorRow').isVisible(), 'the phosphor colour is not offered for CRT');
+await page.click('[data-tab="colors"]');
+await page.waitForTimeout(400);
+const glow = page.locator('.styleRow', { hasText: /Leuchtkraft|glow strength/ });
+check(await glow.count() > 0, 'the glow dial is missing for CRT');
+const hueNow = () => page.evaluate(() => {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--fg').trim();
+  const p = (v.match(/[0-9a-f]{2}/gi) || []).map((x) => parseInt(x, 16) / 255);
+  if (p.length < 3) return -1;
+  const [r, g, b] = p, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  if (mx === mn) return -1;
+  const d = mx - mn;
+  const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return Math.round(((h * 60) + 360) % 360);
+});
+const hueBefore = await hueNow();
+for (let i = 0; i < 4; i++) await glow.locator('button[data-r="-"]').click();
+await page.waitForTimeout(300);
+check(Math.abs(await hueNow() - hueBefore) <= 4,
+  `the glow dial drags the hue along: ${hueBefore}° became ${await hueNow()}°`);
+for (let i = 0; i < 4; i++) await glow.locator('button[data-r="+"]').click();
+await page.waitForTimeout(300);
+
+/* A dial that belongs to one skin has to go when that skin does. It used to
+   stay standing after a switch to win95 and did nothing there. */
+await page.click('[data-tab="look"]');
+await page.evaluate(() => {
+  const sel = document.querySelector('#themeSel');
+  sel.value = 'win95';
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+});
+await page.waitForTimeout(700);
+check(await page.locator('#phosphorRow').isHidden(), 'the phosphor colour is offered for win95');
+await page.click('[data-tab="colors"]');
+await page.waitForTimeout(400);
+check(await page.locator('.styleRow', { hasText: /Leuchtkraft|glow strength/ }).count() === 0,
+  'the glow dial is still standing under win95');
+await page.evaluate(() => {
+  const sel = document.querySelector('#themeSel');
+  sel.value = 'crt';
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+});
+await page.waitForTimeout(600);
+
 await page.click('[data-tab="look"]');
 await page.waitForTimeout(300);
 await page.click('#wbOpen');
@@ -254,7 +304,10 @@ await page.click('#railHome');
 await page.waitForTimeout(400);
 const themeNames = await page.evaluate(() =>
   [...document.querySelectorAll('#themeSel option')].map((o) => o.value));
-check(themeNames.length >= 10,
+/* Seven, not ten: the four CRT ones were a single hue each and became one
+   entry with a colour picker. The number is checked all the same — a theme
+   that falls out of the list does so silently. */
+check(themeNames.length >= 7,
   `only ${themeNames.length} themes offered — one has fallen out of the list`);
 
 const unreadable = [];

@@ -23,6 +23,7 @@ step() {
 step "javascript" node --check web/app.js
 step "javascript ui" node --check web/ui.js
 step "javascript workbench" node --check web/devpanel.js
+step "javascript palette" node --check web/crtpalette.js
 step "classes" python3 classes.py
 step "attributes" python3 attributes.py
 # Without these rules the window cannot be moved. They vanished without a trace
@@ -39,6 +40,7 @@ step "routes" python3 routes.py
 step "fields" python3 fields.py
 step "palette" python3 palette.py
 step "workbench" node web/devpanel_test.mjs
+step "crt palette" node web/crtpalette_test.mjs
 step "i18n" node web/i18n_test.mjs
 step "error codes" python3 errors.py
 step "packages" python3 packages.py

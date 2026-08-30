@@ -339,6 +339,13 @@
       <div class="field">
         <span class="fieldName" data-i18n="settings.appearance">appearance</span>
         <select id="themeSel" data-i18n-tip="settings.themeTip"></select>
+        <!-- The phosphor colour. Only for the CRT skin, where a theme really is
+             nothing but a hue — four list entries for that were four times the
+             same decision. -->
+        <span class="rowInline" id="phosphorRow" hidden>
+          <span class="notice" data-i18n="settings.phosphor">phosphor</span>
+          <input type="text" id="phosphorValue" hidden>
+        </span>
         <!-- The workbench belongs where a skin is chosen, not among the colour
              tools: it is the answer to "and what if none of these four fits". -->
         <button type="button" class="btn" id="wbOpen" data-i18n-tip="workbench.openTip" data-i18n="workbench.open">WORKBENCH</button>
@@ -494,6 +501,9 @@
 <script src="/vendor/addon-unicode-graphemes.js"></script>
 <script src="/vendor/addon-webgl.js"></script>
 <script src="/ui.js"></script>
+<!-- Before app.js: the palette arithmetic stands on its own and is
+     tested on its own. -->
+<script src="/crtpalette.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
