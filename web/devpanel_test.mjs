@@ -111,5 +111,15 @@ check(!threw, `opening without a DOM threw: ${threw && threw.message}`);
 sandbox.console.error('still here afterwards');
 check(texts().some((t) => t.includes('still here afterwards')), 'recording stops after opening');
 
+/* The count has to point at the tab the entry is actually on. A failed request
+   used to raise the number on the console tab, and the console was empty. */
+const netErrors = dbg.entries.filter((e) => e.where === 'fetch' && (e.kind === 'bad' || e.kind === 'error')).length;
+const otherErrors = dbg.entries.filter((e) => e.where !== 'fetch' && (e.kind === 'bad' || e.kind === 'error')).length;
+check(netErrors > 0 && otherErrors > 0,
+  `the test itself produced no errors of both kinds (${netErrors} network, ${otherErrors} other)`);
+check(netErrors + otherErrors ===
+  dbg.entries.filter((e) => e.kind === 'bad' || e.kind === 'error').length,
+  'the two counts do not add up to the whole');
+
 if (failed) { console.error('  workbench: FAILED'); process.exit(1); }
 console.log(`  workbench records (${dbg.entries.length} entries, 10 checks)`);

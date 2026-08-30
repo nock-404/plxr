@@ -277,6 +277,7 @@ const api = {
   version: () => req('/api/version'),
   updateStatus: () => req('/api/update'),
   restart: () => req('/api/restart', { method: 'POST' }),
+  running: () => req('/api/running'),
   hookStatus: () => req('/api/hook'),
   setHook: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   update: () => req('/api/update', { method: 'POST' }),
@@ -689,7 +690,51 @@ async function openSettings() {
   showDeleteButton();
   fillLanguages();
   showVersion();
+  showRunning();
   showHookStatus();
+}
+
+/* What is running, spelled out.
+
+   The window and the daemon are two programs. The daemon owns the terminals,
+   which is why sessions survive closing the window — and why replacing the
+   files on disk does not touch the process that is already going. It keeps
+   running the code it started with.
+
+   Until now the interface showed one version and called it the application's.
+   It was the daemon's. Anyone wondering why something behaved oddly had no way
+   to see the difference and had to be told. */
+async function showRunning() {
+  const box = $('#runningList');
+  box.innerHTML = '';
+  let r;
+  try { r = await api.running(); } catch { return; }
+
+  const line = (name, value, note) => {
+    const row = document.createElement('div');
+    row.className = 'rrow';
+    row.innerHTML = '<span class="rart"></span><span class="rmain">' +
+      '<b class="rtitle"></b></span><span class="rpath"></span>';
+    row.querySelector('.rart').textContent = name;
+    row.querySelector('.rtitle').textContent = value;
+    row.querySelector('.rpath').textContent = note || '';
+    box.appendChild(row);
+    return row;
+  };
+
+  const mine = windowVersion || tr('running.fromSource');
+  line(tr('running.window'), mine, WAILS ? '' : tr('running.browser'));
+  const daemonRow = line(tr('running.daemon'), r.daemon,
+    r.pid ? `PID ${r.pid}` : '');
+  if (windowVersion && r.daemon && windowVersion !== r.daemon) {
+    daemonRow.dataset.warn = 'yes';
+  }
+  if (r.ptyHost && r.ptyHost !== r.daemon) line(tr('running.ptyHost'), r.ptyHost, '');
+  line(tr('running.sessions'), String(r.sessions), '');
+  if (r.since) {
+    line(tr('running.since'), new Date(r.since).toLocaleString(language), '');
+  }
+  if (r.home) line(tr('running.home'), r.home, '');
 }
 
 /* What the version line says — and it has to say when it does not know.

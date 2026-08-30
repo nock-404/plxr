@@ -207,6 +207,9 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/version", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.VersionStatus())
 	})
+	mux.HandleFunc("GET /api/running", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Running())
+	})
 	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.Update(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

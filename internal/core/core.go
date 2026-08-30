@@ -513,6 +513,41 @@ func currentVersion() string {
 
 func (c *Core) VersionStatus() update.Status { return update.Check(currentVersion()) }
 
+// Running is what is actually running right now.
+//
+// Written because it could not be seen. The window and the daemon are two
+// programs and can be two different versions — an update by hand replaces the
+// files, the daemon keeps going as the process it already was. What the
+// interface showed was one number, the daemon's, labelled as if it were the
+// application's. Anyone looking for the reason something behaves oddly had to
+// take somebody's word for it.
+type Running struct {
+	Daemon   string `json:"daemon"`
+	PtyHost  string `json:"ptyHost"`
+	PID      int    `json:"pid"`
+	Since    int64  `json:"since"`
+	Sessions int    `json:"sessions"`
+	Home     string `json:"home"`
+}
+
+func (c *Core) Running() Running {
+	info, _ := daemon.Read()
+	alive := 0
+	for _, t := range c.Snapshot("") {
+		if t.Alive {
+			alive++
+		}
+	}
+	return Running{
+		Daemon:   currentVersion(),
+		PtyHost:  ptyhost.Version,
+		PID:      info.PID,
+		Since:    info.Since,
+		Sessions: alive,
+		Home:     daemon.Root(),
+	}
+}
+
 // UpdateStatus is the progress of a running update. The UI polls it instead of
 // waiting on a call that can take minutes.
 type UpdateStatus struct {

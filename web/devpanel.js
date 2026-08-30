@@ -27,7 +27,7 @@
   const MAX = 500;
   const entries = [];
   let errors = 0;
-  let panel = null, body = null, badge = null, flag = null;
+  let panel = null, body = null, badges = null, flag = null;
   let tab = 'console';
   let selbstGezeigt = false;
 
@@ -58,7 +58,7 @@
     if (entries.length > MAX) entries.shift();
     if (kind === 'error' || kind === 'bad') {
       errors++;
-      if (badge) { badge.textContent = String(errors); badge.hidden = false; }
+      countUp();
       flagUp();
       /* The first error brings the panel forward by itself. That is the whole
          point: anyone facing a naked interface does not know there is anything
@@ -67,6 +67,22 @@
       if (errors === 1 && !selbstGezeigt) { selbstGezeigt = true; setTimeout(() => toggle(true), 0); }
     }
     if (panel && !panel.hidden) render();
+  }
+
+  /* One count per tab.
+     There used to be a single number, and it sat on the console tab while it
+     counted everything — a failed request raised it, you opened the panel,
+     the console was empty and the badge insisted something was wrong. The
+     entry was one tab further along. */
+  function countUp() {
+    if (!badges) return;
+    for (const b of badges) {
+      const net = b.dataset.for === 'network';
+      const n = entries.filter((e) => (e.kind === 'error' || e.kind === 'bad')
+        && (net ? e.where === 'fetch' : e.where !== 'fetch')).length;
+      b.textContent = String(n);
+      b.hidden = n === 0;
+    }
   }
 
   /* ---------- Recording. Installed before anything else runs. ---------- */
@@ -154,8 +170,8 @@
     panel.innerHTML =
       '<div class="devHead">' +
       '<span class="devTitle">werkbank</span>' +
-      '<button type="button" class="devTab" data-tab="console">console<span class="devBadge" hidden></span></button>' +
-      '<button type="button" class="devTab" data-tab="network">network</button>' +
+      '<button type="button" class="devTab" data-tab="console">console<span class="devBadge" data-for="console" hidden></span></button>' +
+      '<button type="button" class="devTab" data-tab="network">network<span class="devBadge" data-for="network" hidden></span></button>' +
       '<button type="button" class="devTab" data-tab="state">state</button>' +
       '</div>' +
       '<div class="devBody"></div>' +
@@ -167,8 +183,8 @@
       '</div>';
 
     body = panel.querySelector('.devBody');
-    badge = panel.querySelector('.devBadge');
-    if (errors) { badge.textContent = String(errors); badge.hidden = false; }
+    badges = panel.querySelectorAll('.devBadge');
+    countUp();
 
     panel.addEventListener('click', (e) => {
       const t = e.target.closest('[data-tab]');
@@ -176,7 +192,7 @@
       const b = e.target.closest('[data-do]');
       if (!b) return;
       if (b.dataset.do === 'close') toggle(false);
-      if (b.dataset.do === 'clear') { entries.length = 0; errors = 0; badge.hidden = true; render(); }
+      if (b.dataset.do === 'clear') { entries.length = 0; errors = 0; countUp(); render(); }
       if (b.dataset.do === 'copy') copy();
     });
 

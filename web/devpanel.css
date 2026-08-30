@@ -85,7 +85,10 @@
 
 .devRow {
   display: grid;
-  grid-template-columns: 62px 1fr;
+  /* 62px was not enough for 12:08:50.092 — the milliseconds wrapped onto the
+     next line and stood there as a lone ".092", which reads like a broken
+     entry. */
+  grid-template-columns: 86px 1fr;
   gap: 8px;
   padding: 3px 10px;
   border-bottom: 1px solid #1d2128;

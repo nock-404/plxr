@@ -99,13 +99,44 @@ if [ -z "$TARGET" ]; then
 	# None found: create one and say how it gets onto the PATH.
 	TARGET="$HOME/.local/bin"
 	mkdir -p "$TARGET"
-	NACHTRAG=1
+	PATH_HINT=1
 fi
 ln -sf "$BIN" "$TARGET/plxr"
 dim "$TARGET/plxr"
 
+# The daemon outlives the window on purpose — it owns the terminals, which is
+# why sessions survive closing plxr. The flip side: replacing the files on disk
+# does not touch the process that is already running. It keeps executing the
+# code it started with, sometimes for weeks, and from then on a new window
+# talks to an old daemon. Nothing about that is visible from outside.
+#
+# So it is dealt with here, where it is known that something was just replaced.
+# With sessions running it is not decided unilaterally: a restart orphans them,
+# and that is the user's call, not an installer's.
+INFO="$HOME/.plxr/daemon.json"
+if [ -f "$INFO" ]; then
+	PORT=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$INFO")
+	TOKEN=$(sed -n 's/.*"token": *"\([^"]*\)".*/\1/p' "$INFO")
+	if [ -n "$PORT" ] && [ -n "$TOKEN" ]; then
+		ALIVE=$(curl -fsS -m 5 -H "X-Plxr-Token: $TOKEN" \
+			"http://127.0.0.1:$PORT/api/sessions" 2>/dev/null \
+			| grep -o '"alive":true' | wc -l | tr -d ' ')
+		if [ "${ALIVE:-0}" = 0 ]; then
+			bold "Restarting the daemon"
+			curl -fsS -m 10 -X POST -H "X-Plxr-Token: $TOKEN" \
+				"http://127.0.0.1:$PORT/api/restart" >/dev/null 2>&1 \
+				&& dim "on the new version" \
+				|| dim "it did not answer — it will come back on the new version by itself"
+		else
+			printf '\n  \033[33m%s session(s) are running.\033[0m\n' "$ALIVE"
+			printf '  The daemon keeps them alive and stays on the old version until it\n'
+			printf '  is restarted. plxr says so in the window and offers a button for it.\n'
+		fi
+	fi
+fi
+
 printf '\n\033[32mdone.\033[0m\n'
-if [ "${NACHTRAG:-0}" = 1 ]; then
+if [ "${PATH_HINT:-0}" = 1 ]; then
 	printf '\n  %s is not on the PATH. Put this line into your shell config:\n\n' "$TARGET"
 	printf '    export PATH="%s:$PATH"\n\n' "$TARGET"
 fi
