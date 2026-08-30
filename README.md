@@ -129,9 +129,31 @@ Eigene Themes liegen in `~/.plxr/themes/*.json`:
 ## Prüfen
 
 ```sh
-./check.sh    # 25 Stufen aus der Quelle + das Durchklicken als letzte
+./check.sh    # Stufen aus der Quelle + das Durchklicken als letzte
 ./smoke.sh    # nur das Durchklicken, mit einem echten Browser
+./window.sh   # das ECHTE Fenster: bauen, öffnen, fotografieren
 ```
+
+`window.sh` ist die Hälfte, die der Browser nicht sehen kann. Der Fenster-
+speicher behält nichts, das Fenster lässt Licht durch oder eben nicht, und ein
+Aufruf vor dem Verbindungsaufbau landet beim falschen Server — nichts davon
+existiert in Chrome. Jeder dieser Fehler wurde von Hand gefunden und hat einen
+Nachmittag gekostet.
+
+Es baut mit `-tags desktop,production` und `CGO_LDFLAGS=-framework
+UniformTypeIdentifiers` (ohne das Framework scheitert der Linker an
+`_OBJC_CLASS_$_UTType`), legt ein Bündel an, startet es zweimal — einmal
+deckend, einmal durchscheinend — und fotografiert beide Male nur das Fenster.
+Dann wird gemessen: die gespeicherte Farbe muss auf dem Schirm sein, und die
+beiden Bilder müssen sich unterscheiden. Kommt das Fenster nicht nach vorn,
+bricht es ab statt Zahlen über ein fremdes Fenster zu nennen.
+
+Drei Anläufe hat allein die Messung gebraucht. Der erste zählte Pixel auf dem
+ganzen Bildschirm und blieb grün, als das Laden der Einstellungen ausgebaut
+war — ein Bildschirm hat reichlich Blau. Der zweite rechnete Punkte in Pixel
+falsch um und schnitt ein fremdes Fenster aus. Der dritte fand die Farbe im
+Fensterspeicher wieder, den WebKit zwischen zwei schnellen Starts im
+Arbeitsspeicher hält.
 
 `check.sh` endet mit der Stufe **clicked through**. Sie vergleicht den Hash des
 Arbeitsstands mit dem Stand, den `smoke.sh` zuletzt bestanden hat, und ruft

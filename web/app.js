@@ -4545,9 +4545,11 @@ function updateVerfolgen() {
     setTimeout(async () => {
       try {
         await api.restart();
-        // The new version is running. This window bows out, the daemon ends
-        // itself in a moment — both come back new and together.
-        if (WAILS) Native.Quit();
+        /* The daemon comes back by itself — anything that needs one starts it.
+           The window does not: it used to call Quit here and simply vanish,
+           which from outside is indistinguishable from a crash. Relaunch opens
+           the new one first and only then closes this. */
+        if (WAILS) Native.Relaunch();
       } catch {
         $('#updateText').textContent = tr('update.installed');
       }

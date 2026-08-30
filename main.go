@@ -223,6 +223,13 @@ func runDaemon() {
 	srv := server.New(c, sub("web"))
 
 	ln, info, err := daemon.Listen()
+	if errors.Is(err, daemon.ErrAlreadyRunning) {
+		// Not a fault: somebody else got there first, and one is what is
+		// wanted. Said out loud all the same, because a process that ends
+		// without a word is the kind of thing you look for in the wrong place.
+		log.Println("another daemon is already running — stepping aside")
+		return
+	}
 	if err != nil {
 		log.Fatal(err)
 	}

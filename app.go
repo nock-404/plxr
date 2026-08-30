@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -132,4 +135,40 @@ func (a *App) Seethrough(percent int, dark bool) bool {
 	// on top; what is set here is only how much of the frame remains.
 	wr.WindowSetBackgroundColour(a.ctx, 0, 0, 0, 0)
 	return true
+}
+
+// Relaunch starts the application again and then closes this window.
+//
+// After an update the window used to just vanish: it asked the daemon to
+// restart, called Quit and that was that. The comment beside it claimed both
+// would come back together — the daemon does, because anything that needs it
+// starts one, but nothing starts a window. From outside an update looked like
+// a crash.
+//
+// `open -n` on the bundle rather than the binary: macOS gives a bare
+// executable no window, and -n allows a second instance while this one is
+// still going away.
+func (a *App) Relaunch() {
+	exe, err := os.Executable()
+	if err == nil {
+		if app := bundleOf(exe); app != "" {
+			_ = exec.Command("open", "-n", app).Start()
+		} else {
+			_ = exec.Command(exe).Start()
+		}
+	}
+	wr.Quit(a.ctx)
+}
+
+// bundleOf finds the .app a binary sits in — empty when there is none, which
+// is the normal case everywhere except macOS.
+func bundleOf(exe string) string {
+	dir := exe
+	for i := 0; i < 4; i++ {
+		dir = filepath.Dir(dir)
+		if strings.HasSuffix(dir, ".app") {
+			return dir
+		}
+	}
+	return ""
 }

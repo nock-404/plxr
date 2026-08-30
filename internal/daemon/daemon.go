@@ -62,9 +62,27 @@ func newToken() string {
 
 // ---- Seite des Daemons ----
 
+// held keeps the lock alive for as long as the process does. A local variable
+// would be collected and the lock released with it.
+var held *os.File
+
 // Listen opens a port only this machine can reach and leaves the credentials
 // behind for clients.
+//
+// Only one at a time. Reading daemon.json, asking whether anybody answers and
+// starting one if not has a gap in the middle: two windows opening together
+// both look, both find nothing, both start a daemon. Two were running here for
+// a day. A file lock closes it — the operating system decides who gets it.
 func Listen() (net.Listener, Info, error) {
+	if err := os.MkdirAll(Root(), 0o755); err != nil {
+		return nil, Info{}, err
+	}
+	f, mine := takeLock(filepath.Join(Root(), "daemon.lock"))
+	if !mine {
+		return nil, Info{}, ErrAlreadyRunning
+	}
+	held = f
+
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, Info{}, err
@@ -81,6 +99,10 @@ func Listen() (net.Listener, Info, error) {
 	}
 	return ln, info, nil
 }
+
+// ErrAlreadyRunning says another daemon holds the lock. Not a fault: the one
+// starting simply steps aside.
+var ErrAlreadyRunning = errors.New("err.daemon.alreadyRunning")
 
 func write(i Info) error {
 	if err := os.MkdirAll(Root(), 0o755); err != nil {
