@@ -67,6 +67,43 @@
       if (errors === 1 && !selbstGezeigt) { selbstGezeigt = true; setTimeout(() => toggle(true), 0); }
     }
     if (panel && !panel.hidden) render();
+    if (kind === 'error' || kind === 'bad') report(kind, where, text);
+  }
+
+  /* Send it on, so somebody outside the window can see it.
+
+     The window has no developer tools. An error inside it is visible to
+     whoever has it open and to nobody else, and every one so far had to be
+     found by asking the user what he saw on his screen.
+
+     Collected first and sent at a distance, and the call that sends it is
+     itself skipped — otherwise it would log its own request, which logs its
+     own request. */
+  const REPORT = '/api/window-log';
+  let waiting = [];
+  let sending = null;
+
+  function report(kind, where, text) {
+    if (where === 'fetch' && String(text).includes(REPORT)) return;
+    waiting.push(`${now()} [${where}/${kind}] ${text}`);
+    if (sending) return;
+    sending = setTimeout(sendReport, 800);
+  }
+
+  function sendReport() {
+    sending = null;
+    const lines = waiting.join('\n') + '\n';
+    waiting = [];
+    const base = window.plxrDaemon;
+    if (!base || !base.url || !base.token) return;   // nowhere to send it yet
+    try {
+      original.log && 0;
+      realFetch(base.url + REPORT, {
+        method: 'POST',
+        headers: { 'X-Plxr-Token': base.token, 'Content-Type': 'text/plain' },
+        body: lines,
+      }).catch(() => {});
+    } catch {}
   }
 
   /* One count per tab.

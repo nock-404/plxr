@@ -65,3 +65,42 @@ func WritePrefs(change map[string]any) error {
 	}
 	return os.WriteFile(prefsPath(), b, 0o644)
 }
+
+/* What the window complains about, written where it can be read.
+
+   The window has no developer tools. An error inside it — a script that did
+   not load, a call that went out too early, a handler that threw — leaves no
+   trace anywhere outside it. The workbench shows it to whoever has the window
+   open and nobody else, so every one of them had to be found by asking the
+   user what he saw.
+
+   So it is sent here and appended to ~/.plxr/window.log. Capped, because a
+   window that fails in a loop must not fill the disk. */
+
+const windowLogCap = 200 * 1024
+
+func windowLogPath() string { return filepath.Join(Root(), "window.log") }
+
+func AppendWindowLog(lines string) error {
+	if lines == "" {
+		return nil
+	}
+	if err := os.MkdirAll(Root(), 0o755); err != nil {
+		return err
+	}
+	path := windowLogPath()
+	if st, err := os.Stat(path); err == nil && st.Size() > windowLogCap {
+		// Half away rather than all: what is left is the older half of the
+		// story, and the newest lines are about to be appended anyway.
+		if b, err := os.ReadFile(path); err == nil {
+			_ = os.WriteFile(path, b[len(b)/2:], 0o644)
+		}
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(lines)
+	return err
+}

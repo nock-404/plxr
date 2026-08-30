@@ -263,14 +263,17 @@ async function connect() {
     const d = await Native.Daemon();
     BASE = d.url;
     TOKEN = d.token;
+    // So the workbench can send its log somewhere. It is loaded before this
+    // file and knows nothing about the daemon by itself.
+    window.plxrDaemon = { url: BASE, token: TOKEN };
     daemonIsReady?.();
     return;
   }
   BASE = location.origin;
+  daemonIsReady?.();
   // The token arrives once through the address. After that it lives in
   // sessionStorage, so a reload does not lose the connection, and it
   // disappears from the address bar so it does not end up in the history.
-  daemonIsReady?.();
   const ausURL = new URLSearchParams(location.search).get('token');
   if (ausURL) {
     TOKEN = ausURL;
@@ -280,6 +283,9 @@ async function connect() {
     try { TOKEN = sessionStorage.getItem('plxr.token') || ''; } catch {}
   }
   if (!TOKEN) throw new Error(tr('err.noToken'));
+  // The workbench sends its log to the daemon and knows nothing about it by
+  // itself — it is loaded before this file, on purpose.
+  window.plxrDaemon = { url: BASE, token: TOKEN };
 }
 
 const wsURL = (p) =>

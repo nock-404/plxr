@@ -212,6 +212,17 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/running", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Running())
 	})
+	// What the window complains about. It has no developer tools, so an error
+	// inside it is visible to whoever has it open and to nobody else.
+	mux.HandleFunc("POST /api/window-log", func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+		if err != nil {
+			http.Error(w, uierr.With("err.prefs.unreadable", err.Error()).Error(), http.StatusBadRequest)
+			return
+		}
+		_ = daemon.AppendWindowLog(string(b))
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/prefs", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, daemon.ReadPrefs())
 	})
