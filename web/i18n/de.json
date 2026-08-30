@@ -175,6 +175,7 @@
   "file.meta.other": "{lines} Zeilen · {size}",
   "file.metaSaved.one": "{lines} Zeile · {size} · gespeichert",
   "file.metaSaved.other": "{lines} Zeilen · {size} · gespeichert",
+  "file.notReadable": "Ordner nicht lesbar",
   "file.nothingHere": "Hier liegt nichts, was angezeigt werden könnte.",
   "file.truncated": " · gekürzt, Speichern gesperrt",
   "file.unreadable": "Datei nicht lesbar",

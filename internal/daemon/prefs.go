@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -25,17 +26,34 @@ var prefsLock sync.Mutex
 
 func prefsPath() string { return filepath.Join(Root(), "prefs.json") }
 
-// Prefs never fails: no file means nothing remembered.
+// ReadPrefs never fails on a missing file — nothing remembered is a normal
+// state. A file that cannot be read is NOT: it is said out loud and the file is
+// put aside rather than treated as empty.
+//
+// Swallowing that error was the dangerous half: a damaged file read as "no
+// settings", the interface came up on defaults, and the next change wrote the
+// file anew from that empty state. A read error turned into permanent loss
+// without a word anywhere.
 func ReadPrefs() map[string]any {
 	prefsLock.Lock()
 	defer prefsLock.Unlock()
+	out, err := readPrefs()
+	if err != nil {
+		log.Printf("prefs: %v", err)
+	}
+	return out
+}
+
+func readPrefs() (map[string]any, error) {
 	out := map[string]any{}
 	b, err := os.ReadFile(prefsPath())
 	if err != nil {
-		return out
+		return out, nil // no file, nothing remembered
 	}
-	_ = json.Unmarshal(b, &out)
-	return out
+	if err := json.Unmarshal(b, &out); err != nil {
+		return out, err
+	}
+	return out, nil
 }
 
 // WritePrefs merges: the interface sends what changed, not everything it knows.
@@ -47,7 +65,16 @@ func WritePrefs(change map[string]any) error {
 
 	all := map[string]any{}
 	if b, err := os.ReadFile(prefsPath()); err == nil {
-		_ = json.Unmarshal(b, &all)
+		if err := json.Unmarshal(b, &all); err != nil {
+			/* Not overwritten. What is there cannot be read, and writing over
+			   it would turn a read error into a loss — everything except the
+			   one key just changed would be gone for good. It is put aside,
+			   so it can still be looked at. */
+			aside := prefsPath() + ".broken"
+			log.Printf("prefs: unreadable, kept as %s: %v", aside, err)
+			_ = os.Rename(prefsPath(), aside)
+			all = map[string]any{}
+		}
 	}
 	for k, v := range change {
 		if v == nil {
@@ -63,7 +90,17 @@ func WritePrefs(change map[string]any) error {
 	if err := os.MkdirAll(Root(), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(prefsPath(), b, 0o644)
+	/* Written beside it and then moved into place.
+	   A direct write leaves a half-finished file behind if the machine goes
+	   down in the middle of it, and a half-finished file reads as no settings
+	   at all — after which the next change writes it anew from nothing. The
+	   rest of this repository has been doing it this way for a while; here it
+	   was missed. */
+	tmp := prefsPath() + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, prefsPath())
 }
 
 /* What the window complains about, written where it can be read.

@@ -358,7 +358,11 @@ const api = {
   freeze: (id) => req(`/api/sessions/${id}/freeze`, { method: 'POST' }),
   unfreeze: (id) => req(`/api/sessions/${id}/unfreeze`, { method: 'POST' }),
   emergencyBrake: () => req('/api/freeze', { method: 'POST' }),
-  unfreeze: () => req('/api/unfreeze', { method: 'POST' }),
+  /* releaseBrake, not unfreeze: there is one of those two lines above, for a
+     single session, and this one silently overwrote it. The later key in an
+     object literal wins, so pausing ONE session released the brake on all of
+     them — the id was simply dropped. */
+  releaseBrake: () => req('/api/unfreeze', { method: 'POST' }),
   accounts: () => req('/api/accounts'),
   templates: () => req('/api/templates'),
   templateStart: (name) => req(`/api/templates/${encodeURIComponent(name)}/start`, { method: 'POST' }),
@@ -391,7 +395,7 @@ const api = {
   setHook: (an) => req('/api/hook?an=' + (an ? '1' : '0'), { method: 'POST' }),
   update: () => req('/api/update', { method: 'POST' }),
 
-  folder: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`).catch(() => []),
+  folder: (id, dir) => req(`/api/files/${id}?dir=${encodeURIComponent(dir || '')}`),
   paths: (q) => req('/api/paths?q=' + encodeURIComponent(q)).catch(() => []),
   shell: () => req('/api/shell'),
   file: (id, file) => req(`/api/file/${id}?path=${encodeURIComponent(file)}`),
@@ -623,15 +627,19 @@ function applyTheme(t) {
     restoreStyle();
     showPhosphor(t);
     if (!$('#settings').hidden) buildStyleEditor();
-  });
 
-  try {
+    /* Inside the then(), and that is the whole point of this comment.
+       These four lines used to sit BELOW the return — unreachable from the day
+       this function started handing back a promise. The chosen theme was
+       therefore never written down, and every start came up with the default.
+       Nothing failed, nothing was logged: the theme applied immediately and
+       was simply gone the next time. */
     setPref('plxr.theme', t.name);
-    // Write the whole theme along: on the next start the look is there
-    // immediately, without waiting for the daemon.
+    // The whole theme along with it: on the next start the look is there at
+    // once, without waiting for the daemon.
     setPref('plxr.themeCache', JSON.stringify(t));
-  } catch {}
-  showDeleteButton(t);
+    showDeleteButton(t);
+  });
 }
 
 const cssVar = (n, ersatz) =>
@@ -2054,7 +2062,15 @@ function renderAll(tiles) {
   /* Nothing running, nothing to halt — then the button is not there either.
      Engaged it stays visible, otherwise there would be no way back out. */
   const brake = $('#brake');
-  brake.hidden = running === 0 && brake.dataset.on !== 'yes';
+  /* What the brake says comes from the sessions, not from the button.
+     It used to live only in the button's own attribute, so a restarted window
+     knew nothing: with everything halted it still offered to halt, and the
+     click did that again instead of letting go. */
+  const halted = state.tiles.some((t) => t.alive && t.frozen);
+  brake.dataset.on = halted ? 'yes' : '';
+  brake.textContent = tr(halted ? 'header.brakeRelease' : 'header.brake');
+  document.documentElement.dataset.frozen = halted ? 'yes' : '';
+  brake.hidden = running === 0 && !halted;
   const blocked = state.tiles.filter((t) => t.alive && t.status === 'permission').length;
   const orphaned = state.tiles.filter((t) => t.orphaned).length;
   // A counter on the rail, so that even from inside a session you can see that
@@ -2828,7 +2844,18 @@ async function loadFileTree(t) {
 }
 
 async function renderMarkLayer(box, dir, tiefe, sid) {
-  const entries = await api.folder(sid, dir);
+  /* A folder that cannot be read is not an empty folder.
+     The call used to catch its own error and hand back an empty list, so a
+     session that had ended, a directory without read permission and one that
+     had been renamed all produced "empty folder — nothing here to show". The
+     reason was on the wire and thrown away one line before it could be seen. */
+  let entries;
+  try {
+    entries = await api.folder(sid, dir);
+  } catch (e) {
+    if (tiefe === 0) showEmpty(box, tr('file.notReadable'), errText(e));
+    return;
+  }
   if (tiefe === 0 && (!entries || !entries.length)) {
     showEmpty(box, tr('file.emptyFolder'), tr('file.nothingHere'));
     return;
@@ -4794,7 +4821,7 @@ async function emergencyBrake() {
   const button = $('#brake');
   if (button.dataset.on === 'yes') {
     try {
-      const r = await api.unfreeze();
+      const r = await api.releaseBrake();
       button.dataset.on = '';
       button.textContent = tr('header.brake');
       document.documentElement.dataset.frozen = '';
@@ -4818,8 +4845,10 @@ $('#brake').addEventListener('click', emergencyBrake);
 pathComplete($('#pathFilter'), applyFilter);
 pathComplete($('#newCwd'));
 
-state.filter = pref('plxr.filter') || '';
-$('#pathFilter').value = state.filter;
+/* The filter is set once the settings have arrived — see the boot chain
+   below. Reading it here, at module level, was reading it before loadPrefs()
+   had ever run: in the browser it came out of localStorage by luck, in the
+   window it was always empty. */
 
 /* Language before anything else: the interface must never flash up in English
    and then switch. If loading fails the keys stay on screen — visibly broken
@@ -4833,6 +4862,10 @@ loadLanguage()
      so a normal start read nothing and every setting was back to default.
      Which is exactly what it looked like from outside. */
   .then(loadPrefs)
+  .then(() => {
+    state.filter = pref('plxr.filter') || '';
+    $('#pathFilter').value = state.filter;
+  })
   .then(keepLanguage)
   .then(() => loadThemes())
   .then(() => {

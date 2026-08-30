@@ -175,6 +175,7 @@
   "file.meta.other": "{lines} lines · {size}",
   "file.metaSaved.one": "{lines} line · {size} · saved",
   "file.metaSaved.other": "{lines} lines · {size} · saved",
+  "file.notReadable": "the folder cannot be read",
   "file.nothingHere": "There is nothing here that could be shown.",
   "file.truncated": " · truncated, saving disabled",
   "file.unreadable": "File not readable",

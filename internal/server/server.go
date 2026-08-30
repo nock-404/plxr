@@ -470,9 +470,14 @@ func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 		// code, otherwise an attack looks like a slip of the hand.
 		code := http.StatusBadRequest
 		switch {
-		case strings.Contains(err.Error(), "außerhalb der Session"):
+		/* Matched against the CODE, not against prose.
+		   This used to compare the German sentences these errors carried before
+		   they became codes. Since then neither branch has been reachable:
+		   every one of them went out as a plain 400, and an attempt to reach
+		   outside the session looked exactly like a slip of the hand. */
+		case strings.HasPrefix(err.Error(), "err.file.outsideSession"):
 			code = http.StatusForbidden
-		case strings.Contains(err.Error(), "inzwischen von außen geändert"):
+		case strings.HasPrefix(err.Error(), "err.file.changedOutside"):
 			code = http.StatusConflict
 		}
 		http.Error(w, err.Error(), code)
