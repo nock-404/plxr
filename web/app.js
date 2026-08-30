@@ -159,18 +159,41 @@ if (window.runtime && !WAILS) {
 let BASE = '';
 let TOKEN = '';
 
+/* Nothing goes out before the daemon's address is known.
+
+   In the window the address comes from Go and arrives a moment after the page
+   does. Anything asked in between goes to the window's own asset server, which
+   knows nothing about /api and answers 404 — a red line in the workbench and a
+   flag in the corner, for a request that was simply too early.
+
+   This cannot happen in the browser: there the address is the page's own
+   origin and stands from the first line. So it is not something a run through
+   Chrome would ever find, and a rule is the only thing that holds it. */
+let daemonReady = null;
+let daemonIsReady = null;
+
+function waitForDaemon() {
+  if (BASE) return Promise.resolve();
+  daemonReady ||= new Promise((resolve) => { daemonIsReady = resolve; });
+  /* Not forever. Without a limit a daemon that never comes up would leave every
+     call hanging with nothing on screen — better the error it used to give. */
+  return Promise.race([daemonReady, new Promise((r) => setTimeout(r, 8000))]);
+}
+
 async function connect() {
   if (WAILS) {
     // Asks Go afresh every time — a daemon is started there if needed.
     const d = await Native.Daemon();
     BASE = d.url;
     TOKEN = d.token;
+    daemonIsReady?.();
     return;
   }
   BASE = location.origin;
   // The token arrives once through the address. After that it lives in
   // sessionStorage, so a reload does not lose the connection, and it
   // disappears from the address bar so it does not end up in the history.
+  daemonIsReady?.();
   const ausURL = new URLSearchParams(location.search).get('token');
   if (ausURL) {
     TOKEN = ausURL;
@@ -190,6 +213,7 @@ async function req(path, opts = {}) {
   // before they go to fetch — an unknown key there is silently ignored, and
   // silently ignored is exactly how a wrong call survives.
   const { text: asText, ...rest } = opts;
+  if (!BASE) await waitForDaemon();
   let r;
   try {
     r = await fetch(BASE + path, { ...rest, headers: { 'X-Plxr-Token': TOKEN, ...(rest.headers || {}) } });
@@ -415,6 +439,11 @@ function reconnect() {
       await loadThemes($('#themeSel').value);
       api.aufZustand(renderAll);
       showConnection(true);
+      /* Only now, and not a moment earlier. Hung on the env() promise this
+         fired before connect() knew the daemon's address — the request then
+         went to the window's own asset server and came back 404. One red line
+         in the workbench and a flag in the corner, for nothing. */
+      checkVersionSplit();
       // The terminals only now: before this the address would still be the old one.
       api.reattach();
       neuTimer = null;
@@ -4533,7 +4562,6 @@ api.env().then((e) => {
   document.documentElement.dataset.platform = e.platform;
   if (e.titlebarInset) document.documentElement.dataset.titlebarInset = 'yes';
   windowVersion = e.version || '';
-  checkVersionSplit();
 }).catch(() => {});
 
 /* Window and daemon are two programs, and an update does not necessarily reach

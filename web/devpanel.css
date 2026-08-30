@@ -85,10 +85,11 @@
 
 .devRow {
   display: grid;
-  /* 62px was not enough for 12:08:50.092 — the milliseconds wrapped onto the
-     next line and stood there as a lone ".092", which reads like a broken
-     entry. */
-  grid-template-columns: 86px 1fr;
+  /* Not a number of pixels. 62 was too little for 12:08:50.092, 86 was still
+     too little at the font the panel actually gets, and the milliseconds
+     wrapped onto their own line where they read like a broken entry. The
+     column is as wide as its widest content and the guessing stops. */
+  grid-template-columns: max-content 1fr;
   gap: 8px;
   padding: 3px 10px;
   border-bottom: 1px solid #1d2128;
