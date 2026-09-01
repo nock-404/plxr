@@ -89,6 +89,9 @@
 .btn.icon { font-size: 1em; line-height: 1; }
 .btn.on { border-color: var(--accent); color: var(--accent); }
 .btn:disabled { opacity: .4; cursor: default; }
+/* Busy is not unavailable. It still says something, so it stays readable and
+   wears the accent to show that something is going on. */
+.btn[data-busy="yes"] { opacity: 1; cursor: progress; color: var(--accent); border-color: var(--accent); }
 .statusrow {
   color: var(--dim);
   letter-spacing: .14em;

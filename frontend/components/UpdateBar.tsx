@@ -14,17 +14,49 @@ export default function UpdateBar() {
   const [hidden, setHidden] = useState(false);
   const [state, setState] = useState<"idle" | "working" | "done" | "failed" | "restarting">("idle");
   const [problem, setProblem] = useState("");
+  const [percent, setPercent] = useState(0);
 
-  // Window and daemon are two programs: after the swap both have to come back,
-  // or the interface shows one version and runs another.
+  /* Starting an update is not finishing one.
+   *
+   * The daemon takes the request, begins the work and answers immediately — its
+   * own comment says the interface is expected to ask how far along it is. The
+   * window instead treated that first answer as "done": the moment INSTALL was
+   * pressed the button turned into RESTART, and pressing that said "nothing was
+   * swapped in", because nothing had been. No progress was ever shown either.
+   *
+   * So it asks, until the daemon says it has finished or failed.
+   */
   async function install() {
+    setProblem("");
     setState("working");
+    setPercent(0);
     try {
       await api.updateApply();
-      setState("done");
     } catch (e) {
       setProblem(errText(e));
       setState("failed");
+      return;
+    }
+    while (true) {
+      await new Promise((r) => setTimeout(r, 700));
+      let progress;
+      try {
+        progress = await api.updateProgress();
+      } catch (e) {
+        setProblem(errText(e));
+        setState("failed");
+        return;
+      }
+      setPercent(progress.percent);
+      if (progress.error) {
+        setProblem(progress.error);
+        setState("failed");
+        return;
+      }
+      if (progress.done) {
+        setState("done");
+        return;
+      }
     }
   }
 
@@ -60,13 +92,9 @@ export default function UpdateBar() {
           {tr("version.splitGo", "RESTART")}
         </Button>
       ) : (
-        <Button
-          primary
-          disabled={state === "working"}
-          onClick={install}
-        >
+        <Button primary busy={state === "working"} onClick={install}>
           {state === "working"
-            ? tr("update.installing", "INSTALLING…")
+            ? `${tr("update.installing", "INSTALLING")} ${percent}%`
             : state === "failed"
               ? tr("update.retry", "TRY AGAIN")
               : tr("update.install", "INSTALL")}

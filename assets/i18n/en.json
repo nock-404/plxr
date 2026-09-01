@@ -482,6 +482,7 @@
  "update.install": "INSTALL",
  "update.installAsk": "Install version {v}?",
  "update.installed": "installed — restart plxr by hand",
+ "update.installing": "INSTALLING",
  "update.later": "LATER",
  "update.noNotes": "no notes for this version",
  "update.notes": "WHAT'S NEW",

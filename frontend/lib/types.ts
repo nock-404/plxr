@@ -99,6 +99,18 @@ export interface Account {
   sessions: number;
 }
 
+/* How far along an update is.
+   The daemon starts the work and answers at once, so asking again is the only
+   way to know whether anything has actually happened yet. */
+export interface UpdateStatus {
+  running: boolean;
+  percent: number;
+  phase: string;
+  done: boolean;
+  error?: string;
+  path?: string;
+}
+
 export interface VersionInfo {
   current: string;
   latest: string;

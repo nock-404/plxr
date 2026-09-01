@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, Port,
-  NotifySettings, QueueItem, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -51,7 +51,8 @@ export const api = {
   themeImport: (text: string) => req<void>("/api/themes", { method: "POST", body: text }),
   themeDelete: (name: string) =>
     req<void>(`/api/themes/${encodeURIComponent(name)}`, { method: "DELETE" }),
-  updateApply: () => req<void>("/api/update", { method: "POST" }),
+  updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
+  updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),
   paths: (q = "") => req<string[]>(`/api/paths?q=${encodeURIComponent(q)}`),
   accounts: () => req<Account[]>("/api/accounts"),

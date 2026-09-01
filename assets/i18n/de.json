@@ -492,6 +492,7 @@
  "update.install": "INSTALLIEREN",
  "update.installAsk": "Fassung {v} installieren?",
  "update.installed": "eingesetzt — plxr von Hand neu starten",
+ "update.installing": "INSTALLIERT",
  "update.later": "SPÄTER",
  "update.noNotes": "keine Anmerkungen zu dieser Fassung",
  "update.notes": "WAS IST NEU",
