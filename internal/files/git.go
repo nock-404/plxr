@@ -2,6 +2,7 @@ package files
 
 import (
 	"os/exec"
+	"plxr/internal/sys"
 	"strings"
 )
 
@@ -33,7 +34,7 @@ func Status(root string) map[string]State {
 	// --porcelain is the form promised to stay stable between versions; -z
 	// separates with NUL so a file name with a space or a newline in it does not
 	// split into two entries.
-	cmd := exec.Command("git", "-C", root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	cmd := sys.Quiet(exec.Command("git", "-C", root, "status", "--porcelain=v1", "-z", "--untracked-files=all"))
 	b, err := cmd.Output()
 	if err != nil {
 		return out // not a repository, or no git: nothing is known

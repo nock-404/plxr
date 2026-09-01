@@ -4,6 +4,7 @@ package notify
 
 import (
 	"os/exec"
+	"plxr/internal/sys"
 	"strings"
 )
 
@@ -23,7 +24,7 @@ $xml.LoadXml('<toast><visual><binding template="ToastText02"><text id="1">` + ti
 $toast = New-Object Windows.UI.Notifications.ToastNotification $xml
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("plxr").Show($toast)
 `
-	_ = exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Run()
+	_ = sys.Quiet(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)).Run()
 }
 
 // The sounds Windows names for notifications.

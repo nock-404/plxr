@@ -4,6 +4,7 @@ package ports
 
 import (
 	"os/exec"
+	"plxr/internal/sys"
 	"strconv"
 	"strings"
 )
@@ -37,7 +38,7 @@ ForEach-Object {
   $p = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
   "$($_.LocalAddress)|$($_.LocalPort)|$($_.OwningProcess)|$($p.ProcessName)"
 }`
-	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script).Output()
+	out, err := sys.Quiet(exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)).Output()
 	if err != nil {
 		return nil
 	}
@@ -71,7 +72,7 @@ ForEach-Object {
 }
 
 func fromNetstat(own map[int]bool) []Entry {
-	out, err := exec.Command("netstat", "-ano", "-p", "TCP").Output()
+	out, err := sys.Quiet(exec.Command("netstat", "-ano", "-p", "TCP")).Output()
 	if err != nil && len(out) == 0 {
 		return nil
 	}
@@ -120,7 +121,7 @@ func fromNetstat(own map[int]bool) []Entry {
 // commandNames maps a process id to the name of its program. A failure here
 // costs the names and nothing else, so the list is still worth showing.
 func commandNames() map[int]string {
-	out, err := exec.Command("tasklist", "/FO", "CSV", "/NH").Output()
+	out, err := sys.Quiet(exec.Command("tasklist", "/FO", "CSV", "/NH")).Output()
 	if err != nil {
 		return map[int]string{}
 	}
