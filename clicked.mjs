@@ -13,7 +13,7 @@
  * debugging protocol, the same way geometry.mjs does it.
  */
 import { spawn } from "node:child_process";
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -376,8 +376,12 @@ if (live.length > 0) {
    * repository, so there was nothing to mark. A check that cannot tell those two
    * apart is worse than none, and one that quietly skips is worse still: so it
    * asks the daemon which case this is and says which one it checked. */
-  const repo = await api(`/api/git/${sessions[0].id}`).catch(() => ({}));
-  const isRepo = Object.keys(repo ?? {}).length > 0;
+  /* Whether this is a repository is a question about the directory, not about
+     whether git happens to have something to say right now. Asking the status
+     endpoint and taking an empty answer as "no git" was wrong the moment
+     everything was committed: the answer went empty, the check took the wrong
+     branch, and it failed on correct behaviour. */
+  const isRepo = existsSync(join(sessions[0].cwd, ".git"));
   claim(
     isRepo ? "git says what it thinks of it" : "git is asked, and this directory has no git",
     isRepo ? browser.gitMark === "untracked" : browser.gitMark === "",
