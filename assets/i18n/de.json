@@ -502,6 +502,7 @@
  "update.phase.loading": "lädt",
  "update.phase.swapping": "tauscht aus",
  "update.progress": "lädt … {pct}%",
+ "update.restartToUse": "plxr {installed} ist installiert — dieses Fenster laeuft noch mit {current}.",
  "update.sessionsWarn.one": "{n} laufende Session wird beendet. Sie bleibt als verwaist in der Liste und läuft mit --resume weiter.",
  "update.sessionsWarn.other": "{n} laufende Sessions werden beendet. Sie bleiben als verwaist in der Liste und laufen mit --resume weiter.",
  "usage.all": "alles",

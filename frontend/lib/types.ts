@@ -112,7 +112,11 @@ export interface UpdateStatus {
 }
 
 export interface VersionInfo {
+  /* What is running right now. */
   current: string;
+  /* What lies on disk and would run if it were started now. Different from
+     `current` between an update finishing and the restart that picks it up. */
+  installed: string;
   latest: string;
   available: boolean;
   notes: string;

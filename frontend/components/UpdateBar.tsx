@@ -62,19 +62,32 @@ export default function UpdateBar() {
 
   useEffect(() => watchVersion(setInfo), []);
 
-  if (!info || !info.available || hidden) return null;
+  /* Two different things can be true, and only one used to be shown.
+   *
+   * A newer version exists — install it. Or: a newer version is already on
+   * disk and this process is still the old one — restart. The second is the
+   * state an update leaves behind, and it was invisible: the band simply
+   * vanished, because the daemon had been told to call itself the new version.
+   * Then nothing explained why the interface was still the old one. */
+  const needsRestart = Boolean(info && info.installed && info.installed !== info.current);
+  if (!info || (!info.available && !needsRestart) || hidden) return null;
 
   return (
     <div className="updatebar">
       <span>
-        {tr("update.available", "plxr {latest} is out — you are on {current}.", {
-          latest: info.latest,
-          current: info.current,
-        })}
+        {needsRestart
+          ? tr("update.restartToUse", "plxr {installed} is installed — this window is still running {current}.", {
+              installed: info.installed,
+              current: info.current,
+            })
+          : tr("update.available", "plxr {latest} is out — you are on {current}.", {
+              latest: info.latest,
+              current: info.current,
+            })}
       </span>
       {problem ? <span className="notice warn">{problem}</span> : null}
       <span className="spacer" />
-      {state === "done" ? (
+      {state === "done" || needsRestart ? (
         <Button
           primary
           onClick={async () => {

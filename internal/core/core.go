@@ -516,22 +516,44 @@ func (c *Core) Pace() usage.Pace { return usage.ComputePace(c.Accounts()) }
 
 // ---- Versions ----
 
-// Version is set at startup from main.
+// Version is what this process is, set at startup from main. It is never
+// changed afterwards — see below.
 var Version = "dev"
 
-// After an update Version points at what sits on disk — not at what this process
-// was started with. The daemon deliberately keeps running, it owns the sessions;
-// but it still has to report what is installed. Otherwise the "new version"
-// notice would stay up and would download the same archive over and over.
-var versionMu sync.RWMutex
+/* What is running and what is installed are two different numbers.
+ *
+ * Version used to be overwritten with the new one as soon as an update
+ * finished, so that the "a new version is out" band would go away. The daemon
+ * keeps running through an update, so from then on it reported a version it was
+ * not — and a daemon that misreports itself makes everything after it
+ * unexplainable. It says it is current; the interface it serves is the old one;
+ * the restart button refers to a swap that happened in some other lifetime. It
+ * cost hours to untangle from the outside, twice.
+ *
+ * So both are kept. The band is driven by what is installed, so it does not
+ * come back after installing; and when the two differ the interface can say the
+ * one useful thing there is to say: restart to pick it up.
+ */
+var (
+	versionMu sync.RWMutex
+	installed string
+)
 
-func currentVersion() string {
+func installedVersion() string {
 	versionMu.RLock()
 	defer versionMu.RUnlock()
-	return Version
+	if installed == "" {
+		return Version
+	}
+	return installed
 }
 
-func (c *Core) VersionStatus() update.Status { return update.Check(currentVersion()) }
+func (c *Core) VersionStatus() update.Status {
+	st := update.Check(installedVersion())
+	st.Current = Version
+	st.Installed = installedVersion()
+	return st
+}
 
 // Running is what is actually running right now.
 //
@@ -559,7 +581,9 @@ func (c *Core) Running() Running {
 		}
 	}
 	return Running{
-		Daemon:   currentVersion(),
+		// What this process is, not what lies on disk: this whole struct exists
+		// so somebody can see the two apart.
+		Daemon:   Version,
 		PtyHost:  ptyhost.Version,
 		PID:      info.PID,
 		Since:    info.Since,
@@ -642,7 +666,7 @@ func (c *Core) Update() error {
 			u.Path, u.Phase, u.Percent = path, "done", 100
 		})
 		versionMu.Lock()
-		Version = st.Latest
+		installed = st.Latest
 		versionMu.Unlock()
 	}()
 	return nil
@@ -683,14 +707,21 @@ func (c *Core) Update() error {
  * first, and the dialog now says so instead of promising the opposite.
  */
 func (c *Core) Restart() error {
-	st := c.UpdateProgress()
-	if st.Path == "" {
-		return uierr.New("err.update.nothingSwapped")
+	// Whatever this daemon happens to remember, what gets started is what is
+	// installed. Remembering was the only way before, and it made the button
+	// refuse whenever the swap had happened in some other lifetime.
+	path := c.UpdateProgress().Path
+	if path == "" {
+		found, err := update.InstalledPath()
+		if err != nil {
+			return uierr.With("err.update.nothingSwapped", err.Error())
+		}
+		path = found
 	}
 	// The window is this process's parent; the waiter opens the new version once
 	// it is gone, and the daemon follows it out immediately afterwards.
 	window := os.Getppid()
-	if err := update.Restart(st.Path, window); err != nil {
+	if err := update.Restart(path, window); err != nil {
 		return err
 	}
 	go func() {

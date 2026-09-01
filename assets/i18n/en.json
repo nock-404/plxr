@@ -492,6 +492,7 @@
  "update.phase.loading": "downloading",
  "update.phase.swapping": "swapping in",
  "update.progress": "downloading … {pct}%",
+ "update.restartToUse": "plxr {installed} is installed — this window is still running {current}.",
  "update.sessionsWarn.one": "{n} running session will be ended. It stays in the list as orphaned and continues with --resume.",
  "update.sessionsWarn.other": "{n} running sessions will be ended. They stay in the list as orphaned and continue with --resume.",
  "usage.all": "everything",

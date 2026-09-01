@@ -39,7 +39,12 @@ type Release struct {
 }
 
 type Status struct {
-	Current   string `json:"current"`
+	// What this process actually is. Never anything else: a program that
+	// misreports itself makes every symptom after it unexplainable.
+	Current string `json:"current"`
+	// What lies on disk and would run if it were started now. The two differ
+	// between an update finishing and the restart that picks it up.
+	Installed string `json:"installed"`
 	Latest    string `json:"latest"`
 	Available bool   `json:"available"`
 	Notes     string `json:"notes"`
@@ -275,6 +280,17 @@ func Apply(assetURL string, progress func(read, total int64)) (string, error) {
 	_ = resign(target)
 	return target, nil
 }
+
+/* InstalledPath is what would start if plxr were started now.
+ *
+ * Restarting used to be possible only when this very daemon had performed the
+ * swap, because it remembered the path from that. A daemon that came up after
+ * the swap, or one that was replaced meanwhile, had nothing remembered — and
+ * pressing the button then said "nothing was swapped in" while a perfectly good
+ * new version sat on disk. What has to be started does not depend on who
+ * installed it.
+ */
+func InstalledPath() (string, error) { return installTarget() }
 
 // installTarget is what gets replaced: the app bundle on macOS, the file otherwise.
 func installTarget() (string, error) {
