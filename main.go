@@ -369,6 +369,12 @@ func runWindow(info daemon.Info) {
 			InvisibleTitleBarHeight: 30,
 		},
 	})
+	// The daemon has no way of finding this process: it detaches at start, so
+	// asking for its parent gives the system's first process, not this one.
+	if err := daemon.AnnounceWindow(os.Getpid()); err != nil {
+		log.Printf("window: could not announce itself: %v", err)
+	}
+
 	raiseWindow = func(application.SecondInstanceData) {
 		win.Show()
 		win.Focus()

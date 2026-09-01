@@ -718,9 +718,21 @@ func (c *Core) Restart() error {
 		}
 		path = found
 	}
-	// The window is this process's parent; the waiter opens the new version once
-	// it is gone, and the daemon follows it out immediately afterwards.
-	window := os.Getppid()
+	/* Which process is the window.
+	 *
+	 * Not this one's parent: the daemon detaches at start so that it outlives
+	 * the window, and from then on its parent is the system's first process.
+	 * Asking for it returned 1, so the relaunch waited for process 1 to end —
+	 * for the machine to be switched off — while the daemon closed as planned.
+	 * What was left was a window with nothing behind it, saying the connection
+	 * was lost. The window announces itself instead.
+	 */
+	window := daemon.WindowPID()
+	if window == 0 {
+		// No window said so: plxr is being used through a browser, and there is
+		// nothing to wait for but this daemon itself.
+		window = os.Getpid()
+	}
 	if err := update.Restart(path, window); err != nil {
 		return err
 	}

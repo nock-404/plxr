@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -343,4 +344,41 @@ func WriteWindow(w WindowFile) error {
 		return err
 	}
 	return os.WriteFile(windowPath(), b, 0o644)
+}
+
+/* Which process is showing the window.
+
+   The daemon cannot work this out for itself. It detaches on purpose — its own
+   session, so it outlives the window that started it — and from that moment its
+   parent is the system's first process. Asking for the parent and calling that
+   "the window" therefore returned 1, and a restart that waited for process 1 to
+   exit waited for the machine to be switched off. The daemon then closed as
+   planned, leaving a window with nothing behind it and "connection lost" on
+   screen.
+
+   So the window says who it is, and it is the only one who knows.
+*/
+
+func windowPIDPath() string { return filepath.Join(Root(), "window.pid") }
+
+// AnnounceWindow records this process as the one showing the window.
+func AnnounceWindow(pid int) error {
+	if err := os.MkdirAll(Root(), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(windowPIDPath(), []byte(strconv.Itoa(pid)), 0o644)
+}
+
+// WindowPID is the process showing the window, or 0 if none has said so — which
+// is the normal state when plxr runs headless, in a browser.
+func WindowPID() int {
+	b, err := os.ReadFile(windowPIDPath())
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || pid <= 1 {
+		return 0
+	}
+	return pid
 }
