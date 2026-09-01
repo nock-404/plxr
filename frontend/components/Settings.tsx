@@ -35,8 +35,12 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     if (!version?.current) return "";
     const name = `plxr ${version.current}`;
     if (version.current === "dev") {
-      return `${name} — ${tr("settings.fromSource", "built from source, updates off")}` +
-        (version.latest ? ` (${tr("settings.released", "released")}: ${version.latest})` : "");
+      /* Not "updates off", which reads as a switch somebody threw. This build
+         came from the source tree, and replacing it with a release would throw
+         that tree's work away — so it declines, and says which release it would
+         otherwise have offered. */
+      return `${name} — ${tr("settings.fromSource", "built from source, so it will not replace itself")}` +
+        (version.latest ? ` (${tr("settings.released", "newest release")}: ${version.latest})` : "");
     }
     if (version.available) return `${name} — ${tr("settings.updateReady", "version {v} is out")}`.replace("{v}", version.latest);
     if (version.latest) return `${name} — ${tr("settings.upToDate", "up to date")}`;
