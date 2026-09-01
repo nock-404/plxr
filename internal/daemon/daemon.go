@@ -264,6 +264,10 @@ func alive(i Info) bool {
  * its sessions end with it, exactly as they do on any other restart, and that is
  * better than an interface that is quietly half wrong.
  */
+// Answering reports whether this daemon is up and talking. Exported because the
+// window has to be able to notice that its own has gone.
+func Answering(i Info) bool { return alive(i) }
+
 func Ensure() (Info, error) {
 	if i, err := Read(); err == nil && alive(i) {
 		if i.Version == Version {

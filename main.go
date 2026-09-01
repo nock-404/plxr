@@ -284,6 +284,38 @@ var raiseWindow = func(application.SecondInstanceData) {}
 // blurs whatever is behind the window. The page gives up its own background so
 // that blur shows through. This is the one thing v2 could not do on this macOS
 // — see the week that led here.
+/* The window brings its daemon back if it goes.
+ *
+ * The window asks for a daemon once, when it starts, and used to never ask
+ * again. So a daemon that stopped — crashed, killed, replaced by hand — left a
+ * window that said "connection lost" and went on saying it for ever, with
+ * nothing behind it and no way back except closing and opening the application.
+ * That happened twice in one afternoon, once at my hand.
+ *
+ * A new daemon usually comes up on a different port, so the page is pointed at
+ * it again rather than left waiting on an address nobody is listening to.
+ */
+func keepDaemon(win *application.WebviewWindow) {
+	for {
+		time.Sleep(3 * time.Second)
+
+		info, err := daemon.Read()
+		if err == nil && daemon.Answering(info) {
+			continue
+		}
+		fresh, err := daemon.Ensure()
+		if err != nil {
+			log.Printf("daemon: gone, and would not come back: %v", err)
+			continue
+		}
+		log.Printf("daemon: was gone, started again on port %d", fresh.Port)
+		if err := daemon.AnnounceWindow(os.Getpid()); err != nil {
+			log.Printf("window: could not announce itself: %v", err)
+		}
+		win.SetURL(fmt.Sprintf("%s/?token=%s", fresh.URL(), fresh.Token))
+	}
+}
+
 /* The window follows the setting, instead of being rebuilt for it.
  *
  * What lies between the window and the desktop is the operating system's doing,
@@ -393,6 +425,7 @@ func runWindow(info daemon.Info) {
 		win.Focus()
 	}
 	go followBackdrop(win)
+	go keepDaemon(win)
 	win.Show()
 
 	if err := app.Run(); err != nil {
