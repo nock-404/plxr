@@ -52,6 +52,21 @@ claim(
   `a detail with a bar in it came out as ${JSON.stringify(errText(new Error(`err.dir.missing|${awkward}`)))}`,
 );
 
+/* Go's http.Error writes a newline after the message.
+ *
+ * Every error the daemon reported that way arrived with one, failed the check
+ * for a code — which anchors at the end of the string — and was shown as its
+ * bare code in red. It was found on screen, not here, which is the wrong way
+ * round. */
+claim(
+  errText(new Error("err.session.unknown\n")) === "No such session",
+  `a code with the newline Go appends came out as ${JSON.stringify(errText(new Error("err.session.unknown\n")))}`,
+);
+claim(
+  errText(new Error("err.dir.missing|/tmp/x\n")) === "There is no /tmp/x",
+  "a code with a detail and a trailing newline did not read back",
+);
+
 // Anything that is not a code is shown as it stands, so nothing is ever
 // swallowed — including a code from a daemon newer than this window.
 for (const raw of ["something went wrong", "err.from.a.newer.build", "", "TypeError: x is not a function"]) {

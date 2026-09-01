@@ -665,22 +665,30 @@ func (c *Core) Update() error {
 // sessions that were running as orphaned and keeps the Claude id, so the
 // conversation carries on with --resume. What it saves is an app in which
 // nothing works and nobody can tell why.
-/* Restart is what the dialog promises: only the window comes back.
+/* Restart brings the whole application back, daemon included.
  *
- * It used to end every session and exit the daemon — while the text beside the
- * button said "the daemon keeps running, every session stays". Pressing it after
- * an update therefore threw away exactly the work it was reassuring you about.
+ * Keeping the daemon alive and replacing only the window is the obvious idea and
+ * it is wrong — the comment below this one records the evening it cost. The
+ * daemon does not only hold the sessions; it also serves the interface out of
+ * its own binary. After a swap that binary belongs to a bundle which no longer
+ * exists, so a fresh window talking to it gets a half-missing interface and no
+ * explanation. Both have to be the new version or neither.
  *
- * The daemon owns the terminals and has no reason to go. What has to go is the
- * window, because it is the old version; the fresh one takes its place and finds
- * the daemon still here, with everything still running in it.
+ * What was genuinely broken here was the order and the waiting, not this. The
+ * new version used to be started while the old one still held the single-window
+ * place, so it handed itself over and left; and the wait afterwards watched with
+ * kill -0, which succeeds on a process that has exited without being reaped.
+ *
+ * Sessions end with the daemon. That is the price, it is why the dialog asks
+ * first, and the dialog now says so instead of promising the opposite.
  */
 func (c *Core) Restart() error {
 	st := c.UpdateProgress()
 	if st.Path == "" {
 		return uierr.New("err.update.nothingSwapped")
 	}
-	// The window is this process's parent: it started the daemon.
+	// The window is this process's parent; the waiter opens the new version once
+	// it is gone, and the daemon follows it out immediately afterwards.
 	window := os.Getppid()
 	if err := update.Restart(st.Path, window); err != nil {
 		return err
@@ -689,6 +697,8 @@ func (c *Core) Restart() error {
 		// The answer to /api/restart still has to get out.
 		time.Sleep(700 * time.Millisecond)
 		askToQuit(window)
+		c.endSessions()
+		os.Exit(0)
 	}()
 	return nil
 }

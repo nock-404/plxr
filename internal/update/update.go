@@ -251,6 +251,20 @@ func Apply(assetURL string, progress func(read, total int64)) (string, error) {
 		return "", err
 	}
 
+	/* An application can only replace itself if it is one.
+	 *
+	 * On macOS the package carries plxr.app — a directory. Copying that over a
+	 * program which is a bare file leaves a directory where the program was, and
+	 * nothing can start from it any more. It happened here: a build run straight
+	 * from the compiler updated itself into a folder, and the next thing to look
+	 * for it found nothing to run.
+	 *
+	 * A program started outside a bundle is a build somebody is working on, and
+	 * telling them so beats quietly destroying it. */
+	if runtime.GOOS == "darwin" && strings.HasSuffix(fresh, ".app") && !strings.HasSuffix(target, ".app") {
+		return "", uierr.With("err.update.notABundle", target)
+	}
+
 	if err := swap(fresh, target); err != nil {
 		return "", err
 	}

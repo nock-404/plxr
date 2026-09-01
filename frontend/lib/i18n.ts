@@ -34,7 +34,14 @@ export function tr(key: string, fallback: string, vars?: Record<string, string |
 // translated — a path, a name — travel behind a vertical bar and land in
 // {detail}. Anything unrecognised is shown as it came, so nothing is swallowed.
 export function errText(e: unknown): string {
-  const raw = e instanceof Error ? e.message : String(e ?? "");
+  /* Trimmed first.
+   *
+   * Go's http.Error puts a newline after the message, so what arrives is
+   * "err.update.nothingSwapped\n". The pattern below anchors at the end of the
+   * string, which that newline is not — so every error the daemon sent through
+   * http.Error failed the test and was shown as its bare code, in red, to
+   * somebody who had just been told something went wrong. */
+  const raw = (e instanceof Error ? e.message : String(e ?? "")).trim();
   /* The first bar divides them, and only the first.
    *
    * Splitting on every bar and taking the first two pieces threw away
