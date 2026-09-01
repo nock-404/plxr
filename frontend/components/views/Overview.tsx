@@ -38,7 +38,7 @@ export default function Overview({
           <p>
             {tr(
               "empty.explain",
-              "Use + NEW to start a CLI in a terminal that belongs to the daemon — not to your window. It keeps running when you close plxr.",
+              "Use + NEW to start a CLI in a terminal of its own. It keeps running when you close this window.",
             )}
           </p>
           <ul className="emptyagents">
