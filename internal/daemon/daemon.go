@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -34,7 +35,14 @@ type Info struct {
 	Token string `json:"token"`
 	PID   int    `json:"pid"`
 	Since int64  `json:"since"`
+	// Which build is answering. Written so a window can tell whether the daemon
+	// it found is its own — see Ensure.
+	Version string `json:"version,omitempty"`
 }
+
+// Version is this build, set once at start. The daemon writes it into its
+// record; the window compares against it.
+var Version = "dev"
 
 func (i Info) URL() string { return fmt.Sprintf("http://127.0.0.1:%d", i.Port) }
 
@@ -88,10 +96,11 @@ func Listen() (net.Listener, Info, error) {
 		return nil, Info{}, err
 	}
 	info := Info{
-		Port:  ln.Addr().(*net.TCPAddr).Port,
-		Token: newToken(),
-		PID:   os.Getpid(),
-		Since: time.Now().UnixMilli(),
+		Port:    ln.Addr().(*net.TCPAddr).Port,
+		Token:   newToken(),
+		PID:     os.Getpid(),
+		Since:   time.Now().UnixMilli(),
+		Version: Version,
 	}
 	if err := write(info); err != nil {
 		ln.Close()
@@ -117,6 +126,26 @@ func write(i Info) error {
 }
 
 func Forget() { os.Remove(infoPath()) }
+
+func shown(v string) string {
+	if v == "" {
+		return "an older build"
+	}
+	return v
+}
+
+// stop ends a daemon and waits for it to let go of its port, so the replacement
+// does not race it for the address.
+func stop(i Info) {
+	end(i.PID)
+	for waited := 0; waited < 40; waited++ {
+		if !alive(i) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	Forget()
+}
 
 // Guard protects everything that serves data or touches processes.
 //
@@ -220,9 +249,28 @@ func alive(i Info) bool {
 
 // Ensure returns a running daemon: either the one already running, or a
 // freshly started one.
+/* Ensure hands back a daemon of this build, starting one if there is not one.
+ *
+ * It used to hand back whichever daemon was answering, whatever build it came
+ * from. After an update that is the old one — still running, out of a bundle the
+ * swap has already deleted — and a new window talking to it gets an interface
+ * served by the old binary: language files missing, the version reported wrong,
+ * and the update band offering an update that has already happened. There is a
+ * comment two files away recording the evening that cost, and nothing anywhere
+ * that noticed the state.
+ *
+ * So the build is asked for. A daemon of a different one is ended and replaced;
+ * its sessions end with it, exactly as they do on any other restart, and that is
+ * better than an interface that is quietly half wrong.
+ */
 func Ensure() (Info, error) {
 	if i, err := Read(); err == nil && alive(i) {
-		return i, nil
+		if i.Version == Version {
+			return i, nil
+		}
+		log.Printf("daemon: it is running %s and this is %s — replacing it",
+			shown(i.Version), shown(Version))
+		stop(i)
 	}
 
 	exe, err := os.Executable()

@@ -48,6 +48,15 @@ var embedded embed.FS
 var version = "dev"
 
 func main() {
+	/* Before anything asks for a daemon.
+	 *
+	 * Ensure compares this build against the one already running, and it cannot
+	 * do that without knowing which build this is. Set further down — after the
+	 * daemon had already been asked for — the comparison read "dev" against a
+	 * perfectly good daemon and replaced it on every single start. */
+	core.Version = version
+	daemon.Version = version
+
 	// Subcommands come before the flags, so that `plxr ls` stays plain.
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		if command(os.Args[1], os.Args[2:]) {
@@ -212,6 +221,7 @@ func runDaemon() {
 	}
 
 	core.Version = version
+	daemon.Version = version
 	ptyhost.Version = version
 	// The recording sits next to the rest of the state. That way the scrollback
 	// survives every restart — with tmux it is gone.
