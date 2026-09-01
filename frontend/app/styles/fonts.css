@@ -1,0 +1,9 @@
+/* Self-hosted so the app renders identically offline (no runtime network). */
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/ibm-plex-mono-600.woff2") format("woff2"); }
+
+/* Skin faces. Same rule: shipped with the app, never fetched at runtime. */
+@font-face { font-family: "Caveat"; src: url("/fonts/caveat.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "SpaceMono"; src: url("/fonts/spacemono.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "PressStart"; src: url("/fonts/pressstart.woff2") format("woff2"); font-display: swap; }

@@ -1,0 +1,21 @@
+{
+  "name": "opencode",
+  "label": "opencode",
+  "source": "screen",
+  "match": [
+    "opencode"
+  ],
+  "blocked": [
+    "\\(y/n\\)",
+    "\\[y/N\\]",
+    "Approve",
+    "Confirm"
+  ],
+  "working": [
+    "Thought:",
+    "Build ·",
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

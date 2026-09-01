@@ -1,0 +1,20 @@
+{
+  "name": "gemini",
+  "label": "Gemini CLI",
+  "source": "screen",
+  "match": [
+    "gemini"
+  ],
+  "blocked": [
+    "Apply this change",
+    "\\(y/n\\)",
+    "\\[y/N\\]",
+    "Allow"
+  ],
+  "working": [
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]",
+    "Generating"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

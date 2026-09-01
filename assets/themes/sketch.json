@@ -1,0 +1,11 @@
+{
+  "name": "sketch",
+  "label": "Sketch · Notebook",
+  "skin": "sketch",
+  "scanlines": false,
+  "glow": false,
+  "palette": {
+    "dim": "#716d62",
+    "waiting": "#716d62"
+  }
+}

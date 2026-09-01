@@ -1,0 +1,369 @@
+/* Skin: Win95 — grey plastic, hard edges, bevels facing out.
+   The trick is the double frame: light against dark on the outside, reversed on
+   the inside. Nothing here is round, nothing has a soft shadow. */
+
+:root {
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
+  --term-bg: #000000; --term-fg: #c0c0c0;
+  --bg: #008080;        /* the teal desktop */
+  --panel: #c0c0c0;     /* window surface */
+  --fg: #000000;
+  --dim: #4d4d4d;
+  --accent: #000080; --onAccent: #ffffff;   /* title bar navy */
+  --line: #808080;
+  --working: #007000; --waiting: #5a5a5a; --blocked: #800000; --dead: #9a9a9a;
+  --hi: #ffffff; --sh: #808080; --dk: #000000;
+}
+
+body {
+  font-family: Tahoma, 'Segoe UI', 'MS Sans Serif', Geneva, sans-serif;
+  /* Adjustable through --size in the style editor. */
+  font-size: var(--size, 12px);
+  -webkit-font-smoothing: none;
+}
+.app { background: var(--bg); }
+.fx { display: none; }
+
+/* Bevel facing out: raised. For buttons, tiles, cards. */
+.btn, .selectButton, .tile, .card, .selectList {
+  background: var(--panel); color: var(--dk);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
+}
+/* Bevel facing in: sunken. For anything that takes input. */
+.filter input, .listbar input, .card input, .card textarea, .viewerbody, .tbody, .files {
+  background: #fff; color: #000;
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--dk);
+}
+
+/* ---------- Kopf ---------- */
+
+.bar, .statusrow, .sessbar, .listbar, .overlayBar, .updatebar, .filesbar {
+  background: var(--panel);
+  border-bottom: 2px solid var(--hi);
+  box-shadow: inset 0 -1px 0 var(--sh);
+}
+.mark { color: var(--accent); }
+.wordmark { font-size: 1.3em; font-weight: bold; color: var(--dk); }
+.prompt { color: var(--dk); }
+.filter input, .listbar input, .card input, .card textarea { padding: 3px 5px; outline: none; }
+
+.btn { padding: 3px 12px; cursor: pointer; }
+.btn:active { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; padding: 4px 11px 2px 13px; }
+.btn.primary { font-weight: bold; }
+.btn.tiny { padding: 1px 6px; }
+.btn.tiny.on, .btn:disabled { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+.btn:disabled { color: var(--sh); text-shadow: 1px 1px 0 var(--hi); }
+
+.statusrow, .meta { color: var(--dk); font-size: .9em; }
+:root[data-offline="yes"] #counts { color: var(--blocked); font-weight: bold; }
+.updatebar { border-bottom: 2px solid var(--accent); }
+
+/* ---------- Schiene ---------- */
+
+.rail { background: var(--panel); border-right: 2px solid var(--hi); box-shadow: inset -1px 0 0 var(--sh); }
+.railitem { color: var(--dk); }
+.railitem:hover { background: #d4d0c8; }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
+.railhome { font-weight: bold; border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.railgroup { color: var(--dk); font-weight: bold; font-size: .95em; background: #d4d0c8; }
+.rsub { color: var(--dim); font-size: .9em; }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+/* Not --sh: that is the edge of the 3D borders, #808080 on #c0c0c0 —
+   ein Verhaeltnis von 1.01 zu 1. */
+.rmeta { color: var(--dim); }
+
+/* ---------- Tiles: each one is a little window ---------- */
+
+.tile { min-height: 240px; }
+.tile:hover { outline: 1px dotted var(--dk); outline-offset: -4px; }
+.tile[data-status="dead"] { opacity: .65; }
+
+.thead {
+  margin: 2px; padding: 3px 5px;
+  background: linear-gradient(90deg, var(--accent), #1084d0);
+  color: #fff; font-weight: bold;
+}
+/* The title bar is a gradient, not window grey — a status colour meant for a
+   pale surface stands on dark navy at 1.89:1 there.
+ 
+   Doubling the class is not a trick but the point: .dot.working comes later in
+   this file and would otherwise win. The status is not lost with it, the glyph
+   still carries it (● ○ ◉ ✕), and the title bar itself changes colour for a
+   session that is waiting or dead. */
+.thead .dot.dot { color: inherit; }
+
+.tname { color: #fff; }
+.tproj { color: #cfd8ff; font-weight: normal; font-size: .9em; }
+.tile[data-status="permission"] .thead { background: linear-gradient(90deg, #800000, #c04040); }
+.tile[data-status="dead"] .thead { background: linear-gradient(90deg, #808080, #b0b0b0); }
+
+.tbody { margin: 0 4px; padding: 6px 7px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.25; max-height: 175px; }
+.tfoot { color: var(--dk); font-size: .9em; padding: 5px 7px; }
+.tfoot .agent { border: 1px solid var(--sh); background: var(--panel); padding: 0 4px; }
+
+.dot.working { color: var(--working); }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: w95blink 1s steps(2) infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes w95blink { 50% { opacity: .2 } }
+
+.empty { color: #fff; }
+/* The empty state stood directly on the teal desktop: grey text on turquoise,
+   unreadable. In a skin whose whole language is "grey window with an edge" it
+   belongs on a window. */
+.emptybox {
+	background: var(--panel); color: var(--dk);
+	border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+	padding: 14px 18px;
+}
+.emptyhead { font-weight: bold; color: var(--accent); }
+.emptyagents { color: var(--dim); }
+
+/* ---------- Listen ---------- */
+
+.listbody { background: #fff; }
+.row { border-bottom: 1px solid #dfdfdf; }
+.row:hover { background: #d4d0c8; }
+.row:nth-child(even) { background: #f4f4f4; }
+.row:nth-child(even):hover { background: #d4d0c8; }
+.hitDate, .hitProject, .hitValue, .hitSmall { color: var(--dim); }
+.hitTitle { color: #000; }
+.hitExcerpt { color: var(--dim); font-size: .92em; }
+.row .btn { padding: 1px 8px; font-size: .95em; }
+.row[data-own="yes"] .hitTitle { color: var(--working); font-weight: bold; }
+
+.ublock { background: #fff; border-bottom: 1px solid #dfdfdf; }
+.uhead { color: var(--dk); font-weight: bold; }
+.ukey { color: #000; }
+.ubar { background: #fff; border: 1px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.ufill { background: var(--accent); }
+.uval { color: var(--dim); }
+.usum { background: var(--panel); border-bottom: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); }
+.ubox b { color: var(--accent); font-weight: bold; }
+.ubox span { color: var(--dim); font-size: .9em; }
+
+/* ---------- Session ---------- */
+
+.sessbar { background: linear-gradient(90deg, var(--accent), #1084d0); color: #fff; border: 0; box-shadow: none; }
+.sesstitle { font-weight: bold; }
+.sessbar .meta { color: #cfd8ff; }
+.sessbar .btn { color: var(--dk); }
+
+.files { margin: 3px; }
+.filesbar { background: var(--panel); border-bottom: 1px solid var(--sh); box-shadow: none; }
+.filesroot { color: var(--dk); font-size: .9em; }
+.filetree { font-family: Tahoma, sans-serif; }
+.frow { color: #000; font-size: .95em; }
+.frow:hover { background: #d4d0c8; }
+.frow.noise { color: var(--sh); }
+.fchev, .ficon { color: var(--accent); }
+
+.pterm {
+  margin: 0; background: var(--term-bg);
+  border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset 1px 1px 0 var(--dk);
+}
+.panelabel { background: var(--panel); color: var(--dk); font-weight: bold; font-size: .9em; border: 1px solid var(--sh); }
+.paneclose { background: var(--panel); color: var(--dk); border: 1px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.pane[data-active="yes"] .panelabel { background: var(--accent); color: var(--onAccent, #fff); }
+
+.overlay { background: var(--panel); }
+.overlayName { font-weight: bold; color: var(--dk); }
+.viewerbody { font-family: 'Courier New', monospace; font-size: 12px; margin: 4px; caret-color: #000; }
+.dirty { color: var(--blocked); font-weight: bold; font-size: .9em; }
+
+.ruleslist { background: #fff; }
+.rrow { border-bottom: 1px solid #dfdfdf; }
+.rrow:hover { background: #d4d0c8; }
+.rart { color: var(--dim); font-weight: bold; font-size: .9em; }
+.rtitle { color: var(--accent); }
+.rdesc { color: #333; font-size: .95em; }
+.rpath { color: var(--sh); font-size: .9em; }
+
+/* ---------- Dialoge ---------- */
+
+.backdrop { background: rgba(0,0,0,.35); }
+.card { padding: 14px 16px; gap: 12px; }
+.cardTitle { font-weight: bold; font-size: 1.1em; color: var(--dk); }
+.fieldName { color: var(--dk); }
+.splitRow { color: var(--dk); }
+.splitRow:hover { background: var(--accent); color: var(--onAccent, #fff); }
+
+/* ---------- Auswahlliste ---------- */
+
+.selectButton { padding: 2px 8px; }
+.selectArrow { color: var(--dk); font-size: .8em; }
+.selectList { padding: 2px; }
+.selectRow { color: var(--dk); }
+.selectRow:hover { background: var(--accent); color: var(--onAccent, #fff); }
+.selectRow[data-picked] { font-weight: bold; }
+.selectGroup { color: var(--dim); font-weight: bold; font-size: .9em; }
+
+/* ---------- Scrollbars: with the dithered track of the era ---------- */
+
+*::-webkit-scrollbar { width: 16px; height: 16px; }
+*::-webkit-scrollbar-track {
+  background-color: #dfdfdf;
+  background-image: linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%),
+                    linear-gradient(45deg, #fff 25%, transparent 25%, transparent 75%, #fff 75%);
+  background-size: 4px 4px; background-position: 0 0, 2px 2px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--panel);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset 1px 1px 0 var(--panel), inset -1px -1px 0 var(--sh);
+}
+
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in classes.py makes sure no skin loses
+   them again. */
+.dialogText { color: var(--dk); }
+.boot { color: var(--dim); }
+.notice { color: var(--dim); font-size: .92em; text-transform: none; }
+.dialogFoot { border-top: 2px solid var(--sh); box-shadow: 0 1px 0 var(--hi); padding-top: 14px; }
+.btn.icon { font-size: 1.1em; line-height: 1; padding: 3px 9px; }
+.emptyNote { color: var(--dim); }
+.emptyNote b { color: var(--dk); display: block; margin-bottom: 6px; font-weight: bold; }
+
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
+.dot.orphaned { color: #800000; animation: orphanedblink 1.4s steps(2) infinite; }
+.railitem[data-status="orphaned"] { color: #800000; }
+.railitem[data-status="orphaned"] .rsub { color: #800000; opacity: .8; }
+.tile[data-status="orphaned"] { border-color: #800000; background: #c0c0c0; opacity: 1; }
+.tile[data-status="orphaned"] .tfoot .act { color: #800000; opacity: 1; }
+@keyframes orphanedblink { 50% { opacity: .3 } }
+
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in classes.py makes sure none
+   loses them again. */
+/* .listbody and .ruleslist are deliberately NOT in here any more: they get
+   their white further up, and "transparent" undid it again down here — the
+   teal desktop shone through the list and only the even rows were opaque.
+   That is what a gate looks like when it gets fed mechanically instead of
+   read. */
+.grid, .filetree { background: transparent; }
+.rdot { opacity: .9; }
+.selectArrow { color: var(--dim); font-size: .8em; }
+
+.hitMain .hitTitle { color: var(--accent); }
+.tfoot .act { color: var(--fg); opacity: .85; }
+
+/* Progress bar during an update. */
+.progress { background: #fff; }
+.progress i { background: var(--accent); }
+
+/* The choice in the start dialog. */
+.choiceButton { background: var(--panel); color: var(--dk); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.choiceButton[data-picked="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+
+/* Style editor and colour picker. */
+.styleName { color: var(--dk); font-size: .92em; text-transform: none; }
+.styleNumber { color: var(--dk); }
+.styleNumber button { color: var(--dk); }
+.styleToggle { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+.styleToggle[data-on="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+.swatch { border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+.swatchField { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.swatchHex { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); color: #000; }
+
+/* Eingabefeld im Dialog. */
+.promptInput { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+
+/* Suche im Terminal. */
+.find { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); }
+.find input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; padding: 2px 4px; }
+
+/* Posteingang. */
+.inboxCard { border-bottom: 1px solid #dfdfdf; }
+.inboxName { font-weight: bold; color: var(--accent); }
+.inboxPath { color: var(--dim); font-size: .9em; }
+.inboxCount { font-size: .85em; color: var(--dim); background: var(--bg);
+  border: 1px solid; border-color: #808080 #fff #fff #808080; }
+.inboxQuestion { background: #fff; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  color: #000; font-family: 'Courier New', monospace; font-size: 11px; }
+.inboxReply input { background: #fff; color: #000; border: 2px solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+.inboxQuick button { background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); color: var(--dk); }
+
+/* Verbrauchstempo. */
+.pace { color: var(--dk); }
+.pace[data-warning="yes"] { color: var(--blocked); font-weight: bold; }
+
+/* Hover states: whatever is clickable should show it. */
+.choiceButton:hover { background: #d4d0c8; }
+.styleToggle:hover { background: #d4d0c8; }
+.paneclose:hover { color: var(--blocked); }
+.swatch:hover { border-color: var(--accent); }
+.btn:hover { background: #d4d0c8; }
+
+/* Tooltip */
+.tip { border: 1px solid #000; background: #ffffe1; color: #000; box-shadow: 1px 1px 0 #808080; }
+
+/* Warning coat: permission prompts skipped */
+.tile[data-untamed="yes"]::before {
+  border: 3px solid #000;
+  background: repeating-linear-gradient(45deg, #ffd800 0 10px, #000 10px 20px);
+  opacity: .16;
+}
+
+/* Frozen */
+.dot.frozen { color: #000080; }
+.tile[data-status="frozen"] { border-style: dotted; }
+#brake[data-on="yes"] { background: #800000; color: #fff; }
+
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="win95"] { --crest: "■□▲△●○◆◇★☆♠♣♥♦※¶§"; }
+.crest { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
+
+/* Playback */
+.playbar { border-top: 1px solid #fff; box-shadow: inset 0 1px 0 #808080; }
+.hitAfter { color: #444; background: #fff; border: 1px solid #808080; padding: 3px 6px; }
+
+/* Settings tabs */
+.tab { background: #c0c0c0; border: 2px outset #dfdfdf; border-bottom: 0; padding: 3px 12px; margin-bottom: -2px; }
+.tab.on { background: #d4d0c8; padding-bottom: 5px; z-index: 1; position: relative; }
+.tabs { border-bottom: 2px solid #dfdfdf; }
+
+/* Raumzustand */
+/* No breathing — Windows 95 did not breathe. The desktop takes on colour. */
+:root[data-room="working"] body { background: #0a7d7d; }
+:root[data-room="waiting"] body { background: #7d4a0a; }
+:root[data-room="idle"] body { background: var(--bg); }
+
+/* A tool button that is engaged: pressed in, as Windows 95 did it. */
+.btn.on { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+
+/* Workbench — a window surface of its own, as Windows 95 would have it. */
+.workbench { background: var(--panel); margin: 3px; }
+.wbBar { background: var(--panel); border-bottom: 1px solid var(--sh); }
+.wbHint { color: var(--dk); font-size: .9em; }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .9em; }
+
+/* Going in circles: the tile is green and it is still stuck. */
+.tile[data-stuck="yes"] .act { color: #800000; font-weight: bold; }
+
+/* The hook is missing — that is the one thing worth saying here. */
+.emptyhook { color: #800000; }
+
+/* A raised key, the way the system draws one: light above and left, dark
+   below and right, and a shadow underneath. */
+.keyCap {
+  min-width: 2.4em; padding: 1px 7px;
+  color: var(--dk); background: var(--panel);
+  border: 2px solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: 1px 1px 0 var(--sh);
+  font-weight: bold; font-size: .9em;
+}

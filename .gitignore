@@ -1,0 +1,13 @@
+# Built, not written.
+frontend/out/
+frontend/.next/
+frontend/node_modules/
+build/plxr.app/
+build/darwin/
+
+# Machine-local records, not part of the source.
+.seen
+*.log
+
+# What the operating system leaves lying around.
+.DS_Store

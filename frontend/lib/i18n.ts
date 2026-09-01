@@ -1,0 +1,59 @@
+"use client";
+
+// Translation table lookup. English is the primary language and the fallback;
+// German lives only in the translation files the daemon serves.
+type Table = Record<string, string>;
+
+let table: Table = {};
+let current = "en";
+
+export async function loadLanguage(lang: string): Promise<void> {
+  try {
+    const r = await fetch(`/i18n/${lang}.json`);
+    if (!r.ok) return;
+    table = (await r.json()) as Table;
+    current = lang;
+    document.documentElement.setAttribute("lang", lang);
+  } catch {
+    /* keep whatever is loaded; the built-in defaults still read English */
+  }
+}
+
+export function language(): string {
+  return current;
+}
+
+export function tr(key: string, fallback: string, vars?: Record<string, string | number>): string {
+  let out = table[key] ?? fallback;
+  if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));
+  return out;
+}
+
+// Errors reach the window as a stable code, never as prose: an error message is
+// the worst possible place for a break in language. Details that cannot be
+// translated — a path, a name — travel behind a vertical bar and land in
+// {detail}. Anything unrecognised is shown as it came, so nothing is swallowed.
+export function errText(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e ?? "");
+  /* The first bar divides them, and only the first.
+   *
+   * Splitting on every bar and taking the first two pieces threw away
+   * everything after a second one — and the detail is often a path, where a bar
+   * is a perfectly legal character, or the message of an underlying error,
+   * which can contain anything at all. The result was a plausible-looking path
+   * with its end cut off, in the message somebody reads to find out what went
+   * wrong. */
+  const bar = raw.indexOf("|");
+  const code = bar < 0 ? raw : raw.slice(0, bar);
+  const detail = bar < 0 ? undefined : raw.slice(bar + 1);
+  if (!/^err\.[\w.]+$/.test(code)) return raw;
+  if (!(code in table)) return raw;
+  return tr(code, code, detail === undefined ? undefined : { detail });
+}
+
+// Plural form: keys carry .one / .other, as the daemon's tables do.
+export function trN(base: string, n: number, fallbackOne: string, fallbackOther: string): string {
+  const key = n === 1 ? `${base}.one` : `${base}.other`;
+  const fb = n === 1 ? fallbackOne : fallbackOther;
+  return tr(key, fb, { n });
+}

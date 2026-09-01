@@ -1,0 +1,21 @@
+{
+  "name": "aider",
+  "label": "aider",
+  "source": "screen",
+  "match": [
+    "aider"
+  ],
+  "blocked": [
+    "\\(Y\\)es/\\(N\\)o",
+    "to the chat\\?",
+    "\\[Yes\\]",
+    "Run shell command"
+  ],
+  "working": [
+    "Applying edit",
+    "Committing",
+    "Tokens:"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

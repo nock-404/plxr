@@ -1,0 +1,23 @@
+{
+  "name": "codex",
+  "label": "Codex CLI",
+  "source": "screen",
+  "match": [
+    "codex"
+  ],
+  "blocked": [
+    "Allow command",
+    "Approve\\?",
+    "\\(y/n\\)",
+    "\\[y/N\\]",
+    "Do you want"
+  ],
+  "working": [
+    "Explored",
+    "Ran\\b",
+    "Working",
+    "[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]"
+  ],
+  "idle_seconds": 3.0,
+  "idle_status": "waiting"
+}

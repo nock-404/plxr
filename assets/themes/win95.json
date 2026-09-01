@@ -1,0 +1,11 @@
+{
+  "name": "win95",
+  "label": "Windows 95",
+  "skin": "win95",
+  "scanlines": false,
+  "glow": false,
+  "palette": {
+    "dim": "#4d4d4d",
+    "waiting": "#4d4d4d"
+  }
+}

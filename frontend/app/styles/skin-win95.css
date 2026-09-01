@@ -1,0 +1,357 @@
+/* Skin: Win95 — grey plastic, hard edges, bevels facing out.
+   The trick is the double frame: light against dark on the outside, reversed on
+   the inside. Nothing here is round, nothing has a soft shadow, and the window
+   is opaque: this look predates frosted glass by thirty years. */
+
+[data-skin="win95"] {
+  --font: Tahoma, "Segoe UI", "MS Sans Serif", Geneva, sans-serif;
+  /* Tahoma is proportional — a terminal set in it is unreadable. */
+  --term-font: "Courier New", Courier, ui-monospace, monospace;
+  --size: 0.8125rem;
+  --hair: 0.0625rem;
+  --bevel: 0.125rem;
+  --term-bg: #000000;
+  --term-fg: #c0c0c0;
+  --bg: #008080;
+  /* the teal desktop */
+  --panel: #c0c0c0;
+  /* window surface */
+  --fg: #000000;
+  --dim: #4d4d4d;
+  --accent: #000080;
+  --onAccent: #ffffff;
+  /* title bar navy */
+  --line: #808080;
+  --working: #007000;
+  --waiting: #5a5a5a;
+  --blocked: #800000;
+  --dead: #9a9a9a;
+  --hi: #ffffff;
+  --sh: #808080;
+  --dk: #000000;
+}
+
+[data-skin="win95"] body {
+  background: var(--bg);
+  -webkit-font-smoothing: none;
+  text-shadow: none;
+}
+[data-skin="win95"] .fx { display: none; }
+
+/* Bevel facing out: raised. Buttons, tiles, cards. */
+[data-skin="win95"] .btn,
+[data-skin="win95"] .selectButton,
+[data-skin="win95"] .tile,
+[data-skin="win95"] .card,
+[data-skin="win95"] .selectList,
+[data-skin="win95"] .choiceButton,
+[data-skin="win95"] .keyCap {
+  background: var(--panel-glass);
+  color: var(--dk);
+  border: var(--bevel) solid;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--panel), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh);
+  border-radius: 0;
+}
+/* Bevel facing in: sunken. Anything that takes input, and the tile's body. */
+[data-skin="win95"] .filter input,
+[data-skin="win95"] .listbar input,
+[data-skin="win95"] .composer input,
+[data-skin="win95"] .card input,
+[data-skin="win95"] .card textarea,
+[data-skin="win95"] .agentLines,
+[data-skin="win95"] .viewerbody,
+[data-skin="win95"] .tbody,
+[data-skin="win95"] .files,
+[data-skin="win95"] .pterm,
+[data-skin="win95"] .slider-track {
+  background: #fff;
+  color: #000;
+  border: var(--bevel) solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--dk);
+}
+[data-skin="win95"] .pterm, [data-skin="win95"] .viewerbody { background: var(--term-bg); color: var(--term-fg); }
+
+/* ---- head ---- */
+[data-skin="win95"] .bar,
+[data-skin="win95"] .statusrow,
+[data-skin="win95"] .sessbar,
+[data-skin="win95"] .listbar,
+[data-skin="win95"] .overlayBar,
+[data-skin="win95"] .updatebar,
+[data-skin="win95"] .filesbar,
+[data-skin="win95"] .wbBar {
+  background: var(--panel-glass);
+  border-bottom: var(--bevel) solid var(--hi);
+  box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--sh);
+}
+[data-skin="win95"] .mark { color: var(--accent); }
+[data-skin="win95"] .wordmark {
+  font-size: 1.3em;
+  font-weight: bold;
+  color: var(--dk);
+  letter-spacing: 0;
+}
+[data-skin="win95"] .prompt { color: var(--dk); }
+[data-skin="win95"] .filter input,
+[data-skin="win95"] .listbar input,
+[data-skin="win95"] .card input { outline: none; }
+
+[data-skin="win95"] .btn {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .btn:active,
+[data-skin="win95"] .btn.on,
+[data-skin="win95"] .btn:disabled { border-color: var(--dk) var(--hi) var(--hi) var(--dk); box-shadow: none; }
+[data-skin="win95"] .btn.primary { font-weight: bold; }
+[data-skin="win95"] .btn:disabled { color: var(--sh); text-shadow: var(--hair) var(--hair) 0 var(--hi); }
+
+[data-skin="win95"] .statusrow, [data-skin="win95"] .meta {
+  color: var(--dk);
+  font-size: 0.9em;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .updatebar { border-bottom: var(--bevel) solid var(--accent); }
+
+/* ---- rail ---- */
+[data-skin="win95"] .rail {
+  background: var(--panel-glass);
+  border-right: var(--bevel) solid var(--hi);
+  box-shadow: inset calc(var(--hair) * -1) 0 0 var(--sh);
+}
+[data-skin="win95"] .railitem { color: var(--dk); border-left: 0; }
+[data-skin="win95"] .railitem:hover { background: #d4d0c8; }
+[data-skin="win95"] .railitem.active { background: var(--accent); color: var(--onAccent); }
+[data-skin="win95"] .railitem.active .rsub,
+[data-skin="win95"] .railitem.active .rmeta { color: inherit; opacity: 0.8; }
+[data-skin="win95"] .railhome {
+  font-weight: bold;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+  border-bottom: var(--bevel) solid var(--sh);
+  box-shadow: 0 var(--hair) 0 var(--hi);
+}
+[data-skin="win95"] .railgroup {
+  color: var(--dk);
+  font-weight: bold;
+  font-size: 0.95em;
+  background: #d4d0c8;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .rsub {
+  color: var(--dim);
+  font-size: 0.9em;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* Not --sh: that is the edge colour of the 3D borders, #808080 on #c0c0c0 —
+   a contrast ratio of 1.01 to 1. */
+[data-skin="win95"] .rmeta { color: var(--dim); }
+
+/* ---- tiles: each one is a little window ---- */
+[data-skin="win95"] .tile:hover {
+  outline: var(--hair) dotted var(--dk);
+  outline-offset: -0.25rem;
+  transform: none;
+}
+[data-skin="win95"] .tile::before, [data-skin="win95"] .tile::after { display: none; }
+[data-skin="win95"] .tile[data-status="dead"] { opacity: 0.65; }
+[data-skin="win95"] .thead {
+  background: var(--accent);
+  color: var(--onAccent);
+  border: 0;
+}
+[data-skin="win95"] .tname { color: var(--onAccent); font-weight: bold; }
+[data-skin="win95"] .tproj {
+  color: var(--onAccent);
+  opacity: 0.75;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .tbody {
+  font-family: "Courier New", monospace;
+  font-size: 0.85em;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+[data-skin="win95"] .tfoot {
+  color: var(--dk);
+  border-top: 0;
+  font-size: 0.9em;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .tfoot .agent {
+  border: var(--hair) solid var(--sh);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+[data-skin="win95"] .dot.working { color: var(--working); }
+[data-skin="win95"] .dot.waiting { color: var(--waiting); }
+[data-skin="win95"] .dot.permission { color: var(--blocked); }
+[data-skin="win95"] .dot.dead { color: var(--dead); }
+
+[data-skin="win95"] .empty { color: var(--dk); }
+[data-skin="win95"] .emptybox {
+  background: var(--panel);
+  border: var(--bevel) solid;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--panel), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh);
+}
+[data-skin="win95"] .emptyhead {
+  color: var(--accent);
+  font-weight: bold;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .emptyagents { color: var(--dim); letter-spacing: 0; }
+
+/* ---- lists, session, dialogs ---- */
+[data-skin="win95"] .row { border-bottom: var(--hair) solid var(--sh); }
+[data-skin="win95"] .row:hover { background: #d4d0c8; }
+[data-skin="win95"] .hitTitle { color: var(--dk); }
+[data-skin="win95"] .hitExcerpt, [data-skin="win95"] .hitProject, [data-skin="win95"] .hitDate { color: var(--dim); }
+[data-skin="win95"] .hitSmall, [data-skin="win95"] .uhead {
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .ubar { background: #fff; border: var(--hair) solid var(--sh); }
+[data-skin="win95"] .ufill { background: var(--accent); opacity: 1; }
+[data-skin="win95"] .ubox b { color: var(--accent); font-weight: bold; }
+
+[data-skin="win95"] .sesstitle {
+  color: var(--dk);
+  font-weight: bold;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .panelabel {
+  background: var(--panel);
+  color: var(--dk);
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .paneclose { background: var(--panel); color: var(--dk); }
+[data-skin="win95"] .frow { color: var(--dk); opacity: 1; }
+[data-skin="win95"] .frow:hover { background: var(--accent); color: var(--onAccent); }
+[data-skin="win95"] .overlay { background: var(--panel); }
+[data-skin="win95"] .overlayName { color: var(--dk); font-weight: bold; }
+[data-skin="win95"] .backdrop {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-skin="win95"] .cardTitle {
+  color: var(--dk);
+  font-weight: bold;
+  text-transform: none;
+  letter-spacing: 0;
+}
+[data-skin="win95"] .fieldName {
+  color: var(--dk);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .notice { color: var(--dim); }
+[data-skin="win95"] .tab {
+  background: var(--panel);
+  border: var(--bevel) solid;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  border-bottom: 0;
+  color: var(--dk);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .tab.on { font-weight: bold; }
+[data-skin="win95"] .choiceButton { color: var(--dk); letter-spacing: 0; }
+[data-skin="win95"] .choiceButton[data-picked="yes"] {
+  border-color: var(--dk) var(--hi) var(--hi) var(--dk);
+  box-shadow: none;
+  background: var(--panel);
+  color: var(--dk);
+  font-weight: bold;
+}
+[data-skin="win95"] .selectButton {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .selectRow { color: var(--dk); }
+[data-skin="win95"] .selectRow:hover { background: var(--accent); color: var(--onAccent); }
+[data-skin="win95"] .slider-fill { background: var(--accent); opacity: 1; }
+[data-skin="win95"] .slider-knob {
+  background: var(--panel);
+  border-radius: 0;
+  border: var(--bevel) solid;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  box-shadow: none;
+}
+[data-skin="win95"] .workbench { background: var(--panel-glass); border-left: var(--bevel) solid var(--hi); }
+[data-skin="win95"] .wbText { color: var(--dk); opacity: 1; }
+[data-skin="win95"] .wbTime { color: var(--dim); }
+[data-skin="win95"] *::-webkit-scrollbar-track { background: #d4d0c8; border: 0; }
+[data-skin="win95"] *::-webkit-scrollbar-thumb {
+  background: var(--panel);
+  border: var(--bevel) solid;
+  border-color: var(--hi) var(--dk) var(--dk) var(--hi);
+  background-clip: border-box;
+}
+
+/* ---- caught up by classes.py ------------------------------------------- */
+[data-skin="win95"] .act { color: var(--dk); }
+[data-skin="win95"] .ctx { color: var(--dim); }
+[data-skin="win95"] .fchev, [data-skin="win95"] .ficon { color: var(--dim); }
+[data-skin="win95"] .rdot { color: var(--dk); }
+[data-skin="win95"] .playbar { background: var(--panel); border-top: var(--bevel) solid var(--hi); }
+[data-skin="win95"] .rart {
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.9em;
+}
+[data-skin="win95"] .rtitle { color: var(--accent); font-weight: bold; }
+[data-skin="win95"] .rdesc { color: var(--dim); font-size: 0.9em; }
+[data-skin="win95"] .rpath { color: var(--dim); font-size: 0.85em; }
+[data-skin="win95"] .ukey, [data-skin="win95"] .uval { color: var(--dk); font-size: 0.9em; }
+[data-skin="win95"] .ubig { color: var(--accent); font-weight: bold; }
+[data-skin="win95"] .notice.warn { color: var(--blocked); font-weight: bold; }
+[data-skin="win95"] .queuebar { background: var(--panel); border-top: var(--bevel) solid var(--hi); }
+[data-skin="win95"] .queuerow { border-bottom: var(--hair) solid var(--sh); }
+[data-skin="win95"] .queuenum { color: var(--dim); }
+[data-skin="win95"] .queuetext { color: var(--dk); }
+[data-skin="win95"] .tile[data-unattended="yes"] {
+  background-image: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--blocked) 16%, transparent) 0 0.375rem,
+    transparent 0.375rem 0.875rem);
+}
+[data-skin="win95"] .railitem[data-unattended="yes"] .rdot { color: var(--blocked); }
+[data-skin="win95"] .styleName { color: var(--dk); font-size: .95em; }
+[data-skin="win95"] .styleToggle { background: var(--panel); color: var(--dk); border: var(--bevel) solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); font-size: .95em; letter-spacing: 0; text-transform: none; }
+[data-skin="win95"] .styleToggle[data-on="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }
+[data-skin="win95"] .swatch { border: var(--bevel) solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); }
+[data-skin="win95"] .swatchHex { background: #fff; color: #000; border: var(--bevel) solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh); outline: none; }
+[data-skin="win95"] .styleNumber { color: var(--dk); font-size: .95em; }
+[data-skin="win95"] .emptyNote { color: var(--dim); font-size: .95em; }
+[data-skin="win95"] .emptyNote b { color: var(--accent); font-weight: bold; }
+[data-skin="win95"] .input {
+  background: #fff; color: #000;
+  border: var(--bevel) solid; border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--dk); outline: none;
+}
+[data-skin="win95"] .pathList .selectRow { font-size: .95em; }
+
+/* The docked settings sit on the window like every other panel here: grey
+   plastic with the light coming from the top left. */
+[data-skin="win95"] .settingspanel {
+  background: var(--panel-glass);
+  border-left: var(--bevel) solid var(--hi);
+  box-shadow: inset calc(var(--hair) * -1) 0 0 var(--sh);
+}

@@ -1,0 +1,478 @@
+/* plxr — the layout layer.
+
+   Arrangement only: flex, grid, sizes, overflow, visibility. No colour, no
+   border, no typeface — those come from the skin, so a new skin re-dresses the
+   whole interface without anyone touching the markup. Sizes in rem, never px.
+
+   The contract. Every skin may set these tokens:
+     --bg --fg --dim --accent --panel --line
+     --working --waiting --blocked --dead
+     --term-bg --term-fg   terminal colours, separate from the interface
+     --crest               the glyphs this skin draws directories with
+*/
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* The frame is fixed here, not left to the typeface.
+   A skin brings its own font, and a bigger one used to push the header from 59
+   to 78 pixels — three skins, three different layouts. The reference is one
+   layout in every skin, so the rows that make up the frame get a height. */
+:root {
+  --files-w: 16.25rem;
+  --rail-w: 12.1875rem;
+  --settings-w: 26rem;
+  --wb-w: 26rem;
+  --bar-h: 3.6875rem;    /* 59px, measured against the reference */
+  --status-h: 1.75rem;   /* 28px */
+  --row-h: 1.9375rem;    /* 31px — one rail entry */
+  --strip-h: 2.8125rem;  /* 45px — session bar, list bar */
+  --group-h: 1.6875rem;  /* 27px — a rail group heading */
+  --thead-h: 2.125rem;   /* 34px — the tile's title row */
+  --tfoot-h: 1.625rem;   /* 26px — the tile's status row */
+  --label-h: 1.15rem;    /* the pane's tab label, pinned so the terminal can
+                            reserve room for it — its height must not follow
+                            the skin's typeface, or it lands on the first line */
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  color: var(--fg);
+}
+
+/* The page colour sits on the root, not on the body.
+   Both used to carry it, and the see-through rule only reached the body — so an
+   opaque root stayed behind it and the window never let anything through, no
+   matter what the setting said. */
+html { background: var(--bg); }
+[data-pagebg] body { background-color: transparent; }
+
+/* The text size rides on body, never on :root — rem is the unit this whole
+   file measures in, and anchoring it to a setting would make the layout shift
+   every time somebody changes the type size. */
+body {
+  font-family: var(--font);
+  font-size: var(--size, 1rem);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+[hidden] { display: none !important; }
+
+/* ---------- the page behind everything ----------
+   Two things hang off the root and neither may need a skin to be touched: the
+   gradient, and the window being see-through. Both are switched here, so they
+   work in every skin instead of being baked into one of them.
+
+   See-through is frosted glass, not a lowered opacity: dropping the opacity of
+   every surface lets the raw desktop show through unblurred and muddy. What
+   makes it read as glass is the blur — the operating system already puts a
+   blurred material behind the window, and backdrop-filter blurs whatever else
+   sits behind each pane. Two depths on purpose: the page between the panels is
+   the most transparent, the panels a touch denser, because text sits on them. */
+/* The frost behind the window is the operating system's, and it is grey.
+   A near-black background painted over it at half strength stays grey, so the
+   glass carries the palette's own colour — that is what makes it read as green
+   glass instead of a dirty window.
+
+   Two settings, two separate jobs, and they used to be one:
+     how much colour  →  which colour the glass is
+     how solid        →  how much of what is behind it the glass stops
+
+   The tint used to be painted as a layer of its own, and a layer's strength is
+   its opacity. So turning the colour up turned the window opaque: at the top of
+   the range the glass was a closed green wall while "how solid the window is"
+   still said 0%. One knob quietly did the other one's job, and the other one
+   stopped mattering.
+
+   Now there is one pane. Its colour is mixed first — from the background
+   towards the tint — and only then is the whole thing given its transparency.
+   Colour and solidity cannot reach into each other any more. */
+[data-pagebg~="seethrough"] {
+  /* No blur here. Measured on the real window: with the system's translucent
+     backdrop the frost is already there at full strength with the setting at
+     zero, and CSS cannot reach past the window to change it. What is behind the
+     window is chosen, not dialled — see chosenBackdrop() in main.go. */
+  background-color: color-mix(in srgb,
+    color-mix(in srgb, var(--tint) calc(var(--tintStrength, 14) * 1%), var(--bg))
+    var(--bgSolid, 46%), transparent);
+  background-image: none;
+}
+
+/* With a gradient on top, only the gradient goes in the image layer — the glass
+   itself stays in the colour, where its transparency belongs. */
+[data-pagebg~="seethrough"][data-pagebg~="gradient"] {
+  background-image:
+    radial-gradient(70% 55% at 50% 0%,
+      color-mix(in srgb, var(--tint) calc(var(--gradient) * 1%), transparent), transparent 70%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--accent) calc(var(--gradient) * 0.6%), transparent), transparent 60%);
+}
+/* The gradient rides on the root as well, so it lies under the panels rather
+   than behind an opaque body. Its strength is a setting: at 0 it is not there,
+   and somebody who wants to see it can turn it up until they do. */
+[data-pagebg~="gradient"] {
+  background-image:
+    radial-gradient(70% 55% at 50% 0%,
+      color-mix(in srgb, var(--tint, var(--fg)) calc(var(--gradient) * 1%), transparent), transparent 70%),
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--accent) calc(var(--gradient) * 0.6%), transparent), transparent 60%);
+}
+
+.app { position: relative; height: 100%; display: flex; flex-direction: column; }
+
+/* The skin's effect layer: scanlines, vignette, grain. Above everything,
+   catches no clicks. */
+.fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
+
+/* ---------- head ---------- */
+
+/* macOS puts the traffic lights on top of the content with an inset title bar;
+   without free space on the left they sit on the wordmark. */
+:root[data-titlebar-inset="yes"] .bar { padding-left: 5.5rem; }
+
+/* The header is the window's handle — controls inside must opt out. */
+.bar, .statusrow, .sessbar { --wails-draggable: drag; }
+.bar input, .bar button, .bar .btn, .bar .select,
+.statusrow button, .statusrow input,
+.sessbar button, .sessbar .btn, .sessbar .select { --wails-draggable: no-drag; }
+.btn, .select, .slider, .tile, input, textarea { --wails-draggable: no-drag; }
+
+.bar { display: flex; align-items: center; gap: 1.125rem; flex: 0 0 auto; height: var(--bar-h); padding: 0 1rem; }
+.brand { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+.mark { display: inline-block; width: 1.625rem; height: 1.625rem; flex: 0 0 auto; line-height: 1; }
+.mark svg { width: 100%; height: 100%; display: block; }
+.wordmark { line-height: 1; }
+
+.filter { flex: 0 1 auto; display: flex; align-items: center; gap: 0.5rem; min-width: 0; width: 32rem; max-width: 45vw; }
+.filter input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+
+.draghandle { flex: 1; min-width: 1.25rem; align-self: stretch; }
+.tools { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+/* A control's size is arrangement, not dressing: when each skin set its own
+   padding the header grew with the typeface and the buttons collided. The skin
+   colours them; the frame decides how big they are. */
+.btn {
+  cursor: pointer; font: inherit; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 1.75rem; padding: 0 0.65rem;
+}
+.btn.tiny { height: 1.35rem; padding: 0 0.4rem; }
+.btn.icon { width: 1.75rem; padding: 0; }
+.input, .card textarea, .agentLines { padding: 0.3rem 0.5rem; }
+.input.lines { resize: vertical; min-height: 5rem; }
+.input { font: inherit; color: inherit; min-width: 0; }
+.selectButton { height: 1.75rem; padding: 0 0.65rem; }
+.choiceButton { height: 1.75rem; padding: 0 0.75rem; }
+.tab { height: 1.75rem; padding: 0 0.75rem; }
+.keyCap { padding: 0.12rem 0.5rem; }
+.tfoot .agent { padding: 0 0.3rem; }
+.spacer { flex: 1; }
+
+.updatebar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; padding: 0.45rem 1rem; }
+.statusrow { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; height: var(--status-h); padding: 0 1rem; }
+
+/* ---------- body: rail left, content right ---------- */
+
+.body { flex: 1; min-height: 0; display: flex; }
+
+.rail { flex: 0 0 auto; width: var(--rail-w); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+.railitem {
+  display: flex; gap: 0.5rem; width: 100%; text-align: left; cursor: pointer;
+  padding: 0 0.625rem; font: inherit; color: inherit; background: none; border: 0;
+  align-items: center;
+  /* Fixed, so a larger typeface changes the letters and not the list. */
+  height: var(--row-h);
+}
+/* Sessions are two lines — the glyph belongs on the first line, not centred. */
+/* Two lines need more room, but the same amount in every skin. */
+.railitem:has(.rsub) { align-items: center; height: calc(var(--row-h) * 1.55); }
+.railitem:has(.rsub) .rdot { margin-top: 0.18em; }
+/* Fixed like every other row: a heading that grows with the typeface moves
+   every session below it, and the four skins stop lining up. */
+.railgroup { display: flex; align-items: center; height: var(--group-h); padding: 0 0.625rem; }
+.rdot { flex: 0 0 auto; width: 1.1em; text-align: center; line-height: 1; }
+.rtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.06rem; }
+.rname, .rsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rmeta { flex: 0 0 auto; }
+
+/* The work keeps a floor, and the panels beside it give way.
+   Every docked column was fixed at its own width and only the middle could
+   shrink — so with the file tree, the workbench and the settings all open at
+   once the work was squeezed to nothing while all three stayed exactly as wide
+   as they wanted. Measured at zero pixels by the window gate. Now the panels
+   are the ones that yield. */
+.content { flex: 1 1 auto; min-width: 16rem; display: flex; flex-direction: column; }
+
+/* ---------- tile grid ---------- */
+
+.grid {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  display: grid; gap: 0.875rem; padding: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  align-content: start;
+}
+.tile { position: relative; display: flex; flex-direction: column; height: 14.5rem; cursor: pointer; overflow: hidden; }
+.thead { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; height: var(--thead-h); padding: 0 0.625rem; }
+.dot { flex: 0 0 auto; }
+.tname { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tproj { flex: 0 0 auto; }
+.tbody {
+  flex: 1; padding: 0.55rem 0.625rem;
+  white-space: pre-wrap; word-break: break-word; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: flex-end;
+}
+.tfoot { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--tfoot-h); padding: 0 0.625rem; }
+.tfoot .act { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tfoot .ctx, .tfoot .agent { flex: 0 0 auto; white-space: nowrap; }
+
+.empty { flex: 1; display: grid; place-items: center; }
+
+/* Why a list is empty, said in two parts: a heading on its own line and a
+   sentence under it. Without the block the two ran into each other —
+   "nothing waitingEvery session is working" — and without the width the
+   sentence stretched across the whole window. */
+/* The list of CLIs. A row that wraps, with the space between the names doing
+   the separating — a written-in "·" ends up dangling at the end of whichever
+   line the wrap happens to fall on, which is what it did. */
+.emptyagents { display: flex; flex-wrap: wrap; gap: 0.3125rem 0.875rem; list-style: none; margin: 0; padding: 0; }
+
+.emptyNote { padding: 1.75rem 1.25rem; max-width: 29rem; line-height: 1.55; }
+.emptyNote b { display: block; margin-bottom: 0.375rem; }
+/* Room inside the box, so no skin's border can reach the text.
+   It had none: with a hairline around it that passed, and with Windows 95's
+   two-pixel bevel the first letter of the first name was cut in half. Padding
+   is a size, so it belongs here rather than in whichever skin happened to
+   notice. */
+.emptybox { max-width: 27rem; padding: 1rem 1.125rem; }
+.emptybox p { margin: 0 0 0.75rem; line-height: 1.5; }
+/* The last thing in the box is not always a paragraph — the list of CLIs sits
+   at the bottom now. */
+.emptybox > :last-child { margin-bottom: 0; }
+
+/* ---------- lists: archive, ports, usage, inbox ---------- */
+
+.list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.listbar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.875rem; }
+.listbar input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+.listbody { flex: 1; overflow-y: auto; padding: 0.375rem 0 1.25rem; }
+.row { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.875rem; }
+.row.tall { align-items: flex-start; }
+.hitDate { flex: 0 0 auto; width: 6.25rem; }
+.hitTitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hitMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
+.hitExcerpt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hitProject { flex: 0 0 auto; max-width: 13.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hitSmall { flex: 0 0 auto; }
+.hitAction { flex: 0 0 auto; display: flex; gap: 0.375rem; opacity: 0; transition: opacity 0.1s; }
+.row:hover .hitAction { opacity: 1; }
+.meta { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* usage */
+.ublock { padding: 0.75rem 1rem 0.25rem; }
+.uhead { display: block; margin-bottom: 0.375rem; }
+.urow { display: flex; align-items: center; gap: 0.625rem; padding: 0.2rem 0; }
+.ukey { flex: 0 0 auto; width: 12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ubar { flex: 1; min-width: 2.5rem; height: 0.55rem; position: relative; }
+.ufill { position: absolute; inset: 0 auto 0 0; }
+.uval { flex: 0 0 auto; width: 5.75rem; text-align: right; }
+.usum { display: flex; gap: 1.625rem; flex-wrap: wrap; padding: 0.75rem 1rem; }
+.ubox { display: flex; flex-direction: column; gap: 0.12rem; }
+.ubig { font-size: 1.5em; }
+
+/* ---------- session ---------- */
+
+.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sessbar { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.875rem; }
+.sesstitle { flex: 0 0 auto; }
+.sesssplit { position: relative; flex: 1; min-height: 0; display: flex; }
+
+.files { flex: 0 1 auto; min-width: 10rem; width: var(--files-w); display: flex; flex-direction: column; min-height: 0; }
+/* The bar wraps. It did not, and the fourth button in the row — the one that
+   deletes — was cut off by the edge of the panel: present, reachable by
+   keyboard, and invisible. A row of controls in a panel whose width somebody
+   else decides has to be allowed to fall onto a second line. */
+.filesbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; flex: 0 0 auto; padding: 0.3rem 0.5rem; }
+.filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.fgit { flex: 0 0 auto; width: 1rem; text-align: center; }
+.filesbar .input { flex: 1; min-width: 0; }
+.filetree { flex: 1; overflow: auto; padding: 0.25rem 0 0.75rem; }
+.frow { display: flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.5rem; cursor: pointer; white-space: nowrap; }
+.fchev { flex: 0 0 auto; width: 0.65rem; text-align: center; line-height: 1; }
+.ficon { flex: 0 0 auto; width: 1em; text-align: center; line-height: 1; }
+.fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; padding: 0.625rem 0.75rem 0.75rem; }
+.pane { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
+.panelabel {
+  position: absolute; left: 0.625rem; z-index: 2; padding: 0 0.375rem;
+  top: calc(var(--label-h) / -2);
+  height: var(--label-h); line-height: var(--label-h);
+}
+.paneclose {
+  position: absolute; top: -0.45rem; right: 0.5rem; z-index: 3;
+  cursor: pointer; background: none; border: 0; font: inherit; color: inherit; padding: 0 0.25rem;
+}
+/* The top padding clears the label that straddles this border. Without it the
+   label sits on the first line of output — measured at 7px of overlap in the
+   skin with the tallest typeface. */
+.pterm {
+  flex: 1; min-height: 0; overflow: hidden;
+  padding: calc(var(--label-h) / 2 + 0.3rem) 0.5rem 0.4rem;
+}
+.pterm .xterm { height: 100%; }
+.pterm .xterm-viewport { background: transparent !important; }
+
+/* rules, viewer and playback lie across the layout */
+.overlay { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; }
+.sesssplit[data-files="open"] .viewer { left: var(--files-w); }
+.overlayBar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.75rem; }
+.overlayName { flex: 0 0 auto; }
+.viewerwrap { position: relative; flex: 1; min-height: 0; display: flex; }
+.editor { flex: 1; min-height: 0; overflow: hidden; }
+.viewerbody {
+  flex: 1; overflow: auto; padding: 0.625rem 0.875rem;
+  white-space: pre; resize: none; border: 0; outline: none; tab-size: 2;
+  /* A file is code: it reads in the terminal's face, not the interface's. */
+  font-family: var(--term-font, ui-monospace, monospace);
+}
+.ruleslist { flex: 1; overflow: auto; padding: 0.5rem 0 1.25rem; }
+.rrow { display: flex; gap: 0.75rem; align-items: baseline; padding: 0.375rem 1rem; }
+.rart { flex: 0 0 auto; width: 4.6rem; }
+.rmain { flex: 1; min-width: 0; }
+.rtitle, .rdesc { display: block; }
+.rdesc { margin-top: 0.12rem; }
+.rpath { flex: 0 0 auto; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+.keyCell { flex: 0 0 auto; width: 8.75rem; }
+.keyCap { display: inline-block; text-align: center; min-width: 2.4em; padding: 0.12rem 0.5rem; }
+
+/* ---------- dialogs ---------- */
+
+.backdrop { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; }
+.card.ask { width: min(26rem, 92vw); }
+.card { width: min(35rem, 92vw); padding: 1.25rem 1.375rem; display: flex; flex-direction: column; gap: 0.875rem; }
+.card.wide { width: min(48.75rem, 94vw); gap: 1.125rem; max-height: 88vh; overflow-y: auto; }
+.cardTitle { font-weight: normal; }
+.cardButtons { display: flex; gap: 0.625rem; justify-content: flex-end; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.fieldName { display: block; }
+.rowInline { display: flex; gap: 0.5rem; align-items: stretch; }
+.rowInline input { flex: 1; min-width: 0; }
+.notice { flex: 1; min-width: 0; }
+.dialogFoot { display: flex; align-items: center; gap: 0.625rem; padding-top: 0.875rem; }
+.card input, .card textarea { font: inherit; color: inherit; padding: 0.3rem 0.5rem; }
+.splitList { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
+.splitRow { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; cursor: pointer; text-align: left; font: inherit; color: inherit; background: none; border: 0; }
+.choice { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.choiceButton { cursor: pointer; font: inherit; color: inherit; padding: 0.25rem 0.75rem; border: 0; background: none; }
+.tabs { display: flex; gap: 0.25rem; }
+.tab { cursor: pointer; font: inherit; background: none; }
+.tabbody { display: flex; flex-direction: column; gap: 0.875rem; }
+
+/* ---------- custom select ---------- */
+
+.select { position: relative; display: inline-flex; }
+.selectButton { display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; }
+.selectArrow { font-style: normal; }
+/* Loose in the body while open, so nothing that scrolls can cut it off. */
+.selectList {
+  position: fixed; z-index: 400;
+  max-height: 20rem; overflow-y: auto; display: flex; flex-direction: column;
+}
+.selectRow { text-align: left; cursor: pointer; font: inherit; color: inherit; white-space: nowrap; padding: 0.25rem 0.75rem; border: 0; background: none; }
+
+/* ---------- composer ---------- */
+.composer { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; padding: 0.45rem 0.875rem; }
+.composer input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 0.3rem 0.5rem; }
+
+/* ---------- scrollbars ---------- */
+*::-webkit-scrollbar { width: 0.75rem; height: 0.75rem; }
+*::-webkit-scrollbar-corner { background: transparent; }
+*::-webkit-scrollbar-button { display: none; }
+
+/* ---------- slider ---------- */
+.slider {
+  position: relative; flex: 1; min-width: 8rem; height: 1.4rem;
+  display: flex; align-items: center; cursor: pointer; touch-action: none; outline: none;
+}
+.slider-track { width: 100%; height: 0.3rem; overflow: hidden; }
+.slider-fill { height: 100%; }
+.slider-knob { position: absolute; top: 50%; width: 0.85rem; height: 0.85rem; transform: translate(-50%, -50%); pointer-events: none; }
+
+/* ---------- the handle between two panels ---------- */
+/* Narrow, but not as narrow as it looks: the line is what is seen, the
+   catchable area either side of it is what is grabbed. A two-pixel target is a
+   target nobody hits. */
+.splitter { flex: 0 0 0.5rem; align-self: stretch; cursor: col-resize; touch-action: none; position: relative; z-index: 5; }
+/* The line is drawn down the middle of the handle: what is seen is thin, what
+   can be grabbed is not. Its thickness comes from the skin's own hairline, so a
+   heavier skin gets a heavier line without setting a size of its own. */
+.splitter::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%;
+  width: var(--hair, 0.0625rem); transform: translateX(-50%);
+}
+
+/* ---------- settings, docked ---------- */
+/* Same column geometry as the workbench: it takes its width from the frame and
+   never from its content, so throwing a switch cannot make the panel jump. */
+/* Never more than three fifths of the window, whatever is stored.
+   Clamping only while the handle is being dragged was not enough: a width saved
+   on a wide screen came back on a narrow one and squeezed the work beside it
+   down to nothing, which the window gate caught. In CSS it also holds when the
+   window itself is made smaller, with nobody dragging anything. */
+.settingspanel { flex: 0 1 auto; min-width: 14rem; width: min(var(--settings-w), 60vw); display: flex; flex-direction: column; min-height: 0; }
+.settingsbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.25rem 1.375rem; display: flex; flex-direction: column; gap: 0.875rem; }
+
+/* ---------- workbench ---------- */
+/* Docked beside the interface, not on top of it: the whole point is watching the
+   real window while it changes. */
+.workbench { flex: 0 1 auto; min-width: 12rem; width: var(--wb-w); display: flex; flex-direction: column; min-height: 0; }
+.wbBar { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.625rem; }
+.wbBody { flex: 1; overflow: auto; padding: 0.375rem 0 1rem; }
+.wbLine { display: flex; gap: 0.5rem; padding: 0.15rem 0.625rem; align-items: baseline; }
+.wbTime { flex: 0 0 auto; }
+.wbText { flex: 1; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.agentLines { min-height: 4.5rem; resize: vertical; font: inherit; }
+
+/* ---------- hue picker ---------- */
+.colourPicker { display: flex; flex-direction: column; gap: 0.5rem; flex: 0 1 auto; min-width: 12rem; max-width: 15rem; }
+.sv { position: relative; width: 100%; height: 11rem; cursor: crosshair; touch-action: none; outline: none; }
+/* .hue is written to stretch along a row. Stacked under the square it is in a
+   column, where flex-basis 0 collapses it to a line — so here it keeps its own
+   height instead of taking a share of the column. */
+.colourPicker .hue { flex: 0 0 1.25rem; }
+.sv-knob { position: absolute; width: 0.75rem; height: 0.75rem; transform: translate(-50%, -50%); pointer-events: none; }
+.hue { position: relative; flex: 1; min-width: 10rem; height: 1.25rem; cursor: pointer; touch-action: none; outline: none; }
+.hue-knob { position: absolute; top: 50%; width: 0.75rem; height: 1.5rem; transform: translate(-50%, -50%); pointer-events: none; }
+
+/* ---------- find in terminal ---------- */
+.find { position: absolute; top: 0.75rem; right: 1.25rem; z-index: 6; display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; }
+.find input { width: 14rem; font: inherit; color: inherit; }
+
+/* ---------- playback ---------- */
+.playterm { flex: 1; min-height: 0; padding: 0.5rem 0.75rem; overflow: hidden; }
+.playbar { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; padding: 0.5rem 0.875rem; }
+.notice.warn { display: block; }
+
+/* ---------- queue ---------- */
+.queue { flex: 0 0 auto; display: flex; flex-direction: column; max-height: 40%; }
+.queuebar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.875rem; }
+.queuebar input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+.queuelist { list-style: none; overflow-y: auto; padding: 0 0 0.5rem; }
+.queuerow { display: flex; align-items: center; gap: 0.625rem; padding: 0.25rem 0.875rem; }
+.queuenum { flex: 0 0 auto; width: 1.25rem; text-align: right; }
+.queuetext { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- style editor ---------- */
+.style { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0.375rem 1.5rem; }
+.styleRow { display: flex; align-items: center; gap: 0.625rem; min-width: 0; }
+.styleName { flex: 1; min-width: 0; }
+.swatch { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; }
+.swatchHex { flex: 0 0 auto; width: 5.5rem; font: inherit; color: inherit; padding: 0.15rem 0.35rem; text-align: center; }
+.styleToggle { cursor: pointer; font: inherit; background: none; height: 1.75rem; padding: 0 0.75rem; }
+.styleNumber { flex: 0 0 auto; min-width: 3rem; text-align: right; }
+.pathfield { flex: 1; min-width: 0; display: flex; }
+.pathfield .input { flex: 1; min-width: 0; }
+.pathList { max-width: 90vw; }
+.pathList .selectRow { direction: ltr; }

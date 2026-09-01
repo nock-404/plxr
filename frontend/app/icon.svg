@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!--
+    The same mark the window wears, in a fixed colour: a favicon hangs in no
+    skin and cannot follow currentColor. Green, because that is the phosphor
+    plxr starts in.
+  -->
+  <rect width="32" height="32" rx="7" fill="#0b0906"/>
+  <rect x="2.8" y="2.8" width="26.4" height="26.4" rx="6.6"
+        stroke="#ffb000" stroke-width="2.5"/>
+  <circle cx="16" cy="16" r="1.8" fill="#ffb000"/>
+  <g stroke="#ffb000" stroke-width="2" stroke-linecap="butt">
+    <path d="M14.727 14.727 L11.333 11.333"/>
+    <path d="M17.273 14.727 L20.667 11.333"/>
+    <path d="M14.727 17.273 L11.333 20.667"/>
+    <path d="M17.273 17.273 L20.667 20.667"/>
+  </g>
+  <g fill="#ffb000" stroke="none">
+    <path d="M6.4 6.4 L12.6 6.4 L6.4 12.6 Z"/>
+    <path d="M25.6 6.4 L19.4 6.4 L25.6 12.6 Z"/>
+    <path d="M6.4 25.6 L12.6 25.6 L6.4 19.4 Z"/>
+    <path d="M25.6 25.6 L19.4 25.6 L25.6 19.4 Z"/>
+  </g>
+</svg>

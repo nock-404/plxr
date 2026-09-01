@@ -1,0 +1,350 @@
+/* Skin: Sketch — notebook.
+   The "drawn" frames come from asymmetric corner radii plus a second, slightly
+   offset line. That is enough to keep no edge looking like an edge, without
+   loading a drawing library. */
+
+@font-face { font-family: 'Caveat'; src: url('/vendor/caveat.woff2') format('woff2'); font-display: swap; }
+@font-face { font-family: 'SpaceMono'; src: url('/vendor/spacemono.woff2') format('woff2'); font-display: swap; }
+
+:root {
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
+  --term-bg: #2b2b2b; --term-fg: #e8e4d8;
+  --bg: #f6f3e9; --panel: #fffdf6; --fg: #2b2b2b; --dim: #716d62;
+  --accent: #1b6ca8; --onAccent: #ffffff; --line: #cfc9b8;
+  --working: #2e8b57; --waiting: #8a8578; --blocked: #c1440e; --dead: #b9b3a4;
+}
+
+body {
+  font-family: 'Caveat', 'Bradley Hand', cursive;
+  /* Adjustable through --size in the style editor. */
+  font-size: var(--size, 21px);
+  background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 28px, var(--bg);
+}
+.fx {
+  background: radial-gradient(circle at 20% 10%, rgba(0,0,0,.03), transparent 60%),
+              radial-gradient(circle at 80% 90%, rgba(0,0,0,.03), transparent 60%);
+}
+
+/* A hand-drawn frame: irregular radii, a second line slightly offset. */
+.tile, .btn, .selectButton, .selectList, .card,
+.filter input, .listbar input, .card input, .card textarea {
+  border: 2px solid var(--fg);
+  border-radius: 14px 6px 12px 5px / 5px 12px 6px 14px;
+  background: var(--panel);
+  position: relative;
+}
+.tile::after, .btn::after, .card::after {
+  content: ''; position: absolute; inset: 2px;
+  border: 1px solid var(--fg); opacity: .22;
+  border-radius: 6px 13px 5px 11px / 12px 5px 13px 6px;
+  pointer-events: none;
+}
+
+/* ---------- Kopf ---------- */
+
+.bar { border-bottom: 2px solid var(--fg); gap: 16px; }
+.mark { color: var(--accent); transform: rotate(-3deg); }
+.wordmark { font-size: 1.7em; color: var(--fg); }
+.prompt { color: var(--dim); }
+.filter input, .listbar input, .card input, .card textarea { padding: 3px 10px; outline: none; background: transparent; }
+.filter input:focus, .listbar input:focus, .card input:focus, .card textarea:focus { border-color: var(--accent); }
+.filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
+
+.btn, .selectButton { padding: 3px 14px; color: var(--fg); cursor: pointer; }
+.btn:hover, .selectButton:hover { background: #efe9d8; transform: rotate(-.6deg); }
+.btn.primary { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
+.btn.primary::after { border-color: var(--onAccent, #fff); }
+.btn.tiny { padding: 0 8px; font-size: .85em; }
+.btn.tiny.on { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
+.btn:disabled { opacity: .4; }
+
+.statusrow { color: var(--dim); font-size: .82em; border-bottom: 1px dashed var(--line); }
+.meta { color: var(--dim); font-size: .82em; }
+:root[data-offline="yes"] #counts { color: var(--blocked); }
+.updatebar { border-bottom: 2px solid var(--accent); background: #eaf2f8; }
+
+/* ---------- Schiene ---------- */
+
+.rail { border-right: 2px solid var(--fg); background: color-mix(in srgb, var(--panel) 60%, transparent); }
+.railitem { color: var(--fg); }
+.railitem:hover { background: #efe9d8; }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
+.railhome { border-bottom: 1px dashed var(--line); font-size: .9em; }
+.railgroup { color: var(--dim); font-size: .78em; border-bottom: 1px dashed var(--line); }
+.rsub { color: var(--dim); font-size: .78em; }
+.railitem[data-status="permission"] .rdot { color: var(--blocked); }
+.rmeta { color: var(--dim); }
+
+/* ---------- Kacheln: hingelegte Zettel ---------- */
+
+.grid { gap: 20px; padding: 20px; }
+.tile { min-height: 245px; box-shadow: 3px 4px 0 rgba(0,0,0,.08); }
+.tile:nth-child(3n)   { transform: rotate(.5deg); }
+.tile:nth-child(3n+1) { transform: rotate(-.6deg); }
+.tile:hover { transform: rotate(0) translateY(-3px); box-shadow: 5px 7px 0 rgba(0,0,0,.12); }
+.tile[data-status="permission"] { border-color: var(--blocked); }
+.tile[data-status="dead"] { opacity: .5; }
+
+.thead { border-bottom: 1px dashed var(--line); }
+.tname { color: var(--fg); font-size: 1.05em; }
+.tproj { color: var(--dim); font-size: .8em; }
+.tbody {
+  font-family: 'SpaceMono', ui-monospace, monospace; font-size: 11px; line-height: 1.4;
+  /* Not fixed: on the blueprint palette this grey sits at 1.03 to 1 on the
+     dark blue panel. */
+  color: var(--fg); opacity: .82; max-height: 170px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 28px);
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
+}
+.tfoot { border-top: 1px dashed var(--line); color: var(--dim); font-size: .8em; }
+.tfoot .act { color: var(--fg); }
+.tfoot .agent { border: 1px solid var(--dim); border-radius: 8px 4px 7px 3px / 3px 7px 4px 8px; padding: 0 7px; font-size: .95em; }
+
+.dot.working { color: var(--working); animation: wackeln 1.4s ease-in-out infinite; }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: wackeln .5s ease-in-out infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes wackeln { 50% { transform: rotate(12deg) scale(1.15) } }
+
+.empty { color: var(--dim); }
+.emptyhead { color: var(--accent); font-size: 1.3em; }
+.emptybox b { color: var(--fg); }
+.emptyagents { color: var(--dead); font-size: .9em; }
+
+/* ---------- Listen ---------- */
+
+.listbar { border-bottom: 2px solid var(--fg); }
+.row { border-bottom: 1px dashed var(--line); }
+.row:hover { background: #efe9d8; }
+.hitDate, .hitProject, .hitValue, .hitSmall { color: var(--dim); font-size: .85em; }
+.hitTitle { color: var(--fg); }
+.hitMain .hitTitle { color: var(--accent); }
+.hitExcerpt { color: var(--dim); font-family: 'SpaceMono', monospace; font-size: 11px; }
+.row .btn { padding: 0 10px; font-size: .85em; }
+.row[data-own="yes"] .hitTitle { color: var(--working); }
+
+.ublock { border-bottom: 1px dashed var(--line); }
+.uhead { color: var(--dim); font-size: .85em; }
+.ukey { color: var(--fg); font-size: .9em; }
+.ubar { background: #e8e2d2; border-radius: 5px; height: 11px; }
+.ufill { background: var(--accent); opacity: .7; border-radius: 5px; }
+.uval { color: var(--dim); font-size: .85em; }
+.usum { border-bottom: 2px solid var(--fg); }
+.ubox b { color: var(--accent); }
+.ubox span { color: var(--dim); font-size: .8em; }
+
+/* ---------- Session ---------- */
+
+.sessbar { border-bottom: 2px solid var(--fg); }
+.sesstitle { font-size: 1.15em; }
+
+.files { border-right: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.filesbar { border-bottom: 1px dashed var(--line); }
+.filesroot { color: var(--dim); font-size: .78em; }
+.frow { color: var(--fg); font-size: .92em; }
+.frow:hover { background: #efe9d8; }
+.frow.noise { color: var(--dead); }
+.fchev, .ficon { color: var(--dim); }
+
+/* The terminal stays dark: amber on paper does not read. */
+.pterm { background: var(--term-bg); border: 2px solid var(--fg); border-radius: 12px 5px 10px 6px / 6px 10px 5px 12px; }
+.panelabel { background: var(--bg); color: var(--dim); font-size: .8em; }
+.paneclose { background: var(--bg); color: var(--dim); }
+.pane[data-active="yes"] .pterm { border-color: var(--accent); }
+.pane[data-active="yes"] .panelabel { color: var(--accent); }
+
+.overlay { background: var(--panel); }
+.overlayBar { border-bottom: 1px dashed var(--line); }
+.overlayName { font-size: 1.1em; color: var(--accent); }
+.viewerbody { font-family: 'SpaceMono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; color: #3a3a3a; background: var(--panel); caret-color: var(--accent); }
+.dirty { color: var(--blocked); font-size: .85em; }
+
+.rrow { border-bottom: 1px dashed var(--line); }
+.rrow:hover { background: #efe9d8; }
+.rart { color: var(--dim); font-size: .8em; }
+.rtitle { color: var(--accent); }
+.rdesc { color: #555; font-family: 'SpaceMono', monospace; font-size: 11px; line-height: 1.45; margin-top: 3px; }
+.rpath { color: var(--dead); font-size: .78em; }
+
+/* ---------- Dialoge ---------- */
+
+.backdrop { background: rgba(246,243,233,.82); }
+.card { padding: 22px 26px; box-shadow: 5px 7px 0 rgba(0,0,0,.1); }
+.cardTitle { font-size: 1.5em; color: var(--fg); }
+.fieldName { color: var(--dim); font-size: .85em; }
+.splitRow { color: var(--fg); }
+.splitRow:hover { background: #efe9d8; }
+
+/* ---------- Auswahlliste ---------- */
+
+.selectRow { color: var(--fg); }
+.selectRow:hover { background: #efe9d8; color: var(--accent); }
+.selectRow[data-picked] { color: var(--accent); }
+.selectGroup { color: var(--dim); font-size: .8em; }
+
+/* ---------- Scrollbalken: Bleistiftstrich am Rand ---------- */
+
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--dim); border: 3px solid var(--bg);
+  border-radius: 9px 4px 8px 5px / 5px 8px 4px 9px;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--fg); }
+
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in classes.py makes sure no skin loses
+   them again. */
+.dialogText { color: var(--fg); }
+.boot { color: var(--dim); }
+.notice { color: var(--dim); font-size: .85em; text-transform: none; line-height: 1.5; }
+.dialogFoot { border-top: 1px dashed var(--line); padding-top: 14px; }
+.btn.icon { font-size: 1.1em; line-height: 1; }
+.emptyNote { color: var(--dim); }
+.emptyNote b { color: var(--accent); display: block; margin-bottom: 6px; font-size: 1.1em; }
+
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
+.dot.orphaned { color: var(--blocked); animation: orphanedblink 1.4s steps(2) infinite; }
+.railitem[data-status="orphaned"] { color: var(--blocked); }
+.railitem[data-status="orphaned"] .rsub { color: var(--blocked); opacity: .8; }
+.tile[data-status="orphaned"] { border-color: var(--blocked); background: var(--panel); opacity: 1; }
+.tile[data-status="orphaned"] .tfoot .act { color: var(--blocked); opacity: 1; }
+@keyframes orphanedblink { 50% { opacity: .3 } }
+
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in classes.py makes sure none
+   loses them again. */
+.grid, .listbody, .ruleslist, .filetree { background: transparent; }
+.rdot { opacity: .9; }
+.selectArrow { color: var(--dim); font-size: .8em; }
+.emptybox { color: var(--dim); }
+.hitMain .hitTitle { color: var(--accent); }
+.tfoot .act { color: var(--fg); opacity: .85; }
+
+/* Progress bar during an update. */
+.progress { background: #e8e2d2; }
+.progress i { background: var(--accent); }
+
+/* The choice in the start dialog. */
+.choiceButton { border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; color: var(--fg); }
+.choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
+
+/* Style editor and colour picker. */
+.styleName { color: var(--dim); font-size: .85em; text-transform: none; }
+.styleNumber { color: var(--fg); }
+.styleNumber button { color: var(--accent); }
+.styleToggle { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
+.styleToggle[data-on="yes"] { background: var(--accent); color: var(--onAccent, #fff); border-color: var(--accent); }
+.swatch { border: 2px solid var(--fg); border-radius: 6px 3px 5px 2px / 2px 5px 3px 6px; }
+.swatchField { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
+.swatchHex { background: transparent; border: 2px solid var(--dim); border-radius: 8px 3px 7px 2px / 2px 7px 3px 8px; text-align: center; }
+
+/* Eingabefeld im Dialog. */
+.promptInput { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
+
+/* Suche im Terminal. */
+.find { background: var(--panel); border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; }
+.find input { background: transparent; border: 0; outline: none; border-bottom: 1px dashed var(--line); }
+
+/* Posteingang. */
+.inboxCard { border-bottom: 1px dashed var(--line); }
+.inboxName { color: var(--accent); font-size: 1.05em; }
+.inboxPath { color: var(--dim); font-size: .82em; }
+.inboxCount { font-size: .8em; color: var(--accent);
+  border: 1px dashed var(--line); border-radius: 12px 10px 14px 9px;
+  transform: rotate(-.6deg); }
+.inboxQuestion { background: var(--panel); border: 2px solid var(--fg);
+  border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px;
+  color: #3a3a3a; font-family: 'SpaceMono', monospace; font-size: 11px; }
+.inboxReply input { background: transparent; border: 2px solid var(--fg); border-radius: 12px 5px 10px 4px / 4px 10px 5px 12px; outline: none; }
+.inboxQuick button { border: 2px solid var(--fg); border-radius: 10px 4px 8px 3px / 3px 8px 4px 10px; color: var(--fg); font-size: .85em; }
+
+/* Verbrauchstempo. */
+.pace { color: var(--dim); }
+.pace[data-warning="yes"] { color: var(--blocked); }
+
+/* Hover states: whatever is clickable should show it. */
+.choiceButton:hover { background: #efe9d8; }
+.styleToggle:hover { background: #efe9d8; }
+.paneclose:hover { color: var(--blocked); }
+.swatch:hover { border-color: var(--accent); }
+
+/* Tooltip */
+.tip { border: 1px solid var(--line); border-radius: 10px 3px 9px 4px; background: #fffdf5; color: var(--fg); box-shadow: 1px 2px 0 var(--line); }
+
+/* Warning coat: permission prompts skipped */
+.tile[data-untamed="yes"]::before {
+  border: 2px solid var(--blocked);
+  border-radius: 12px 4px 10px 5px;
+  background: repeating-linear-gradient(48deg,
+    color-mix(in srgb, var(--blocked) 10%, transparent) 0 7px,
+    transparent 7px 16px);
+}
+
+/* Frozen */
+.dot.frozen { color: var(--waiting); }
+.tile[data-status="frozen"] { border-style: dashed; }
+#brake[data-on="yes"] { background: var(--blocked); color: #fff; }
+
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="sketch"] { --crest: "✎✂✿❀☘✈☂⚑⌂✱❍✚△▢◇☾"; }
+.crest { transform: rotate(-4deg); display: inline-block; }
+
+/* Playback */
+.playbar { border-top: 1px dashed var(--line); }
+.hitAfter { color: var(--dim); border-left: 2px dashed var(--line); padding-left: 8px; }
+
+/* Settings tabs */
+.tab { background: none; border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 7px 0 0; color: var(--dim); padding: 4px 14px; }
+.tab.on { color: var(--accent); border-color: var(--accent); transform: rotate(-.4deg); }
+.tabs { border-bottom: 1px dashed var(--line); }
+
+/* Raumzustand */
+/* The paper takes on a tint, as if light were falling on it. */
+:root[data-room="working"] .fx::after {
+  background: radial-gradient(120% 90% at 50% 0%,
+    color-mix(in srgb, var(--working) 7%, transparent), transparent 70%);
+}
+:root[data-room="waiting"] .fx::after {
+  background: radial-gradient(120% 90% at 50% 0%,
+    color-mix(in srgb, var(--blocked) 12%, transparent), transparent 70%);
+  animation: sketchPuls 3s ease-in-out infinite;
+}
+@keyframes sketchPuls { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+
+/* A tool button that is engaged — underlined, as if gone over twice. */
+.btn.on { color: var(--accent); border-color: var(--accent); }
+
+/* Workbench — a second sheet of paper, dashed off. */
+.workbench { border-left: 1px dashed var(--line); background: color-mix(in srgb, var(--panel) 55%, transparent); }
+.wbBar { border-bottom: 1px dashed var(--line); }
+.wbHint { color: var(--dim); font-size: .78em; }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .82em; font-style: italic; }
+
+/* Going in circles: the tile is green and it is still stuck. */
+.tile[data-stuck="yes"] .act { color: var(--blocked); text-decoration: underline wavy; }
+
+/* The hook is missing — that is the one thing worth saying here. */
+.emptyhook { color: var(--blocked); }
+
+/* Drawn by hand: the corners are all slightly different, which is what makes
+   the line look like ink rather than a border. */
+.keyCap {
+  min-width: 2.4em; padding: 1px 9px;
+  color: var(--fg); background: var(--panel);
+  border: 1.5px solid var(--fg);
+  border-radius: 12px 7px 11px 8px / 7px 12px 8px 11px;
+  font-size: .9em;
+}

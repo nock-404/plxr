@@ -1,0 +1,10 @@
+{
+  "name": "pixel",
+  "label": "Pixel · 8-Bit",
+  "skin": "pixel",
+  "scanlines": false,
+  "glow": false,
+  "palette": {
+    "dead": "#898cb1"
+  }
+}

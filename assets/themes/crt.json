@@ -1,0 +1,17 @@
+{
+  "name": "crt",
+  "label": "CRT",
+  "skin": "crt",
+  "palette": {
+    "bg": "#0b0906",
+    "fg": "#ffb000",
+    "dim": "#a77316",
+    "accent": "#ffcf5c",
+    "panel": "#14100a",
+    "line": "#3a2a10",
+    "working": "#ffcf5c",
+    "waiting": "#a77316",
+    "blocked": "#ff6b3d",
+    "dead": "#957539"
+  }
+}

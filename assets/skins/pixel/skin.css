@@ -1,0 +1,341 @@
+/* Skin: Pixel — 8-bit console menu.
+   Frames are stepped shadows rather than lines, so they look like placed blocks
+   and not like CSS borders. Nothing is soft, nothing gradients. */
+
+@font-face { font-family: 'PressStart'; src: url('/vendor/pressstart.woff2') format('woff2'); font-display: swap; }
+
+:root {
+  /* Terminal colours — deliberately separate from the interface: a light
+     skin still needs a readable, dark terminal. */
+  --term-bg: #0f0f1b; --term-fg: #e8e8f0;
+  --bg: #0f0f1b; --panel: #21243d; --fg: #e8e8f0; --dim: #8b8fb0;
+  --accent: #ffd23f; --onAccent: #0f0f1b; --line: #3a3f6b;
+  --working: #6ee7a0; --waiting: #8b8fb0; --blocked: #ff5c6c; --dead: #898cb1;
+  --px: 4px;
+}
+
+body {
+  font-family: 'PressStart', ui-monospace, monospace;
+  /* Adjustable through --size in the style editor. */
+  font-size: var(--size, 10px); line-height: 1.6;
+  image-rendering: pixelated;
+  background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 8px, var(--bg);
+}
+.fx { display: none; }
+
+/* Stepped block frame: four hard shadows instead of a border. */
+.tile, .btn, .selectButton, .selectList, .card, .filter input,
+.listbar input, .card input, .card textarea, .pterm {
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
+  border: 0;
+}
+
+/* ---------- Kopf ---------- */
+
+.bar { border-bottom: var(--px) solid var(--line); padding: 14px 20px; gap: 20px; }
+.mark { color: var(--accent); }
+.wordmark { font-size: 1.6em; color: var(--accent); letter-spacing: .05em; }
+.prompt { color: var(--accent); }
+
+.filter input, .listbar input, .card input, .card textarea {
+  background: var(--bg); color: var(--fg); outline: none; padding: 7px 9px; margin: var(--px);
+}
+.filter input:focus, .listbar input:focus, .card input:focus, .card textarea:focus {
+  box-shadow: 0 -4px 0 0 var(--accent), 0 4px 0 0 var(--accent),
+              -4px 0 0 0 var(--accent), 4px 0 0 0 var(--accent);
+}
+.filter input::placeholder, .listbar input::placeholder { color: var(--dead); }
+
+.btn, .selectButton { background: var(--panel); color: var(--fg); padding: 8px 12px; margin: var(--px); cursor: pointer; }
+.btn:hover, .selectButton:hover { background: var(--line); color: var(--accent); }
+.btn:active { transform: translateY(2px); }
+.btn.primary { background: var(--accent); color: var(--onAccent, #fff); }
+.btn.tiny { padding: 4px 7px; font-size: .8em; margin: 0; }
+.btn.tiny.on { background: var(--accent); color: var(--onAccent, #fff); }
+.btn:disabled { opacity: .35; }
+
+.statusrow { color: var(--dim); font-size: .8em; padding: 10px 20px; border-bottom: var(--px) solid var(--line); }
+.meta { color: var(--dim); font-size: .78em; }
+:root[data-offline="yes"] #counts { color: var(--blocked); }
+.updatebar { border-bottom: var(--px) solid var(--accent); background: var(--panel); padding: 12px 20px; }
+
+/* ---------- Schiene ---------- */
+
+.rail { border-right: var(--px) solid var(--line); background: var(--panel); }
+.railitem { color: var(--dim); font-size: .8em; padding: 10px; }
+.railitem:hover { background: var(--line); color: var(--fg); }
+.railitem.active { background: var(--accent); color: var(--onAccent, #fff); }
+.railitem.active .rsub { color: inherit; opacity: .8; }
+.railitem.active .rdot, .railitem.active .dot { color: inherit; }
+/* The counter sits on the accent surface once the row is active — with the
+   muted colour it could not be read there. */
+.railitem.active .rmeta { color: inherit; opacity: .8; }
+.railhome { border-bottom: var(--px) solid var(--line); }
+.railgroup { color: var(--accent); font-size: .72em; padding: 12px 10px 4px; }
+.rsub { color: var(--dim); font-size: .78em; }
+.railitem[data-status="permission"] { color: var(--blocked); }
+.rmeta { color: var(--dead); }
+
+/* ---------- Kacheln ---------- */
+
+.grid { gap: 22px; padding: 22px; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.tile { background: var(--panel); margin: var(--px); min-height: 250px; }
+.tile:hover, .tile[data-status="permission"] {
+  box-shadow: 0 -4px 0 0 var(--akzent, var(--accent)), 0 4px 0 0 var(--akzent, var(--accent)),
+              -4px 0 0 0 var(--akzent, var(--accent)), 4px 0 0 0 var(--akzent, var(--accent));
+}
+.tile[data-status="permission"] { --akzent: var(--blocked); }
+.tile[data-status="dead"] { opacity: .45; }
+
+.thead { padding: 10px 12px; border-bottom: var(--px) solid var(--line); }
+.tname { color: var(--accent); font-size: .95em; }
+.tproj { color: var(--dim); font-size: .75em; }
+.tbody {
+  font-family: ui-monospace, Menlo, monospace; font-size: 11px; line-height: 1.35;
+  color: var(--fg); opacity: .8; padding: 10px 12px; max-height: 175px;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30px);
+  mask-image: linear-gradient(to bottom, transparent, #000 30px);
+}
+.tfoot { color: var(--dim); font-size: .72em; padding: 9px 12px; border-top: var(--px) solid var(--line); gap: 8px; }
+.tfoot .act { color: var(--fg); }
+.tfoot .agent { background: var(--line); color: var(--fg); padding: 2px 5px; }
+
+.dot.working { color: var(--working); animation: pxstufe .8s steps(2) infinite; }
+.dot.waiting { color: var(--dim); }
+.dot.permission { color: var(--blocked); animation: pxstufe .4s steps(2) infinite; }
+.dot.dead { color: var(--dead); }
+.dot.unknown { color: var(--dim); }
+@keyframes pxstufe { 50% { opacity: .25 } }
+
+.empty { color: var(--dim); }
+.emptyhead { color: var(--accent); font-size: 1.1em; }
+.emptybox p { font-size: .9em; line-height: 1.9; }
+.emptybox b { color: var(--accent); }
+.emptyagents { color: var(--dead); font-size: .8em; }
+
+/* ---------- Listen ---------- */
+
+.listbar { border-bottom: var(--px) solid var(--line); padding: 12px 16px; }
+.row { border-bottom: 2px solid var(--line); padding: 10px 16px; }
+.row:hover { background: var(--panel); }
+.hitDate, .hitProject, .hitValue, .hitSmall { color: var(--dim); font-size: .78em; }
+.hitTitle { color: var(--fg); font-size: .85em; }
+.hitMain .hitTitle { color: var(--accent); }
+.hitExcerpt { color: var(--dim); font-family: ui-monospace, monospace; font-size: 11px; }
+.row .btn { padding: 4px 8px; font-size: .72em; margin: 0; }
+.row[data-own="yes"] .hitTitle { color: var(--working); }
+
+.ublock { border-bottom: 2px solid var(--line); }
+.uhead { color: var(--accent); font-size: .75em; }
+.ukey { color: var(--fg); font-size: .78em; }
+.ubar { background: var(--panel); height: 12px; }
+.ufill { background: var(--accent); }
+.uval { color: var(--dim); font-size: .75em; }
+.usum { border-bottom: var(--px) solid var(--line); }
+.ubox b { color: var(--accent); }
+.ubox span { color: var(--dim); font-size: .7em; }
+
+/* ---------- Session ---------- */
+
+.sessbar { border-bottom: var(--px) solid var(--line); padding: 12px 16px; }
+.sesstitle { color: var(--accent); }
+
+.files { border-right: var(--px) solid var(--line); background: var(--panel); }
+.filesbar { border-bottom: var(--px) solid var(--line); padding: 8px; }
+.filesroot { color: var(--dim); font-size: .68em; }
+.frow { color: var(--fg); font-family: ui-monospace, monospace; font-size: 11px; padding: 3px 8px; }
+.frow:hover { background: var(--line); }
+.frow.noise { color: var(--dead); }
+.fchev, .ficon { color: var(--accent); }
+
+.pterm { background: var(--term-bg); margin: var(--px); }
+.panelabel { background: var(--panel); color: var(--dim); font-size: .7em; padding: 2px 6px; }
+.paneclose { background: var(--panel); color: var(--dead); font-size: .7em; }
+.pane[data-active="yes"] .panelabel { background: var(--accent); color: var(--onAccent, #fff); }
+
+.overlay { background: var(--bg); }
+.overlayBar { border-bottom: var(--px) solid var(--line); padding: 10px 14px; }
+.overlayName { color: var(--accent); font-size: .9em; }
+.viewerbody { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; color: var(--fg); background: var(--bg); caret-color: var(--accent); }
+.dirty { color: var(--blocked); font-size: .72em; }
+
+.rrow { border-bottom: 2px solid var(--line); }
+.rrow:hover { background: var(--panel); }
+.rart { color: var(--dead); font-size: .68em; }
+.rtitle { color: var(--accent); font-size: .85em; }
+.rdesc { color: var(--dim); font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.45; margin-top: 4px; }
+.rpath { color: var(--dead); font-size: .68em; }
+
+/* ---------- Dialoge ---------- */
+
+.backdrop { background: rgba(15,15,27,.86); }
+.card { background: var(--panel); padding: 26px 28px; gap: 18px; }
+.cardTitle { color: var(--accent); font-size: 1.1em; }
+.fieldName { color: var(--dim); font-size: .8em; gap: 8px; }
+.splitRow { color: var(--fg); font-size: .8em; padding: 8px; }
+.splitRow:hover { background: var(--line); color: var(--accent); }
+
+/* ---------- Auswahlliste ---------- */
+
+.selectList { background: var(--panel); padding: var(--px); }
+.selectRow { color: var(--fg); font-size: .8em; padding: 7px 10px; }
+.selectRow:hover { background: var(--line); color: var(--accent); }
+.selectRow[data-picked] { color: var(--accent); }
+.selectGroup { color: var(--dead); font-size: .68em; padding: 8px 10px 3px; }
+
+/* ---------- Scrollbalken ---------- */
+
+*::-webkit-scrollbar { width: 14px; height: 14px; }
+*::-webkit-scrollbar-track { background: var(--bg); }
+*::-webkit-scrollbar-thumb { background: var(--line); border: 3px solid var(--bg); }
+*::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ---------- Caught up: settings, confirmations, boot line ----------
+   These classes arrived later. The check in classes.py makes sure no skin loses
+   them again. */
+.dialogText { color: var(--fg); font-size: .85em; line-height: 1.7; }
+.boot { color: var(--dim); }
+.notice { color: var(--dim); font-size: .72em; text-transform: none; line-height: 1.7; }
+.dialogFoot { border-top: 2px solid var(--line); padding-top: 16px; }
+.btn.icon { font-size: 1em; line-height: 1; padding: 6px 9px; }
+.emptyNote { color: var(--dim); font-size: .8em; line-height: 1.8; }
+.emptyNote b { color: var(--accent); display: block; margin-bottom: 8px; font-weight: normal; }
+
+/* --- Hit by a crash ---
+   The daemon ended while the session was running. Not a normal exit: the entry
+   stays and can be picked up again with a click. */
+.dot.orphaned { color: var(--blocked); animation: orphanedblink 1.4s steps(2) infinite; }
+.railitem[data-status="orphaned"] { color: var(--blocked); }
+.railitem[data-status="orphaned"] .rsub { color: var(--blocked); opacity: .8; }
+.tile[data-status="orphaned"] { border-color: var(--blocked); background: var(--panel); opacity: 1; }
+.tile[data-status="orphaned"] .tfoot .act { color: var(--blocked); opacity: 1; }
+@keyframes orphanedblink { 50% { opacity: .3 } }
+
+/* ---------- Caught up: panes and small parts ----------
+   Only some skins used to style these. The check in classes.py makes sure none
+   loses them again. */
+.grid, .listbody, .ruleslist, .filetree { background: transparent; }
+.rdot { opacity: .9; }
+.selectArrow { color: var(--dim); font-size: .8em; }
+.emptybox { color: var(--dim); }
+.hitMain .hitTitle { color: var(--accent); }
+.tfoot .act { color: var(--fg); opacity: .85; }
+
+/* Progress bar during an update. */
+.progress { background: var(--bg); }
+.progress i { background: var(--accent); }
+
+/* The choice in the start dialog. */
+.choiceButton { background: var(--panel); color: var(--dim); font-size: .8em; padding: 7px 12px;
+  box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
+.choiceButton[data-picked="yes"] { background: var(--accent); color: var(--onAccent, #fff); }
+
+/* Style editor and colour picker. */
+.styleName { color: var(--dim); font-size: .68em; text-transform: none; }
+.styleNumber { color: var(--fg); font-size: .7em; }
+.styleNumber button { color: var(--accent); }
+.styleToggle { background: var(--panel); color: var(--dim); font-size: .68em; padding: 5px 9px; }
+.styleToggle[data-on="yes"] { background: var(--accent); color: var(--onAccent, #fff); }
+.swatch { box-shadow: 0 -3px 0 0 var(--line), 0 3px 0 0 var(--line), -3px 0 0 0 var(--line), 3px 0 0 0 var(--line); margin: 3px; }
+.swatchField { background: var(--panel); box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); }
+.swatchHex { background: var(--bg); color: var(--fg); border: 0; font-size: 10px; text-align: center; }
+
+/* Eingabefeld im Dialog. */
+.promptInput { background: var(--bg); color: var(--fg); border: 0; outline: none; padding: 7px 9px;
+  box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
+
+/* Suche im Terminal. */
+.find { background: var(--panel); box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); }
+.find input { background: var(--bg); color: var(--fg); border: 0; outline: none; padding: 5px 7px; }
+
+/* Posteingang. */
+.inboxCard { border-bottom: 2px solid var(--line); }
+.inboxName { color: var(--accent); font-size: .85em; }
+.inboxPath { color: var(--dim); font-size: .7em; }
+.inboxCount { font-size: .7em; color: var(--bg); background: var(--accent);
+  border: 2px solid var(--line); padding: 0 6px; }
+.inboxQuestion { background: var(--bg); color: var(--fg); font-family: ui-monospace, monospace; font-size: 11px;
+  box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
+.inboxReply input { background: var(--bg); color: var(--fg); border: 0; outline: none;
+  box-shadow: 0 -4px 0 0 var(--line), 0 4px 0 0 var(--line), -4px 0 0 0 var(--line), 4px 0 0 0 var(--line); margin: 4px; }
+.inboxQuick button { background: var(--panel); color: var(--dim); font-size: .7em; padding: 5px 9px; }
+.inboxQuick button:hover { background: var(--accent); color: var(--onAccent, #fff); }
+
+/* Verbrauchstempo. */
+.pace { color: var(--dim); }
+.pace[data-warning="yes"] { color: var(--blocked); }
+
+/* Hover states: whatever is clickable should show it. */
+.choiceButton:hover { background: var(--line); color: var(--accent); }
+.styleToggle:hover { background: var(--line); color: var(--accent); }
+.paneclose:hover { color: var(--blocked); }
+.swatch:hover { box-shadow: 0 -3px 0 0 var(--accent), 0 3px 0 0 var(--accent), -3px 0 0 0 var(--accent), 3px 0 0 0 var(--accent); }
+
+/* Tooltip */
+.tip { border: 2px solid var(--accent); background: var(--panel); color: var(--fg); image-rendering: pixelated; }
+
+/* Warning coat: permission prompts skipped */
+.tile[data-untamed="yes"]::before {
+  border: 2px solid var(--blocked);
+  background: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--blocked) 22%, transparent) 0 4px,
+    transparent 4px 8px);
+  image-rendering: pixelated;
+}
+
+/* Frozen */
+.dot.frozen { color: var(--waiting); }
+.tile[data-status="frozen"] { border-style: dashed; opacity: .8; }
+#brake[data-on="yes"] { background: var(--blocked); color: var(--bg); }
+
+/* Crest: this skin draws directories with these glyphs. Anyone writing their
+   own skin sets their own here — JavaScript knows nothing about it. */
+:root[data-skin="pixel"] { --crest: "▙▛▜▟▚▞■▲▶◀●◼◈✚✖✦"; }
+.crest { image-rendering: pixelated; }
+
+/* Playback */
+.playbar { border-top: 2px solid var(--line); }
+.hitAfter { color: var(--dim); border-left: 2px solid var(--accent); padding-left: 8px; }
+
+/* Settings tabs */
+.tab { background: var(--panel); border: 2px solid var(--line); border-bottom: 0; color: var(--dim); padding: 3px 10px; }
+.tab.on { color: var(--accent); border-color: var(--accent); background: var(--bg); }
+.tabs { border-bottom: 2px solid var(--line); }
+
+/* Raumzustand */
+/* A border of placed blocks, no gradient. */
+:root[data-room="working"] .fx::after {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--working) 45%, transparent);
+}
+:root[data-room="waiting"] .fx::after {
+  box-shadow: inset 0 0 0 3px var(--blocked);
+  animation: pixelBlink 1.1s steps(2, end) infinite;
+}
+@keyframes pixelBlink { 50% { opacity: .25; } }
+
+/* A tool button that is engaged — see crt for why this was missing. */
+.btn.on { background: var(--accent); color: var(--onAccent, #fff); }
+
+/* Workbench — same surface as the file panel, mirrored. */
+.workbench { border-left: var(--px) solid var(--line); background: var(--panel); }
+.wbBar { border-bottom: var(--px) solid var(--line); padding: 8px; }
+.wbHint { color: var(--dim); font-size: .68em; }
+
+/* What was answered to this question before. */
+.memoryHead { color: var(--dim); font-size: .68em; }
+
+/* Going in circles: the tile is green and it is still stuck. */
+.tile[data-stuck="yes"] .act { color: var(--blocked); }
+
+/* The hook is missing — that is the one thing worth saying here. */
+.emptyhook { color: var(--blocked); }
+
+/* Hard edges and an offset shadow — no radius anywhere in this skin. */
+.keyCap {
+  min-width: 2.6em; padding: 2px 7px;
+  color: var(--fg); background: var(--panel);
+  border: 2px solid var(--fg); box-shadow: 3px 3px 0 var(--line);
+  font-size: .78em;
+}

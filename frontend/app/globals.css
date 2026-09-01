@@ -1,0 +1,16 @@
+/* The entry point. Two layers, as in the contract: arrangement first, then the
+   skin that dresses it. Component files carry no styles of their own.
+   @import has to lead — every other rule, @font-face included, comes after.
+
+   Both are pulled into a cascade layer on purpose. Anything written in the
+   workshop is unlayered and therefore wins, no matter how specific the skin's
+   selectors are — otherwise `.tile { … }` typed by hand would silently lose to
+   `[data-skin="crt"] .tile { … }`, which is exactly what a live editor must not
+   do. */
+@import "./styles/fonts.css";
+@import "./styles/layout.css" layer(plxr);
+@import "./styles/skin-base.css" layer(plxr);
+@import "./styles/skin-crt.css" layer(plxr);
+@import "./styles/skin-win95.css" layer(plxr);
+@import "./styles/skin-sketch.css" layer(plxr);
+@import "./styles/skin-pixel.css" layer(plxr);

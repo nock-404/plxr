@@ -1,0 +1,100 @@
+/* Skin: CRT — phosphor tube.
+   Green on near-black glass, a soft glow, restrained scanlines, corner brackets
+   like on a measuring instrument. Colours come from the palette, the shape from
+   here. The window is frosted: surfaces stay see-through and blur what is
+   behind them.
+
+   Nothing here sets a size. The frame — bar height, rail width, row pitch,
+   control metrics — belongs to layout.css, so every skin lays out identically
+   and only the dressing changes. */
+
+[data-skin="crt"] {
+  --font: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* The terminal is always monospace, whatever the interface uses. */
+  --term-font: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --size: .9375rem;
+  --hair: .0625rem;
+  --glow: .35rem;
+  --scan-alpha: .09;
+  --scan-period: .25rem;
+  --blur: 1.375rem;
+  --sat: 1.25;
+  --panelSolid: 62%;
+  --bgSolid: 46%;
+}
+
+/* ---- the page: frosted glass with a gentle gradient -------------------- */
+[data-skin="crt"] body {
+  text-shadow: 0 0 var(--glow) color-mix(in srgb, currentColor 42%, transparent);
+}
+
+/* ---- head ------------------------------------------------------------- */
+[data-skin="crt"] .bar,
+[data-skin="crt"] .statusrow,
+
+/* ---- rail ------------------------------------------------------------- */
+[data-skin="crt"] .rail,
+
+/* ---- tiles: measuring-instrument brackets ----------------------------- */
+[data-skin="crt"] .tile,
+[data-skin="crt"] .card,
+
+/* ---- lists ------------------------------------------------------------ */
+[data-skin="crt"] .listbar,
+
+/* ---- session ---------------------------------------------------------- */
+[data-skin="crt"] .sessbar,
+[data-skin="crt"] .files {
+  background-color: color-mix(in srgb, var(--panel-glass) var(--panelSolid), transparent);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+}
+[data-skin="crt"] .rail,
+[data-skin="crt"] .tile,
+[data-skin="crt"] .card { box-shadow: inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-skin="crt"] .fx { background: repeating-linear-gradient(to bottom, rgba(0,0,0,var(--scan-alpha)) 0 var(--hair), transparent var(--hair) var(--scan-period)), radial-gradient(ellipse at center, transparent 62%, #00000057 100%); }
+/* The tube's flicker.
+   It rides on .fx, the effect layer that lies over the window — not on .app,
+   which is the whole application: animating that recomposites every panel,
+   every terminal and every list seven seconds apart, and steps(70) makes it
+   jump rather than breathe. On a low-contrast screen that passed for a tube.
+   On a properly dark one it is a strobe.
+   Off unless it is asked for, like the glow and the scan lines. Somebody who
+   wants a flickering tube can have one; nobody gets one by default. */
+@media (prefers-reduced-motion:no-preference) {
+  [data-skin="crt"][data-flicker="on"] .fx { animation: 7s steps(70,end) infinite crtflicker; }
+  @keyframes crtflicker {
+    0%, 97%, to { opacity: 1; }
+    98% { opacity: .965; }
+    99% { opacity: .99; }
+  }
+}
+[data-skin="crt"] .bar { border-bottom: var(--hair) solid var(--dim); }
+[data-skin="crt"] .rail { border-right: var(--hair) solid var(--dim); }
+[data-skin="crt"] .tile { border: var(--hair) solid var(--dim); transition: border-color .12s,transform .12s; }
+
+[data-skin="crt"] .listbar { border-bottom: var(--hair) solid var(--dim); }
+[data-skin="crt"] .sessbar { border-bottom: var(--hair) solid var(--dim); }
+[data-skin="crt"] .files { border-right: var(--hair) solid var(--dim); }
+[data-skin="crt"] .card { border: var(--hair) solid var(--accent); }
+[data-skin="crt"] ::-webkit-scrollbar-track { border-left: var(--hair) solid var(--line); background: 0 0; }
+[data-skin="crt"] ::-webkit-scrollbar-thumb {
+  background: var(--dim);
+  background-clip: padding-box;
+  border: .125rem solid #0000;
+}
+[data-skin="crt"] ::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: padding-box; }
+
+[data-skin="crt"] .workbench { border-left: var(--hair) solid var(--dim); }
+
+/* Started with its permission prompts turned off: hazard stripes, because the
+   tile otherwise looks exactly like one that would still stop and ask. */
+[data-skin="crt"] .tile[data-unattended="yes"] {
+  border-color: var(--blocked);
+  background-image: repeating-linear-gradient(45deg,
+    color-mix(in srgb, var(--blocked) 12%, transparent) 0 0.375rem,
+    transparent 0.375rem 0.875rem);
+}
+[data-skin="crt"] .railitem[data-unattended="yes"] .rdot { color: var(--blocked); }
+
+[data-skin="crt"] .settingspanel { border-left: var(--hair) solid var(--dim); }
