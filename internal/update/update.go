@@ -283,14 +283,20 @@ func installTarget() (string, error) {
 // exception but the normal case on a poor line. Giving up then leaves you with
 // an updater that works on good WiFi and nowhere else.
 // Resumption goes through Range: bytes already fetched stay where they are.
+// How long to wait before trying again: two seconds, then four, then eight.
+// A variable rather than a constant so a test can exercise the retries without
+// sitting through fourteen seconds of them on every run.
+var retryWait = func(attempt int) time.Duration {
+	return time.Duration(1<<attempt) * time.Second
+}
+
 func download(url, dest string, progress func(int64, int64)) error {
 	const attempts = 4
 	var last error
 
 	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
-			// Wait a little, but not forever: two seconds, then four, then eight.
-			time.Sleep(time.Duration(1<<attempt) * time.Second)
+			time.Sleep(retryWait(attempt))
 		}
 
 		// How far along are we already?
