@@ -63,8 +63,8 @@ type Host struct {
 }
 
 // Start hangs argv into a fresh PTY. cwd is the working directory, env holds
-// additional environment variables as "NAME=value" — that is how the choice of
-// Claude-Kontos (CLAUDE_CONFIG_DIR).
+// additional environment variables as "NAME=value" — that is how the Claude
+// account is chosen (CLAUDE_CONFIG_DIR).
 func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	if len(argv) == 0 {
 		argv = shell.Default()
@@ -75,6 +75,10 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 		return nil, err
 	}
 
+	// What was asked for is not always what this system can start — see
+	// runnable, and the day Windows could not find a claude that was plainly
+	// on the PATH.
+	argv = runnable(argv)
 	c := p.Command(argv[0], argv[1:]...)
 	c.Dir = cwd
 	c.Env = append(cleanEnv(), shell.Environment(Version)...)

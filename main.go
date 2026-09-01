@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"plxr/internal/ptyhost"
+	"plxr/internal/shell"
 	"runtime"
 	"strings"
 	"time"
@@ -215,6 +216,18 @@ func selfUpdate() error {
 
 // runDaemon is the process that owns the terminals.
 func runDaemon() {
+	/* Before anything looks for a program.
+	 *
+	 * Started from the Dock or by the system, this process has no PATH worth
+	 * the name — launchd hands out none at all, so an application gets
+	 * /usr/bin:/bin:/usr/sbin:/sbin. Everything installed the way tools are
+	 * installed now is outside that, and plxr reported it could not find claude
+	 * on a machine where claude plainly worked in any terminal. Started from a
+	 * terminal it inherited the right PATH and the fault could not appear,
+	 * which is why it took a packaged build to find it.
+	 */
+	shell.AdoptLoginPath()
+
 	reg, err := session.NewRegistry(filepath.Join(daemon.Root(), "sessions"))
 	if err != nil {
 		log.Fatal(err)
