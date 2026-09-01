@@ -665,19 +665,30 @@ func (c *Core) Update() error {
 // sessions that were running as orphaned and keeps the Claude id, so the
 // conversation carries on with --resume. What it saves is an app in which
 // nothing works and nobody can tell why.
+/* Restart is what the dialog promises: only the window comes back.
+ *
+ * It used to end every session and exit the daemon — while the text beside the
+ * button said "the daemon keeps running, every session stays". Pressing it after
+ * an update therefore threw away exactly the work it was reassuring you about.
+ *
+ * The daemon owns the terminals and has no reason to go. What has to go is the
+ * window, because it is the old version; the fresh one takes its place and finds
+ * the daemon still here, with everything still running in it.
+ */
 func (c *Core) Restart() error {
 	st := c.UpdateProgress()
 	if st.Path == "" {
 		return uierr.New("err.update.nothingSwapped")
 	}
-	if err := update.Restart(st.Path); err != nil {
+	// The window is this process's parent: it started the daemon.
+	window := os.Getppid()
+	if err := update.Restart(st.Path, window); err != nil {
 		return err
 	}
 	go func() {
 		// The answer to /api/restart still has to get out.
 		time.Sleep(700 * time.Millisecond)
-		c.endSessions()
-		os.Exit(0)
+		askToQuit(window)
 	}()
 	return nil
 }

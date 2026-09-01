@@ -445,13 +445,22 @@ func copyTree(src, dest string) error {
 	return os.WriteFile(dest, data, 0o755)
 }
 
-// Restart starts the swapped-in application and ends the running one.
-func Restart(path string) error {
-	if runtime.GOOS == "darwin" {
-		return exec.Command("open", "-n", path).Start()
-	}
-	c := exec.Command(path)
-	return c.Start()
+/* Restart brings the new version up once this one has gone.
+ *
+ * Not before it. Starting the new one first looked right and did nothing at all:
+ * plxr allows one window per control room, so the fresh instance found the old
+ * one still holding that place, handed itself over to it as a second launch, and
+ * exited. Seven hundred milliseconds later the old one exited too, as planned,
+ * and the machine was left with no plxr running. The button appeared to do
+ * nothing, which is exactly what it did.
+ *
+ * So what is started is something that waits for the window to be gone and only
+ * then opens the application. Waiting on the process itself rather than on a
+ * guessed number of seconds: a slow machine must not end up with two, and a fast
+ * one must not wait for nothing.
+ */
+func Restart(path string, waitFor int) error {
+	return relaunch(path, waitFor)
 }
 
 /*

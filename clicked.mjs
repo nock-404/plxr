@@ -508,6 +508,40 @@ claim("a skin change takes effect", settings.after && settings.after !== setting
   `${settings.before} → ${settings.after}`);
 claim("settings close again", settings.closed);
 
+/* And the window asks about versions more than once.
+ *
+ * Both the band and the line in the settings asked when they were built and
+ * never again, so a window left open — which is how this one is used — learned
+ * about a release only if it happened to be restarted afterwards. The daemon had
+ * the right answer the whole time. */
+const asking = await run(`
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const gear = () => [...document.querySelectorAll('button')]
+    .find(b => /settings/i.test(b.getAttribute('title') || b.getAttribute('aria-label') || ''))
+    || [...document.querySelectorAll('.bar button')].at(-3);
+  const panel = () => document.querySelector('.settingspanel');
+  const close = async () => {
+    if (!panel()) return;
+    [...panel().querySelectorAll('.btn.primary')].pop()?.click();
+    await wait(600);
+  };
+
+  // Whatever the section above left behind, start from shut.
+  await close();
+
+  window.__asked = 0;
+  const real = window.fetch;
+  window.fetch = (...a) => { if (String(a[0]).includes('/api/version')) window.__asked++; return real(...a); };
+  for (let i = 0; i < 2; i++) {
+    gear()?.click();
+    await wait(1000);
+    await close();
+  }
+  window.fetch = real;
+  return window.__asked;
+`);
+claim("the window asks about versions again, not once", asking >= 2, `${asking} times in two openings`);
+
 /* A palette belongs to a skin, and changing the skin has to bring one with it.
  *
  * The list of palettes is filtered by the skin — but the chosen palette used to

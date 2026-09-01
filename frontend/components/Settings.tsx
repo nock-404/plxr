@@ -10,6 +10,7 @@ import Select from "@/components/ui/Select";
 import ColourPicker from "@/components/ui/ColourPicker";
 import StyleEditor from "@/components/StyleEditor";
 import { api } from "@/lib/api";
+import { askVersionNow, watchVersion } from "@/lib/version";
 import { tr, errText } from "@/lib/i18n";
 import { DEFAULTS, apply, fitPalette, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
 import type { Theme, VersionInfo } from "@/lib/types";
@@ -49,9 +50,13 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const [themes, setThemes] = useState<Theme[]>([]);
   const [note, setNote] = useState("");
 
+  useEffect(() => watchVersion(setVersion), []);
+
   useEffect(() => {
     setState(load());
-    api.version().then(setVersion).catch(() => setVersion(null));
+    // Opening the settings is somebody asking, so it is asked again now rather
+    // than showing whatever the last beat happened to find.
+    askVersionNow();
     api.themes().then((t) => setThemes(t ?? [])).catch(() => setThemes([]));
   }, []);
 

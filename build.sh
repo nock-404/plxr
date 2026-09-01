@@ -14,7 +14,11 @@ echo "data merged into frontend/out"
 # is deliberately never offered an update — it is built from source, and
 # overwriting it with a release would throw the source away. So a build with no
 # tag says "dev" on purpose, and a build made from a tag says so.
-VERSION="${VERSION:-$(git describe --tags --exact-match 2>/dev/null || echo dev)}"
+# Without the leading "v" the tag carries: the releases are tagged v0.37.0 and
+# the program calls itself 0.37.0, and a version that reads differently in the
+# two places is one somebody has to think about.
+VERSION="${VERSION:-$(git describe --tags --exact-match 2>/dev/null | sed 's/^v//' || echo dev)}"
+VERSION="${VERSION:-dev}"
 echo "version: $VERSION"
 
 go build -ldflags "-X main.version=$VERSION" -o /tmp/plxr3-app . 2>/tmp/plxr3-go.log && echo "go: ok ($(ls -lh /tmp/plxr3-app | awk '{print $5}'))" || { echo "go: FAILED"; grep -v '^ld: warning' /tmp/plxr3-go.log | head -30; exit 1; }

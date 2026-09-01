@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
-import { tr } from "@/lib/i18n";
+import { watchVersion } from "@/lib/version";
+import { errText, tr } from "@/lib/i18n";
 import type { VersionInfo } from "@/lib/types";
 
 // Window and daemon are two programs. When a newer build exists, say so here
@@ -11,7 +12,8 @@ import type { VersionInfo } from "@/lib/types";
 export default function UpdateBar() {
   const [info, setInfo] = useState<VersionInfo | null>(null);
   const [hidden, setHidden] = useState(false);
-  const [state, setState] = useState<"idle" | "working" | "done" | "failed">("idle");
+  const [state, setState] = useState<"idle" | "working" | "done" | "failed" | "restarting">("idle");
+  const [problem, setProblem] = useState("");
 
   // Window and daemon are two programs: after the swap both have to come back,
   // or the interface shows one version and runs another.
@@ -20,14 +22,13 @@ export default function UpdateBar() {
     try {
       await api.updateApply();
       setState("done");
-    } catch {
+    } catch (e) {
+      setProblem(errText(e));
       setState("failed");
     }
   }
 
-  useEffect(() => {
-    api.version().then(setInfo).catch(() => setInfo(null));
-  }, []);
+  useEffect(() => watchVersion(setInfo), []);
 
   if (!info || !info.available || hidden) return null;
 
@@ -39,9 +40,23 @@ export default function UpdateBar() {
           current: info.current,
         })}
       </span>
+      {problem ? <span className="notice warn">{problem}</span> : null}
       <span className="spacer" />
       {state === "done" ? (
-        <Button primary onClick={() => api.restart().catch(() => undefined)}>
+        <Button
+          primary
+          onClick={async () => {
+            setState("restarting");
+            try {
+              await api.restart();
+            } catch (e) {
+              /* A refusal used to be thrown away here, so a button that could
+                 not do its job did nothing and said nothing. */
+              setProblem(errText(e));
+              setState("done");
+            }
+          }}
+        >
           {tr("version.splitGo", "RESTART")}
         </Button>
       ) : (
