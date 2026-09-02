@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Select from "@/components/ui/Select";
+import TopStrip from "@/components/ui/TopStrip";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { Usage as UsageData, UsageBucket, Waiting } from "@/lib/types";
@@ -50,22 +51,24 @@ export default function Usage() {
 
   return (
     <section className="list">
-      <div className="listbar">
-        <span className="prompt">{tr("usage.prompt", "usage>")}</span>
-        <span className="meta">
-          {data ? `${short(data.sum.messages)} ${tr("usage.messages", "messages")}` : ""}
-        </span>
-        <span className="spacer" />
-        <Select
-          value={days}
-          onChange={setDays}
-          options={[
-            { value: "7", label: tr("usage.last7", "last 7 days") },
-            { value: "30", label: tr("usage.last30", "last 30 days") },
-            { value: "0", label: tr("usage.all", "everything") },
-          ]}
-        />
-      </div>
+      <TopStrip>
+        <div className="listbar">
+          <span className="prompt">{tr("usage.prompt", "usage>")}</span>
+          <span className="meta">
+            {data ? `${short(data.sum.messages)} ${tr("usage.messages", "messages")}` : ""}
+          </span>
+          <span className="spacer" />
+          <Select
+            value={days}
+            onChange={setDays}
+            options={[
+              { value: "7", label: tr("usage.last7", "last 7 days") },
+              { value: "30", label: tr("usage.last30", "last 30 days") },
+              { value: "0", label: tr("usage.all", "everything") },
+            ]}
+          />
+        </div>
+      </TopStrip>
       <div className="listbody">
         {!data ? (
           <div className="emptyNote">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import TopStrip from "@/components/ui/TopStrip";
 import type { SearchAddon } from "@xterm/addon-search";
 import Button from "@/components/ui/Button";
 import Files from "@/components/Files";
@@ -75,74 +76,76 @@ export default function Session({
 
   return (
     <section className="session">
-      <div className="sessbar">
-        <span className="sesstitle">{titleOf(tile)}</span>
-        <span className="meta">{shortPath(tile.cwd)}</span>
-        <span className="spacer" />
-        <Button on={files} onClick={() => setFiles((f) => !f)}>{tr("session.files", "FILES")}</Button>
-        <Button
-          on={queueOpen}
-          onClick={() => setQueueOpen((q) => !q)}
-          title={tr("queue.tip", "Line instructions up instead of sending them at once")}
-        >
-          {tr("queue.open", "QUEUE")}
-        </Button>
-        <Button on={pane === "rules"} onClick={() => setPane((p) => (p === "rules" ? "none" : "rules"))}>
-          {tr("session.rules", "RULES")}
-        </Button>
-        <Button
-          on={pane === "player"}
-          onClick={() => setPane((p) => (p === "player" ? "none" : "player"))}
-          title={tr("player.tip", "Watch this session back")}
-        >
-          {tr("player.open", "PLAYBACK")}
-        </Button>
-        <Button on={pane === "marks"} onClick={() => setPane((p) => (p === "marks" ? "none" : "marks"))}>
-          {tr("marks.open", "MARKS")}
-        </Button>
-        <Button
-          on={Boolean(split)}
-          onClick={() => setSplit((v) => (v ? null : (others[0]?.id ?? null)))}
-          disabled={!split && others.length === 0}
-          title={
-            others.length === 0
-              ? tr("session.splitNone", "There is no second session to place alongside.")
-              : tr("session.splitTip", "Put a second session next to this one")
-          }
-        >
-          {tr("session.split", "SPLIT")}
-        </Button>
-        {accountOptions.length ? (
-          canSwitch ? (
-            <Select
-              value={tile.account ?? accountOptions[0].value}
-              options={accountOptions}
-              onChange={(account) => api.switchAccount(tile.id, account).catch(() => undefined)}
-              title={tr("session.accountTip", "Continue under another account")}
-            />
+      <TopStrip>
+        <div className="sessbar">
+          <span className="sesstitle">{titleOf(tile)}</span>
+          <span className="meta">{shortPath(tile.cwd)}</span>
+          <span className="spacer" />
+          <Button on={files} onClick={() => setFiles((f) => !f)}>{tr("session.files", "FILES")}</Button>
+          <Button
+            on={queueOpen}
+            onClick={() => setQueueOpen((q) => !q)}
+            title={tr("queue.tip", "Line instructions up instead of sending them at once")}
+          >
+            {tr("queue.open", "QUEUE")}
+          </Button>
+          <Button on={pane === "rules"} onClick={() => setPane((p) => (p === "rules" ? "none" : "rules"))}>
+            {tr("session.rules", "RULES")}
+          </Button>
+          <Button
+            on={pane === "player"}
+            onClick={() => setPane((p) => (p === "player" ? "none" : "player"))}
+            title={tr("player.tip", "Watch this session back")}
+          >
+            {tr("player.open", "PLAYBACK")}
+          </Button>
+          <Button on={pane === "marks"} onClick={() => setPane((p) => (p === "marks" ? "none" : "marks"))}>
+            {tr("marks.open", "MARKS")}
+          </Button>
+          <Button
+            on={Boolean(split)}
+            onClick={() => setSplit((v) => (v ? null : (others[0]?.id ?? null)))}
+            disabled={!split && others.length === 0}
+            title={
+              others.length === 0
+                ? tr("session.splitNone", "There is no second session to place alongside.")
+                : tr("session.splitTip", "Put a second session next to this one")
+            }
+          >
+            {tr("session.split", "SPLIT")}
+          </Button>
+          {accountOptions.length ? (
+            canSwitch ? (
+              <Select
+                value={tile.account ?? accountOptions[0].value}
+                options={accountOptions}
+                onChange={(account) => api.switchAccount(tile.id, account).catch(() => undefined)}
+                title={tr("session.accountTip", "Continue under another account")}
+              />
+            ) : (
+              <span
+                className="meta"
+                title={tr("session.accountBlocked", "No Claude session id is known here, so there is nothing to move.")}
+              >
+                {tile.account ?? ""}
+              </span>
+            )
+          ) : null}
+          {tile.frozen ? (
+            <Button onClick={() => api.unfreeze(tile.id)}>{tr("session.resume", "RESUME")}</Button>
           ) : (
-            <span
-              className="meta"
-              title={tr("session.accountBlocked", "No Claude session id is known here, so there is nothing to move.")}
-            >
-              {tile.account ?? ""}
-            </span>
-          )
-        ) : null}
-        {tile.frozen ? (
-          <Button onClick={() => api.unfreeze(tile.id)}>{tr("session.resume", "RESUME")}</Button>
-        ) : (
-          <Button onClick={() => api.freeze(tile.id)}>{tr("session.pause", "PAUSE")}</Button>
-        )}
-        <Button
-          onClick={() => {
-            api.kill(tile.id).catch(() => undefined);
-            onBack();
-          }}
-        >
-          {tr("session.kill", "TERMINATE")}
-        </Button>
-      </div>
+            <Button onClick={() => api.freeze(tile.id)}>{tr("session.pause", "PAUSE")}</Button>
+          )}
+          <Button
+            onClick={() => {
+              api.kill(tile.id).catch(() => undefined);
+              onBack();
+            }}
+          >
+            {tr("session.kill", "TERMINATE")}
+          </Button>
+        </div>
+      </TopStrip>
 
       <div className="sesssplit" data-files={files ? "open" : undefined}>
         {files ? <Files sessionId={tile.id} root={tile.cwd} onPick={setPicked} /> : null}

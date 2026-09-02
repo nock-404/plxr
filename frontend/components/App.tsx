@@ -275,6 +275,16 @@ export default function App() {
           onOpen={openSession}
         />
 
+        {/* The view's own bar, lifted out of the view.
+            It used to sit inside, which put it beside the settings panel
+            rather than above it: with the panel open the bar lost 280px, its
+            buttons did not fit, and through a see-through panel they read as
+            the settings lying on top of the toolbar. Views render into this
+            through TopStrip; the overview has no bar and it collapses. */}
+        <div className="work">
+          <div className="workstrip" id="view-strip" />
+          <div className="workrow">
+
         <main className="content">
           {view === "session" && open ? (
             <Session tile={open} others={tiles.filter((t) => t.id !== open.id)} onBack={() => goView("overview")} />
@@ -310,6 +320,8 @@ export default function App() {
             <Settings onClose={() => setSettings(false)} />
           </>
         ) : null}
+          </div>
+        </div>
         {bench ? <Workbench onClose={() => setBench(false)} /> : null}
         {shop ? <Workshop onClose={() => setShop(false)} /> : null}
       </div>

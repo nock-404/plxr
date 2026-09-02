@@ -31,6 +31,7 @@ STYLES = os.path.join(HERE, "frontend", "app", "styles")
 LAYOUT_ONLY = {
     # Boxes and rails that only place what sits inside them.
     "app", "body", "stage", "content", "grid", "list", "listbody", "panes",
+    "work", "workstrip", "workrow",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
     "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",

@@ -203,6 +203,13 @@ body {
    once the work was squeezed to nothing while all three stayed exactly as wide
    as they wanted. Measured at zero pixels by the window gate. Now the panels
    are the ones that yield. */
+/* Beside the rail: a column whose first row is the view's bar, full width, and
+   whose second is the content with the settings panel next to it. That order is
+   the whole point — the bar is above the panel, not beside it. */
+.work { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.workstrip { flex: 0 0 auto; }
+.workrow { flex: 1 1 auto; min-height: 0; display: flex; }
+
 .content { flex: 1 1 auto; min-width: 16rem; display: flex; flex-direction: column; }
 
 /* ---------- tile grid ---------- */

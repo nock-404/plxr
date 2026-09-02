@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { tr } from "@/lib/i18n";
@@ -35,12 +36,14 @@ export default function Inbox({ tiles, onOpen }: { tiles: Tile[]; onOpen: (id: s
 
   return (
     <section className="list">
-      <div className="listbar">
-        <span className="prompt">{tr("inbox.prompt", "waiting>")}</span>
-        <span className="meta">
-          {waiting.length} {tr("inbox.open", "open")}
-        </span>
-      </div>
+      <TopStrip>
+        <div className="listbar">
+          <span className="prompt">{tr("inbox.prompt", "waiting>")}</span>
+          <span className="meta">
+            {waiting.length} {tr("inbox.open", "open")}
+          </span>
+        </div>
+      </TopStrip>
       <div className="listbody">
         {waiting.length === 0 ? (
           <div className="emptyNote">

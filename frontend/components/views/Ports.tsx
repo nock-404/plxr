@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -26,12 +27,14 @@ export default function Ports() {
 
   return (
     <section className="list">
-      <div className="listbar">
-        <span className="prompt">{tr("ports.prompt", "ports>")}</span>
-        <span className="meta">{error || `${ports.length} ${tr("ports.open", "listening")}`}</span>
-        <span className="spacer" />
-        <Button onClick={load}>{tr("common.reload", "RELOAD")}</Button>
-      </div>
+      <TopStrip>
+        <div className="listbar">
+          <span className="prompt">{tr("ports.prompt", "ports>")}</span>
+          <span className="meta">{error || `${ports.length} ${tr("ports.open", "listening")}`}</span>
+          <span className="spacer" />
+          <Button onClick={load}>{tr("common.reload", "RELOAD")}</Button>
+        </div>
+      </TopStrip>
       <div className="listbody">
         {ports.length === 0 ? (
           <div className="emptyNote">
