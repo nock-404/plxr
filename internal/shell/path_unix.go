@@ -46,10 +46,24 @@ func askLoginShell() string {
 	return strings.Join(out, sep)
 }
 
+/* marker is how the answer is told apart from everything else the shell says.
+ *
+ * A profile prints things. Somebody's .zshrc calls a theme helper that, with no
+ * terminal to draw on, writes its usage to standard output — and the first
+ * version of this took whatever came back as the PATH, because it checked only
+ * that the text contained a colon, and "Usage: prompt <options>" does. That
+ * usage text then became the front of the PATH of every session plxr started.
+ * It still worked, because the real directories were appended behind it, which
+ * is exactly why it went unnoticed.
+ *
+ * So the shell is asked to mark its answer, and only the marked line is read.
+ */
+const marker = "PLXR-PATH:"
+
 func ask(shell string, flags []string) string {
 	// printf rather than echo: some shells add a newline that then travels
 	// inside the value.
-	args := append(append([]string{}, flags...), "-c", `printf %s "$PATH"`)
+	args := append(append([]string{}, flags...), "-c", `printf '`+marker+`%s\n' "$PATH"`)
 	cmd := exec.Command(shell, args...)
 	cmd.Env = os.Environ()
 	// An interactive shell with nothing to read from would otherwise sit there.
@@ -74,9 +88,28 @@ func ask(shell string, flags []string) string {
 	if err != nil {
 		return ""
 	}
-	got := strings.TrimSpace(string(out))
-	if !strings.Contains(got, string(os.PathListSeparator)) {
-		return "" // not a path list; something answered with something else
+	for _, line := range strings.Split(string(out), "\n") {
+		if !strings.HasPrefix(line, marker) {
+			continue
+		}
+		return usable(strings.TrimSpace(strings.TrimPrefix(line, marker)))
 	}
-	return got
+	return ""
+}
+
+// usable keeps the entries that are actually directories to look in. Anything
+// else a shell may have said on the way is not one, and a PATH with rubbish at
+// the front is worse than no answer: every lookup walks past it first.
+func usable(list string) string {
+	sep := string(os.PathListSeparator)
+	out := []string{}
+	for _, dir := range strings.Split(list, sep) {
+		if strings.HasPrefix(dir, "/") && !strings.ContainsAny(dir, " \t") {
+			out = append(out, dir)
+		}
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return strings.Join(out, sep)
 }
