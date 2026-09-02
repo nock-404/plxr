@@ -44,8 +44,17 @@ jobs:
         with:
           node-version: 22
 
-      # What the GTK window links against. webkit2gtk-4.1 is the one Wails
-      # looks for first; without it cgo stops at the include.
+      # What the GTK window links against.
+      #
+      # Wails beta.16 builds against GTK4 and webkitgtk-6.0 unless it is told
+      # otherwise, and the first run of this failed on exactly that: gtk4 not
+      # found. It is built with -tags gtk3 instead, for two reasons. GTK3 with
+      # webkit2gtk-4.1 is present on far more machines than GTK4 with
+      # webkitgtk-6.0 — Debian 12 and Ubuntu 22.04 have the one and not the
+      # other — and Wails itself says of the GTK4 path: "icon lookup is not
+      # currently implemented for the GTK4 build path; build with -tags gtk3
+      # for the legacy implementation". A window with no icon is the thing the
+      # macOS bundle exists to avoid.
       - name: system libraries
         run: |
           sudo apt-get update
@@ -65,7 +74,7 @@ jobs:
             rm -rf "frontend/out/$d"
             cp -R "assets/$d" "frontend/out/$d"
           done
-          CGO_ENABLED=1 go build -ldflags "-X main.version=$VERSION" -o plxr .
+          CGO_ENABLED=1 go build -tags gtk3 -ldflags "-X main.version=$VERSION" -o plxr .
           ./plxr --version
 
       - name: package
