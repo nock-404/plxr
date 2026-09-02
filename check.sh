@@ -135,6 +135,26 @@ step "window works" node clicked.mjs
 # up on it too. "Which of them wins?" used to have no answer.
 step "windows agree" node agree.mjs
 
+# --- started the way people start it -----------------------------------------
+# Everything above starts plxr from this shell, with a full environment. The
+# faults of one long evening all lived in the gap between that and how an
+# application is really launched: by the system, inheriting no PATH at all.
+# packaged.sh strips the environment down to what launchd hands out and runs the
+# bundle. Proved both ways before it was let in here — a no-op AdoptLoginPath
+# makes it fail, and so does a PATH with a profile's prose in it.
+#
+# macOS only, because it needs the bundle. It builds it, rather than skipping
+# when it is missing: a check that quietly stands aside is the green line that
+# means nothing.
+if [ "$(uname)" = "Darwin" ] && [ -f packaged.sh ]; then
+	if ./bundle-macos.sh >/dev/null 2>&1; then
+		step "packaged app" ./packaged.sh
+	else
+		printf '  %-22s %s\n' "packaged app" "FAILED — the bundle could not be built"
+		fail=1
+	fi
+fi
+
 # --- seen with your own eyes -------------------------------------------------
 # The last gate is not a script: no green without having clicked through the
 # built window. smoke.sh records the hash of what was last looked at.
