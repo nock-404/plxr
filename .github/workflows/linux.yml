@@ -1,0 +1,79 @@
+# The Linux package, built where a Linux machine is.
+#
+# plxr runs on three systems, but only two of them can be packaged on the
+# machine this is developed on. The Linux window is GTK and WebKit through cgo,
+# so it cannot be cross-compiled from macOS at all — the build stops in Wails'
+# own Linux files with `undefined: pointer`, because without cgo the C types
+# those files use do not exist.
+#
+# So a tag brings up an Ubuntu machine, installs GTK and WebKit, builds, and
+# hangs the archive on the release that is already there.
+#
+# The archive holds the binary and nothing else. update.findApp takes the first
+# entry in it that is not a directory, so a README or a .desktop file beside it
+# would be picked up and installed as the program.
+name: linux package
+
+on:
+  push:
+    tags: ["v*"]
+  # Buildable by hand as well: a tag that was cut before this existed, or a run
+  # that failed on something temporary, should not need a new version.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Which tag to build and attach to"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # What the GTK window links against. webkit2gtk-4.1 is the one Wails
+      # looks for first; without it cgo stops at the include.
+      - name: system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-dev libwebkit2gtk-4.1-dev pkg-config
+
+      # The same build the other two platforms get: the interface is exported
+      # and the data directories are merged into it before the binary is
+      # compiled, so one binary carries everything.
+      - name: build
+        run: |
+          set -e
+          VERSION="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${VERSION#v}"
+          (cd frontend && npm ci && npx next build)
+          for d in themes agents skins i18n; do
+            rm -rf "frontend/out/$d"
+            cp -R "assets/$d" "frontend/out/$d"
+          done
+          CGO_ENABLED=1 go build -ldflags "-X main.version=$VERSION" -o plxr .
+          ./plxr --version
+
+      - name: package
+        run: zip -j plxr-linux-amd64.zip plxr
+
+      - name: attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          gh release upload "$TAG" plxr-linux-amd64.zip --clobber --repo "$GITHUB_REPOSITORY"
