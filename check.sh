@@ -32,6 +32,11 @@ step "no german" python3 german.py
 
 step "error codes" python3 errors.py
 
+# german.py keeps German out of the code. This one keeps it in the file where it
+# does live: every text the window asks for has to exist in both languages, or
+# the German window quietly shows English sentences among the German ones.
+step "both languages" python3 translations.py
+
 # --- the layer contract ---
 # Styles live in app/styles, sizes in rem, feature code goes through the Ui
 # components. All three used to be one-line greps here against paths that only

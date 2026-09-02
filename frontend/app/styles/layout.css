@@ -165,7 +165,7 @@ body {
 .input { font: inherit; color: inherit; min-width: 0; }
 .selectButton { height: 1.75rem; padding: 0 0.65rem; }
 .choiceButton { height: 1.75rem; padding: 0 0.75rem; }
-.tab { height: 1.75rem; padding: 0 0.75rem; }
+.tab { height: 1.75rem; padding: 0 0.75rem; flex: 0 1 auto; min-width: 0; }
 .keyCap { padding: 0.12rem 0.5rem; }
 .tfoot .agent { padding: 0 0.3rem; }
 .spacer { flex: 1; }
@@ -390,7 +390,12 @@ body {
 .splitRow { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.5rem; cursor: pointer; text-align: left; font: inherit; color: inherit; background: none; border: 0; }
 .choice { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .choiceButton { cursor: pointer; font: inherit; color: inherit; padding: 0.25rem 0.75rem; border: 0; background: none; }
-.tabs { display: flex; gap: 0.25rem; }
+/* The row wraps, and a tab gives up its padding before it gives up its word.
+   Five tabs fit across the panel in English and do not in the other language,
+   whose words are half again as long: the row ran past the edge and the last
+   tab was cut through the middle. A language that needs longer words is not a
+   special case to be measured for; the row simply has to survive one. */
+.tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .tab { cursor: pointer; font: inherit; background: none; }
 .tabbody { display: flex; flex-direction: column; gap: 0.875rem; }
 

@@ -11,15 +11,44 @@ import ColourPicker from "@/components/ui/ColourPicker";
 import StyleEditor from "@/components/StyleEditor";
 import { api } from "@/lib/api";
 import { askVersionNow, watchVersion } from "@/lib/version";
-import { tr, errText } from "@/lib/i18n";
+import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
 import { DEFAULTS, apply, fitPalette, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
 import type { Theme, VersionInfo } from "@/lib/types";
 
 type Tab = "look" | "colours" | "notify" | "agents" | "status";
 
+/* The tabs, with their texts spelled out.
+ *
+ * This was tr(`settings.tab.${t}`, t) — a key assembled at runtime, which
+ * nothing can check. Four of the five keys did not exist, and so four tabs
+ * showed their own identifier: look, colours, agents, status. In English those
+ * read like words, which is why it survived — it took switching the window to
+ * the other language, where one tab was translated and four were not, for
+ * anybody to see it at all.
+ *
+ * A function rather than a string, because the table is loaded after this
+ * module is read. */
+const TABS: { id: Tab; label: () => string }[] = [
+  { id: "look", label: () => tr("settings.tab.look", "look") },
+  { id: "colours", label: () => tr("settings.tab.colours", "colours") },
+  { id: "notify", label: () => tr("settings.tab.notify", "notify") },
+  { id: "agents", label: () => tr("settings.tab.agents", "agents") },
+  { id: "status", label: () => tr("settings.tab.status", "status") },
+];
+
 // Everything adjustable about the look, plus what is actually running.
 export default function Settings({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("look");
+  // "system" rather than a language: the setting says what to follow, and
+  // chosenLanguage() turns that into one of the two files that exist.
+  const [lang, setLang] = useState("system");
+
+  useEffect(() => {
+    void api
+      .prefs()
+      .then((p) => setLang((p.language as string) || "system"))
+      .catch(() => undefined);
+  }, []);
   // The one place a raw input is unavoidable: a file picker has no other way in.
   const [state, setState] = useState<ThemeState>(DEFAULTS);
   const [version, setVersion] = useState<VersionInfo | null>(null);
@@ -107,16 +136,16 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         <b className="cardTitle">{tr("settings.title", "settings")}</b>
 
         <div className="tabs" role="tablist">
-          {(["look", "colours", "notify", "agents", "status"] as Tab[]).map((t) => (
+          {TABS.map(({ id, label }) => (
             <Button
               bare
-              key={t}
+              key={id}
               role="tab"
-              aria-selected={tab === t}
-              className={`tab${tab === t ? " on" : ""}`}
-              onClick={() => setTab(t)}
+              aria-selected={tab === id}
+              className={`tab${tab === id ? " on" : ""}`}
+              onClick={() => setTab(id)}
             >
-              {tr(`settings.tab.${t}`, t)}
+              {label()}
             </Button>
           ))}
         </div>
@@ -154,6 +183,32 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                     { value: "custom", label: tr("theme.custom", "Own colour") },
                   ]}
                 />
+              </span>
+            </div>
+            <div className="field">
+              <span className="fieldName">{tr("settings.language", "language")}</span>
+              <span className="rowInline">
+                <Select
+                  value={lang}
+                  onChange={(next: string) => {
+                    setLang(next);
+                    void api.setPrefs({ language: next });
+                    /* Reloaded rather than swapped in place. tr() reads a
+                       module-level table, so a component that has already
+                       rendered keeps the words it was given until something
+                       makes it render again — which, for a settings panel that
+                       is not being touched, is never. */
+                    void loadLanguage(chosenLanguage(next)).then(() => window.location.reload());
+                  }}
+                  options={[
+                    { value: "system", label: tr("settings.langSystem", "System") },
+                    { value: "en", label: "English" },
+                    { value: "de", label: "Deutsch" },
+                  ]}
+                />
+                <span className="notice">
+                  {tr("settings.langHint", "The window is reloaded so every view speaks it.")}
+                </span>
               </span>
             </div>
             {state.palette === "custom" ? (

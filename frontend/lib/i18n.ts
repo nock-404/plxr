@@ -23,6 +23,30 @@ export function language(): string {
   return current;
 }
 
+/* Which language a setting of "system" means here.
+ *
+ * Only the two that exist. Anything else falls to English, which is the
+ * fallback everywhere else in this file as well: every tr() call carries its
+ * English text as the second argument, so English is the one language that
+ * cannot go missing. */
+export function systemLanguage(): string {
+  const want = (typeof navigator === "undefined" ? "" : navigator.language) || "";
+  return want.toLowerCase().startsWith("de") ? "de" : "en";
+}
+
+/* No setting means English, not the system.
+ *
+ * Following the system unasked is a different program on a German machine than
+ * on an English one, decided by something nobody here set. Somebody who wants
+ * that picks "System" in the settings and gets it; until then the window speaks
+ * the language it was built in, which is also the language every check in this
+ * project reads. */
+export function chosenLanguage(setting: string | undefined): string {
+  if (setting === "de" || setting === "en") return setting;
+  if (setting === "system") return systemLanguage();
+  return "en";
+}
+
 export function tr(key: string, fallback: string, vars?: Record<string, string | number>): string {
   let out = table[key] ?? fallback;
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, String(v));

@@ -20,7 +20,7 @@ import Session from "@/components/views/Session";
 import Usage from "@/components/views/Usage";
 import { api } from "@/lib/api";
 import { clock } from "@/lib/format";
-import { loadLanguage, tr } from "@/lib/i18n";
+import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import Splitter from "@/components/ui/Splitter";
@@ -52,7 +52,17 @@ export default function App() {
   useEffect(() => {
     startCapture();
     applyStored();
-    loadLanguage("en");
+    /* The language, from the setting.
+     *
+     * This line read loadLanguage("en"), with no way to reach anything else:
+     * no switch anywhere, language() called by nobody. The daemon served
+     * de.json, a gate kept German out of the code so that file would stay the
+     * only place it lives, and 580 translated strings were never once shown to
+     * anybody. */
+    void api
+      .prefs()
+      .then((p) => loadLanguage(chosenLanguage(p.language as string | undefined)))
+      .catch(() => loadLanguage("en"));
     // The palettes come from the daemon, so an imported theme works the same as
     // a shipped one. Applied once they are in — until then the skin's own
     // defaults are already on screen.

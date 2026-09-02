@@ -30,6 +30,9 @@ ALLOWED_PATHS = (
     'frontend/package-lock.json', 'frontend/package.json',
     'frontend/next-env.d.ts', 'BUILD.md',
     'german.py',             # this file names the words it hunts
+    'translations.py',       # and so does that one: it holds the German
+                             # spellings it corrects, which are German words
+                             # sitting in a .py file by necessity
 )
 
 # Files to look at.
