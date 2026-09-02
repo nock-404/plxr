@@ -70,7 +70,7 @@ WORDS = {
     # a check nobody can trust is worse than no check.
     'absolut','rauschen','ordner','verzeichnis','pfad','groesse',
     'zwischenspeicher','modell','posten','eingebunden','inhalt',
-    'verbrauch','abschnitt','konto','kontos','konten','uebersicht','einstellung','sitzungen','fenster',
+    'verbrauch','abschnitt','konto','kontos','konten','geschwister','durchnummeriert','durchnummerierten','uebersicht','einstellung','sitzungen','fenster',
     'loeschen','waehlen','suchen','warten','holen','setzen','lesen','schreiben',
     'arbeiten','sollte','muss','kann','beim','sonst','damit','deshalb',
     # Participles: these are how German verbs most often appear in a string or

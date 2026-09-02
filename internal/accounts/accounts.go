@@ -41,7 +41,7 @@ func (a Account) ProjectsDir() string { return filepath.Join(a.Dir, "projects") 
 func configPath() string { return filepath.Join(daemon.Root(), "accounts.json") }
 
 // Discover finds accounts: our own list first, otherwise ~/.claude and the
-// durchnummerierten Geschwister daneben.
+// numbered siblings beside it.
 func Discover() []Account {
 	if list, err := load(); err == nil && len(list) > 0 {
 		return count(list)
