@@ -263,11 +263,15 @@ func Suggestions(input string, max int) []string {
 			continue
 		}
 		out = append(out, filepath.Join(dir, name))
-		if len(out) >= max {
-			break
-		}
 	}
+	// Sorted before it is cut, not after. The other way round the cap took
+	// whatever order the file system happened to hand back and sorted that, so
+	// a directory with more entries than the limit showed an arbitrary
+	// selection of them in a tidy order — which reads as the whole list.
 	sort.Strings(out)
+	if len(out) > max {
+		out = out[:max]
+	}
 	return out
 }
 

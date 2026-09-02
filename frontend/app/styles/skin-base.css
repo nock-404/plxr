@@ -600,3 +600,26 @@
    somebody came here to look at, so it is dressed like the path, not like
    furniture. */
 .accountCount { color: var(--dim); font-size: .8em; }
+
+/* Choosing a folder. The trail reads as the quiet part, the folders as the
+   part you act on, and the one you are standing in is the accent. */
+.crumbs { color: var(--dim); }
+.crumb { color: var(--dim); }
+.crumb:hover { color: var(--accent); }
+.crumbs .crumb:last-child { color: var(--fg); }
+/* The separators, drawn rather than written into the markup — a path is one
+   string and it should read as one. Not on the root, which is a slash already,
+   and not after the last part, where there is nothing to separate it from. */
+.crumbs .crumb:not(:first-child):not(:last-child)::after { content: "/"; color: var(--dead); }
+.folderlist { border: var(--hair) solid var(--line); }
+.folderrow { color: var(--fg); }
+.folderrow:hover { background: var(--panel); color: var(--accent); }
+.folderup { color: var(--dim); }
+
+/* The readout. Green while it keeps up, the warning colour when it does not,
+   so it can be read at a glance from across the desk. */
+.meter { background: var(--panel); border: var(--hair) solid var(--line); color: var(--dim); }
+.meterBig { color: var(--fg); }
+.meter[data-slow="yes"] .meterBig { color: var(--blocked); }
+.meterGap[data-bad="yes"] { color: var(--blocked); }
+.meterUnit, .meterCost { color: var(--dead); }

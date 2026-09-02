@@ -440,6 +440,34 @@ body {
 .composer { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; padding: 0.45rem 0.875rem; }
 .composer input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 0.3rem 0.5rem; }
 
+/* ---------- the frame-rate readout ---------- */
+/* Pinned to a corner and out of the way of everything. It is a measuring
+   instrument: it must not become the reason the number is bad, so it draws four
+   short pieces of text and nothing else — no border to composite, no blur. */
+.meter {
+  position: fixed; right: 0.75rem; bottom: 0.75rem; z-index: 90;
+  display: flex; align-items: baseline; gap: 0.4rem;
+  padding: 0.25rem 0.5rem; pointer-events: none;
+}
+.meterBig { font-size: 1.25em; }
+.meterUnit, .meterGap, .meterCost { font-size: 0.8em; }
+
+/* ---------- choosing a folder ---------- */
+.folderpick { width: min(34rem, 92vw); }
+/* The trail of where you are. It wraps rather than scrolls: a path deep enough
+   to need a second line is exactly the path somebody needs to read. */
+.crumbs { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.25rem; }
+.crumb { padding: 0 0.15rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.folderlist {
+  display: flex; flex-direction: column; align-items: stretch;
+  height: 16rem; overflow-y: auto; margin: 0.5rem 0;
+}
+.folderrow {
+  flex: 0 0 auto; text-align: left; padding: 0.3rem 0.5rem;
+  background: none; border: 0; font: inherit; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 /* ---------- scrollbars ---------- */
 *::-webkit-scrollbar { width: 0.75rem; height: 0.75rem; }
 *::-webkit-scrollbar-corner { background: transparent; }

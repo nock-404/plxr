@@ -19,7 +19,12 @@ cd "$(dirname "$0")"
 version="${1:-dev}"
 app="build/plxr.app"
 
-./build.sh >/dev/null
+# Not >/dev/null: build.sh reports its failures on standard output, so throwing
+# that away turned a compile error into a bundle that simply did not appear.
+if ! out=$(./build.sh 2>&1); then
+	printf '%s\n' "$out"
+	exit 1
+fi
 
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"

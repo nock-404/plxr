@@ -6,6 +6,7 @@ import Logo from "@/components/ui/Logo";
 import PathField from "@/components/ui/PathField";
 import Keys from "@/components/Keys";
 import NewSession from "@/components/NewSession";
+import Meter from "@/components/Meter";
 import Settings from "@/components/Settings";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
@@ -36,6 +37,9 @@ export default function App() {
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
   const [settings, setSettings] = useState(false);
+  // The readout is off unless somebody asked for it: a frame loop that is
+  // always running is a measuring instrument that changes what it measures.
+  const [meter, setMeter] = useState(false);
   const [keys, setKeys] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [bench, setBench] = useState(false);
@@ -61,8 +65,13 @@ export default function App() {
      * anybody. */
     void api
       .prefs()
-      .then((p) => loadLanguage(chosenLanguage(p.language as string | undefined)))
+      .then((p) => {
+        setMeter(Boolean(p.meter));
+        return loadLanguage(chosenLanguage(p.language as string | undefined));
+      })
       .catch(() => loadLanguage("en"));
+    const onMeter = (e: Event) => setMeter(Boolean((e as CustomEvent).detail));
+    window.addEventListener("METER_CHANGED", onMeter);
     // The palettes come from the daemon, so an imported theme works the same as
     // a shipped one. Applied once they are in — until then the skin's own
     // defaults are already on screen.
@@ -128,6 +137,7 @@ export default function App() {
     }
     return () => {
       live = false;
+      window.removeEventListener("METER_CHANGED", onMeter);
     };
   }, []);
 
@@ -325,6 +335,8 @@ export default function App() {
         {bench ? <Workbench onClose={() => setBench(false)} /> : null}
         {shop ? <Workshop onClose={() => setShop(false)} /> : null}
       </div>
+
+      {meter ? <Meter /> : null}
 
       <div className="fx" />
 

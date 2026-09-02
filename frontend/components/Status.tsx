@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Toggle from "@/components/ui/Toggle";
 import Ask from "@/components/ui/Ask";
 import { api } from "@/lib/api";
 import { errText, tr } from "@/lib/i18n";
@@ -18,6 +19,11 @@ export default function Status() {
     { kind: "add" } | { kind: "rename" | "remove"; account: Account } | null
   >(null);
   const [problem, setProblem] = useState("");
+  const [meter, setMeter] = useState(false);
+
+  useEffect(() => {
+    void api.prefs().then((p) => setMeter(Boolean(p.meter))).catch(() => undefined);
+  }, []);
 
   // Every change hands back the whole list, so there is nothing to reload and
   // no moment where the screen and the daemon disagree.
@@ -74,6 +80,25 @@ export default function Status() {
               {busy ? tr("common.working", "…") : tr("hook.install", "INSTALL")}
             </Button>
           ) : null}
+        </span>
+      </div>
+
+      <div className="field">
+        <span className="fieldName">{tr("meter.show", "frame-rate readout")}</span>
+        <span className="rowInline">
+          <Toggle
+            on={meter}
+            onChange={(on) => {
+              setMeter(on);
+              void api.setPrefs({ meter: on });
+              window.dispatchEvent(new CustomEvent("METER_CHANGED", { detail: on }));
+            }}
+          >
+            {meter ? tr("common.on", "ON") : tr("common.off", "OFF")}
+          </Toggle>
+          <span className="notice">
+            {tr("meter.hint", "Frames per second in the corner, with the two settings that cost the compositor most. Turn one off and watch the number.")}
+          </span>
         </span>
       </div>
 

@@ -152,10 +152,14 @@ step "windows agree" node agree.mjs
 # when it is missing: a check that quietly stands aside is the green line that
 # means nothing.
 if [ "$(uname)" = "Darwin" ] && [ -f packaged.sh ]; then
-	if ./bundle-macos.sh >/dev/null 2>&1; then
+	# The output is kept, not discarded. It was thrown away, and the day the
+	# bundle failed here the line read "the bundle could not be built" and
+	# nothing else — while the same script run by hand worked.
+	if bundle_log=$(./bundle-macos.sh 2>&1); then
 		step "packaged app" ./packaged.sh
 	else
 		printf '  %-22s %s\n' "packaged app" "FAILED — the bundle could not be built"
+		printf '%s\n' "$bundle_log" | sed 's/^/      /' | head -15
 		fail=1
 	fi
 fi

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import FolderPick from "@/components/ui/FolderPick";
 import PathField from "@/components/ui/PathField";
 import { tr } from "@/lib/i18n";
 
@@ -41,6 +42,7 @@ export default function Ask({
   // Only the completing field needs state: the plain one is read off the DOM
   // when the answer is given, which keeps every keystroke out of React.
   const [typed, setTyped] = useState(value);
+  const [browsing, setBrowsing] = useState(false);
 
   useEffect(() => {
     box.current?.focus();
@@ -66,7 +68,10 @@ export default function Ask({
           <label className="field">
             <span className="fieldName">{field}</span>
             {path ? (
-              <PathField value={typed} onChange={setTyped} />
+              <span className="rowInline">
+                <PathField value={typed} onChange={setTyped} />
+                <Button onClick={() => setBrowsing(true)}>{tr("folder.browse", "BROWSE")}</Button>
+              </span>
             ) : (
               <Input
                 ref={box}
@@ -86,6 +91,17 @@ export default function Ask({
           </Button>
         </div>
       </div>
+
+      {browsing ? (
+        <FolderPick
+          start={typed}
+          onCancel={() => setBrowsing(false)}
+          onChoose={(picked) => {
+            setTyped(picked);
+            setBrowsing(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
