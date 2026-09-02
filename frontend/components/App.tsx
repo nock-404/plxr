@@ -238,7 +238,18 @@ export default function App() {
             </Button>
           ) : null}
           <Button icon title={tr("keys.tip", "Keyboard shortcuts")} onClick={() => setKeys(true)}>?</Button>
-          <Button icon title={tr("header.settingsTip", "Settings")} onClick={() => setSettings(true)}>⚙</Button>
+          {/* The same button both ways. It only ever set the panel open, so the
+              way back out was the DONE button at the bottom of a panel long
+              enough to have scrolled it off the screen. */}
+          <Button
+            icon
+            on={settings}
+            aria-pressed={settings}
+            title={tr("header.settingsTip", "Settings")}
+            onClick={() => setSettings((open) => !open)}
+          >
+            ⚙
+          </Button>
           <Button onClick={() => setTemplates(true)}>{tr("header.templates", "TEMPLATES")}</Button>
           <Button primary onClick={() => setCreating(true)}>{tr("header.new", "+ NEW")}</Button>
         </div>

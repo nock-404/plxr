@@ -254,6 +254,19 @@
 .fchev,
 .ficon { color: var(--dim); }
 .pterm { border: var(--hair) solid var(--dim); }
+/* No edge on the terminal's scrollbar track.
+ *
+ * xterm keeps its viewport on overflow-y: scroll, so the twelve pixels are
+ * always reserved whether or not there is scrollback — and every skin draws a
+ * line down the left of that track. The result was two parallel lines at the
+ * right of a session that had nothing to scroll: the track's edge and, twenty
+ * pixels further out, the pane's own border. The thumb still appears when
+ * there is something to move. */
+.pterm .xterm-viewport::-webkit-scrollbar-track {
+  border-left: 0;
+  border-right: 0;
+  background: transparent;
+}
 .panelabel {
   background: var(--bg);
   color: var(--dim);

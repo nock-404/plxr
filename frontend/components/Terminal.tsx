@@ -203,7 +203,19 @@ export default function Terminal({
           ✕
         </Button>
       ) : null}
-      <div className="pterm" ref={host} />
+      {/* Two boxes, and the inner one is bare on purpose.
+          xterm's fit addon works out how many rows fit by reading the computed
+          height of the element it was opened into. Under box-sizing: border-box
+          that value is the border-box height — so the padding above (which
+          clears the label straddling the border) and the border itself were
+          counted as room for text. It came to 22px, one whole row: the terminal
+          drew 608px of rows into a 587px box and the bottom line was cut
+          through the middle, with three pixels over the right edge as well.
+          The padding and border stay outside; what xterm measures is exactly
+          what xterm gets. */}
+      <div className="pterm">
+        <div className="ptermbox" ref={host} />
+      </div>
     </div>
   );
 }

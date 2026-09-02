@@ -39,14 +39,15 @@ const TABS: { id: Tab; label: () => string }[] = [
 // Everything adjustable about the look, plus what is actually running.
 export default function Settings({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("look");
-  // "system" rather than a language: the setting says what to follow, and
-  // chosenLanguage() turns that into one of the two files that exist.
-  const [lang, setLang] = useState("system");
+  // "en", to match what happens with no setting at all. Showing "System" here
+  // while an unset plxr in fact speaks English would be the picker telling one
+  // story and the window another.
+  const [lang, setLang] = useState("en");
 
   useEffect(() => {
     void api
       .prefs()
-      .then((p) => setLang((p.language as string) || "system"))
+      .then((p) => setLang((p.language as string) || "en"))
       .catch(() => undefined);
   }, []);
   // The one place a raw input is unavoidable: a file picker has no other way in.

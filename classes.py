@@ -44,6 +44,11 @@ LAYOUT_ONLY = {
     # through the --term-* tokens, not by reaching into another project's
     # classes. "editor" is the box one of them is put in.
     "xterm", "xterm-viewport", "xterm-rows", "xterm-screen", "editor",
+    # The bare box xterm is opened into. It exists so that what the fit addon
+    # measures is the room the terminal actually has: the padding and border
+    # belong to .pterm around it, and this one carries nothing at all — which
+    # is the whole point of it, not an oversight.
+    "ptermbox",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a
