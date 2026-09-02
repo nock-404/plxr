@@ -1,7 +1,7 @@
 {
  "_meta.name": "English",
  "accounts.add": "+ ACCOUNT",
- "accounts.addHint": "A second Claude Code configuration directory. It is made if it is not there yet.",
+ "accounts.addHint": "Another Claude Code configuration directory. It is made if it is not there yet.",
  "accounts.addWhere": "Where its configuration lives — ~/.claude4, for instance.",
  "accounts.dir": "directory",
  "accounts.label": "name",

@@ -1,7 +1,7 @@
 {
  "_meta.name": "Deutsch",
  "accounts.add": "+ KONTO",
- "accounts.addHint": "Ein zweites Konfigurationsverzeichnis für Claude Code. Es wird angelegt, wenn es noch nicht da ist.",
+ "accounts.addHint": "Ein weiteres Konfigurationsverzeichnis für Claude Code. Es wird angelegt, wenn es noch nicht da ist.",
  "accounts.addWhere": "Wo seine Konfiguration liegt — zum Beispiel ~/.claude4.",
  "accounts.dir": "Verzeichnis",
  "accounts.label": "Name",
