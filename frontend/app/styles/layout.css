@@ -260,6 +260,27 @@ body {
 .row { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.875rem; }
 .row.tall { align-items: flex-start; }
 .hitDate { flex: 0 0 auto; width: 6.25rem; }
+/* An account, on one line: the name at its own width, the path giving way.
+   Sharing the row evenly is what squeezed "account 1" down to "acc…" while the
+   directory beside it had space to spare. */
+/* Two lines, because the panel is not wide enough for one.
+   Name, count and the two buttons across the top; the path on its own line
+   underneath. Squeezed onto a single row the path came out as "~/.…" — and
+   the path is the only thing that tells two accounts apart. */
+.accountRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  padding: 0.45rem 0;
+}
+/* Rows named outright. Left to place itself, the full-width path took row two
+   and pushed the count and the buttons down to a third. */
+.accountName { grid-row: 1; grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accountCount { grid-row: 1; grid-column: 2; white-space: nowrap; }
+.accountRow button { grid-row: 1; }
+.accountDir { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .hitTitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hitMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }
 .hitExcerpt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -360,6 +381,9 @@ body {
 .rowInline { display: flex; gap: 0.5rem; align-items: stretch; }
 .rowInline input { flex: 1; min-width: 0; }
 .notice { flex: 1; min-width: 0; }
+/* The version line takes what is left; a spacer beside it halved the space and
+   folded the sentence into a column four words wide. */
+.dialogFoot .spacer { flex: 0 0 0; }
 .dialogFoot { display: flex; align-items: center; gap: 0.625rem; padding-top: 0.875rem; }
 .card input, .card textarea { font: inherit; color: inherit; padding: 0.3rem 0.5rem; }
 .splitList { display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }

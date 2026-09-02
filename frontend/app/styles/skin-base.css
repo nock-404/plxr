@@ -577,3 +577,13 @@
 .splitter::after { background: var(--line); }
 .splitter:hover::after, .splitter:focus-visible::after { background: var(--accent); }
 .splitter:focus-visible { outline: none; }
+
+/* One account per line. The name is what is read, the path is reference. */
+.accountRow { border-bottom: var(--hair) solid var(--line); }
+.accountRow:last-child { border-bottom: 0; }
+.accountName { color: var(--fg); }
+.accountDir { color: var(--dim); font-size: .85em; }
+/* --dead is for what nobody needs to read. A session count is a number
+   somebody came here to look at, so it is dressed like the path, not like
+   furniture. */
+.accountCount { color: var(--dim); font-size: .8em; }

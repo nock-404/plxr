@@ -56,6 +56,15 @@ export const api = {
   restart: () => req<void>("/api/restart", { method: "POST" }),
   paths: (q = "") => req<string[]>(`/api/paths?q=${encodeURIComponent(q)}`),
   accounts: () => req<Account[]>("/api/accounts"),
+  accountAdd: (dir: string, label: string) =>
+    req<Account[]>("/api/accounts", { method: "POST", body: JSON.stringify({ dir, label }) }),
+  accountRename: (name: string, label: string) =>
+    req<Account[]>(`/api/accounts/${encodeURIComponent(name)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ label }),
+    }),
+  accountRemove: (name: string) =>
+    req<Account[]>(`/api/accounts/${encodeURIComponent(name)}`, { method: "DELETE" }),
 
   ports: () => req<Port[]>("/api/ports"),
   portKill: (pid: number, hard = false) =>

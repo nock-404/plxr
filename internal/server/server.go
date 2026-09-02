@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"plxr/internal/accounts"
 	"plxr/internal/core"
 	"plxr/internal/daemon"
 	"plxr/internal/notify"
@@ -111,6 +112,45 @@ func (s *Server) Routes() *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /api/accounts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Accounts()) })
+	mux.HandleFunc("POST /api/accounts", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Dir   string `json:"dir"`
+			Label string `json:"label"`
+		}
+		if json.NewDecoder(r.Body).Decode(&in) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		list, err := accounts.Add(in.Dir, in.Label)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, list)
+	})
+	mux.HandleFunc("PATCH /api/accounts/{name}", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Label string `json:"label"`
+		}
+		if json.NewDecoder(r.Body).Decode(&in) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		list, err := accounts.Rename(r.PathValue("name"), in.Label)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, list)
+	})
+	mux.HandleFunc("DELETE /api/accounts/{name}", func(w http.ResponseWriter, r *http.Request) {
+		list, err := accounts.Remove(r.PathValue("name"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, list)
+	})
 	mux.HandleFunc("GET /api/archive", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Archive(r.URL.Query().Get("path")))
 	})

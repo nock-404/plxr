@@ -93,9 +93,17 @@ export interface ArchiveEntry {
 }
 
 export interface Account {
+  /* What somebody called it. Separate from the name, which is the identity:
+     sessions are recorded against that, so renaming what is shown must not
+     rename what they point at. */
+  label?: string;
   name: string;
   number: number;
   dir: string;
+  /* dir with the home directory written as ~ — what the row shows. Three
+     accounts under one home all begin the same way, so a path cut off at the
+     end tells them apart from nothing. */
+  short: string;
   sessions: number;
 }
 

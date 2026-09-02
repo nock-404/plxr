@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import PathField from "@/components/ui/PathField";
 import { tr } from "@/lib/i18n";
 
 /* Asking before doing something that cannot be taken back.
@@ -12,12 +13,14 @@ import { tr } from "@/lib/i18n";
  * that has no address bar they look like something has gone wrong.
  *
  * One component for both jobs. With `field` it asks for a word; without, it
- * asks a yes-or-no question.
+ * asks a yes-or-no question. With `path` on top, the word is a directory and
+ * the field completes it — nobody types a path out by hand.
  */
 export default function Ask({
   title,
   detail,
   field,
+  path = false,
   value = "",
   confirmLabel,
   danger = false,
@@ -27,6 +30,7 @@ export default function Ask({
   title: string;
   detail?: string;
   field?: string;
+  path?: boolean;
   value?: string;
   confirmLabel: string;
   danger?: boolean;
@@ -34,6 +38,9 @@ export default function Ask({
   onCancel: () => void;
 }) {
   const box = useRef<HTMLInputElement>(null);
+  // Only the completing field needs state: the plain one is read off the DOM
+  // when the answer is given, which keeps every keystroke out of React.
+  const [typed, setTyped] = useState(value);
 
   useEffect(() => {
     box.current?.focus();
@@ -45,7 +52,10 @@ export default function Ask({
     return () => window.removeEventListener("keydown", onKey);
   }, [onCancel]);
 
-  const answer = () => onConfirm(field ? (box.current?.value ?? "") : "");
+  const answer = () => {
+    if (!field) return onConfirm("");
+    onConfirm(path ? typed : (box.current?.value ?? ""));
+  };
 
   return (
     <div className="backdrop" onClick={onCancel}>
@@ -55,13 +65,17 @@ export default function Ask({
         {field ? (
           <label className="field">
             <span className="fieldName">{field}</span>
-            <Input
-              ref={box}
-              defaultValue={value}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") answer();
-              }}
-            />
+            {path ? (
+              <PathField value={typed} onChange={setTyped} />
+            ) : (
+              <Input
+                ref={box}
+                defaultValue={value}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") answer();
+                }}
+              />
+            )}
           </label>
         ) : null}
         <div className="cardButtons">
