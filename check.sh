@@ -60,6 +60,12 @@ step "palettes match" python3 palette.py
 # from the source on each side and held against each other.
 step "three systems" python3 platforms.py
 step "routes match" python3 routes.py
+
+# routes.py proves a route exists. This one proves both sides mean the same
+# thing by it: the window sent {"account": ...} in the body while the handler
+# read a query parameter called "target", so switching accounts moved a session
+# to the account it was already on and looked like nothing happening.
+step "bodies match" python3 bodies.py
 step "fields match" python3 fields.py
 
 # --- the code ----------------------------------------------------------------

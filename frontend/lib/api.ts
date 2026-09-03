@@ -155,8 +155,11 @@ export const api = {
   agentDelete: (name: string) =>
     req<void>(`/api/agents/${encodeURIComponent(name)}`, { method: "DELETE" }),
 
+  /* Answers with the session it became: moving accounts gives it a new id. It
+     was typed as void, so the window had no way to follow it even if it had
+     looked. */
   switchAccount: (id: string, account: string) =>
-    req<void>(`/api/sessions/${encodeURIComponent(id)}/account`, {
+    req<Session>(`/api/sessions/${encodeURIComponent(id)}/account`, {
       method: "POST",
       body: JSON.stringify({ account }),
     }),

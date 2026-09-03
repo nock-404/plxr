@@ -462,6 +462,18 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 		return nil, uierr.New("err.session.noClaudeID")
 	}
 	source := s.Account
+	if toAccount == source {
+		return nil, uierr.With("err.account.sameOne", toAccount)
+	}
+	// Checked before anything is killed. The old order took the session away
+	// first and only then found out whether the move could happen at all — and
+	// a refusal after that point left nothing to go back to.
+	if _, ok := accounts.ByName(c.Accounts(), toAccount); !ok {
+		return nil, uierr.With("err.account.unknown", toAccount)
+	}
+	if _, found := c.archiveFind(claudeID, source); !found {
+		return nil, uierr.New("err.transcript.missing")
+	}
 	c.Kill(sessionID, true)
 	return c.Resume(claudeID, source, toAccount)
 }

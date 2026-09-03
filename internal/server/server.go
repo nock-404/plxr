@@ -525,8 +525,30 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sess)
 }
 
+type switchReq struct {
+	Account string `json:"account"`
+}
+
+/* Which account to move to, read from the body the window actually sends.
+ *
+ * This read r.URL.Query().Get("target") while the window has always sent
+ * {"account": "..."} in the body. So the daemon received an empty target every
+ * single time, Resume fell back to "the account it was already on", and
+ * switching accounts killed the session and started it again on the same one.
+ * It looked like nothing happened, because nothing did. The window swallowed
+ * the answer as well, so there was not even a message.
+ */
 func (s *Server) switchAccount(w http.ResponseWriter, r *http.Request) {
-	sess, err := s.c.SwitchAccount(r.PathValue("id"), r.URL.Query().Get("target"))
+	var req switchReq
+	if json.NewDecoder(r.Body).Decode(&req) != nil {
+		http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.Account) == "" {
+		http.Error(w, uierr.New("err.account.noTarget").Error(), http.StatusBadRequest)
+		return
+	}
+	sess, err := s.c.SwitchAccount(r.PathValue("id"), strings.TrimSpace(req.Account))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

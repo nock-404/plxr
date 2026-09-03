@@ -319,7 +319,16 @@ export default function App() {
 
         <main className="content">
           {view === "session" && open ? (
-            <Session tile={open} others={tiles.filter((t) => t.id !== open.id)} onBack={() => goView("overview")} />
+            <Session
+              tile={open}
+              others={tiles.filter((t) => t.id !== open.id)}
+              onBack={() => goView("overview")}
+              /* Moving to another account gives the session a new id: the
+                 daemon takes the old one off the register and starts the
+                 transcript again under the other account. Without this the
+                 window kept staring at the one that no longer exists. */
+              onReplaced={openSession}
+            />
           ) : view === "inbox" ? (
             <Inbox tiles={tiles} onOpen={openSession} />
           ) : view === "ports" ? (

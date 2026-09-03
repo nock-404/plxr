@@ -13,7 +13,7 @@ import Rules from "@/components/Rules";
 import Viewer from "@/components/Viewer";
 import Select from "@/components/ui/Select";
 import Terminal from "@/components/Terminal";
-import { tr } from "@/lib/i18n";
+import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { shortPath } from "@/lib/format";
 import { titleOf } from "@/lib/state";
@@ -24,12 +24,18 @@ export default function Session({
   tile,
   others,
   onBack,
+  onReplaced,
 }: {
   tile: Tile;
   others: Tile[];
   onBack: () => void;
+  /* Called when this session has been replaced by another with a new id —
+     moving to a different account does exactly that. */
+  onReplaced?: (id: string) => void;
 }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState("");
   const [files, setFiles] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const [pane, setPane] = useState<"none" | "rules" | "marks" | "player">("none");
@@ -119,7 +125,20 @@ export default function Session({
               <Select
                 value={tile.account ?? accountOptions[0].value}
                 options={accountOptions}
-                onChange={(account) => api.switchAccount(tile.id, account).catch(() => undefined)}
+                /* The answer is not thrown away any more.
+                   A switch that failed said nothing at all: the picker snapped
+                   back and that was the whole report. Somebody whose account
+                   had just run into its limit was left guessing. */
+                onChange={(account) => {
+                  setSwitching(true);
+                  setSwitchError("");
+                  api
+                    .switchAccount(tile.id, account)
+                    .then((moved) => onReplaced?.(moved.id))
+                    .catch((e) => setSwitchError(errText(e)))
+                    .finally(() => setSwitching(false));
+                }}
+                disabled={switching}
                 title={tr("session.accountTip", "Continue under another account")}
               />
             ) : (
@@ -131,6 +150,8 @@ export default function Session({
               </span>
             )
           ) : null}
+          {/* Said out loud, where the switch was made. */}
+          {switchError ? <span className="notice warn">{switchError}</span> : null}
           {tile.frozen ? (
             <Button onClick={() => api.unfreeze(tile.id)}>{tr("session.resume", "RESUME")}</Button>
           ) : (

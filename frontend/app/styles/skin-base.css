@@ -633,3 +633,6 @@
 
 /* Set off from the reading above it, because it is a control and that is not. */
 .tactions { border-top: var(--hair) solid var(--line); }
+
+/* A picker that is busy carrying out the last choice. */
+.select[data-disabled="yes"] .selectButton { color: var(--dead); cursor: default; }

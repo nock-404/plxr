@@ -16,11 +16,16 @@ export default function Select<T extends string>({
   options,
   onChange,
   title,
+  disabled = false,
 }: {
   value: T;
   options: Option<T>[];
   onChange: (value: T) => void;
   title?: string;
+  /* For the moment a choice is being carried out. Without it a second click
+     lands while the first is still travelling, and two of whatever it starts
+     are on their way. */
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null);
@@ -72,12 +77,19 @@ export default function Select<T extends string>({
   const current = options.find((o) => o.value === value);
 
   return (
-    <div className="select" ref={anchor} data-open={open ? "" : undefined} title={title}>
+    <div
+      className="select"
+      ref={anchor}
+      data-open={open ? "" : undefined}
+      data-disabled={disabled ? "yes" : undefined}
+      title={title}
+    >
       <button
         type="button"
         className="selectButton"
         aria-haspopup="listbox"
         aria-expanded={open}
+        disabled={disabled}
         onClick={() => setOpen((o) => !o)}
       >
         <span>{current?.label ?? ""}</span>
