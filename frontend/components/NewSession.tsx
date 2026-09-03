@@ -85,6 +85,9 @@ export default function NewSession({
               <PathField
                 value={cwd}
                 onChange={setCwd}
+                onSubmit={() => {
+                  if (!busy && !(clash && !confirmed)) void start();
+                }}
                 placeholder={tr("new.directoryPlaceholder", "Type a few letters and pick")}
               />
               {/* For finding a folder rather than recalling it. The field only

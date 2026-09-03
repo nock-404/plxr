@@ -69,7 +69,7 @@ export default function Ask({
             <span className="fieldName">{field}</span>
             {path ? (
               <span className="rowInline">
-                <PathField value={typed} onChange={setTyped} />
+                <PathField value={typed} onChange={setTyped} onSubmit={answer} />
                 <Button onClick={() => setBrowsing(true)}>{tr("folder.browse", "BROWSE")}</Button>
               </span>
             ) : (

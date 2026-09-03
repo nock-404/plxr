@@ -16,15 +16,29 @@ import { api } from "@/lib/api";
 export default function PathField({
   value,
   onChange,
+  onSubmit,
   placeholder,
 }: {
   value: string;
   onChange: (path: string) => void;
+  /* What Enter means when nothing in the list has been picked out: take the
+     path as it stands and get on with it. Without this the field had no way to
+     say "this one, the folder I just typed". */
+  onSubmit?: () => void;
   placeholder?: string;
 }) {
   const [options, setOptions] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
+  /* Whether the arrows have been used since the last keystroke.
+   *
+   * Enter used to complete into options[active] unconditionally, and the effect
+   * below resets active to 0 on every change — so Enter always opened the first
+   * folder inside whatever had been typed, and the next Enter opened the first
+   * folder inside that. A path typed out in full could not be accepted at all.
+   * Enter now belongs to what is typed unless somebody has actually moved down
+   * the list. */
+  const [moved, setMoved] = useState(false);
   const [box, setBox] = useState<{ left: number; top: number; width: number } | null>(null);
   const anchor = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -57,6 +71,7 @@ export default function PathField({
         if (dropped) return;
         setOptions(p ?? []);
         setActive(0);
+        setMoved(false);
       })
       .catch(() => setOptions([]));
     return () => {
@@ -103,16 +118,29 @@ export default function PathField({
            click in the field. */
         onClick={() => setOpen(true)}
         onKeyDown={(e) => {
+          // Enter has to work with the list shut and with nothing to suggest:
+          // a path typed out in full is the case that matters most.
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (open && moved && options[active]) {
+              pick(options[active]);
+              return;
+            }
+            setOpen(false);
+            onSubmit?.();
+            return;
+          }
           if (!open || options.length === 0) return;
           if (e.key === "ArrowDown") {
             setActive((i) => Math.min(options.length - 1, i + 1));
+            setMoved(true);
             e.preventDefault();
           } else if (e.key === "ArrowUp") {
             setActive((i) => Math.max(0, i - 1));
+            setMoved(true);
             e.preventDefault();
-          } else if (e.key === "Tab" || e.key === "Enter") {
-            // Enter only completes while the list is open; a second Enter is
-            // then free to mean "start it".
+          } else if (e.key === "Tab") {
+            // Tab is the completing key, and it always completes.
             if (options[active]) {
               pick(options[active]);
               e.preventDefault();
