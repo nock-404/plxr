@@ -623,3 +623,10 @@
 .meter[data-slow="yes"] .meterBig { color: var(--blocked); }
 .meterGap[data-bad="yes"] { color: var(--blocked); }
 .meterUnit, .meterCost { color: var(--dead); }
+
+/* A filter that is doing something says so, in the colour used for anything
+   else that is switched on. */
+.filter[data-on="yes"] .prompt { color: var(--accent); }
+.filterclear { color: var(--dim); }
+.filterclear:hover { color: var(--accent); }
+.hiding { color: var(--accent); }

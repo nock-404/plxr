@@ -3,16 +3,10 @@
 import { useEffect, useState } from "react";
 import Select from "@/components/ui/Select";
 import TopStrip from "@/components/ui/TopStrip";
+import { shortNumber as short } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { Usage as UsageData, UsageBucket, Waiting } from "@/lib/types";
-
-function short(n: number): string {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
-  return String(n);
-}
 
 function Block({ head, rows }: { head: string; rows: UsageBucket[] }) {
   const max = Math.max(1, ...rows.map((r) => r.output + r.input));

@@ -1,5 +1,6 @@
 "use client";
 
+import { shortNumber } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { agentOf, detailOf, stateOf, tileLine, titleOf, unattended } from "@/lib/state";
 import type { Tile as TileData } from "@/lib/types";
@@ -36,7 +37,17 @@ export default function Tile({ tile, onOpen }: { tile: TileData; onOpen: () => v
       <div className="tbody">{tile.question || tile.preview}</div>
       <div className="tfoot">
         <span className="act" title={detailOf(tile) || undefined}>{tileLine(tile)}</span>
-        {tile.context ? <span className="ctx">{tile.context}%</span> : null}
+        {/* Tokens, not a percentage.
+            The hook adds up input, output and both cache figures and puts the
+            sum here; the tile hung a % on it, so a session with 388,650 tokens
+            behind it reported that it was 388650% full. A share of something
+            would need the model's window size, which differs per model and goes
+            stale the moment one changes — the count is the honest number. */}
+        {tile.context ? (
+          <span className="ctx" title={tr("tile.contextTip", "Tokens behind this conversation")}>
+            {shortNumber(tile.context)}
+          </span>
+        ) : null}
         {agentOf(tile) ? <span className="agent">{agentOf(tile)}</span> : null}
       </div>
     </div>

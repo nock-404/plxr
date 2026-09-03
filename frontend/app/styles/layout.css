@@ -440,6 +440,9 @@ body {
 .composer { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; padding: 0.45rem 0.875rem; }
 .composer input { flex: 1; min-width: 0; font: inherit; color: inherit; padding: 0.3rem 0.5rem; }
 
+.filterclear { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.hiding { margin-left: 0; }
+
 /* ---------- the frame-rate readout ---------- */
 /* Pinned to a corner and out of the way of everything. It is a measuring
    instrument: it must not become the reason the number is bad, so it draws four

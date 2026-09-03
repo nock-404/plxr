@@ -225,7 +225,7 @@ export default function App() {
           <span className="wordmark">plxr</span>
         </div>
 
-        <div className="filter">
+        <div className="filter" data-on={filter.trim() ? "yes" : "no"}>
           <span className="prompt">{tr("header.pathPrompt", "path>")}</span>
           {/* Completes like the field in the start dialog: the filter is a
               path too, and typing one out by hand is no better here. */}
@@ -234,6 +234,19 @@ export default function App() {
             onChange={setFilter}
             placeholder={tr("header.pathPlaceholder", "Filter by path")}
           />
+          {/* A filter that hides things without saying so is a window that lies.
+              This one hid the session somebody was talking to, in a list of two
+              where there were five, with nothing on screen to explain it. */}
+          {filter.trim() ? (
+            <Button
+              bare
+              className="filterclear"
+              title={tr("header.filterClear", "Show everything again")}
+              onClick={() => setFilter("")}
+            >
+              ✕
+            </Button>
+          ) : null}
         </div>
 
         <div className="draghandle" />
@@ -270,6 +283,15 @@ export default function App() {
       <div className="statusrow">
         <span>
           {connected ? countsLine(herd) : tr("conn.lost", "Connection lost, trying again …")}
+          {connected && shown.length !== tiles.length ? (
+            <span className="hiding">
+              {" · "}
+              {tr("header.filtered", "{shown} of {total} shown", {
+                shown: shown.length,
+                total: tiles.length,
+              })}
+            </span>
+          ) : null}
         </span>
         <span className="spacer" />
         <span>{now}</span>
