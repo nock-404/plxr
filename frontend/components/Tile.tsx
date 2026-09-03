@@ -1,13 +1,29 @@
 "use client";
 
+import Button from "@/components/ui/Button";
 import { shortNumber } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { agentOf, detailOf, stateOf, tileLine, titleOf, unattended } from "@/lib/state";
 import type { Tile as TileData } from "@/lib/types";
 
 // One session at a glance. Corner brackets mark it as an instrument reading.
-export default function Tile({ tile, onOpen }: { tile: TileData; onOpen: () => void }) {
+export default function Tile({
+  tile,
+  onOpen,
+  onResume,
+  onForget,
+}: {
+  tile: TileData;
+  onOpen: () => void;
+  onResume?: () => void;
+  onForget?: () => void;
+}) {
   const state = stateOf(tile);
+  // A session that has stopped is not rubbish: its transcript is still there,
+  // and picking it up again is one command. Until now the only way to it led
+  // through the archive, and came back as a third tile beside the two dead ones
+  // it was meant to replace.
+  const stopped = state === "dead" || state === "orphaned";
   return (
     <div
       className="tile"
@@ -50,6 +66,30 @@ export default function Tile({ tile, onOpen }: { tile: TileData; onOpen: () => v
         ) : null}
         {agentOf(tile) ? <span className="agent">{agentOf(tile)}</span> : null}
       </div>
+      {stopped && (onResume || onForget) ? (
+        <div className="tactions" onClick={(e) => e.stopPropagation()}>
+          {onResume ? (
+            <Button
+              tiny
+              data-do="resume"
+              title={tr("tile.resumeTip", "Carry on where this left off, in place of this one")}
+              onClick={onResume}
+            >
+              {tr("tile.resume", "RESUME")}
+            </Button>
+          ) : null}
+          {onForget ? (
+            <Button
+              tiny
+              data-do="forget"
+              title={tr("tile.forgetTip", "Take it off the board. The transcript stays in the archive.")}
+              onClick={onForget}
+            >
+              {tr("tile.forget", "CLEAR")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

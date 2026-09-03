@@ -27,6 +27,11 @@ export const api = {
       body: JSON.stringify({ cwd, cmd, name, account }),
     }),
   kill: (id: string) => req<void>(`/api/sessions/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  /* Off the board, not just stopped. Without purge the daemon keeps a stopped
+     session in its register, which is right for one that has just died — you
+     want to see that it did — and wrong for one somebody is clearing away. */
+  forget: (id: string) =>
+    req<void>(`/api/sessions/${encodeURIComponent(id)}?purge=1`, { method: "DELETE" }),
   reply: (id: string, text: string, raw = false) =>
     req<void>(`/api/sessions/${encodeURIComponent(id)}/reply${raw ? "?raw=1" : ""}`, {
       method: "POST",

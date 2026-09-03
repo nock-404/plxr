@@ -630,3 +630,6 @@
 .filterclear { color: var(--dim); }
 .filterclear:hover { color: var(--accent); }
 .hiding { color: var(--accent); }
+
+/* Set off from the reading above it, because it is a control and that is not. */
+.tactions { border-top: var(--hair) solid var(--line); }

@@ -53,7 +53,16 @@ export default function Overview({
   return (
     <section className="grid">
       {tiles.map((t) => (
-        <Tile key={t.id} tile={t} onOpen={() => onOpen(t.id)} />
+        <Tile
+          key={t.id}
+          tile={t}
+          onOpen={() => onOpen(t.id)}
+          /* The daemon takes the stopped one off the board itself and puts the
+             resumed one in its place, so there is nothing to tidy up here and
+             no third tile to explain. */
+          onResume={() => api.resume(t.id).then((s) => onOpen(s.id)).catch(() => undefined)}
+          onForget={() => void api.forget(t.id).catch(() => undefined)}
+        />
       ))}
     </section>
   );
