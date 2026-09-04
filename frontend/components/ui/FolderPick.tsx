@@ -20,18 +20,42 @@ import { tr } from "@/lib/i18n";
  * Typing still works, for a path that is pasted or already known. It is the
  * second way in, not the only one.
  */
+/* Both separators, because plxr runs on Windows too.
+ *
+ * Written for the slash alone, parent("C:\\Users\\max\\projekt") found no "/" at
+ * all and answered "/" — so one click on "up one" left the whole drive behind
+ * and landed at a root that does not exist there. The daemon hands back native
+ * paths; the window has to read them as they come. */
+const SEP = /[\\/]/;
+
+function separatorOf(path: string): string {
+  return path.includes("\\") && !path.startsWith("/") ? "\\" : "/";
+}
+
 function parent(path: string): string {
-  const trimmed = path.replace(/\/+$/, "");
-  const cut = trimmed.lastIndexOf("/");
-  return cut <= 0 ? "/" : trimmed.slice(0, cut);
+  const sep = separatorOf(path);
+  const trimmed = path.replace(/[\\/]+$/, "");
+  // Already at the top: "/" trims to nothing, "C:\\" trims to the bare drive.
+  if (trimmed === "") return "/";
+  if (/^[A-Za-z]:$/.test(trimmed)) return trimmed + sep;
+  const cut = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
+  if (cut < 0) return trimmed;
+  // "C:" is as far up as Windows goes, and "" is the unix root.
+  const up = trimmed.slice(0, cut);
+  if (up === "") return "/";
+  if (/^[A-Za-z]:$/.test(up)) return up + sep;
+  return up;
 }
 
 function segments(path: string): { name: string; path: string }[] {
-  const parts = path.split("/").filter(Boolean);
+  const sep = separatorOf(path);
+  const parts = path.split(SEP).filter(Boolean);
   const out: { name: string; path: string }[] = [];
-  let here = "";
-  for (const part of parts) {
-    here += `/${part}`;
+  // On Windows the first part is the drive and is already a whole path;
+  // on unix every part hangs off the root.
+  let here = /^[A-Za-z]:$/.test(parts[0] ?? "") ? "" : "";
+  for (const [i, part] of parts.entries()) {
+    here = i === 0 && /^[A-Za-z]:$/.test(part) ? part + sep : here + (here.endsWith(sep) ? "" : sep) + part;
     out.push({ name: part, path: here });
   }
   return out;
@@ -101,9 +125,14 @@ export default function FolderPick({
         <b className="cardTitle">{tr("folder.title", "choose a folder")}</b>
 
         <div className="crumbs">
-          <Button bare className="crumb" onClick={() => setHere("/")}>
-            /
-          </Button>
+          {/* The unix root is a place you can click to. A Windows drive is
+              already the first crumb, so a second root button would be a
+              button for a path that does not exist there. */}
+          {crumbs.length === 0 || !/^[A-Za-z]:/.test(crumbs[0].path) ? (
+            <Button bare className="crumb" onClick={() => setHere("/")}>
+              /
+            </Button>
+          ) : null}
           {crumbs.map((c) => (
             <Button bare key={c.path} className="crumb" onClick={() => setHere(c.path)}>
               {c.name}
