@@ -102,10 +102,17 @@ export const api = {
   revealFile: (id: string, path: string) =>
     req<void>(`/api/reveal/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`, { method: "POST" }),
 
-  writeFile: (id: string, path: string, text: string) =>
-    req<void>(`/api/file/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`, {
+  /* Saving a file. The path, the text and the timestamp the window last saw,
+     all in the body — which is what the daemon has always decoded.
+     This sent the bare text with the path in the query string, so every save
+     hit json.Decode with something that is not JSON and came back as
+     err.badJSON with a 400. Measured: the editor could open a file and never
+     write one, since it was built. `mod` was not sent either, so the guard
+     against a file that changed on disk behind the editor never fired. */
+  writeFile: (id: string, path: string, text: string, mod = 0) =>
+    req<FileBody>(`/api/file/${encodeURIComponent(id)}`, {
       method: "PUT",
-      body: text,
+      body: JSON.stringify({ path, text, mod }),
     }),
 
   rules: (sessionId: string) => req<Rule[]>(`/api/rules?session=${encodeURIComponent(sessionId)}`),

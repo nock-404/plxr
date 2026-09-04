@@ -146,6 +146,12 @@ export interface FileBody {
   binary: boolean;
   size: number;
   lines: number;
+  /* When the file was last written, as the daemon saw it. Sent back on save so
+     a file that changed on disk in the meantime is refused instead of
+     overwritten — which is the case that matters when an agent is working in
+     the same tree. The daemon has always sent this; the window did not have the
+     field, so it never had the value to send back. */
+  mod: number;
 }
 
 export interface Rule {

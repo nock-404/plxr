@@ -37,8 +37,14 @@ export default function Viewer({
   }, [sessionId, path]);
 
   async function save() {
+    setError("");
     try {
-      await api.writeFile(sessionId, path, text);
+      /* The timestamp this window last read goes with it: the daemon refuses
+         the write when the file has changed on disk since — an agent working
+         in the same tree is exactly the case this is for. The answer carries
+         the new timestamp, so a second save is measured against the right one. */
+      const fresh = await api.writeFile(sessionId, path, text, body?.mod ?? 0);
+      setBody(fresh);
       setDirty(false);
     } catch (e) {
       setError(errText(e));
