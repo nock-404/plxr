@@ -241,8 +241,24 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/hook", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.HookStatus())
 	})
+	/* Putting the hook in and taking it out are two routes, not one route with a
+	 * flag on it.
+	 *
+	 * It was POST with ?an=1 meaning "on", and the window has never sent that —
+	 * so the button labelled INSTALL called HookSet(false), which is Install
+	 * with remove set, and took the hook out of every account's settings.json.
+	 * Measured: a POST the way the window sends it turned six installed events
+	 * into none. The window swallowed the answer as well, so the only sign was
+	 * the panel afterwards saying the hook was not installed. */
 	mux.HandleFunc("POST /api/hook", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.HookSet(r.URL.Query().Get("an") == "1"); err != nil {
+		if err := s.c.HookSet(true); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, s.c.HookStatus())
+	})
+	mux.HandleFunc("DELETE /api/hook", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.HookSet(false); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}

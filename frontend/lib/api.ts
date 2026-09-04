@@ -133,7 +133,10 @@ export const api = {
   setNotify: (s: NotifySettings) => req<void>("/api/notify", { method: "PUT", body: JSON.stringify(s) }),
   trySound: (sound: string) =>
     req<void>(`/api/notify/try?sound=${encodeURIComponent(sound)}`, { method: "POST" }),
-  hookInstall: () => req<void>("/api/hook", { method: "POST" }),
+  /* Two calls, because they are two things. One route with ?an=1 meaning "on"
+     read as "off" whenever the flag was left out — which it always was. */
+  hookInstall: () => req<HookState>("/api/hook", { method: "POST" }),
+  hookRemove: () => req<HookState>("/api/hook", { method: "DELETE" }),
   replies: (q: string) => req<Reply[]>(`/api/replies?q=${encodeURIComponent(q)}`),
 
   queue: (id: string) => req<QueueItem[]>(`/api/queue/${encodeURIComponent(id)}`),

@@ -275,6 +275,7 @@
  "hook.missing": "Kein Haken eingerichtet — bis dahin bleibt jede Session ohne Zustand.",
  "hook.missingHint": "Ohne Anbindung wird der Status geschätzt. Es fehlt: {missing}.",
  "hook.notConnected": "Ohne Anbindung wird der Status aus der Bildschirmausgabe geschätzt.",
+ "hook.remove": "AUSBAUEN",
  "hook.removed": "plxr ist aus den Claude-Code-Einstellungen entfernt.",
  "hook.tip": "Claude Code seinen Zustand an plxr melden lassen — schreibt in die Einstellungen jedes gefundenen Kontos",
  "hook.unknown": "Zustand unbekannt.",

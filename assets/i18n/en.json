@@ -276,6 +276,7 @@
  "hook.missing": "No hook — every session reads as unknown until it is installed.",
  "hook.missingHint": "Without the hook the status is guessed. Missing: {missing}.",
  "hook.notConnected": "Without the hook the status is guessed from the screen output.",
+ "hook.remove": "REMOVE",
  "hook.removed": "plxr has been removed from the Claude Code settings.",
  "hook.tip": "Let Claude Code report its state to plxr — writes into the settings of every account found",
  "hook.unknown": "State unknown.",

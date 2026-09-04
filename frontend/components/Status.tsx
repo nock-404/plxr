@@ -44,9 +44,20 @@ export default function Status() {
 
   useEffect(load, [load]);
 
-  async function install() {
+  /* On and off, and it says when it could not.
+   *
+   * This was one function that called hookInstall and threw the answer away —
+   * and hookInstall, through a query flag the window never sent, was in fact
+   * the removal. So the button labelled INSTALL took the hook out, and the only
+   * sign of it was the panel afterwards saying it was not installed. */
+  async function setHookTo(on: boolean) {
     setBusy(true);
-    await api.hookInstall().catch(() => undefined);
+    setProblem("");
+    try {
+      setHook(on ? await api.hookInstall() : await api.hookRemove());
+    } catch (e) {
+      setProblem(errText(e));
+    }
     load();
     setBusy(false);
   }
@@ -75,9 +86,13 @@ export default function Status() {
                 ? tr("hook.installed", "The hook reports state from {n} accounts.", { n: hook.accounts })
                 : tr("hook.missing", "No hook — every session reads as unknown until it is installed.")}
           </span>
-          {hook && !hook.installed ? (
-            <Button onClick={install} disabled={busy}>
-              {busy ? tr("common.working", "…") : tr("hook.install", "INSTALL")}
+          {hook ? (
+            <Button onClick={() => void setHookTo(!hook.installed)} disabled={busy}>
+              {busy
+                ? tr("common.working", "…")
+                : hook.installed
+                  ? tr("hook.remove", "REMOVE")
+                  : tr("hook.install", "INSTALL")}
             </Button>
           ) : null}
         </span>
