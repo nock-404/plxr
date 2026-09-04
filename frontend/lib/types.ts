@@ -238,3 +238,9 @@ export interface NotifySettings {
   sound: string;
   when: NotifyWhen;
 }
+
+/* One file that differs from a mark. */
+export interface MarkChange {
+  status: string;
+  path: string;
+}

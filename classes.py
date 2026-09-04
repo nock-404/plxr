@@ -34,6 +34,9 @@ LAYOUT_ONLY = {
     "work", "workstrip", "workrow",
     # A card with a width, and a readout that is nothing but a row of numbers.
     "folderpick", "meter",
+    # A mark's file list and one row in it: arrangement, and the two things in
+    # the row carry their own colour.
+    "markfiles", "markfile",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
     "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",

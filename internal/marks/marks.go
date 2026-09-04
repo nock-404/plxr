@@ -174,7 +174,40 @@ func Changed(cwd, tree string) ([]Change, error) {
 // `git checkout <tree> -- <path>`: that one also touches the index, and an
 // index changed behind your back is exactly the kind of surprise this feature
 // exists to prevent.
+// RestoreAll puts every file that differs from the mark back the way it was.
+//
+// Restore takes one path, and the window never sent one — it asked to restore
+// with the path left empty, which git reads as the tree itself: the write went
+// to the directory and came back as "invalid argument". So the button in the
+// marks panel could not work, and never had. Putting everything back is what it
+// always meant; a single file is now a deliberate second thing.
+func RestoreAll(cwd, tree string) (int, error) {
+	changes, err := Changed(cwd, tree)
+	if err != nil {
+		return 0, err
+	}
+	done := 0
+	for _, c := range changes {
+		// Added since the mark: there is nothing in the tree to put back, and
+		// deleting somebody's new file is not what "restore" promises.
+		if c.Status == "A" {
+			continue
+		}
+		if err := Restore(cwd, tree, c.Path); err != nil {
+			return done, err
+		}
+		done++
+	}
+	return done, nil
+}
+
 func Restore(cwd, tree, path string) error {
+	if path == "" {
+		// Reached only by a caller that meant RestoreAll. Said plainly rather
+		// than handed to git, which answers a tree listing and then writes it
+		// over the directory.
+		return os.ErrInvalid
+	}
 	if strings.Contains(path, "..") {
 		return os.ErrInvalid
 	}

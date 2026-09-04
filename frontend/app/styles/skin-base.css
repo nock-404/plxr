@@ -636,3 +636,11 @@
 
 /* A picker that is busy carrying out the last choice. */
 .select[data-disabled="yes"] .selectButton { color: var(--dead); cursor: default; }
+
+/* A mark's files. The letter git uses for the change carries the colour, so the
+   list can be read down its left edge. */
+.markstate { color: var(--dim); }
+.markstate[data-state="M"] { color: var(--waiting); }
+.markstate[data-state="D"] { color: var(--blocked); }
+.markstate[data-state="A"] { color: var(--working); }
+.markpath { color: var(--fg); }

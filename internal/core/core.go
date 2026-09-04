@@ -1180,16 +1180,30 @@ func (c *Core) MarkChanges(sessionID, tree string) ([]marks.Change, error) {
 // The tree is looked up among the marks of this session rather than taken from
 // the request: otherwise any tree object in any repository could be written
 // into any directory.
-func (c *Core) MarkRestore(sessionID, tree, path string) error {
+// MarkRestore puts one file back, or everything when no path is named.
+//
+// It used to hand the empty path straight to marks.Restore, which handed it to
+// git, which read tree: as the tree itself. The window has never sent a path —
+// there was nowhere to pick one from, because it never asked which files a mark
+// covers — so the button always came back with "invalid argument".
+func (c *Core) MarkRestore(sessionID, tree, path string) (int, error) {
 	for _, m := range marks.List(sessionID) {
-		if m.Tree == tree {
-			if err := marks.Restore(m.Cwd, tree, path); err != nil {
-				return uierr.With("err.mark.restoreFailed", err.Error())
-			}
-			return nil
+		if m.Tree != tree {
+			continue
 		}
+		if path == "" {
+			n, err := marks.RestoreAll(m.Cwd, tree)
+			if err != nil {
+				return n, uierr.With("err.mark.restoreFailed", err.Error())
+			}
+			return n, nil
+		}
+		if err := marks.Restore(m.Cwd, tree, path); err != nil {
+			return 0, uierr.With("err.mark.restoreFailed", err.Error())
+		}
+		return 1, nil
 	}
-	return uierr.New("err.mark.unknown")
+	return 0, uierr.New("err.mark.unknown")
 }
 
 // ---- Agent profiles ----

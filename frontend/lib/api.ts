@@ -2,7 +2,7 @@
 
 import { base, token } from "./token";
 import type {
-  Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, Port,
+  Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
   NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting,
 } from "./types";
 
@@ -110,10 +110,15 @@ export const api = {
 
   rules: (sessionId: string) => req<Rule[]>(`/api/rules?session=${encodeURIComponent(sessionId)}`),
   marks: (sessionId: string) => req<Mark[]>(`/api/marks/${encodeURIComponent(sessionId)}`),
-  markRestore: (sessionId: string, tree: string) =>
-    req<void>(`/api/marks/${encodeURIComponent(sessionId)}/${encodeURIComponent(tree)}/restore`, {
-      method: "POST",
-    }),
+  /* What a mark covers. The route was there from the start and nothing called
+     it, so the panel could show a count of files and never which ones. */
+  markChanges: (sessionId: string, tree: string) =>
+    req<MarkChange[]>(`/api/marks/${encodeURIComponent(sessionId)}/${encodeURIComponent(tree)}`),
+  markRestore: (sessionId: string, tree: string, path = "") =>
+    req<{ restored: number }>(
+      `/api/marks/${encodeURIComponent(sessionId)}/${encodeURIComponent(tree)}/restore`,
+      { method: "POST", body: JSON.stringify({ path }) },
+    ),
 
   templates: () => req<Template[]>("/api/templates"),
   templateStart: (name: string) =>

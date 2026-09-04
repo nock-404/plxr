@@ -424,12 +424,25 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		writeJSON(w, changes)
 	})
+	/* Which file to put back, read from the body.
+	 *
+	 * It was a query parameter the window never sent, so the empty string went
+	 * to git as "tree:" — the tree itself — and the write landed on the
+	 * directory. The button in the marks panel answered "invalid argument"
+	 * every time it was pressed, and had done since it was built. No path now
+	 * means all of them, which is what it always meant. */
 	mux.HandleFunc("POST /api/marks/{id}/{tree}/restore", func(w http.ResponseWriter, r *http.Request) {
-		if err := s.c.MarkRestore(r.PathValue("id"), r.PathValue("tree"), r.URL.Query().Get("path")); err != nil {
+		var req restoreReq
+		if r.ContentLength > 0 && json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		n, err := s.c.MarkRestore(r.PathValue("id"), r.PathValue("tree"), req.Path)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		writeJSON(w, map[string]int{"restored": n})
 	})
 	mux.HandleFunc("GET /api/waiting", func(w http.ResponseWriter, r *http.Request) {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
@@ -539,6 +552,10 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, sess)
+}
+
+type restoreReq struct {
+	Path string `json:"path"`
 }
 
 type switchReq struct {
