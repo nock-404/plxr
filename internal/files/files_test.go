@@ -177,7 +177,7 @@ func TestAnEmptyNameIsRefused(t *testing.T) {
 func TestRefusalsSayWhy(t *testing.T) {
 	root, outside := session(t)
 	_, err := Create(root, filepath.Join(outside, "x.txt"), false)
-	if err == nil || !strings.Contains(err.Error(), "outsideSession") {
+	if err == nil || !strings.Contains(err.Error(), "outsideRoot") {
 		t.Fatalf("a refusal that does not say why: %v", err)
 	}
 }

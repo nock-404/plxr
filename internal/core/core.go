@@ -42,6 +42,7 @@ import (
 	"plxr/internal/uierr"
 	"plxr/internal/update"
 	"plxr/internal/usage"
+	"plxr/internal/workspace"
 )
 
 // Tile is a session plus whatever else the UI displays.
@@ -893,12 +894,42 @@ func (c *Core) KillPort(pid int, hard bool) error {
 
 // root returns the working directory of a session. Every file path the UI sends
 // is checked against it.
-func (c *Core) root(sessionID string) (string, error) {
-	s, ok := c.reg.Get(sessionID)
+// root is the directory an id may work in.
+//
+// Two kinds of id arrive here. A workspace is a folder somebody opened and it
+// outlives every session; a session is the older way in and still works, so no
+// route had to change shape. Which one it is can be read off the id, so the
+// caller never has to say.
+//
+// Everything below this — the tree, the editor, the git status, reveal — used
+// to resolve through the session registry alone, and a session is cleared away
+// shortly after it ends. That is why an open file went dead with its terminal.
+func (c *Core) root(id string) (string, error) {
+	if workspace.IsID(id) {
+		return workspace.RootOf(daemon.Root(), id)
+	}
+	s, ok := c.reg.Get(id)
 	if !ok {
 		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
+}
+
+// Workspaces lists the folders that are open, whether or not anything runs in
+// them.
+func (c *Core) Workspaces() []workspace.Workspace {
+	return workspace.List(daemon.Root())
+}
+
+// OpenWorkspace takes a directory and hands back the folder plxr now holds
+// open for it — the same one if it was already open.
+func (c *Core) OpenWorkspace(path string) (workspace.Workspace, error) {
+	return workspace.Open(daemon.Root(), path)
+}
+
+// CloseWorkspace takes a folder off the list. Nothing on disk is touched.
+func (c *Core) CloseWorkspace(id string) error {
+	return workspace.Close(daemon.Root(), id)
 }
 
 func (c *Core) ListDir(sessionID, dir string) ([]files.Entry, error) {

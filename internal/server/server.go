@@ -457,6 +457,34 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/ports", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Ports()) })
 	mux.HandleFunc("DELETE /api/ports/{pid}", s.killPort)
+	/* Folders plxr holds open, independently of what runs in them.
+	 *
+	 * The file routes below take an id that is either one of these or a
+	 * session — c.root reads which from the id — so none of them changed
+	 * shape when this arrived. */
+	mux.HandleFunc("GET /api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.Workspaces())
+	})
+	mux.HandleFunc("POST /api/workspaces", func(w http.ResponseWriter, r *http.Request) {
+		var req workspaceReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		made, err := s.c.OpenWorkspace(req.Path)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, made)
+	})
+	mux.HandleFunc("DELETE /api/workspaces/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.CloseWorkspace(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("GET /api/files/{id}", s.listDir)
 	mux.HandleFunc("GET /api/paths", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Suggestions(r.URL.Query().Get("q")))
@@ -554,6 +582,10 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sess)
 }
 
+type workspaceReq struct {
+	Path string `json:"path"`
+}
+
 type restoreReq struct {
 	Path string `json:"path"`
 }
@@ -648,7 +680,7 @@ func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 		   they became codes. Since then neither branch has been reachable:
 		   every one of them went out as a plain 400, and an attempt to reach
 		   outside the session looked exactly like a slip of the hand. */
-		case strings.HasPrefix(err.Error(), "err.file.outsideSession"):
+		case forbidden(err):
 			code = http.StatusForbidden
 		case strings.HasPrefix(err.Error(), "err.file.changedOutside"):
 			code = http.StatusConflict
@@ -659,10 +691,22 @@ func (s *Server) writeFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
+// forbidden says whether an error is somebody reaching outside the folder,
+// which is a different answer from a mistake — 403, not 400. Kept in one place
+// because it is matched by prefix in more than one handler, and a rename that
+// touches only one of them leaves a check that silently never matches again.
+func forbidden(err error) bool {
+	return strings.HasPrefix(err.Error(), "err.file.outsideRoot")
+}
+
 func (s *Server) readFile(w http.ResponseWriter, r *http.Request) {
 	out, err := s.c.ReadFile(r.PathValue("id"), r.URL.Query().Get("path"))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		code := http.StatusBadRequest
+		if forbidden(err) {
+			code = http.StatusForbidden
+		}
+		http.Error(w, err.Error(), code)
 		return
 	}
 	writeJSON(w, out)

@@ -465,6 +465,18 @@ body {
 .meterBig { font-size: 1.25em; }
 .meterUnit, .meterGap, .meterCost { font-size: 0.8em; }
 
+/* ---------- open folders ---------- */
+/* The tree on the left keeps its width, what is in the file takes the rest. */
+/* The viewer is an overlay — it lies across whatever it is put in front of.
+   Here it is put beside the tree instead, so a second file is one click away
+   rather than a click on BACK and then a click on the file. The box has to be
+   positioned for the overlay to measure itself against it. */
+.foldersbody { flex: 1; min-height: 0; display: flex; position: relative; }
+.foldersbody .filetree { flex: 0 0 var(--files-w); }
+.foldersbody .viewer { left: var(--files-w); }
+.folderTabs { display: flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+.folderTab { padding: 0 0.5rem; background: none; border: 0; font: inherit; cursor: pointer; }
+
 /* ---------- choosing a folder ---------- */
 .folderpick { width: min(34rem, 92vw); }
 /* The trail of where you are. It wraps rather than scrolls: a path deep enough

@@ -57,7 +57,7 @@ func resolve(root, path string) (string, error) {
 	}
 	// Append the separator, otherwise /project-secret passes for /project.
 	if real != realRoot && !strings.HasPrefix(real, realRoot+string(filepath.Separator)) {
-		return "", uierr.New("err.file.outsideSession")
+		return "", uierr.New("err.file.outsideRoot")
 	}
 	return real, nil
 }
@@ -388,7 +388,7 @@ func resolveNew(root, path string) (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", uierr.New("err.file.outsideSession")
+			return "", uierr.New("err.file.outsideRoot")
 		}
 		rest = append([]string{filepath.Base(dir)}, rest...)
 		dir = parent
@@ -399,7 +399,7 @@ func resolveNew(root, path string) (string, error) {
 		return "", uierr.With("err.file.unreadable", err.Error())
 	}
 	if realDir != realRoot && !strings.HasPrefix(realDir, realRoot+string(filepath.Separator)) {
-		return "", uierr.New("err.file.outsideSession")
+		return "", uierr.New("err.file.outsideRoot")
 	}
 	return filepath.Join(append([]string{realDir}, rest...)...), nil
 }

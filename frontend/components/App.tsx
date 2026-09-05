@@ -7,6 +7,7 @@ import PathField from "@/components/ui/PathField";
 import Keys from "@/components/Keys";
 import NewSession from "@/components/NewSession";
 import Meter from "@/components/Meter";
+import Folders from "@/components/views/Folders";
 import Settings from "@/components/Settings";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
@@ -331,6 +332,8 @@ export default function App() {
             />
           ) : view === "inbox" ? (
             <Inbox tiles={tiles} onOpen={openSession} />
+          ) : view === "folders" ? (
+            <Folders />
           ) : view === "ports" ? (
             <Ports />
           ) : view === "usage" ? (

@@ -250,3 +250,16 @@ export interface MarkChange {
   status: string;
   path: string;
 }
+
+/* A folder plxr holds open, on its own, whether or not anything runs in it. */
+export interface Workspace {
+  id: string;
+  path: string;
+  real: string;
+  label?: string;
+  opened_at: number;
+  used_at: number;
+  /* Worked out when the list is read, never stored: a folder on a volume that
+     is not mounted is not a folder to forget. */
+  missing: boolean;
+}

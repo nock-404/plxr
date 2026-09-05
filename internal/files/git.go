@@ -2,6 +2,7 @@ package files
 
 import (
 	"os/exec"
+	"path/filepath"
 	"plxr/internal/sys"
 	"strings"
 )
@@ -31,6 +32,33 @@ const (
 // has something to say about appear.
 func Status(root string) map[string]State {
 	out := map[string]State{}
+	// Where the repository begins.
+	//
+	// git status answers with paths relative to the top of the repository, not
+	// to the directory it was asked in. As long as the folder somebody opened
+	// IS the top, the two are the same string and nobody notices. Open a
+	// subdirectory and every path in the answer is prefixed with the way down
+	// to it — so the window, which strips its own root off each entry and looks
+	// that up, finds nothing and draws a tree with no git marks at all.
+	//
+	// Both sides are resolved before they are compared. git answers with the
+	// real path — on macOS a temporary directory under /var comes back as
+	// /private/var — and measuring a relative path between the two spellings
+	// produces a walk up out of the tree, which is then dropped as "somebody
+	// else's business". The result was an empty map and a tree with no marks.
+	here := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		here = r
+	}
+	top := here
+	if b, err := sys.Quiet(exec.Command("git", "-C", root, "rev-parse", "--show-toplevel")).Output(); err == nil {
+		if t := strings.TrimSpace(string(b)); t != "" {
+			top = t
+			if r, err := filepath.EvalSymlinks(t); err == nil {
+				top = r
+			}
+		}
+	}
 	// --porcelain is the form promised to stay stable between versions; -z
 	// separates with NUL so a file name with a space or a newline in it does not
 	// split into two entries.
@@ -51,7 +79,14 @@ func Status(root string) map[string]State {
 		if strings.ContainsRune(code, 'R') && i+1 < len(fields) {
 			i++
 		}
-		out[path] = stateOf(code)
+		// Back to a path the caller can match: absolute from the top, then
+		// relative to the folder that was asked about. Anything above that
+		// folder is somebody else's business and is left out.
+		rel, err := filepath.Rel(here, filepath.Join(top, path))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		out[filepath.ToSlash(rel)] = stateOf(code)
 	}
 	return out
 }

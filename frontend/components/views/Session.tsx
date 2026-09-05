@@ -169,7 +169,7 @@ export default function Session({
       </TopStrip>
 
       <div className="sesssplit" data-files={files ? "open" : undefined}>
-        {files ? <Files sessionId={tile.id} root={tile.cwd} onPick={setPicked} /> : null}
+        {files ? <Files rootId={tile.id} root={tile.cwd} onPick={setPicked} /> : null}
         <div className="panes">
           <Terminal
             id={tile.id}

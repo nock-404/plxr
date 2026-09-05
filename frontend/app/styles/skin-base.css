@@ -644,3 +644,10 @@
 .markstate[data-state="D"] { color: var(--blocked); }
 .markstate[data-state="A"] { color: var(--working); }
 .markpath { color: var(--fg); }
+
+/* One open folder among several. The one being looked at wears the accent; one
+   that cannot be reached is dimmed rather than hidden, because it comes back. */
+.folderTab { color: var(--dim); }
+.folderTab:hover { color: var(--fg); }
+.folderTab.on { color: var(--accent); }
+.folderTab[data-missing="yes"] { color: var(--dead); text-decoration: line-through; }

@@ -7,11 +7,12 @@ import type { Tile } from "@/lib/types";
 
 // The rail always stays, even inside a session — otherwise looking into one
 // loses sight of the rest of the herd.
-export type View = "overview" | "inbox" | "ports" | "usage" | "archive" | "session";
+export type View = "overview" | "inbox" | "folders" | "ports" | "usage" | "archive" | "session";
 
 const HOME: { view: View; glyph: string; key: string; fallback: string }[] = [
   { view: "overview", glyph: "⊞", key: "rail.overview", fallback: "Overview" },
   { view: "inbox", glyph: "◉", key: "rail.inbox", fallback: "Inbox" },
+  { view: "folders", glyph: "▦", key: "rail.folders", fallback: "Folders" },
   { view: "ports", glyph: "⇄", key: "rail.ports", fallback: "Ports" },
   { view: "usage", glyph: "▤", key: "rail.usage", fallback: "Usage" },
   { view: "archive", glyph: "⌸", key: "rail.archive", fallback: "Archive" },
@@ -43,6 +44,7 @@ export default function Rail({
   const meta: Record<View, number | undefined> = {
     overview: undefined,
     inbox: counts.inbox || undefined,
+    folders: undefined,
     ports: counts.ports || undefined,
     usage: undefined,
     archive: counts.archive || undefined,

@@ -40,14 +40,18 @@ const MARKS: Record<string, string> = {
 };
 
 export default function Files({
-  sessionId,
+  rootId,
   root,
   onPick,
 }: {
-  sessionId: string;
+  /* A session or a folder — the daemon reads which from the id. This was
+     called sessionId, from the days when a file could only be reached through
+     a running agent. */
+  rootId: string;
   root: string;
   onPick: (path: string) => void;
 }) {
+  const sessionId = rootId;
   const [open, setOpen] = useState<Record<string, FileEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [noise, setNoise] = useState(false);

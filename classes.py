@@ -37,6 +37,8 @@ LAYOUT_ONLY = {
     # A mark's file list and one row in it: arrangement, and the two things in
     # the row carry their own colour.
     "markfiles", "markfile",
+    # The open-folder view: a row of tabs and a split, both arrangement only.
+    "foldersbody", "folderTabs",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
     "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",

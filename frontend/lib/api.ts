@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -59,6 +59,12 @@ export const api = {
   updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
   updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),
+  workspaces: () => req<Workspace[]>("/api/workspaces"),
+  openWorkspace: (path: string) =>
+    req<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify({ path }) }),
+  closeWorkspace: (id: string) =>
+    req<void>(`/api/workspaces/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
   paths: (q = "") => req<string[]>(`/api/paths?q=${encodeURIComponent(q)}`),
   accounts: () => req<Account[]>("/api/accounts"),
   accountAdd: (dir: string, label: string) =>
