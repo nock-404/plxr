@@ -465,6 +465,28 @@ body {
 .meterBig { font-size: 1.25em; }
 .meterUnit, .meterGap, .meterCost { font-size: 0.8em; }
 
+/* ---------- what has changed ---------- */
+.changes { flex: 0 0 var(--files-w); min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; }
+.changegroup { display: flex; flex-direction: column; gap: 0.1rem; }
+.changerow { display: flex; align-items: baseline; gap: 0.4rem; }
+.changepath { flex: 1 1 auto; min-width: 0; text-align: left; background: none; border: 0; font: inherit; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0.1rem 0; }
+.changeword { flex: 0 0 auto; }
+.changecount { flex: 0 0 auto; white-space: nowrap; }
+
+/* The difference itself. A monospaced grid: two line numbers, the mark, the
+   text — so the columns line up down the whole hunk. */
+/* The difference fills the wide area and scrolls in it. */
+.diffwrap { overflow: auto; padding: 0.5rem; }
+.hunk { display: flex; flex-direction: column; min-width: 0; }
+.hunkhead { padding: 0.2rem 0; }
+.diffline { display: flex; gap: 0.35rem; min-width: 0; }
+.diffno { flex: 0 0 2.2rem; text-align: right; }
+.diffmark { flex: 0 0 0.6rem; }
+/* A code line is not wrapped: wrapping shifts every line below it and the two
+   number columns stop lining up. It scrolls sideways with the box instead. */
+.difftext { flex: 1 1 auto; min-width: 0; white-space: pre; }
+
 /* ---------- searching the files ---------- */
 /* In the tree's place, at the tree's width, so the result and the file it
    points into stand side by side. */

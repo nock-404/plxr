@@ -463,6 +463,32 @@ func (s *Server) Routes() *http.ServeMux {
 	 * The file routes below take an id that is either one of these or a
 	 * session — c.root reads which from the id — so none of them changed
 	 * shape when this arrived. */
+	mux.HandleFunc("GET /api/changes/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.Changes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/diff/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var req diffReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		out, err := s.c.Difference(r.PathValue("id"), req.Path, req.Staged)
+		if err != nil {
+			code := http.StatusBadRequest
+			if forbidden(err) {
+				code = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), code)
+			return
+		}
+		writeJSON(w, out)
+	})
+
 	/* Searching the files of a folder.
 	 *
 	 * A POST with a body rather than a GET with query parameters, although it
@@ -604,6 +630,11 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, sess)
+}
+
+type diffReq struct {
+	Path   string `json:"path"`
+	Staged bool   `json:"staged"`
 }
 
 type workspaceReq struct {

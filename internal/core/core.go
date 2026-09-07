@@ -28,6 +28,7 @@ import (
 	"plxr/internal/files"
 	"plxr/internal/find"
 	"plxr/internal/fleet"
+	"plxr/internal/git"
 	"plxr/internal/hook"
 	"plxr/internal/marks"
 	"plxr/internal/notify"
@@ -914,6 +915,43 @@ func (c *Core) root(id string) (string, error) {
 		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
+}
+
+// Changes lists what differs in a folder, staged and unstaged kept apart.
+func (c *Core) Changes(id string) ([]git.Change, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return nil, err
+	}
+	if !git.IsRepo(root) {
+		return nil, uierr.New("err.git.noRepo")
+	}
+	out, err := git.Changes(root)
+	if err != nil {
+		return nil, uierr.With("err.git.failed", err.Error())
+	}
+	return out, nil
+}
+
+// Difference returns what changed in one file.
+func (c *Core) Difference(id, path string, staged bool) (git.Diff, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return git.Diff{}, err
+	}
+	if !git.IsRepo(root) {
+		return git.Diff{}, uierr.New("err.git.noRepo")
+	}
+	// The path comes from the caller, so it is held to the same leash as every
+	// other file operation: inside the folder, no walking out through a link.
+	if _, err := files.Resolve(root, path); err != nil {
+		return git.Diff{}, err
+	}
+	out, err := git.Difference(root, path, staged)
+	if err != nil {
+		return git.Diff{}, uierr.With("err.git.failed", err.Error())
+	}
+	return out, nil
 }
 
 // Find searches the files of a folder or a session's directory.

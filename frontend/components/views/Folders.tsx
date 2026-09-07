@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Changes from "@/components/Changes";
+import Difference from "@/components/Difference";
 import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
 import Viewer from "@/components/Viewer";
@@ -23,7 +25,11 @@ export default function Folders() {
   const [here, setHere] = useState<Workspace | null>(null);
   const [file, setFile] = useState<string | null>(null);
   const [line, setLine] = useState<number | undefined>(undefined);
-  const [searching, setSearching] = useState(false);
+  /* Which of the three the left column shows: the tree, a search, or what has
+     changed. One at a time, because they all want the same width and reading
+     two of them at once is reading neither. */
+  const [side, setSide] = useState<"tree" | "find" | "changes">("tree");
+  const [diff, setDiff] = useState<{ path: string; staged: boolean } | null>(null);
   const [picking, setPicking] = useState(false);
   const [problem, setProblem] = useState("");
 
@@ -90,9 +96,17 @@ export default function Folders() {
           </span>
           <span className="spacer" />
           {here && !here.missing ? (
-            <Button on={searching} onClick={() => setSearching((v) => !v)}>
-              {tr("find.open", "FIND")}
-            </Button>
+            <>
+              <Button on={side === "tree"} onClick={() => setSide("tree")}>
+                {tr("folders.tree", "FILES")}
+              </Button>
+              <Button on={side === "find"} onClick={() => setSide("find")}>
+                {tr("find.open", "FIND")}
+              </Button>
+              <Button on={side === "changes"} onClick={() => setSide("changes")}>
+                {tr("git.open", "CHANGES")}
+              </Button>
+            </>
           ) : null}
           {here ? (
             <Button
@@ -129,7 +143,16 @@ export default function Folders() {
         </div>
       ) : (
         <div className="foldersbody">
-          {searching ? (
+          {side === "changes" ? (
+            <Changes
+              rootId={here.id}
+              shown={diff}
+              onShow={(what) => {
+                setDiff(what);
+                setFile(null);
+              }}
+            />
+          ) : side === "find" ? (
             <FileSearch
               rootId={here.id}
               onOpen={(path, at) => {
@@ -147,7 +170,14 @@ export default function Folders() {
               }}
             />
           )}
-          {file ? (
+          {diff ? (
+            <Difference
+              rootId={here.id}
+              path={diff.path}
+              staged={diff.staged}
+              onClose={() => setDiff(null)}
+            />
+          ) : file ? (
             <Viewer sessionId={here.id} path={file} line={line} onClose={() => setFile(null)} />
           ) : (
             <div className="empty">

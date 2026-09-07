@@ -39,6 +39,14 @@ type Entry struct {
 	Noise bool   `json:"noise"` // belongs to the hidden noise
 }
 
+// Resolve is resolve for callers outside this package.
+//
+// Anything that takes a path from the window has to pass the same leash, and
+// there is now more than one such thing: the diff asks git about a file the
+// caller named. Exported rather than copied, because a second copy of a
+// containment check is a second copy to get wrong.
+func Resolve(root, path string) (string, error) { return resolve(root, path) }
+
 // resolve resolves a path and makes sure it stays below root.
 func resolve(root, path string) (string, error) {
 	realRoot, err := filepath.EvalSymlinks(root)

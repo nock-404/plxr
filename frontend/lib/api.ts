@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitChange, GitDiff, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -59,6 +59,13 @@ export const api = {
   updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
   updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),
+  changes: (id: string) => req<GitChange[]>(`/api/changes/${encodeURIComponent(id)}`),
+  diff: (id: string, path: string, staged: boolean) =>
+    req<GitDiff>(`/api/diff/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: JSON.stringify({ path, staged }),
+    }),
+
   find: (id: string, q: FindQuery) =>
     req<FindReport>(`/api/find/${encodeURIComponent(id)}`, {
       method: "POST",

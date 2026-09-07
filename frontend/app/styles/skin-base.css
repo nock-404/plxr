@@ -659,3 +659,23 @@
 .findline:hover { background: var(--panel); }
 .findno { color: var(--dead); }
 .findtext { color: var(--fg); }
+
+/* What has changed. The path is what you act on, the word and the counts are
+   the reading. */
+.changepath { color: var(--fg); }
+.changepath:hover { color: var(--accent); }
+.changepath.on { color: var(--accent); }
+.changeword { color: var(--dim); font-size: .8em; }
+.changecount { font-size: .8em; }
+.plus { color: var(--working); }
+.minus { color: var(--blocked); }
+
+/* The difference. Added and removed carry a wash of their own colour rather
+   than a border, so a long hunk reads as two shades and not as a fence. */
+.hunkhead { color: var(--dead); font-size: .85em; }
+.diffline { color: var(--fg); }
+.diffline[data-kind="add"] { background: color-mix(in srgb, var(--working) 14%, transparent); }
+.diffline[data-kind="del"] { background: color-mix(in srgb, var(--blocked) 14%, transparent); }
+.diffline[data-kind="note"] { color: var(--dead); }
+.diffno { color: var(--dead); }
+.diffmark { color: var(--dim); }

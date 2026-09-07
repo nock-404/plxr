@@ -291,3 +291,43 @@ export interface FindReport {
   capped: string[];
   took_ms: number;
 }
+
+/* One file git has something to say about. index and work are the two letters
+   git prints, kept apart on purpose: a file can be staged and changed again
+   since, and one word cannot show that. */
+export interface GitChange {
+  path: string;
+  index: string;
+  work: string;
+  renamed?: string;
+  /* Counted twice: staged and unstaged are two different numbers for the same
+     file, and one total shown in both groups says the same thing about a
+     change that was staged and a later one that was not. */
+  added: number;
+  removed: number;
+  staged_added: number;
+  staged_removed: number;
+  binary: boolean;
+}
+
+export interface GitLine {
+  /* " " kept, "+" added, "-" removed, "\\" a note from git. */
+  kind: string;
+  text: string;
+  old: number;
+  new: number;
+}
+
+export interface GitHunk {
+  header: string;
+  lines: GitLine[];
+}
+
+export interface GitDiff {
+  path: string;
+  staged: boolean;
+  hunks: GitHunk[];
+  binary: boolean;
+  /* Said plainly rather than as an empty list, which reads as a failure. */
+  empty: boolean;
+}
