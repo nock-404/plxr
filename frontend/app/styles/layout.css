@@ -476,6 +476,9 @@ body {
 /* Which branch, and how far from its upstream. Its own class rather than the
    general small text: it is the one line in this panel that says where you
    are, and a reader — or a check — has to be able to pick it out. */
+/* The line to type on the other machine. Big enough to read from a step away
+   and to type without losing the place. */
+.joinline { display: block; padding: 0.4rem 0.5rem; user-select: all; }
 .branchline { display: block; }
 /* One branch: name and distance on the first line, what it last did below. */
 .branchrow { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0 0.4rem; padding: 0.2rem 0; }

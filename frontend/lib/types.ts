@@ -361,3 +361,21 @@ export interface GitBranch {
   subject: string;
   when: string;
 }
+
+/* Whether plxr can be reached from another machine, and where. */
+export interface RemoteState {
+  /* What was asked for. It takes effect when the daemon next starts. */
+  on: boolean;
+  /* Whether the listener that is actually running is on the network. Read off
+     the socket, not off the setting: saying "on" while still bound to this
+     machine would be a promise somebody carries into another room. */
+  live: boolean;
+  port: number;
+  addresses: string[];
+}
+
+export interface RemoteCode {
+  code: string;
+  until: number;
+  port: number;
+}

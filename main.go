@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -264,6 +265,20 @@ func runDaemon() {
 	// Send what is lined up, as soon as each agent is ready for it.
 	go c.WatchQueues()
 
+	/* Whether this listener can be reached from the network at all.
+	 *
+	 * Read off the socket rather than off the setting: the setting can be
+	 * changed while the daemon runs, and the listener cannot. Saying "on" while
+	 * still bound to this machine would be a promise somebody carries into
+	 * another room and finds broken. */
+	if host, _, err := net.SplitHostPort(ln.Addr().String()); err == nil {
+		srv.Reachable(host == "::" || host == "0.0.0.0")
+	}
+	if srv.Reachable2() {
+		for _, at := range daemon.Addresses() {
+			log.Printf("plxr is also reachable at http://%s:%d", at, info.Port)
+		}
+	}
 	log.Printf("plxr daemon on %s (PID %d)", info.URL(), info.PID)
 	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))
 }

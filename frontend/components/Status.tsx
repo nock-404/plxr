@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Remote from "@/components/Remote";
 import Button from "@/components/ui/Button";
 import Toggle from "@/components/ui/Toggle";
 import Ask from "@/components/ui/Ask";
@@ -97,6 +98,8 @@ export default function Status() {
           ) : null}
         </span>
       </div>
+
+      <Remote />
 
       <div className="field">
         <span className="fieldName">{tr("meter.show", "frame-rate readout")}</span>

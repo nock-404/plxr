@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -97,6 +97,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text: q.text, regex: q.regex, case: q.case, word: q.word, glob: q.glob }),
     }),
+
+  remote: () => req<RemoteState>("/api/remote"),
+  setRemote: (on: boolean) =>
+    req<RemoteState>("/api/remote", { method: "POST", body: JSON.stringify({ on }) }),
+  remoteCode: () => req<RemoteCode>("/api/remote/code", { method: "POST" }),
 
   workspaces: () => req<Workspace[]>("/api/workspaces"),
   openWorkspace: (path: string) =>

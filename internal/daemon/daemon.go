@@ -93,7 +93,12 @@ func Listen() (net.Listener, Info, error) {
 	}
 	held = f
 
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	/* Where to listen.
+	 *
+	 * 127.0.0.1 unless somebody asked for the network, which is remembered
+	 * beside daemon.json and read here — before the listener exists, which is
+	 * why changing it takes a restart. */
+	ln, err := net.Listen("tcp", bindAddress())
 	if err != nil {
 		return nil, Info{}, err
 	}
@@ -196,6 +201,27 @@ func Guard(token string, next http.Handler) http.Handler {
 	want := []byte(token)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
+		/* Trading a short code for the token.
+		 *
+		 * Outside the guarded paths on purpose: this is how a browser that has
+		 * nothing gets something. The code is used up here, so a code left on
+		 * a screen stops being a key the moment it has been walked to. */
+		if code, ok := strings.CutPrefix(p, "/join/"); ok {
+			if !TakeCode(code) {
+				http.Error(w, uierr.New("err.remote.badCode").Error(), http.StatusForbidden)
+				return
+			}
+			http.SetCookie(w, &http.Cookie{
+				Name:     "plxr",
+				Value:    token,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   int((30 * 24 * time.Hour).Seconds()),
+			})
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
 		if !strings.HasPrefix(p, "/api/") && !strings.HasPrefix(p, "/ws/") {
 			next.ServeHTTP(w, r)
 			return
@@ -204,6 +230,16 @@ func Guard(token string, next http.Handler) http.Handler {
 		if got == "" {
 			// WebSockets cannot set headers of their own.
 			got = r.URL.Query().Get("token")
+		}
+		if got == "" {
+			/* And a cookie, for a browser on another machine.
+			 *
+			 * The token is 24 bytes of randomness. Nobody types that into a
+			 * browser in the kitchen, so /join hands it over once against a
+			 * short code and the browser carries it from then on. */
+			if c, err := r.Cookie("plxr"); err == nil {
+				got = c.Value
+			}
 		}
 		if subtle.ConstantTimeCompare([]byte(got), want) != 1 {
 			http.Error(w, "invalid token", http.StatusForbidden)
@@ -214,6 +250,13 @@ func Guard(token string, next http.Handler) http.Handler {
 }
 
 // ---- Client side ----
+
+// MustRead is Read for the places that only want the numbers and have nothing
+// useful to do with a failure — the daemon reading its own file.
+func MustRead() Info {
+	i, _ := Read()
+	return i
+}
 
 func Read() (Info, error) {
 	b, err := os.ReadFile(infoPath())

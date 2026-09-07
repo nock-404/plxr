@@ -714,3 +714,6 @@
 .ficon[data-kind="readme"] { color: var(--accent); }
 .ficon[data-kind="config"] { color: var(--dim); }
 .ficon[data-kind="plain"] { color: var(--dead); }
+
+/* The line somebody reads off this screen and types on another keyboard. */
+.joinline { color: var(--accent); border: var(--hair) solid var(--line); font-size: 1.15em; letter-spacing: .04em; }

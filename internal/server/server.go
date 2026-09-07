@@ -33,7 +33,20 @@ type Server struct {
 	c   *core.Core
 	web fs.FS
 	up  websocket.Upgrader
+	/* Whether the listener this server is serving on is actually reachable from
+	 * the network. Told to it rather than worked out: only the caller that
+	 * opened the socket knows what it bound to, and answering "yes, on" while
+	 * the daemon is still on 127.0.0.1 from before a restart would be a lie
+	 * somebody carries into another room. */
+	reachable bool
 }
+
+// Reachable records that this server was bound to the network, not only to
+// this machine.
+func (s *Server) Reachable(yes bool) { s.reachable = yes }
+
+// Reachable2 answers the same question, for the log line at startup.
+func (s *Server) Reachable2() bool { return s.reachable }
 
 func New(c *core.Core, web fs.FS) *Server {
 	return &Server{
@@ -608,6 +621,56 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		writeJSON(w, report)
 	})
+	/* Reaching plxr from another machine.
+	 *
+	 * Off unless it is asked for, and asking for it takes a restart: the
+	 * listener is bound once, at start. The window says so rather than
+	 * pretending the switch takes effect where it does not. */
+	mux.HandleFunc("GET /api/remote", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]any{
+			"on":        daemon.RemoteWanted(),
+			"live":      s.reachable,
+			"port":      daemon.MustRead().Port,
+			"addresses": daemon.Addresses(),
+		})
+	})
+	mux.HandleFunc("POST /api/remote", func(w http.ResponseWriter, r *http.Request) {
+		var req remoteReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := daemon.SetRemote(req.On); err != nil {
+			http.Error(w, uierr.With("err.remote.notWritten", err.Error()).Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"on":        daemon.RemoteWanted(),
+			"live":      s.reachable,
+			"port":      daemon.MustRead().Port,
+			"addresses": daemon.Addresses(),
+		})
+	})
+	/* A code to carry to the other machine.
+	 *
+	 * Only while the network listener is actually up: a code for a daemon
+	 * nobody can reach is a code that reads as a promise. */
+	mux.HandleFunc("POST /api/remote/code", func(w http.ResponseWriter, r *http.Request) {
+		if !s.reachable {
+			http.Error(w, uierr.New("err.remote.notListening").Error(), http.StatusBadRequest)
+			return
+		}
+		code, until := daemon.NewCode()
+		if code == "" {
+			http.Error(w, uierr.New("err.remote.noCode").Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"code":  code,
+			"until": until.UnixMilli(),
+			"port":  daemon.MustRead().Port,
+		})
+	})
 	mux.HandleFunc("GET /api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Workspaces())
 	})
@@ -748,6 +811,10 @@ type commitReq struct {
 type diffReq struct {
 	Path   string `json:"path"`
 	Staged bool   `json:"staged"`
+}
+
+type remoteReq struct {
+	On bool `json:"on"`
 }
 
 type workspaceReq struct {
