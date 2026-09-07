@@ -100,67 +100,87 @@ export default function Folders() {
   return (
     <section className="list">
       <TopStrip>
-        <div className="listbar">
-          <span className="prompt">{tr("folders.prompt", "folders>")}</span>
-          <span className="folderTabs">
-            {folders.map((w) => (
-              <Button
-                bare
-                key={w.id}
-                className={`folderTab${here?.id === w.id ? " on" : ""}`}
-                data-missing={w.missing ? "yes" : undefined}
-                title={w.missing ? tr("folders.missing", "Not reachable right now — {path}", { path: w.path }) : w.path}
-                onClick={() => {
-                  setHere(w);
-                  setFile(null);
-                }}
-              >
-                {w.path.split(/[\\/]/).filter(Boolean).pop() ?? w.path}
-              </Button>
-            ))}
-          </span>
-          {where ? (
-            <span className="foldergit">
-              <span className="branchname" data-on="yes">
-                {where.detached
-                  ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
-                  : where.branch}
-              </span>
-              {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
-              {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
-              <span className="branchword">
-                {changed.length
-                  ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
-                  : tr("git.cleanShort", "nothing changed")}
-              </span>
+        <div className="folderbar">
+          {/* Two rows, because four folders and five buttons do not fit on one.
+              With them on a single line the tabs wrapped into the git line and
+              the whole bar became unreadable. */}
+          <div className="folderbarTop">
+            <span className="prompt">{tr("folders.prompt", "folders>")}</span>
+            <span className="folderTabs">
+              {folders.map((w) => (
+                <Button
+                  bare
+                  key={w.id}
+                  className={`folderTab${here?.id === w.id ? " on" : ""}`}
+                  data-missing={w.missing ? "yes" : undefined}
+                  title={w.missing ? tr("folders.missing", "Not reachable right now — {path}", { path: w.path }) : w.path}
+                  onClick={() => {
+                    setHere(w);
+                    setFile(null);
+                    setDiff(null);
+                    setLine(undefined);
+                    setSide("tree");
+                  }}
+                >
+                  {w.path.split(/[\\/]/).filter(Boolean).pop() ?? w.path}
+                </Button>
+              ))}
             </span>
-          ) : null}
-          <span className="spacer" />
-          {here && !here.missing ? (
-            <>
-              <Button on={side === "tree"} onClick={() => setSide("tree")}>
-                {tr("folders.tree", "FILES")}
+            <span className="spacer" />
+            <Button onClick={() => setPicking(true)}>{tr("folders.open", "+ FOLDER")}</Button>
+          </div>
+
+          <div className="folderbarLow">
+            {where ? (
+              <span className="foldergit">
+                <span className="branchname" data-on="yes">
+                  {where.detached
+                    ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
+                    : where.branch}
+                </span>
+                {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
+                {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
+                {/* A count nobody can act on is a boast. This one opens the
+                    list it is counting. */}
+                <Button
+                  bare
+                  className="branchword"
+                  disabled={!changed.length}
+                  onClick={() => setSide("changes")}
+                  title={changed.length ? tr("git.showThem", "Show which ones") : undefined}
+                >
+                  {changed.length
+                    ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
+                    : tr("git.cleanShort", "nothing changed")}
+                </Button>
+              </span>
+            ) : null}
+            <span className="spacer" />
+            {here && !here.missing ? (
+              <>
+                <Button on={side === "tree"} onClick={() => setSide("tree")}>
+                  {tr("folders.tree", "FILES")}
+                </Button>
+                <Button on={side === "find"} onClick={() => setSide("find")}>
+                  {tr("find.open", "FIND")}
+                </Button>
+                <Button on={side === "changes"} onClick={() => setSide("changes")}>
+                  {tr("git.open", "CHANGES")}
+                </Button>
+                <Button on={side === "branches"} onClick={() => setSide("branches")}>
+                  {tr("branch.open", "BRANCHES")}
+                </Button>
+              </>
+            ) : null}
+            {here ? (
+              <Button
+                onClick={() => void close(here.id)}
+                title={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}
+              >
+                {tr("folders.close", "CLOSE")}
               </Button>
-              <Button on={side === "find"} onClick={() => setSide("find")}>
-                {tr("find.open", "FIND")}
-              </Button>
-              <Button on={side === "changes"} onClick={() => setSide("changes")}>
-                {tr("git.open", "CHANGES")}
-              </Button>
-              <Button on={side === "branches"} onClick={() => setSide("branches")}>
-                {tr("branch.open", "BRANCHES")}
-              </Button>
-            </>
-          ) : null}
-          {here ? (
-            <Button
-              onClick={() => void close(here.id)}
-              title={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}
-            >
-              {tr("folders.close", "CLOSE")}
-            </Button>
-          ) : null}
-          <Button onClick={() => setPicking(true)}>{tr("folders.open", "+ FOLDER")}</Button>
+            ) : null}
+          </div>
         </div>
       </TopStrip>
 

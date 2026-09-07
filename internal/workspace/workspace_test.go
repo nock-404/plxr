@@ -138,3 +138,42 @@ func TestClosingLeavesTheFolderAlone(t *testing.T) {
 		t.Fatalf("closing twice was accepted")
 	}
 }
+
+// A relative path was accepted and stored as it came.
+//
+// "." went in as Path="." Real="." — an id meaning "whatever this process is
+// standing in". The daemon inherits its working directory from whoever launched
+// it, so the tree listed the user's home; and the leash became two relative
+// strings compared with each other, always equal, so the check for a folder
+// moving underneath us could never fire.
+func TestARelativePathIsRefused(t *testing.T) {
+	home := t.TempDir()
+	dir := t.TempDir()
+	if err := os.Chdir(dir); err != nil {
+		t.Skipf("cannot change directory here: %v", err)
+	}
+	for _, name := range []string{".", "..", "sub", filepath.Join("a", "b")} {
+		if _, err := Open(home, name); err == nil {
+			t.Fatalf("a relative path %q was accepted", name)
+		} else if !strings.HasPrefix(err.Error(), "err.workspace.notAbsolute") &&
+			!strings.HasPrefix(err.Error(), "err.dir.missing") {
+			t.Fatalf("%q refused for the wrong reason: %v", name, err)
+		}
+	}
+	if len(List(home)) != 0 {
+		t.Fatalf("something was stored anyway: %+v", List(home))
+	}
+}
+
+// "~work/proj" is not a home directory with a suffix.
+func TestOnlyTheTildeItselfIsAHome(t *testing.T) {
+	home := t.TempDir()
+	if _, err := Open(home, "~notauser/whatever"); err == nil {
+		t.Fatalf("~notauser was accepted")
+	} else if strings.Contains(err.Error(), "notauser/whatever") {
+		real, _ := os.UserHomeDir()
+		if strings.Contains(err.Error(), real+"notauser") {
+			t.Fatalf("the tilde was glued onto the home directory: %v", err)
+		}
+	}
+}

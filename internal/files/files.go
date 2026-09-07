@@ -47,6 +47,14 @@ type Entry struct {
 // containment check is a second copy to get wrong.
 func Resolve(root, path string) (string, error) { return resolve(root, path) }
 
+// ResolveMaybeGone is Resolve for a path that need not be there any more.
+//
+// Staging a deletion is the case: the file is gone, so resolve's EvalSymlinks
+// fails with a raw OS error and the whole batch was refused — one deleted file
+// and nothing could be committed. Containment is still checked, against the
+// nearest parent that does exist.
+func ResolveMaybeGone(root, path string) (string, error) { return resolveNew(root, path) }
+
 // resolve resolves a path and makes sure it stays below root.
 func resolve(root, path string) (string, error) {
 	realRoot, err := filepath.EvalSymlinks(root)

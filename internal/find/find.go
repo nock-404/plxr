@@ -120,6 +120,11 @@ func files(ctx context.Context, root string) ([]string, bool, error) {
 		if junk[name] {
 			return nil
 		}
+		// Same reason as above: a fifo, a device or a socket is not something
+		// to open.
+		if info, err := d.Info(); err == nil && !info.Mode().IsRegular() {
+			return nil
+		}
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return nil
@@ -191,6 +196,17 @@ func Search(root string, q Query) (Report, error) {
 		full := filepath.Join(root, filepath.FromSlash(rel))
 		info, err := os.Stat(full)
 		if err != nil || info.IsDir() {
+			continue
+		}
+		/* Only ordinary files are read.
+		 *
+		 * A named pipe in the folder hung the whole search for ever: os.Open on
+		 * a fifo blocks until somebody writes to it, and the deadline here is a
+		 * context, which os.Open never consults. The request never came back and
+		 * each repeat left another goroutine stuck. Measured — fifteen seconds
+		 * of waiting and no answer. Devices and sockets are the same shape of
+		 * trap, and none of them is a file anybody meant to search. */
+		if !info.Mode().IsRegular() {
 			continue
 		}
 		if info.Size() > MaxFileSize {

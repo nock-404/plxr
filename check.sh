@@ -146,6 +146,14 @@ step "window works" node clicked.mjs
 # up on it too. "Which of them wins?" used to have no answer.
 step "windows agree" node agree.mjs
 
+# The editor half of the window: the tree, the search, the changes, the
+# branches, and whether a file that was typed into actually reaches the disk.
+# All of it went in with nothing looking at it, so the faults were found by the
+# person using it — files that were all the same dot, a bar that mangled itself
+# with four folders open, and a save that had never once written anything.
+# It brings up a daemon in a home of its own, so nobody's real plxr is touched.
+step "editor works" node editor.mjs
+
 # --- started the way people start it -----------------------------------------
 # Everything above starts plxr from this shell, with a full environment. The
 # faults of one long evening all lived in the gap between that and how an

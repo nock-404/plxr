@@ -137,14 +137,35 @@ func Open(home, path string) (Workspace, error) {
 	if path == "" {
 		return Workspace{}, uierr.New("err.workspace.noPath")
 	}
-	if strings.HasPrefix(path, "~") {
+	/* The tilde, and only the tilde.
+	 *
+	 * This was h + path[1:] for anything starting with "~", so "~work/proj"
+	 * became "/Users/somebodywork/proj" — a path glued together out of two
+	 * unrelated things. Only "~" itself and "~/" mean the home directory. */
+	if path == "~" || strings.HasPrefix(path, "~"+string(filepath.Separator)) || strings.HasPrefix(path, "~/") {
 		h, err := os.UserHomeDir()
 		if err != nil {
 			return Workspace{}, err
 		}
-		path = h + path[1:]
+		path = filepath.Join(h, strings.TrimPrefix(strings.TrimPrefix(path, "~"), string(filepath.Separator)))
 	}
 	path = filepath.Clean(path)
+	/* Absolute, or nothing.
+	 *
+	 * A relative path was accepted and stored as it came: "." went in as
+	 * Path="." and Real=".", so the id meant "whatever this process happens to
+	 * be standing in". The daemon inherits its working directory from whoever
+	 * launched it, so the folder resolved to the user's home and the tree
+	 * listed it — a directory nobody opened. Worse, the leash was then two
+	 * relative strings compared with each other: always equal, so the check
+	 * that exists to catch a folder moving underneath us could never fire, and
+	 * after a restart from somewhere else the same id quietly meant a different
+	 * directory. Measured: a daemon started in one folder listed that folder
+	 * for path ".", and the same id listed another after being restarted
+	 * elsewhere. */
+	if !filepath.IsAbs(path) {
+		return Workspace{}, uierr.With("err.workspace.notAbsolute", path)
+	}
 	info, err := os.Stat(path)
 	if err != nil || !info.IsDir() {
 		return Workspace{}, uierr.With("err.dir.missing", path)

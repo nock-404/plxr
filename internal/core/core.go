@@ -992,9 +992,12 @@ func (c *Core) Stage(id string, paths []string, on bool) error {
 	if len(paths) == 0 {
 		return uierr.New("err.git.noPaths")
 	}
-	// Each path is held to the same leash as every other file operation.
+	/* Each path is held to the same leash as every other file operation — but
+	 * a path that is being staged may be a deletion, and a deleted file cannot
+	 * be resolved. Resolve's EvalSymlinks failed with a raw OS error, so one
+	 * removed file refused the whole batch and nothing could be committed. */
 	for _, p := range paths {
-		if _, err := files.Resolve(root, p); err != nil {
+		if _, err := files.ResolveMaybeGone(root, p); err != nil {
 			return err
 		}
 	}

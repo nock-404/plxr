@@ -44,7 +44,7 @@ LAYOUT_ONLY = {
     # The changes panel and the diff grid: rows and columns, no surface. The
     # text of a diff line takes its colour from the line around it.
     "changes", "changegroup", "changerow", "diffwrap", "hunk", "difftext",
-    "logrow", "branchrow", "foldergit",
+    "logrow", "branchrow", "foldergit", "folderbar", "folderbarTop", "folderbarLow",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
     "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",

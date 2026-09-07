@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, Transaction } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, placeholder as cmPlaceholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches, search } from "@codemirror/search";
@@ -193,11 +193,21 @@ export default function Editor({
     wanted.current = null;
   }
 
-  // The document, when it arrives or is replaced from outside.
+  /* The document, when it arrives or is replaced from outside.
+   *
+   * Kept out of the undo history. The editor is built empty and the file's text
+   * arrives a moment later as an ordinary change, so undo treated the arrival
+   * of the file as something to undo: one press after opening emptied the
+   * editor, and because the text then differed from what was read it was
+   * offered as unsaved — a blank file, one keystroke from being written over
+   * the real one. */
   useEffect(() => {
     const v = view.current;
     if (!v || v.state.doc.toString() === value) return;
-    v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
+    v.dispatch({
+      changes: { from: 0, to: v.state.doc.length, insert: value },
+      annotations: Transaction.addToHistory.of(false),
+    });
     // A jump that was asked for before the text existed happens now.
     jump();
   }, [value]);

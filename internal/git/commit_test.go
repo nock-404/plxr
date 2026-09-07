@@ -170,3 +170,82 @@ func TestManyPathsAreStagedInBatches(t *testing.T) {
 		t.Fatalf("only %d of %d were staged — the batching dropped some", staged, len(names))
 	}
 }
+
+// git stops at the first pathspec it does not like and stages nothing.
+//
+// A deletion that is already staged is exactly such a pathspec — the file is
+// gone and the index already knows, so git answers "did not match any files".
+// Pressing IN twice on a removed file, or sending a batch containing one,
+// therefore refused the whole call and nothing was staged at all.
+func TestOnePathGitWillNotTakeDoesNotRefuseTheRest(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "gone.txt", "a\n")
+	write(t, dir, "kept.txt", "b\n")
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-qm", "start")
+
+	if err := osRemove(dir, "gone.txt"); err != nil {
+		t.Fatal(err)
+	}
+	write(t, dir, "kept.txt", "changed\n")
+
+	// The deletion goes in on its own first, so the second call meets a
+	// pathspec git will not take.
+	if err := Stage(dir, []string{"gone.txt"}); err != nil {
+		t.Fatalf("staging the deletion: %v", err)
+	}
+	if err := Stage(dir, []string{"gone.txt", "kept.txt"}); err != nil {
+		t.Fatalf("the batch was refused because of the already-staged deletion: %v", err)
+	}
+	list := mustChanges(t, dir)
+	if c := find(list, "kept.txt"); c == nil || !c.Staged() {
+		t.Fatalf("kept.txt was not staged: %+v", c)
+	}
+	if c := find(list, "gone.txt"); c == nil || c.Index != "D" {
+		t.Fatalf("the deletion did not stay staged: %+v", c)
+	}
+
+	// A path that is genuinely not there is still an error, not silence.
+	if err := Stage(dir, []string{"never-existed.txt"}); err == nil {
+		t.Fatalf("a path that was never there was accepted")
+	}
+}
+
+func osRemove(dir, name string) error {
+	return os.Remove(filepath.Join(dir, name))
+}
+
+// A staged rename is two halves and the list only shows one.
+//
+// Resetting the new name alone left the deletion of the old one staged: the
+// state became "D old-name" plus an untracked new file, and the next commit
+// deleted the original. Measured on a repository built for it before the fix.
+func TestUnstagingARenameTakesBothHalves(t *testing.T) {
+	dir := repo(t)
+	write(t, dir, "before.txt", "the only copy of this\n")
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-qm", "start")
+	git(t, dir, "mv", "before.txt", "after.txt")
+
+	list := mustChanges(t, dir)
+	if len(list) != 1 || list[0].Index != "R" {
+		t.Fatalf("expected one staged rename, got %+v", list)
+	}
+	if err := Unstage(dir, []string{list[0].Path}); err != nil {
+		t.Fatalf("Unstage: %v", err)
+	}
+
+	// Nothing may be left staged, or a commit now deletes the original.
+	for _, c := range mustChanges(t, dir) {
+		if c.Staged() {
+			t.Fatalf("still staged after unstaging the rename: %+v", c)
+		}
+	}
+	if _, err := Commit(dir, "would have deleted it", false); err == nil {
+		t.Fatalf("there was still something staged to commit")
+	}
+	// And the content is still somewhere.
+	if _, err := os.Stat(filepath.Join(dir, "after.txt")); err != nil {
+		t.Fatalf("the file itself went missing: %v", err)
+	}
+}

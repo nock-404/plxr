@@ -89,7 +89,23 @@ func (c Change) Untracked() bool { return c.Index == "?" && c.Work == "?" }
 // because staged and unstaged are two different questions and one answer cannot
 // carry both.
 func Changes(dir string) ([]Change, error) {
-	out, err := Raw(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	/* Only this folder, and named the way this folder names things.
+	 *
+	 * git answers with paths relative to the top of the repository, and the
+	 * folder somebody opened need not be the top — in a monorepo it usually is
+	 * not. Without the pathspec, a folder one level down was handed every
+	 * change in the whole repository; without the rewriting below, each path
+	 * arrived with the way down from the top in front of it, and the window
+	 * then asked to stage or diff a path the daemon resolved one level too deep.
+	 * Everything to do with git was broken for anybody who opened a
+	 * subdirectory.
+	 *
+	 * "." is the pathspec for "at or below where git was asked", which is dir. */
+	out, err := Raw(dir, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ".")
+	if err != nil {
+		return nil, err
+	}
+	toHere, err := relatively(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -103,16 +119,26 @@ func Changes(dir string) ([]Change, error) {
 			continue
 		}
 		code, path := line[:2], line[3:]
-		c := &Change{Path: path, Index: string(code[0]), Work: string(code[1])}
+		here, inside := toHere(path)
+		if !inside {
+			continue
+		}
+		c := &Change{Path: here, Index: string(code[0]), Work: string(code[1])}
 		// A rename prints the new name on this line and the old one in the next
 		// field. Reading it is not optional: left in place it becomes the next
 		// entry, as a path with a two-letter code chopped off its front.
 		if strings.ContainsAny(code, "RC") && i+1 < len(fields) {
 			i++
-			c.Renamed = fields[i]
+			// Where it came from, in the same terms. Outside the folder it is
+			// still worth saying, so the full path is kept in that case.
+			if from, ok := toHere(fields[i]); ok {
+				c.Renamed = from
+			} else {
+				c.Renamed = fields[i]
+			}
 		}
-		byPath[path] = c
-		order = append(order, path)
+		byPath[c.Path] = c
+		order = append(order, c.Path)
 	}
 
 	for _, staged := range []bool{false, true} {
@@ -124,7 +150,7 @@ func Changes(dir string) ([]Change, error) {
 		if err != nil {
 			continue // a repository with no commits yet has nothing to compare
 		}
-		counts(string(out), byPath, staged)
+		counts(string(out), byPath, staged, toHere)
 	}
 
 	// An untracked file is in no diff at all, so git counts nothing for it —
@@ -168,7 +194,31 @@ func lines(dir, path string) (int, bool) {
 	return n, false
 }
 
-func counts(out string, into map[string]*Change, staged bool) {
+// relatively turns a path as git reports it — from the top of the repository —
+// into one relative to the directory git was asked in, and says whether it is
+// below that directory at all.
+func relatively(dir string) (func(string) (string, bool), error) {
+	here := dir
+	if r, err := filepath.EvalSymlinks(dir); err == nil {
+		here = r
+	}
+	top := here
+	if t, err := Run(dir, "rev-parse", "--show-toplevel"); err == nil && t != "" {
+		top = t
+		if r, err := filepath.EvalSymlinks(t); err == nil {
+			top = r
+		}
+	}
+	return func(path string) (string, bool) {
+		rel, err := filepath.Rel(here, filepath.Join(top, filepath.FromSlash(path)))
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return path, false
+		}
+		return filepath.ToSlash(rel), true
+	}, nil
+}
+
+func counts(out string, into map[string]*Change, staged bool, toHere func(string) (string, bool)) {
 	fields := strings.Split(out, "\x00")
 	for i := 0; i < len(fields); i++ {
 		head := fields[i]
@@ -190,7 +240,11 @@ func counts(out string, into map[string]*Change, staged bool) {
 				continue
 			}
 		}
-		c, ok := into[path]
+		here, inside := toHere(path)
+		if !inside {
+			continue
+		}
+		c, ok := into[here]
 		if !ok {
 			continue
 		}
@@ -342,20 +396,69 @@ func heads(line string) (int, int) {
 // thousands of changed files.
 const chunk = 200
 
+/* alreadyDone is git saying there is nothing here left to do.
+ *
+ * "pathspec 'x' did not match any files" is what git answers for a deletion
+ * that is already staged — the file is gone and the index already knows. The
+ * window can perfectly well send it again, and it did: pressing IN twice on a
+ * removed file, or sending a batch that contained one, failed the whole call
+ * and nothing could be staged at all.
+ *
+ * git gives the same sentence for a path that never existed, so the sentence
+ * alone is not enough. The index cannot tell them apart either — staging a
+ * deletion takes the path out of the index, so ls-files refuses both. status
+ * can: it reports the staged deletion and says nothing about a name somebody
+ * made up. */
+func alreadyDone(dir, path, said string) bool {
+	if !strings.Contains(said, "did not match any files") {
+		return false
+	}
+	out, err := Raw(dir, "status", "--porcelain=v1", "-z", "--", path)
+	return err == nil && len(strings.TrimSpace(string(out))) > 0
+}
+
+func said(out []byte, err error) string {
+	text := string(out)
+	if ee, ok := err.(*exec.ExitError); ok {
+		text += string(ee.Stderr)
+	}
+	return text
+}
+
 func each(dir string, paths []string, args ...string) error {
 	if len(paths) == 0 {
 		return nil
+	}
+	one := func(path string) error {
+		// -- so a path that begins with a dash is a path and not an option.
+		call := append(append([]string{}, args...), "--", path)
+		out, err := Raw(dir, call...)
+		if err == nil || alreadyDone(dir, path, said(out, err)) {
+			return nil
+		}
+		return uierr.With("err.git.failed", strings.TrimSpace(said(out, err)))
 	}
 	for i := 0; i < len(paths); i += chunk {
 		end := i + chunk
 		if end > len(paths) {
 			end = len(paths)
 		}
-		// -- so a path that begins with a dash is a path and not an option.
+		batch := paths[i:end]
 		call := append(append([]string{}, args...), "--")
-		call = append(call, paths[i:end]...)
-		if _, err := Run(dir, call...); err != nil {
-			return err
+		call = append(call, batch...)
+		if _, err := Raw(dir, call...); err == nil {
+			continue
+		}
+		/* One path git will not take must not refuse the rest.
+		 *
+		 * git stops at the first pathspec it does not like and stages nothing,
+		 * so a single already-staged deletion in a batch of forty meant forty
+		 * files went nowhere. Retried one at a time, and only a path git
+		 * genuinely objects to is reported. */
+		for _, path := range batch {
+			if err := one(path); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -368,7 +471,53 @@ func Stage(dir string, paths []string) error { return each(dir, paths, "add", "-
 //
 // git restore --staged is the modern spelling and needs git 2.23; reset is
 // older than anything plxr will meet and does the same thing here.
-func Unstage(dir string, paths []string) error { return each(dir, paths, "reset", "-q") }
+//
+// A staged rename is two halves, and the list only shows one of them. Resetting
+// the new name alone left the deletion of the old one staged: the state became
+// "D old-name" plus an untracked new file, and the next commit deleted the
+// original. Measured, on a repository built for it. So the other half comes
+// along.
+func Unstage(dir string, paths []string) error {
+	return each(dir, append(paths, origins(dir, paths)...), "reset", "-q")
+}
+
+// origins finds the old names of any staged renames among these paths.
+func origins(dir string, paths []string) []string {
+	want := map[string]bool{}
+	for _, p := range paths {
+		want[p] = true
+	}
+	out, err := Raw(dir, "status", "--porcelain=v1", "-z", "--untracked-files=no")
+	if err != nil {
+		return nil
+	}
+	extra := []string{}
+	fields := strings.Split(string(out), "\x00")
+	toHere, err := relatively(dir)
+	if err != nil {
+		return nil
+	}
+	for i := 0; i < len(fields); i++ {
+		line := fields[i]
+		if len(line) < 4 {
+			continue
+		}
+		code, path := line[:2], line[3:]
+		if !strings.ContainsAny(code, "RC") || i+1 >= len(fields) {
+			continue
+		}
+		i++
+		from := fields[i]
+		here, inside := toHere(path)
+		if !inside || !want[here] {
+			continue
+		}
+		if old, ok := toHere(from); ok && !want[old] {
+			extra = append(extra, old)
+		}
+	}
+	return extra
+}
 
 // Commit records what is staged.
 //
