@@ -20,6 +20,7 @@ import (
 	"plxr/internal/accounts"
 	"plxr/internal/core"
 	"plxr/internal/daemon"
+	"plxr/internal/find"
 	"plxr/internal/notify"
 	"plxr/internal/queue"
 	"plxr/internal/shell"
@@ -462,6 +463,29 @@ func (s *Server) Routes() *http.ServeMux {
 	 * The file routes below take an id that is either one of these or a
 	 * session — c.root reads which from the id — so none of them changed
 	 * shape when this arrived. */
+	/* Searching the files of a folder.
+	 *
+	 * A POST with a body rather than a GET with query parameters, although it
+	 * only reads: the field names then travel in a shape bodies.py can hold
+	 * both sides to. A query parameter the window never sends is how the
+	 * account switch quietly did nothing for months. */
+	mux.HandleFunc("POST /api/find/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var q find.Query
+		if json.NewDecoder(r.Body).Decode(&q) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		report, err := s.c.Find(r.PathValue("id"), q)
+		if err != nil {
+			code := http.StatusBadRequest
+			if forbidden(err) {
+				code = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), code)
+			return
+		}
+		writeJSON(w, report)
+	})
 	mux.HandleFunc("GET /api/workspaces", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Workspaces())
 	})

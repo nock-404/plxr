@@ -263,3 +263,31 @@ export interface Workspace {
      is not mounted is not a folder to forget. */
   missing: boolean;
 }
+
+/* What to look for in the files of a folder. */
+export interface FindQuery {
+  text: string;
+  regex?: boolean;
+  case?: boolean;
+  word?: boolean;
+  glob?: string;
+}
+
+/* One matching line, with every match on it — per line, because a line with
+   four matches is one thing to look at, not four. */
+export interface FindHit {
+  path: string;
+  line: number;
+  text: string;
+  ranges: [number, number][];
+}
+
+export interface FindReport {
+  hits: FindHit[];
+  files: number;
+  scanned: number;
+  /* Every bound the daemon reached, named. A short list that looks complete is
+     worse than one that says it is short. */
+  capped: string[];
+  took_ms: number;
+}

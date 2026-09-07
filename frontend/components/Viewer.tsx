@@ -13,10 +13,13 @@ import type { FileBody } from "@/lib/types";
 export default function Viewer({
   sessionId,
   path,
+  line,
   onClose,
 }: {
   sessionId: string;
   path: string;
+  /* Where to land, when the file was reached from a search hit. */
+  line?: number;
   onClose: () => void;
 }) {
   const [body, setBody] = useState<FileBody | null>(null);
@@ -81,9 +84,14 @@ export default function Viewer({
           <Editor
             value={text}
             filename={name}
+            goToLine={line}
+            /* Unsaved means different, not touched.
+               Putting the loaded text into the editor is a change as far as
+               CodeMirror is concerned, so every file said "unsaved" the moment
+               it opened — and offered a SAVE for a file nobody had altered. */
             onChange={(next) => {
               setText(next);
-              setDirty(true);
+              setDirty(next !== (body?.text ?? ""));
             }}
             onSave={save}
           />

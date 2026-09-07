@@ -465,6 +465,17 @@ body {
 .meterBig { font-size: 1.25em; }
 .meterUnit, .meterGap, .meterCost { font-size: 0.8em; }
 
+/* ---------- searching the files ---------- */
+/* In the tree's place, at the tree's width, so the result and the file it
+   points into stand side by side. */
+.filesearch { flex: 0 0 var(--files-w); min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; }
+.findresult { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.findfile { display: flex; flex-direction: column; min-width: 0; }
+.findpath { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; padding: 0.25rem 0 0.1rem; }
+.findline { display: flex; gap: 0.5rem; align-items: baseline; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; padding: 0.1rem 0.25rem; min-width: 0; }
+.findno { flex: 0 0 2.5rem; text-align: right; }
+.findtext { flex: 1 1 auto; min-width: 0; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+
 /* ---------- open folders ---------- */
 /* The tree on the left keeps its width, what is in the file takes the rest. */
 /* The viewer is an overlay — it lies across whatever it is put in front of.

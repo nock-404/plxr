@@ -651,3 +651,11 @@
 .folderTab:hover { color: var(--fg); }
 .folderTab.on { color: var(--accent); }
 .folderTab[data-missing="yes"] { color: var(--dead); text-decoration: line-through; }
+
+/* A search result: the file names carry, the lines are the reading, and the
+   line numbers stay out of the way. */
+.findpath { color: var(--accent); }
+.findline { color: var(--fg); }
+.findline:hover { background: var(--panel); }
+.findno { color: var(--dead); }
+.findtext { color: var(--fg); }

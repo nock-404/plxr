@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
 import Viewer from "@/components/Viewer";
 import Button from "@/components/ui/Button";
@@ -21,6 +22,8 @@ export default function Folders() {
   const [folders, setFolders] = useState<Workspace[]>([]);
   const [here, setHere] = useState<Workspace | null>(null);
   const [file, setFile] = useState<string | null>(null);
+  const [line, setLine] = useState<number | undefined>(undefined);
+  const [searching, setSearching] = useState(false);
   const [picking, setPicking] = useState(false);
   const [problem, setProblem] = useState("");
 
@@ -86,6 +89,11 @@ export default function Folders() {
             ))}
           </span>
           <span className="spacer" />
+          {here && !here.missing ? (
+            <Button on={searching} onClick={() => setSearching((v) => !v)}>
+              {tr("find.open", "FIND")}
+            </Button>
+          ) : null}
           {here ? (
             <Button
               onClick={() => void close(here.id)}
@@ -121,9 +129,26 @@ export default function Folders() {
         </div>
       ) : (
         <div className="foldersbody">
-          <Files rootId={here.id} root={here.path} onPick={setFile} />
+          {searching ? (
+            <FileSearch
+              rootId={here.id}
+              onOpen={(path, at) => {
+                setFile(path);
+                setLine(at);
+              }}
+            />
+          ) : (
+            <Files
+              rootId={here.id}
+              root={here.path}
+              onPick={(path) => {
+                setFile(path);
+                setLine(undefined);
+              }}
+            />
+          )}
           {file ? (
-            <Viewer sessionId={here.id} path={file} onClose={() => setFile(null)} />
+            <Viewer sessionId={here.id} path={file} line={line} onClose={() => setFile(null)} />
           ) : (
             <div className="empty">
               <div className="emptybox">

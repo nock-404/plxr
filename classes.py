@@ -39,6 +39,8 @@ LAYOUT_ONLY = {
     "markfiles", "markfile",
     # The open-folder view: a row of tabs and a split, both arrangement only.
     "foldersbody", "folderTabs",
+    # The search panel and how it stacks its results: arrangement only.
+    "filesearch", "findresult", "findfile",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
     "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",

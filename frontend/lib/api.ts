@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -59,6 +59,12 @@ export const api = {
   updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
   updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),
+  find: (id: string, q: FindQuery) =>
+    req<FindReport>(`/api/find/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: JSON.stringify({ text: q.text, regex: q.regex, case: q.case, word: q.word, glob: q.glob }),
+    }),
+
   workspaces: () => req<Workspace[]>("/api/workspaces"),
   openWorkspace: (path: string) =>
     req<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify({ path }) }),

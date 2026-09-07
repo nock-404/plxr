@@ -26,6 +26,7 @@ import (
 	"plxr/internal/archive"
 	"plxr/internal/daemon"
 	"plxr/internal/files"
+	"plxr/internal/find"
 	"plxr/internal/fleet"
 	"plxr/internal/hook"
 	"plxr/internal/marks"
@@ -913,6 +914,15 @@ func (c *Core) root(id string) (string, error) {
 		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
+}
+
+// Find searches the files of a folder or a session's directory.
+func (c *Core) Find(id string, q find.Query) (find.Report, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return find.Report{}, err
+	}
+	return find.Search(root, q)
 }
 
 // Workspaces lists the folders that are open, whether or not anything runs in

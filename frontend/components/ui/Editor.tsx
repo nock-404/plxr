@@ -81,6 +81,7 @@ function look() {
 export default function Editor({
   value,
   filename,
+  goToLine,
   placeholder,
   readOnly = false,
   onChange,
@@ -88,6 +89,10 @@ export default function Editor({
 }: {
   value: string;
   filename: string;
+  /* A line to put the cursor on and scroll to, for arriving from a search hit.
+     Watched on its own, never together with the text: keyed on both, every
+     keystroke would drag the view back to the line somebody searched for. */
+  goToLine?: number;
   /* What an empty editor shows instead of a blank field: an example is worth
      more than a hint, in a box where somebody has to know the syntax. */
   placeholder?: string;
@@ -155,11 +160,46 @@ export default function Editor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filename]);
 
+  /* Jumping to a line, once there is a line to jump to.
+   *
+   * Asked for and carried out are two moments. The editor is built while the
+   * file is still being fetched, so the document is empty: a jump made then
+   * clamps to line 1 and the request is gone, and when the text arrives
+   * nothing brings it back — the effect's dependencies have not changed. So the
+   * request is held until a document exists that has that line in it.
+   *
+   * It is deliberately not keyed on the text. Keyed on both, every keystroke
+   * would drag the view back to the line somebody searched for and the file
+   * could not be edited at all. */
+  const wanted = useRef<number | null>(null);
+
+  useEffect(() => {
+    wanted.current = goToLine ?? null;
+    jump();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goToLine, filename]);
+
+  function jump() {
+    const v = view.current;
+    const line = wanted.current;
+    if (!v || !line) return;
+    if (v.state.doc.lines < line) return; // not there yet
+    const at = v.state.doc.line(line);
+    v.dispatch({
+      selection: { anchor: at.from },
+      effects: EditorView.scrollIntoView(at.from, { y: "center" }),
+    });
+    v.focus();
+    wanted.current = null;
+  }
+
   // The document, when it arrives or is replaced from outside.
   useEffect(() => {
     const v = view.current;
     if (!v || v.state.doc.toString() === value) return;
     v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: value } });
+    // A jump that was asked for before the text existed happens now.
+    jump();
   }, [value]);
 
   /* The language, worked out from the name and loaded only when it is needed.
