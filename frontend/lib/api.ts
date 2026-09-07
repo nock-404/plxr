@@ -3,7 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitChange, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -59,6 +59,18 @@ export const api = {
   updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
   updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),
+  branches: (id: string) => req<GitBranch[]>(`/api/branches/${encodeURIComponent(id)}`),
+  switchBranch: (id: string, name: string, create = false, anyway = false) =>
+    req<GitBranch[]>(`/api/branches/${encodeURIComponent(id)}`, {
+      method: "POST",
+      body: JSON.stringify({ name, create, anyway }),
+    }),
+  deleteBranch: (id: string, name: string) =>
+    req<GitBranch[]>(
+      `/api/branches/${encodeURIComponent(id)}?name=${encodeURIComponent(name)}`,
+      { method: "DELETE" },
+    ),
+
   stage: (id: string, paths: string[], on: boolean) =>
     req<GitChange[]>(`/api/stage/${encodeURIComponent(id)}`, {
       method: "POST",

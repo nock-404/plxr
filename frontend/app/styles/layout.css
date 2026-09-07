@@ -477,6 +477,14 @@ body {
    general small text: it is the one line in this panel that says where you
    are, and a reader — or a check — has to be able to pick it out. */
 .branchline { display: block; }
+/* One branch: name and distance on the first line, what it last did below. */
+.branchrow { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0 0.4rem; padding: 0.2rem 0; }
+.branchname { grid-row: 1; grid-column: 1; }
+.branchdist { grid-row: 1; grid-column: 2; }
+.branchword { grid-row: 1; grid-column: 3; }
+.branchrow button { grid-row: 1; }
+.branchsubject { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.branchrow .logwhen { grid-row: 2; grid-column: 5; }
 .changerow { display: flex; align-items: baseline; gap: 0.4rem; }
 /* The head of a group carries its own "all in" button. */
 .changegroup .uhead { display: flex; align-items: baseline; gap: 0.4rem; }
@@ -527,6 +535,8 @@ body {
 .foldersbody .filetree { flex: 0 0 var(--files-w); }
 .foldersbody .viewer { left: var(--files-w); }
 .folderTabs { display: flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+/* The folder's git standing, in the bar above every column. */
+.foldergit { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
 .folderTab { padding: 0 0.5rem; background: none; border: 0; font: inherit; cursor: pointer; }
 
 /* ---------- choosing a folder ---------- */

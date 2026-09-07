@@ -505,3 +505,143 @@ func Position(dir string) (Where, error) {
 	}
 	return w, nil
 }
+
+// ---- Branches ----
+
+// Branch is one branch, with where it stands.
+type Branch struct {
+	Name     string `json:"name"`
+	Current  bool   `json:"current"`
+	Upstream string `json:"upstream,omitempty"`
+	Ahead    int    `json:"ahead"`
+	Behind   int    `json:"behind"`
+	Subject  string `json:"subject"` // what its last commit says
+	When     string `json:"when"`
+}
+
+// Branches lists the local branches, the current one first.
+//
+// One call with a format of our own rather than parsing `git branch`, whose
+// output is meant for reading: the asterisk, the arrow for a worktree, the
+// bracketed distance — all of it is prose that changes between versions.
+// %(HEAD) says which one is checked out; the two counts come from
+// %(upstream:track), which is prose too, so they are asked for separately.
+func Branches(dir string) ([]Branch, error) {
+	/* The separators are written by git, not by us.
+	 *
+	 * A real NUL cannot go in an argument — exec refuses it outright, which is
+	 * what "fork/exec: invalid argument" turned out to mean — but for-each-ref
+	 * understands %xx in its format and emits the byte itself. So the argument
+	 * stays printable ASCII and the output is still split on bytes that cannot
+	 * appear in a branch name or a commit subject. */
+	out, err := Raw(dir, "for-each-ref", "--sort=-committerdate",
+		"--format=%(HEAD)%00%(refname:short)%00%(upstream:short)%00"+
+			"%(contents:subject)%00%(committerdate:relative)%01",
+		"refs/heads")
+	if err != nil {
+		return nil, uierr.With("err.git.failed", err.Error())
+	}
+	list := []Branch{}
+	for _, record := range strings.Split(string(out), "\x01") {
+		record = strings.Trim(record, "\n")
+		if record == "" {
+			continue
+		}
+		f := strings.Split(record, "\x00")
+		if len(f) < 5 {
+			continue
+		}
+		b := Branch{
+			Name:     f[1],
+			Current:  strings.TrimSpace(f[0]) == "*",
+			Upstream: f[2],
+			Subject:  f[3],
+			When:     f[4],
+		}
+		if b.Upstream != "" {
+			if counts, err := Run(dir, "rev-list", "--left-right", "--count",
+				b.Upstream+"..."+b.Name); err == nil {
+				parts := strings.Fields(counts)
+				if len(parts) == 2 {
+					b.Behind, _ = strconv.Atoi(parts[0])
+					b.Ahead, _ = strconv.Atoi(parts[1])
+				}
+			}
+		}
+		list = append(list, b)
+	}
+	// The one you are on belongs at the top, whatever its last commit's date.
+	for i := range list {
+		if list[i].Current && i != 0 {
+			one := list[i]
+			list = append(list[:i], list[i+1:]...)
+			list = append([]Branch{one}, list...)
+			break
+		}
+	}
+	return list, nil
+}
+
+// Switch changes branch, and makes a new one when asked.
+//
+// Deliberately not stricter than git. Refusing whenever the tree is dirty was
+// the first idea and it is wrong: git carries uncommitted changes across a
+// switch whenever it can, which is the ordinary way of working. When it cannot,
+// git says so and that refusal is passed on.
+func Switch(dir, name string, create bool) error {
+	if strings.TrimSpace(name) == "" {
+		return uierr.New("err.branch.noName")
+	}
+	args := []string{"switch"}
+	if create {
+		args = append(args, "-c")
+	}
+	args = append(args, name)
+	out, err := Raw(dir, args...)
+	if err == nil {
+		return nil
+	}
+	said := string(out)
+	if ee, ok := err.(*exec.ExitError); ok {
+		said += string(ee.Stderr)
+	}
+	low := strings.ToLower(said)
+	switch {
+	case strings.Contains(low, "already exists"):
+		return uierr.With("err.branch.exists", name)
+	case strings.Contains(low, "invalid reference"), strings.Contains(low, "not a valid"):
+		return uierr.With("err.branch.badName", name)
+	case strings.Contains(low, "would be overwritten"), strings.Contains(low, "local changes"):
+		return uierr.New("err.branch.wouldLose")
+	case strings.Contains(low, "is already used by worktree"),
+		strings.Contains(low, "already checked out"):
+		return uierr.With("err.branch.elsewhere", name)
+	}
+	return uierr.With("err.git.failed", strings.TrimSpace(said))
+}
+
+// Delete removes a branch. Never the one that is checked out, and never with
+// force: losing commits is not something a button should be able to do.
+func Delete(dir, name string) error {
+	if strings.TrimSpace(name) == "" {
+		return uierr.New("err.branch.noName")
+	}
+	out, err := Raw(dir, "branch", "-d", name)
+	if err == nil {
+		return nil
+	}
+	said := string(out)
+	if ee, ok := err.(*exec.ExitError); ok {
+		said += string(ee.Stderr)
+	}
+	low := strings.ToLower(said)
+	switch {
+	case strings.Contains(low, "not fully merged"):
+		return uierr.With("err.branch.notMerged", name)
+	case strings.Contains(low, "checked out"), strings.Contains(low, "used by worktree"):
+		return uierr.With("err.branch.isCurrent", name)
+	case strings.Contains(low, "not found"):
+		return uierr.With("err.branch.unknown", name)
+	}
+	return uierr.With("err.git.failed", strings.TrimSpace(said))
+}

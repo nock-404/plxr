@@ -933,6 +933,56 @@ func (c *Core) Changes(id string) ([]git.Change, error) {
 	return out, nil
 }
 
+// Branches lists the local branches of a folder.
+func (c *Core) Branches(id string) ([]git.Branch, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return nil, err
+	}
+	return git.Branches(root)
+}
+
+// BusyHere lists the sessions running in this folder that are doing something.
+//
+// The honest source for "is an agent at work here". It reads the status worked
+// out on the last snapshot, which is kept in memory beside the registry —
+// the stored Status is only ever "unknown" or "dead", so a guard built on that
+// could never fire.
+func (c *Core) BusyHere(id string) ([]session.Session, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return nil, err
+	}
+	return c.reg.Busy(root), nil
+}
+
+// SwitchBranch changes branch, and refuses while an agent is at work unless
+// somebody insists.
+//
+// Not because git would refuse — git carries uncommitted work across a switch
+// whenever it can — but because the files under a running agent changing shape
+// mid-instruction is how an afternoon disappears.
+func (c *Core) SwitchBranch(id, name string, create, anyway bool) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	if !anyway {
+		if busy := c.reg.Busy(root); len(busy) > 0 {
+			return uierr.With("err.branch.busy", busy[0].Name)
+		}
+	}
+	return git.Switch(root, name, create)
+}
+
+func (c *Core) DeleteBranch(id, name string) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	return git.Delete(root, name)
+}
+
 // Stage puts files into the index, Unstage takes them out again.
 func (c *Core) Stage(id string, paths []string, on bool) error {
 	root, err := c.repo(id)
@@ -1151,6 +1201,15 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		if sess.Alive {
 			t.Stuck = marks.IsStuck(sess.ClaudeSessionID)
 		}
+		/* What was just worked out, back where anything else can read it.
+		 *
+		 * List hands out copies, so every line above wrote to one — the stored
+		 * Status stayed "unknown" for the whole life of a session. The rail's
+		 * "whoever is waiting comes first" sort read that field and therefore
+		 * never sorted, and a guard of the form "is an agent working in this
+		 * directory" could not be built at all. Kept in memory only: it changes
+		 * several times a second and means nothing after a restart. */
+		c.reg.SetLive(sess.ID, sess.Status)
 		out = append(out, t)
 		c.checkEdge(sess)
 	}

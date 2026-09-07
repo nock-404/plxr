@@ -350,3 +350,14 @@ export interface GitWhere {
      lose, so the window says so. */
   detached: boolean;
 }
+
+/* One branch, with where it stands against its upstream. */
+export interface GitBranch {
+  name: string;
+  current: boolean;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  subject: string;
+  when: string;
+}

@@ -14,13 +14,26 @@ type Registry struct {
 	dir string
 	mu  sync.RWMutex
 	m   map[string]*Session
+	/* What each session is doing right now.
+	 *
+	 * Kept apart from the stored Session on purpose, and never written to disk.
+	 * The status is worked out on every snapshot — from the hook, or from the
+	 * screen and how long it has been quiet — and Snapshot did that on the copy
+	 * List hands out, so the stored Status was only ever "unknown" or "dead".
+	 * Two things depended on it and neither worked: the sort below, which is
+	 * meant to put a session that is waiting for somebody first and never did,
+	 * and any question of the form "is an agent working in this directory".
+	 *
+	 * It changes several times a second and is worthless after a restart, which
+	 * is exactly why it does not belong in the file. */
+	live map[string]Status
 }
 
 func NewRegistry(dir string) (*Registry, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	r := &Registry{dir: dir, m: map[string]*Session{}}
+	r := &Registry{dir: dir, m: map[string]*Session{}, live: map[string]Status{}}
 	return r, r.load()
 }
 
@@ -97,11 +110,69 @@ func (r *Registry) Delete(id string) {
 }
 
 // List returns a copy, sorted: blocked ones first, then by start time.
+// SetLive records what a session is doing, for this run only.
+func (r *Registry) SetLive(id string, status Status) {
+	if id == "" || status == "" {
+		return
+	}
+	r.mu.Lock()
+	if _, known := r.m[id]; known {
+		r.live[id] = status
+	}
+	r.mu.Unlock()
+}
+
+// LiveStatus is what a session is doing, falling back to what was stored when
+// nothing has been worked out yet — right after a restart, say.
+func (r *Registry) LiveStatus(id string) Status {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if s, ok := r.live[id]; ok {
+		return s
+	}
+	if s, ok := r.m[id]; ok {
+		return s.Status
+	}
+	return StatusUnknown
+}
+
+// Busy lists the sessions running in a directory that are doing something —
+// working, or waiting for an answer. What a branch switch has to ask about.
+func (r *Registry) Busy(dir string) []Session {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := []Session{}
+	for id, s := range r.m {
+		if !s.Alive || s.Cwd != dir {
+			continue
+		}
+		status := s.Status
+		if live, ok := r.live[id]; ok {
+			status = live
+		}
+		if status == StatusWorking || status.Blocking() {
+			one := *s
+			// The copy carries the status it was judged by. Left as stored it
+			// answered "unknown" while the decision had been made on something
+			// else entirely, which is a reply nobody can check.
+			one.Status = status
+			out = append(out, one)
+		}
+	}
+	return out
+}
+
 func (r *Registry) List() []Session {
 	r.mu.RLock()
 	out := make([]Session, 0, len(r.m))
 	for _, s := range r.m {
-		out = append(out, *s)
+		one := *s
+		// The order below is decided by what the session is doing now, not by
+		// what was last written down about it.
+		if live, ok := r.live[s.ID]; ok {
+			one.Status = live
+		}
+		out = append(out, one)
 	}
 	r.mu.RUnlock()
 	sort.Slice(out, func(i, j int) bool {

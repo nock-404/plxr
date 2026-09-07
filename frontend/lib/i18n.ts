@@ -57,6 +57,20 @@ export function tr(key: string, fallback: string, vars?: Record<string, string |
 // the worst possible place for a break in language. Details that cannot be
 // translated — a path, a name — travel behind a vertical bar and land in
 // {detail}. Anything unrecognised is shown as it came, so nothing is swallowed.
+/* Which failure this is, as the code the daemon sent.
+ *
+ * For deciding what to do about it. Matching on the sentence instead is the
+ * mistake this project has already made once and written a comment about: the
+ * text is translated, so a check against it works in one language and silently
+ * stops working in the other. Whoever reads this: compare codes, show text.
+ */
+export function errCode(e: unknown): string {
+  const raw = (e instanceof Error ? e.message : String(e ?? "")).trim();
+  const bar = raw.indexOf("|");
+  const code = bar < 0 ? raw : raw.slice(0, bar);
+  return /^err\.[\w.]+$/.test(code) ? code : "";
+}
+
 export function errText(e: unknown): string {
   /* Trimmed first.
    *

@@ -31,6 +31,10 @@ export interface ThemeState {
   /* How wide the docked panels are, in rem. Kept with everything else that is
      remembered, so a second window opens the way the first one was left. */
   settingsWidth: number;
+  /* How wide the column beside the editor is — the tree, the search, the
+     changes. It was a fixed 16.25rem in the stylesheet, so a path that did not
+     fit did not fit, for ever. */
+  filesWidth: number;
   scanOn: boolean;
   /* Colours changed by hand, on top of whatever the palette says. */
   colours: Colours;
@@ -62,6 +66,7 @@ export const DEFAULTS: ThemeState = {
   flickerOn: false,
   backdrop: "frosted",
   settingsWidth: 26,
+  filesWidth: 16.25,
   glow: 0.35, scan: 0.09, size: 0.9375, termSize: 0.8125,
   // Brightness is the value of the picked colour now, not a contrast target,
   // so 50 would be a genuinely dim screen. 74 is the tube as it looked before.
@@ -176,6 +181,7 @@ export function apply(state: ThemeState): void {
   root.style.setProperty("--glow", `${state.glowOn ? state.glow : 0}rem`);
   root.style.setProperty("--scan-alpha", String(state.scanOn ? state.scan : 0));
   root.style.setProperty("--settings-w", `${state.settingsWidth}rem`);
+  root.style.setProperty("--files-w", `${state.filesWidth}rem`);
   root.style.setProperty("--size", `${state.size}rem`);
   root.style.setProperty("--term-size", `${state.termSize}rem`);
 

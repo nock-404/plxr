@@ -30,6 +30,106 @@ type Pending =
   | { kind: "delete"; entry: FileEntry }
   | null;
 
+/* A glyph per kind of file, so a tree can be skimmed instead of read.
+ *
+ * Every file used to be a dot. A folder of forty files was forty identical
+ * dots, and the eye had nothing to hold on to. Text, not an icon font: this
+ * window draws itself in one typeface, and a second one for pictures of files
+ * would be a dependency to keep in step with four skins.
+ *
+ * The kind also goes on the row as an attribute, so a skin can colour the
+ * glyph — a stylesheet cannot pick a character out of a string. */
+const BY_EXTENSION: Record<string, [string, string]> = {
+  go: ["◇", "code"],
+  ts: ["◇", "code"],
+  tsx: ["◇", "code"],
+  js: ["◇", "code"],
+  mjs: ["◇", "code"],
+  jsx: ["◇", "code"],
+  py: ["◇", "code"],
+  rb: ["◇", "code"],
+  php: ["◇", "code"],
+  rs: ["◇", "code"],
+  java: ["◇", "code"],
+  kt: ["◇", "code"],
+  swift: ["◇", "code"],
+  c: ["◇", "code"],
+  h: ["◇", "code"],
+  m: ["◇", "code"],
+  mm: ["◇", "code"],
+  cpp: ["◇", "code"],
+  hpp: ["◇", "code"],
+  cs: ["◇", "code"],
+  lua: ["◇", "code"],
+  vim: ["◇", "code"],
+  sh: ["▷", "script"],
+  bash: ["▷", "script"],
+  zsh: ["▷", "script"],
+  ps1: ["▷", "script"],
+  bat: ["▷", "script"],
+  cmd: ["▷", "script"],
+  css: ["◈", "style"],
+  scss: ["◈", "style"],
+  html: ["◈", "style"],
+  vue: ["◈", "style"],
+  json: ["≡", "data"],
+  jsonl: ["≡", "data"],
+  yml: ["≡", "data"],
+  yaml: ["≡", "data"],
+  toml: ["≡", "data"],
+  ini: ["≡", "data"],
+  env: ["≡", "data"],
+  sql: ["≡", "data"],
+  csv: ["≡", "data"],
+  md: ["¶", "text"],
+  txt: ["¶", "text"],
+  rst: ["¶", "text"],
+  png: ["▣", "image"],
+  jpg: ["▣", "image"],
+  jpeg: ["▣", "image"],
+  gif: ["▣", "image"],
+  svg: ["▣", "image"],
+  webp: ["▣", "image"],
+  ico: ["▣", "image"],
+  zip: ["▤", "archive"],
+  gz: ["▤", "archive"],
+  tar: ["▤", "archive"],
+  dump: ["▤", "archive"],
+  lock: ["⊘", "locked"],
+};
+
+// Whole names that say more than their extension does.
+const BY_NAME: Record<string, [string, string]> = {
+  "package.json": ["◆", "manifest"],
+  "go.mod": ["◆", "manifest"],
+  "go.sum": ["⊘", "locked"],
+  "package-lock.json": ["⊘", "locked"],
+  "pnpm-lock.yaml": ["⊘", "locked"],
+  dockerfile: ["◉", "build"],
+  makefile: ["◉", "build"],
+  "readme.md": ["★", "readme"],
+  "claude.md": ["★", "readme"],
+  ".gitignore": ["⊙", "config"],
+  ".env": ["≡", "data"],
+};
+
+function lookup(entry: FileEntry): [string, string] {
+  if (entry.dir) return ["▸", "folder"];
+  const name = entry.name.toLowerCase();
+  if (BY_NAME[name]) return BY_NAME[name];
+  const dot = name.lastIndexOf(".");
+  const ext = dot > 0 ? name.slice(dot + 1) : "";
+  return BY_EXTENSION[ext] ?? ["·", "plain"];
+}
+
+function iconOf(entry: FileEntry): string {
+  return lookup(entry)[0];
+}
+
+function kindOf(entry: FileEntry): string {
+  return lookup(entry)[1];
+}
+
 // What git says, as one letter, so a row does not turn into a sentence.
 const MARKS: Record<string, string> = {
   modified: "M",
@@ -272,7 +372,7 @@ export default function Files({
               onClick={() => toggle(entry)}
             >
               <span className="fchev">{entry.dir ? (expanded.has(entry.path) ? "▾" : "▸") : ""}</span>
-              <span className="ficon">{entry.dir ? "▸" : "·"}</span>
+              <span className="ficon" data-kind={kindOf(entry)}>{iconOf(entry)}</span>
               <span className="fname">{entry.name}</span>
               <span className="fgit">{mark}</span>
             </div>

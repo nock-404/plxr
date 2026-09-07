@@ -1,17 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Branches from "@/components/Branches";
 import Changes from "@/components/Changes";
 import Difference from "@/components/Difference";
 import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
 import Viewer from "@/components/Viewer";
 import Button from "@/components/ui/Button";
+import Splitter from "@/components/ui/Splitter";
 import FolderPick from "@/components/ui/FolderPick";
 import TopStrip from "@/components/ui/TopStrip";
 import { api } from "@/lib/api";
-import { errText, tr } from "@/lib/i18n";
-import type { Workspace } from "@/lib/types";
+// Renamed on the way in: this view already has a load() of its own.
+import { apply, load as storedLook, save, type ThemeState } from "@/lib/theme";
+import { errText, tr, trN } from "@/lib/i18n";
+import type { GitChange, GitWhere, Workspace } from "@/lib/types";
 
 /* Folders plxr holds open, and what is in them.
  *
@@ -28,10 +32,16 @@ export default function Folders() {
   /* Which of the three the left column shows: the tree, a search, or what has
      changed. One at a time, because they all want the same width and reading
      two of them at once is reading neither. */
-  const [side, setSide] = useState<"tree" | "find" | "changes">("tree");
+  const [side, setSide] = useState<"tree" | "find" | "changes" | "branches">("tree");
   const [diff, setDiff] = useState<{ path: string; staged: boolean } | null>(null);
   const [picking, setPicking] = useState(false);
   const [problem, setProblem] = useState("");
+  const [look, setLook] = useState<ThemeState>(storedLook);
+  /* Where the folder stands with git, whichever column is open.
+     It used to live inside the changes panel, so looking at the tree told you
+     nothing about the branch you were on or whether anything was uncommitted. */
+  const [where, setWhere] = useState<GitWhere | null>(null);
+  const [changed, setChanged] = useState<GitChange[]>([]);
 
   const load = useCallback(() => {
     api
@@ -45,6 +55,21 @@ export default function Folders() {
   }, []);
 
   useEffect(load, [load]);
+
+  useEffect(() => {
+    if (!here || here.missing) {
+      setWhere(null);
+      setChanged([]);
+      return;
+    }
+    let dropped = false;
+    // Not a repository at all is an ordinary answer, not a failure to report.
+    api.position(here.id).then((w) => !dropped && setWhere(w)).catch(() => !dropped && setWhere(null));
+    api.changes(here.id).then((c) => !dropped && setChanged(c)).catch(() => !dropped && setChanged([]));
+    return () => {
+      dropped = true;
+    };
+  }, [here, side]);
 
   async function open(path: string) {
     setProblem("");
@@ -94,6 +119,22 @@ export default function Folders() {
               </Button>
             ))}
           </span>
+          {where ? (
+            <span className="foldergit">
+              <span className="branchname" data-on="yes">
+                {where.detached
+                  ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
+                  : where.branch}
+              </span>
+              {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
+              {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
+              <span className="branchword">
+                {changed.length
+                  ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
+                  : tr("git.cleanShort", "nothing changed")}
+              </span>
+            </span>
+          ) : null}
           <span className="spacer" />
           {here && !here.missing ? (
             <>
@@ -105,6 +146,9 @@ export default function Folders() {
               </Button>
               <Button on={side === "changes"} onClick={() => setSide("changes")}>
                 {tr("git.open", "CHANGES")}
+              </Button>
+              <Button on={side === "branches"} onClick={() => setSide("branches")}>
+                {tr("branch.open", "BRANCHES")}
               </Button>
             </>
           ) : null}
@@ -143,7 +187,9 @@ export default function Folders() {
         </div>
       ) : (
         <div className="foldersbody">
-          {side === "changes" ? (
+          {side === "branches" ? (
+            <Branches rootId={here.id} />
+          ) : side === "changes" ? (
             <Changes
               rootId={here.id}
               shown={diff}
@@ -170,6 +216,22 @@ export default function Folders() {
               }}
             />
           )}
+
+          {/* Dragged, not decreed. The column was 16.25rem in the stylesheet,
+              so a path that did not fit did not fit for ever. */}
+          <Splitter
+            value={look.filesWidth}
+            min={12}
+            max={44}
+            side="left"
+            label={tr("folders.width", "How wide the column is")}
+            onChange={(filesWidth) => {
+              const next = { ...look, filesWidth };
+              setLook(next);
+              apply(next);
+              save(next);
+            }}
+          />
           {diff ? (
             <Difference
               rootId={here.id}

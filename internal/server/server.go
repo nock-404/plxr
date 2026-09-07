@@ -463,6 +463,51 @@ func (s *Server) Routes() *http.ServeMux {
 	 * The file routes below take an id that is either one of these or a
 	 * session — c.root reads which from the id — so none of them changed
 	 * shape when this arrived. */
+	mux.HandleFunc("GET /api/branches/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.Branches(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("GET /api/busy/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.BusyHere(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/branches/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var req branchReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.SwitchBranch(r.PathValue("id"), req.Name, req.Create, req.Anyway); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		out, err := s.c.Branches(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("DELETE /api/branches/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.DeleteBranch(r.PathValue("id"), r.URL.Query().Get("name")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		out, err := s.c.Branches(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
 	mux.HandleFunc("POST /api/stage/{id}", func(w http.ResponseWriter, r *http.Request) {
 		var req stageReq
 		if json.NewDecoder(r.Body).Decode(&req) != nil {
@@ -681,6 +726,13 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, sess)
+}
+
+type branchReq struct {
+	Name   string `json:"name"`
+	Create bool   `json:"create"`
+	// Anyway: yes, even though an agent is at work in this folder.
+	Anyway bool `json:"anyway"`
 }
 
 type stageReq struct {

@@ -680,6 +680,14 @@
 .diffno { color: var(--dead); }
 .diffmark { color: var(--dim); }
 
+/* A branch. The one you are on wears the accent; the distance from its
+   upstream is read as often as the name. */
+.branchname { color: var(--fg); }
+.branchname[data-on="yes"] { color: var(--accent); }
+.branchdist { color: var(--dim); font-size: .8em; }
+.branchword { color: var(--dead); font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+.branchsubject { color: var(--dim); font-size: .85em; }
+
 /* Where you are. Read before anything else in this panel, so it carries. */
 .branchline { color: var(--accent); letter-spacing: .06em; text-transform: uppercase; font-size: .78em; }
 
@@ -688,3 +696,21 @@
 .loghash { color: var(--dim); }
 .logsubject { color: var(--fg); }
 .logwhen { color: var(--dead); font-size: .8em; }
+
+/* The glyph in front of a file, coloured by what kind of file it is. The
+   character itself comes from the component — a stylesheet cannot pick one out
+   of a string — and only the colour is decided here. */
+.ficon[data-kind="folder"] { color: var(--accent); }
+.ficon[data-kind="code"] { color: var(--working); }
+.ficon[data-kind="script"] { color: var(--waiting); }
+.ficon[data-kind="style"] { color: var(--accent); }
+.ficon[data-kind="data"] { color: var(--dim); }
+.ficon[data-kind="text"] { color: var(--fg); }
+.ficon[data-kind="image"] { color: var(--waiting); }
+.ficon[data-kind="archive"] { color: var(--dead); }
+.ficon[data-kind="locked"] { color: var(--dead); }
+.ficon[data-kind="manifest"] { color: var(--accent); }
+.ficon[data-kind="build"] { color: var(--blocked); }
+.ficon[data-kind="readme"] { color: var(--accent); }
+.ficon[data-kind="config"] { color: var(--dim); }
+.ficon[data-kind="plain"] { color: var(--dead); }

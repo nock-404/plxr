@@ -143,7 +143,7 @@ export default function FolderPick({
         <div className="folderlist">
           {here !== "/" ? (
             <Button bare className="folderrow folderup" onClick={() => setHere(parent(here))}>
-              {tr("folder.up", "up one")}
+              {tr("folder.up", "..")}
             </Button>
           ) : null}
           {folders === null ? (
