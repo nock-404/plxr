@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"plxr/internal/sys"
+	"plxr/internal/uierr"
 	"strconv"
 	"strings"
 	"time"
@@ -329,4 +330,178 @@ func heads(line string) (int, int) {
 		new = 1
 	}
 	return old, new
+}
+
+// ---- Staging and committing ----
+
+// chunk is how many paths go into one git call.
+//
+// Not --pathspec-from-file, which arrived in git 2.25 for add and 2.26 for
+// restore: plxr should not need a git from 2020. Paths go as arguments, in
+// batches, because a command line has a length limit and a repository can have
+// thousands of changed files.
+const chunk = 200
+
+func each(dir string, paths []string, args ...string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	for i := 0; i < len(paths); i += chunk {
+		end := i + chunk
+		if end > len(paths) {
+			end = len(paths)
+		}
+		// -- so a path that begins with a dash is a path and not an option.
+		call := append(append([]string{}, args...), "--")
+		call = append(call, paths[i:end]...)
+		if _, err := Run(dir, call...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Stage puts files into the index.
+func Stage(dir string, paths []string) error { return each(dir, paths, "add", "-A") }
+
+// Unstage takes files out of the index and leaves the working tree alone.
+//
+// git restore --staged is the modern spelling and needs git 2.23; reset is
+// older than anything plxr will meet and does the same thing here.
+func Unstage(dir string, paths []string) error { return each(dir, paths, "reset", "-q") }
+
+// Commit records what is staged.
+//
+// The message travels as one argument, never through a shell, so a newline or a
+// quote in it is just text. Failures are classified rather than passed on raw:
+// git's own words are English prose in the middle of a translated window.
+func Commit(dir, message string, amend bool) (string, error) {
+	if strings.TrimSpace(message) == "" {
+		return "", ErrNoMessage
+	}
+	args := []string{"commit", "-m", message}
+	if amend {
+		args = append(args, "--amend")
+	}
+	out, err := Raw(dir, args...)
+	if err == nil {
+		return Run(dir, "rev-parse", "--short", "HEAD")
+	}
+	said := string(out)
+	if ee, ok := err.(*exec.ExitError); ok {
+		said += string(ee.Stderr)
+	}
+	return "", classify(said)
+}
+
+/* The ways a commit refuses, as codes the window can say in either language.
+ *
+ * Through uierr like every other error in plxr, and not through a type of this
+ * package's own: errors.py finds codes by looking for uierr.New and uierr.With,
+ * so a package that mints them another way is a package the gate cannot check.
+ * Mine were invisible to it until this. */
+var (
+	ErrNoMessage = uierr.New("err.commit.noMessage")
+	ErrNothing   = uierr.New("err.commit.nothing")
+	ErrNoIdent   = uierr.New("err.commit.noIdentity")
+	ErrHook      = uierr.New("err.commit.hookRefused")
+)
+
+// classify reads git's answer.
+//
+// Deliberately after the fact rather than before. A pre-check with
+// `git var GIT_AUTHOR_IDENT` looks right and is not: it exits 0 with an ident
+// guessed from the account name and the hostname, so it says yes exactly when
+// the commit will later say no.
+func classify(said string) error {
+	low := strings.ToLower(said)
+	switch {
+	case strings.Contains(low, "nothing to commit"),
+		strings.Contains(low, "no changes added to commit"),
+		strings.Contains(low, "nothing added to commit"):
+		return ErrNothing
+	case strings.Contains(low, "please tell me who you are"),
+		strings.Contains(low, "unable to auto-detect email address"),
+		strings.Contains(low, "empty ident name"):
+		return ErrNoIdent
+	case strings.Contains(low, "hook"):
+		return ErrHook
+	}
+	return uierr.With("err.git.failed", strings.TrimSpace(said))
+}
+
+// Entry is one commit, as the history list shows it.
+type Entry struct {
+	Hash    string `json:"hash"`
+	Subject string `json:"subject"`
+	Author  string `json:"author"`
+	When    string `json:"when"` // relative, as git words it
+}
+
+// Log returns the last commits.
+func Log(dir string, n int) ([]Entry, error) {
+	if n <= 0 {
+		n = 20
+	}
+	// %x00 between the fields and %x01 between records: neither appears in a
+	// commit message, and a subject may hold anything else including tabs.
+	out, err := Raw(dir, "log", "--no-color", "-n", strconv.Itoa(n),
+		"--format=%h%x00%s%x00%an%x00%ar%x01")
+	if err != nil {
+		// A repository with no commits has no log, and that is not a fault.
+		return []Entry{}, nil
+	}
+	list := []Entry{}
+	for _, record := range strings.Split(string(out), "\x01") {
+		record = strings.TrimLeft(record, "\n")
+		if record == "" {
+			continue
+		}
+		f := strings.Split(record, "\x00")
+		if len(f) < 4 {
+			continue
+		}
+		list = append(list, Entry{Hash: f[0], Subject: f[1], Author: f[2], When: f[3]})
+	}
+	return list, nil
+}
+
+// Where says which branch this is and how it stands against its upstream.
+type Where struct {
+	Branch   string `json:"branch"`
+	Upstream string `json:"upstream,omitempty"`
+	Ahead    int    `json:"ahead"`
+	Behind   int    `json:"behind"`
+	// Detached: no branch, just a commit. Committing here is not wrong but it
+	// is easy to lose, so the window says so.
+	Detached bool `json:"detached"`
+}
+
+func Position(dir string) (Where, error) {
+	w := Where{}
+	branch, err := Run(dir, "rev-parse", "--abbrev-ref", "HEAD")
+	if err != nil {
+		return w, uierr.With("err.git.failed", err.Error())
+	}
+	if branch == "HEAD" {
+		w.Detached = true
+		w.Branch, _ = Run(dir, "rev-parse", "--short", "HEAD")
+		return w, nil
+	}
+	w.Branch = branch
+	up, err := Run(dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+	if err != nil {
+		return w, nil // no upstream is an ordinary state, not a failure
+	}
+	w.Upstream = up
+	counts, err := Run(dir, "rev-list", "--left-right", "--count", up+"...HEAD")
+	if err != nil {
+		return w, nil
+	}
+	parts := strings.Fields(counts)
+	if len(parts) == 2 {
+		w.Behind, _ = strconv.Atoi(parts[0])
+		w.Ahead, _ = strconv.Atoi(parts[1])
+	}
+	return w, nil
 }

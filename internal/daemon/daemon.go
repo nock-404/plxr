@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"plxr/internal/uierr"
 	"strconv"
 	"strings"
 	"time"
@@ -110,9 +111,13 @@ func Listen() (net.Listener, Info, error) {
 	return ln, info, nil
 }
 
-// ErrAlreadyRunning says another daemon holds the lock. Not a fault: the one
-// starting simply steps aside.
-var ErrAlreadyRunning = errors.New("err.daemon.alreadyRunning")
+// ErrAlreadyRunning says another one already holds the lock. Not a fault: the
+// one starting simply steps aside, which is what main does with it.
+//
+// Through uierr like every other code, so errors.py can see it. Made with
+// errors.New it was invisible to the gate, and had no text in either language —
+// had it ever reached the window, the window would have shown the bare code.
+var ErrAlreadyRunning = uierr.New("err.daemon.alreadyRunning")
 
 func write(i Info) error {
 	if err := os.MkdirAll(Root(), 0o755); err != nil {

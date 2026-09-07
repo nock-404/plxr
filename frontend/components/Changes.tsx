@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
 import { errText, tr, trN } from "@/lib/i18n";
-import type { GitChange } from "@/lib/types";
+import Input from "@/components/ui/Input";
+import type { GitChange, GitEntry, GitWhere } from "@/lib/types";
 
 /* What has changed in the folder, and what the change is.
  *
@@ -47,6 +48,11 @@ export default function Changes({
 }) {
   const [list, setList] = useState<GitChange[] | null>(null);
   const [problem, setProblem] = useState("");
+  const [where, setWhere] = useState<GitWhere | null>(null);
+  const [history, setHistory] = useState<GitEntry[]>([]);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
 
   const load = useCallback(() => {
     setProblem("");
@@ -57,9 +63,38 @@ export default function Changes({
         setProblem(errText(e));
         setList([]);
       });
+    api.position(rootId).then(setWhere).catch(() => setWhere(null));
+    api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
   }, [rootId]);
 
   useEffect(load, [load]);
+
+  async function stage(paths: string[], on: boolean) {
+    setBusy(true);
+    setProblem("");
+    setNote("");
+    try {
+      setList(await api.stage(rootId, paths, on));
+    } catch (e) {
+      setProblem(errText(e));
+    }
+    setBusy(false);
+  }
+
+  async function commit() {
+    setBusy(true);
+    setProblem("");
+    setNote("");
+    try {
+      const { hash } = await api.commit(rootId, message);
+      setMessage("");
+      setNote(tr("git.committed", "committed as {hash}", { hash }));
+      load();
+    } catch (e) {
+      setProblem(errText(e));
+    }
+    setBusy(false);
+  }
 
   function show(path: string, staged: boolean) {
     const same = shown?.path === path && shown.staged === staged;
@@ -75,6 +110,18 @@ export default function Changes({
       <div className="changegroup">
         <span className="uhead">
           {head} · {rows.length}
+          <Button
+            tiny
+            disabled={busy}
+            onClick={() => void stage(rows.map((r) => r.path), !areStaged)}
+            title={
+              areStaged
+                ? tr("git.unstageAllTip", "Take all of these out of the next commit")
+                : tr("git.stageAllTip", "Put all of these into the next commit")
+            }
+          >
+            {areStaged ? tr("git.unstageAll", "ALL OUT") : tr("git.stageAll", "ALL IN")}
+          </Button>
         </span>
         {rows.map((c) => (
           <div key={`${areStaged ? "s" : "w"}:${c.path}`} className="changerow">
@@ -85,6 +132,18 @@ export default function Changes({
               title={c.renamed ? tr("git.from", "was {path}", { path: c.renamed }) : c.path}
             >
               {c.path}
+            </Button>
+            <Button
+              tiny
+              disabled={busy}
+              onClick={() => void stage([c.path], !areStaged)}
+              title={
+                areStaged
+                  ? tr("git.unstageTip", "Take it out of the next commit")
+                  : tr("git.stageTip", "Put it into the next commit")
+              }
+            >
+              {areStaged ? tr("git.unstage", "OUT") : tr("git.stage", "IN")}
             </Button>
             <span className="changeword">{word(areStaged ? c.index : c.work)}</span>
             {c.binary ? (
@@ -117,9 +176,57 @@ export default function Changes({
         <span className="notice">{tr("git.clean", "Nothing has changed in this folder.")}</span>
       ) : null}
 
+      {where ? (
+        <span className="branchline">
+          {where.detached
+            ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
+            : where.branch}
+          {where.upstream ? ` · ${where.upstream}` : ""}
+          {where.ahead ? ` · ${tr("git.ahead", "{n} ahead", { n: where.ahead })}` : ""}
+          {where.behind ? ` · ${tr("git.behind", "{n} behind", { n: where.behind })}` : ""}
+        </span>
+      ) : null}
+
       {group(tr("git.staged", "staged"), staged, true)}
       {group(tr("git.unstaged", "not staged"), unstaged, false)}
       {group(tr("git.new", "new files"), untracked, false)}
+
+      {staged.length ? (
+        <div className="field">
+          <span className="fieldName">{tr("git.message", "commit message")}</span>
+          <Input
+            value={message}
+            placeholder={tr("git.messagePlaceholder", "What changed, and why")}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && message.trim()) void commit();
+            }}
+          />
+          <span className="rowInline">
+            <Button primary disabled={busy || !message.trim()} onClick={() => void commit()}>
+              {busy ? tr("common.working", "…") : tr("git.commit", "COMMIT")}
+            </Button>
+            <span className="notice">
+              {trN("git.willCommit", staged.length, "{n} file goes in", "{n} files go in")}
+            </span>
+          </span>
+        </div>
+      ) : null}
+
+      {note ? <span className="notice">{note}</span> : null}
+
+      {history.length ? (
+        <div className="changegroup">
+          <span className="uhead">{tr("git.recent", "lately")}</span>
+          {history.map((h) => (
+            <span key={h.hash} className="logrow">
+              <span className="loghash">{h.hash}</span>
+              <span className="logsubject">{h.subject}</span>
+              <span className="logwhen">{h.when}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
 
     </div>
   );

@@ -679,3 +679,12 @@
 .diffline[data-kind="note"] { color: var(--dead); }
 .diffno { color: var(--dead); }
 .diffmark { color: var(--dim); }
+
+/* Where you are. Read before anything else in this panel, so it carries. */
+.branchline { color: var(--accent); letter-spacing: .06em; text-transform: uppercase; font-size: .78em; }
+
+/* The history. The hash is the handle, the subject the reading, the age the
+   quiet part. */
+.loghash { color: var(--dim); }
+.logsubject { color: var(--fg); }
+.logwhen { color: var(--dead); font-size: .8em; }

@@ -68,6 +68,39 @@ if faults:
         print(f"      {f}")
     sys.exit(1)
 
+# One mechanism, not two.
+#
+# internal/git minted its codes through a small error type of its own. Perfectly
+# good Go, and invisible here: this file finds codes by looking for uierr.New and
+# uierr.With, so four commit failures had no text as far as the gate could tell
+# and it reported green. A code is only checkable if it is made the one way.
+MINTERS = re.compile(r'(?:errors\.New|fmt\.Errorf)\(\s*"(err\.[\w.]+)')
+READERS = ("uierr.", "HasPrefix", "Contains", "==", "!=", "case ", "//", "*")
+
+elsewhere = []
+for root, _, files in os.walk(os.path.join(HERE, "internal")):
+    for name in files:
+        if not name.endswith(".go"):
+            continue
+        path = os.path.join(root, name)
+        # uierr's own tests name codes as data; that is what they are testing.
+        if os.path.basename(root) == "uierr":
+            continue
+        for n, line in enumerate(open(path, encoding="utf-8"), 1):
+            for found in MINTERS.findall(line):
+                elsewhere.append(f"{os.path.relpath(path, HERE)}:{n}  {found} — made without uierr")
+            # A bare literal handed to something else entirely.
+            for found in re.findall(r'"(err\.[\w.]+)"', line):
+                if "uierr." in line or any(r in line for r in READERS):
+                    continue
+                elsewhere.append(f"{os.path.relpath(path, HERE)}:{n}  {found} — a code, and no uierr in sight")
+
+if elsewhere:
+    print(f"  {len(elsewhere)} error codes made outside uierr, where nothing can check them:")
+    for e in elsewhere:
+        print(f"      {e}")
+    sys.exit(1)
+
 print(
     f"  every error code has a text and every detail a hole to land in — "
     f"{len(codes)} codes ({len(with_detail)} with a detail), {scanned} files"

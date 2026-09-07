@@ -405,7 +405,12 @@ body {
 .rowInline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: stretch; }
 .rowInline > .notice { flex: 1 1 11rem; }
 .rowInline input { flex: 1; min-width: 0; }
-.notice { flex: 1; min-width: 0; }
+/* Not growing on its own.
+   flex: 1 was meant for a notice sitting beside a control in a row. In a
+   column it grows downwards instead, and one line of "committed as …" pushed
+   the whole history to the bottom of the panel with 400px of nothing above it.
+   The two places that want it to fill a row say so themselves. */
+.notice { flex: 0 1 auto; min-width: 0; }
 /* The version line takes what is left; a spacer beside it halved the space and
    folded the sentence into a column four words wide. */
 .dialogFoot .spacer { flex: 0 0 0; }
@@ -468,7 +473,21 @@ body {
 /* ---------- what has changed ---------- */
 .changes { flex: 0 0 var(--files-w); min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; }
 .changegroup { display: flex; flex-direction: column; gap: 0.1rem; }
+/* Which branch, and how far from its upstream. Its own class rather than the
+   general small text: it is the one line in this panel that says where you
+   are, and a reader — or a check — has to be able to pick it out. */
+.branchline { display: block; }
 .changerow { display: flex; align-items: baseline; gap: 0.4rem; }
+/* The head of a group carries its own "all in" button. */
+.changegroup .uhead { display: flex; align-items: baseline; gap: 0.4rem; }
+/* One commit in the history: hash, subject, when. */
+/* Two lines per commit, because the column is narrow: the hash and the age on
+   the first, the subject its own line below. On one line the subject was cut
+   off after a word and a half while the age beside it had room to spare. */
+.logrow { display: grid; grid-template-columns: auto 1fr; gap: 0 0.4rem; min-width: 0; padding: 0.15rem 0; }
+.loghash { grid-row: 1; grid-column: 1; }
+.logwhen { grid-row: 1; grid-column: 2; }
+.logsubject { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .changepath { flex: 1 1 auto; min-width: 0; text-align: left; background: none; border: 0; font: inherit; cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0.1rem 0; }
 .changeword { flex: 0 0 auto; }

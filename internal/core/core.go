@@ -933,6 +933,72 @@ func (c *Core) Changes(id string) ([]git.Change, error) {
 	return out, nil
 }
 
+// Stage puts files into the index, Unstage takes them out again.
+func (c *Core) Stage(id string, paths []string, on bool) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	if len(paths) == 0 {
+		return uierr.New("err.git.noPaths")
+	}
+	// Each path is held to the same leash as every other file operation.
+	for _, p := range paths {
+		if _, err := files.Resolve(root, p); err != nil {
+			return err
+		}
+	}
+	if on {
+		err = git.Stage(root, paths)
+	} else {
+		err = git.Unstage(root, paths)
+	}
+	if err != nil {
+		return uierr.With("err.git.failed", err.Error())
+	}
+	return nil
+}
+
+// Commit records what is staged and answers with the short hash.
+func (c *Core) Commit(id, message string, amend bool) (string, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return "", err
+	}
+	// git's refusals arrive already as codes; anything else is wrapped.
+	return git.Commit(root, message, amend)
+}
+
+// History is the last commits, and Position where the branch stands.
+func (c *Core) History(id string, n int) ([]git.Entry, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return nil, err
+	}
+	return git.Log(root, n)
+}
+
+func (c *Core) Position(id string) (git.Where, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return git.Where{}, err
+	}
+	return git.Position(root)
+}
+
+// repo is root plus the one thing every git call needs: that there is a
+// repository here at all.
+func (c *Core) repo(id string) (string, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return "", err
+	}
+	if !git.IsRepo(root) {
+		return "", uierr.New("err.git.noRepo")
+	}
+	return root, nil
+}
+
 // Difference returns what changed in one file.
 func (c *Core) Difference(id, path string, staged bool) (git.Diff, error) {
 	root, err := c.root(id)

@@ -463,6 +463,57 @@ func (s *Server) Routes() *http.ServeMux {
 	 * The file routes below take an id that is either one of these or a
 	 * session — c.root reads which from the id — so none of them changed
 	 * shape when this arrived. */
+	mux.HandleFunc("POST /api/stage/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var req stageReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.Stage(r.PathValue("id"), req.Paths, req.On); err != nil {
+			code := http.StatusBadRequest
+			if forbidden(err) {
+				code = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), code)
+			return
+		}
+		out, err := s.c.Changes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/commit/{id}", func(w http.ResponseWriter, r *http.Request) {
+		var req commitReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		hash, err := s.c.Commit(r.PathValue("id"), req.Message, req.Amend)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, map[string]string{"hash": hash})
+	})
+	mux.HandleFunc("GET /api/history/{id}", func(w http.ResponseWriter, r *http.Request) {
+		n, _ := strconv.Atoi(r.URL.Query().Get("n"))
+		out, err := s.c.History(r.PathValue("id"), n)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("GET /api/position/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.Position(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
 	mux.HandleFunc("GET /api/changes/{id}", func(w http.ResponseWriter, r *http.Request) {
 		out, err := s.c.Changes(r.PathValue("id"))
 		if err != nil {
@@ -630,6 +681,16 @@ func (s *Server) archiveResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, sess)
+}
+
+type stageReq struct {
+	Paths []string `json:"paths"`
+	On    bool     `json:"on"`
+}
+
+type commitReq struct {
+	Message string `json:"message"`
+	Amend   bool   `json:"amend"`
 }
 
 type diffReq struct {

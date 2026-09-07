@@ -331,3 +331,22 @@ export interface GitDiff {
   /* Said plainly rather than as an empty list, which reads as a failure. */
   empty: boolean;
 }
+
+/* One commit, as the history list shows it. */
+export interface GitEntry {
+  hash: string;
+  subject: string;
+  author: string;
+  when: string;
+}
+
+/* Which branch this is and how it stands against its upstream. */
+export interface GitWhere {
+  branch: string;
+  upstream?: string;
+  ahead: number;
+  behind: number;
+  /* No branch, just a commit. Committing here is not wrong but it is easy to
+     lose, so the window says so. */
+  detached: boolean;
+}
