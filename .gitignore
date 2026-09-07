@@ -11,3 +11,7 @@ build/darwin/
 
 # What the operating system leaves lying around.
 .DS_Store
+
+# Python leaves these beside the check scripts.
+__pycache__/
+*.pyc
