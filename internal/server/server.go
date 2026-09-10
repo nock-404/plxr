@@ -1037,13 +1037,13 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 
-	// Scrollback first, so the client is not left staring at an empty screen.
-	if snap := h.Snapshot(); len(snap) > 0 {
-		c.WriteMessage(websocket.BinaryMessage, snap)
+	// Scrollback and stream in one step, so the client is neither left staring
+	// at an empty screen nor missing what was written while it attached.
+	v := h.Attach()
+	defer v.Detach()
+	if len(v.Back) > 0 {
+		c.WriteMessage(websocket.BinaryMessage, v.Back)
 	}
-
-	sub := h.Subscribe()
-	defer h.Unsubscribe(sub)
 
 	go func() {
 		for {
@@ -1061,16 +1061,16 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 				h.Write([]byte(m.Data))
 			case "resize":
 				if m.Rows > 0 && m.Cols > 0 {
-					h.Resize(m.Rows, m.Cols)
+					v.Resize(m.Rows, m.Cols)
 				}
 			}
 		}
 	}()
 
-	for chunk := range sub {
-		if err := c.WriteMessage(websocket.BinaryMessage, chunk); err != nil {
-			return
-		}
+	if v.Stream(func(b []byte) error {
+		return c.WriteMessage(websocket.BinaryMessage, b)
+	}) != nil {
+		return
 	}
 	c.WriteMessage(websocket.TextMessage, []byte("\r\n[plxr] process ended.\r\n"))
 }

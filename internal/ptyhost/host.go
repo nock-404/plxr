@@ -39,11 +39,14 @@ type Host struct {
 
 	mu     sync.Mutex
 	buf    []byte
-	subs   map[chan []byte]struct{}
+	subs   map[*Viewer]struct{}
 	alive  bool
 	frozen bool
 	exit   int
 	last   time.Time // last output — the basis of the quiet heuristic
+
+	// rows and cols are the size the terminal is set to, see wantedSizeLocked.
+	rows, cols uint16
 
 	// Cache for the rendered preview, see tailLines.
 	tailLen   int
@@ -95,11 +98,12 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	}
 
 	h := &Host{
-		ID:    id,
-		TTY:   p.Name(),
-		pty:   p,
-		cmd:   c,
-		subs:  map[chan []byte]struct{}{},
+		ID:   id,
+		TTY:  p.Name(),
+		pty:  p,
+		cmd:  c,
+		subs: map[*Viewer]struct{}{},
+		rows: 44, cols: 140, // what was set above, before the start
 		alive: true,
 		last:  time.Now(),
 		Done:  make(chan struct{}),
@@ -195,10 +199,18 @@ func (h *Host) pump() {
 			if len(h.buf) > MaxBuf {
 				h.buf = h.buf[len(h.buf)-MaxBuf:]
 			}
-			for c := range h.subs {
+			for v := range h.subs {
+				if v.behind {
+					// Nothing new until it has caught up, otherwise the
+					// window would see the newer output before the screen
+					// that is supposed to explain it — a hole that the
+					// catch-up then no longer closes but merely overwrites.
+					continue
+				}
 				select {
-				case c <- chunk:
-					// a slow client would rather drop bytes than hold everyone else up
+				case v.c <- chunk:
+				default:
+					v.fellBehindLocked()
 				}
 			}
 			h.mu.Unlock()
@@ -219,9 +231,9 @@ func (h *Host) pump() {
 
 	h.mu.Lock()
 	h.alive, h.exit = false, exit
-	for c := range h.subs {
-		close(c)
-		delete(h.subs, c)
+	for v := range h.subs {
+		close(v.c)
+		delete(h.subs, v)
 	}
 	if h.recording != nil {
 		h.recording.Close()
@@ -247,6 +259,10 @@ func (h *Host) IdleFor() time.Duration {
 func (h *Host) Snapshot() []byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	return h.snapshotLocked()
+}
+
+func (h *Host) snapshotLocked() []byte {
 	out := make([]byte, len(h.buf))
 	copy(out, h.buf)
 	return out
@@ -307,34 +323,189 @@ func (h *Host) Tail(n int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (h *Host) Subscribe() chan []byte {
-	c := make(chan []byte, 64)
+// A Viewer is one window looking at this session. There can be several at the
+// same time — the machine the session runs on, and a browser somewhere else on
+// the network — and they all see the same bytes.
+type Viewer struct {
+	// Back is the scrollback as it stood the moment this viewer attached.
+	// Stream carries everything from that moment on. The two are taken under
+	// one lock on purpose: fetching the scrollback first and subscribing after
+	// leaves a gap, and whatever the program writes inside that gap is in
+	// neither of them. On a busy session that is a hole in the middle of the
+	// output, which nothing later repairs.
+	Back []byte
+
+	c      chan []byte
+	wake   chan struct{}
+	behind bool // guarded by h.mu: output was dropped, the screen must be redone
+
+	h          *Host
+	rows, cols uint16 // 0 while this viewer has not said how big it is
+}
+
+// Attach opens a viewer on the session.
+func (h *Host) Attach() *Viewer {
+	v := &Viewer{c: make(chan []byte, 64), wake: make(chan struct{}, 1), h: h}
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	v.Back = h.snapshotLocked()
 	if !h.alive {
-		h.mu.Unlock()
-		close(c)
-		return c
+		close(v.c)
+		return v
 	}
-	h.subs[c] = struct{}{}
-	h.mu.Unlock()
-	return c
+	h.subs[v] = struct{}{}
+	return v
 }
 
-func (h *Host) Unsubscribe(c chan []byte) {
+// Detach closes the viewer. The session carries on without it, and the
+// terminal grows back to whatever the remaining windows can hold.
+func (v *Viewer) Detach() {
+	h := v.h
 	h.mu.Lock()
-	if _, ok := h.subs[c]; ok {
-		delete(h.subs, c)
-		close(c)
+	if _, ok := h.subs[v]; ok {
+		delete(h.subs, v)
+		close(v.c)
 	}
+	rows, cols := h.wantedSizeLocked()
 	h.mu.Unlock()
+	h.applySize(rows, cols)
 }
 
+// Stream hands every piece of output to write, in the order the terminal
+// produced it, until the session ends or write returns an error.
+//
+// The queue is drained before a catch-up is even considered. That order is the
+// whole point: a catch-up carries the current screen, so it may follow older
+// output, but nothing older may follow it. Taking whichever is ready — the way
+// a plain select does — puts a stale chunk after the fresh screen now and
+// then, and that chunk stays on the screen as the last word.
+func (v *Viewer) Stream(write func([]byte) error) error {
+	for {
+		select {
+		case chunk, ok := <-v.c:
+			if !ok {
+				return v.lastWord(write)
+			}
+			if err := write(chunk); err != nil {
+				return err
+			}
+			continue
+		default:
+		}
+
+		select {
+		case chunk, ok := <-v.c:
+			if !ok {
+				return v.lastWord(write)
+			}
+			if err := write(chunk); err != nil {
+				return err
+			}
+		case <-v.wake:
+			if err := v.writeCatchUp(write); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// lastWord delivers the screen once more if output was dropped just before the
+// session ended — otherwise the window would keep the state from before.
+func (v *Viewer) lastWord(write func([]byte) error) error {
+	return v.writeCatchUp(write)
+}
+
+func (v *Viewer) writeCatchUp(write func([]byte) error) error {
+	h := v.h
+	h.mu.Lock()
+	if !v.behind {
+		h.mu.Unlock()
+		return nil
+	}
+	v.behind = false
+	snap := h.snapshotLocked()
+	h.mu.Unlock()
+	if len(snap) == 0 {
+		return nil
+	}
+	return write(snap)
+}
+
+// fellBehindLocked notes that this viewer missed output.
+//
+// Waiting for it is not an option: the send happens under the lock that every
+// other viewer, the preview and the session list also need, so one window that
+// stopped reading — a laptop that went to sleep, a Wi-Fi link that stalled —
+// would freeze the session for everyone, including the machine it runs on.
+// Dropping the chunk quietly is not an option either: the missing bytes are
+// usually half of an escape sequence, and that screen stays broken for good.
+//
+// So the chunk is dropped and the viewer is marked. It is served the whole
+// screen again as soon as it has worked through what it already has.
+func (v *Viewer) fellBehindLocked() {
+	v.behind = true
+	select {
+	case v.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Resize reports how much room this one window has.
+func (v *Viewer) Resize(rows, cols uint16) {
+	h := v.h
+	h.mu.Lock()
+	v.rows, v.cols = rows, cols
+	rows, cols = h.wantedSizeLocked()
+	h.mu.Unlock()
+	h.applySize(rows, cols)
+}
+
+// wantedSizeLocked picks the size the terminal is set to: the smallest of all
+// attached windows.
+//
+// A terminal has one size, the windows looking at it need not. Whoever asked
+// last used to win, so with two windows attached the program wrapped its lines
+// for the other one — the kitchen screen showed the bedroom's line breaks. The
+// smaller size is the one both can display; the bigger window keeps a margin,
+// which is the same trade a terminal multiplexer makes.
+func (h *Host) wantedSizeLocked() (rows, cols uint16) {
+	for v := range h.subs {
+		if v.rows == 0 || v.cols == 0 {
+			continue
+		}
+		if rows == 0 || v.rows < rows {
+			rows = v.rows
+		}
+		if cols == 0 || v.cols < cols {
+			cols = v.cols
+		}
+	}
+	return rows, cols
+}
+
+func (h *Host) applySize(rows, cols uint16) {
+	if rows == 0 || cols == 0 {
+		return // nobody has said anything; leave the terminal as it is
+	}
+	h.mu.Lock()
+	if rows == h.rows && cols == h.cols {
+		h.mu.Unlock()
+		return
+	}
+	h.rows, h.cols = rows, cols
+	h.mu.Unlock()
+	_ = h.pty.Resize(int(cols), int(rows))
+}
+
+// Size is the size the terminal currently has.
+func (h *Host) Size() (rows, cols uint16) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.rows, h.cols
+}
+
+// Write sends input — keystrokes — into the terminal.
 func (h *Host) Write(p []byte) (int, error) { return h.pty.Write(p) }
-
-// Resize takes rows and columns; go-pty expects the other order.
-func (h *Host) Resize(rows, cols uint16) error {
-	return h.pty.Resize(int(cols), int(rows))
-}
 
 // Kill terminates the process. On Unix the whole group, so child processes
 // started by the session do not carry on orphaned.

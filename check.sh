@@ -154,6 +154,15 @@ step "windows agree" node agree.mjs
 # It brings up a daemon in a home of its own, so nobody's real plxr is touched.
 step "editor works" node editor.mjs
 
+# Two windows on ONE session — the kitchen screen and the machine the session
+# runs on. Nothing is synchronised there: one terminal, one process, two
+# windows looking at it. Everything about that only breaks with two attached,
+# and until this existed nothing ever attached two. It found three faults the
+# day it was written: a window that stopped reading froze the session for
+# everybody, attaching lost whatever was written in that same moment, and the
+# window that resized last dictated the width for both.
+step "two windows" node together.mjs
+
 # --- started the way people start it -----------------------------------------
 # Everything above starts plxr from this shell, with a full environment. The
 # faults of one long evening all lived in the gap between that and how an
