@@ -64,13 +64,15 @@ export default function Viewer({
           {error ||
             (body
               ? `${body.lines} ${tr("viewer.lines", "lines")} · ${Math.round(body.size / 1024)} kB${
-                  body.truncated ? ` · ${tr("viewer.truncated", "truncated")}` : ""
+                  body.truncated
+                    ? ` · ${tr("viewer.tooBig", "too big to edit — showing the first part")}`
+                    : ""
                 }`
               : "")}
         </span>
         <span className="spacer" />
         {dirty ? <span className="dirty">{tr("viewer.dirty", "unsaved")}</span> : null}
-        {dirty ? <Button onClick={save}>{tr("common.save", "SAVE")}</Button> : null}
+        {dirty && !body?.truncated ? <Button onClick={save}>{tr("common.save", "SAVE")}</Button> : null}
         <span className="notice">{tr("viewer.keys", "\u2318S save \u00b7 \u2318F find")}</span>
         <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
       </div>
@@ -85,6 +87,12 @@ export default function Viewer({
             value={text}
             filename={name}
             goToLine={line}
+            /* Only as much of a big file is loaded as the daemon will hand out.
+               Editing what was loaded and saving it would write the first half
+               over the whole — so a file that arrived cut off can be read here
+               and not changed. The daemon refuses such a write as well; this is
+               so nobody types a page into it first. */
+            readOnly={body?.truncated}
             /* Unsaved means different, not touched.
                Putting the loaded text into the editor is a change as far as
                CodeMirror is concerned, so every file said "unsaved" the moment

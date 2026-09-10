@@ -364,6 +364,8 @@ export interface GitBranch {
 
 /* Whether plxr can be reached from another machine, and where. */
 export interface RemoteState {
+  /* What went wrong when the door was last asked to open, or "". */
+  trouble?: string;
   /* What was asked for. It takes effect when the daemon next starts. */
   on: boolean;
   /* Whether the listener that is actually running is on the network. Read off

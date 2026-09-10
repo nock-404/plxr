@@ -8,9 +8,12 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"plxr/internal/uierr"
 )
 
 /* Reaching plxr from another machine.
@@ -36,9 +39,7 @@ type remoteState struct {
 	On bool `json:"on"`
 }
 
-// RemoteWanted says whether the network listener is asked for. Read before the
-// listener is opened, so changing it takes a restart — which is said in the
-// window rather than pretended away.
+// RemoteWanted says whether the network listener is asked for.
 func RemoteWanted() bool {
 	b, err := os.ReadFile(remotePath())
 	if err != nil {
@@ -51,8 +52,8 @@ func RemoteWanted() bool {
 	return s.On
 }
 
-// SetRemote records the choice. It does not move the listener: that happens
-// when the daemon next starts.
+// SetRemote records the choice. Opening and closing the door itself is the
+// caller's job — see Door — so that the switch takes effect at once.
 func SetRemote(on bool) error {
 	if err := os.MkdirAll(Root(), 0o755); err != nil {
 		return err
@@ -68,12 +69,86 @@ func SetRemote(on bool) error {
 	return os.Rename(tmp, remotePath())
 }
 
-// bindAddress is where to listen. Only ever the network when it was asked for.
-func bindAddress() string {
-	if RemoteWanted() {
-		return ":0"
+/* Door is the way in from the network, and it opens and closes while plxr runs.
+ *
+ * It used to be decided once, when the listener was made: the setting was read
+ * at startup and the window said "it starts listening the next time plxr
+ * restarts". That could not be followed. Quitting the window does not stop the
+ * daemon — it is detached on purpose, so sessions survive the window — and the
+ * next start finds it already running and hands it back. So the switch could be
+ * turned on and nothing ever happened, for ever.
+ *
+ * Worse the other way round: turned off, the daemon that had been started with
+ * the network listener kept it, kept minting pairing codes, and kept handing
+ * out the token — with the switch on screen reading OFF and no way from inside
+ * plxr to close it.
+ *
+ * So the loopback listener is fixed and always there, and this is a second one,
+ * on the same port, bound to each of the machine's own addresses. Each address
+ * on its own rather than the wildcard, because the wildcard and 127.0.0.1
+ * cannot hold the same port at the same time.
+ */
+type Door struct {
+	port  int
+	serve func(net.Listener)
+
+	mu   sync.Mutex
+	open []net.Listener
+}
+
+func NewDoor(port int, serve func(net.Listener)) *Door {
+	return &Door{port: port, serve: serve}
+}
+
+// Open starts listening on every address this machine has on the network.
+// Opening an open door is not a fault; it is rebound, which is what a machine
+// that changed network wants.
+func (d *Door) Open() error {
+	d.Close()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var opened []net.Listener
+	var last error
+	for _, at := range Addresses() {
+		host := at
+		if strings.Contains(host, ":") { // IPv6 needs its brackets back
+			host = "[" + host + "]"
+		}
+		ln, err := net.Listen("tcp", host+":"+strconv.Itoa(d.port))
+		if err != nil {
+			last = err
+			continue
+		}
+		opened = append(opened, ln)
+		go d.serve(ln)
 	}
-	return "127.0.0.1:0"
+	if len(opened) == 0 {
+		if last == nil {
+			last = uierr.New("err.remote.noAddress")
+		}
+		return last
+	}
+	d.open = opened
+	return nil
+}
+
+// Close shuts it again. Anything already connected through it is dropped.
+func (d *Door) Close() {
+	d.mu.Lock()
+	was := d.open
+	d.open = nil
+	d.mu.Unlock()
+	for _, ln := range was {
+		_ = ln.Close()
+	}
+}
+
+// Live says whether the door is actually open right now — read off the
+// listeners, never off the setting.
+func (d *Door) Live() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.open) > 0
 }
 
 /* ---- The short way in ---- */

@@ -48,8 +48,17 @@ type Host struct {
 	// rows and cols are the size the terminal is set to, see wantedSizeLocked.
 	rows, cols uint16
 
-	// Cache for the rendered preview, see tailLines.
-	tailLen   int
+	/* Cache for the rendered preview, see tailLines.
+	 *
+	 * Keyed on how much has ever been written, not on how long the ring is:
+	 * pump trims the ring to exactly MaxBuf, so once it is full that length
+	 * never changes again and the cache was never invalidated after the first
+	 * two megabytes. The tile then showed the same frame for the rest of the
+	 * session — and since the status is read off that same text, a session
+	 * that had started waiting for an answer went on reporting that it was
+	 * working. */
+	produced  int64 // bytes ever read from the terminal
+	tailAt    int64
 	tailCache []string
 
 	// recording is the file the whole stream runs into — including what falls
@@ -195,6 +204,7 @@ func (h *Host) pump() {
 					h.written += int64(n)
 				}
 			}
+			h.produced += int64(len(chunk))
 			h.buf = append(h.buf, chunk...)
 			if len(h.buf) > MaxBuf {
 				h.buf = h.buf[len(h.buf)-MaxBuf:]
@@ -279,12 +289,12 @@ const tailWindow = 48 << 10
 // as nothing new has arrived.
 func (h *Host) tailLines() []string {
 	h.mu.Lock()
-	if h.tailCache != nil && h.tailLen == len(h.buf) {
+	if h.tailCache != nil && h.tailAt == h.produced {
 		out := h.tailCache
 		h.mu.Unlock()
 		return out
 	}
-	bufLen := len(h.buf)
+	at := h.produced
 	raw := h.buf
 	if len(raw) > tailWindow {
 		raw = raw[len(raw)-tailWindow:]
@@ -309,7 +319,7 @@ func (h *Host) tailLines() []string {
 	}
 
 	h.mu.Lock()
-	h.tailLen, h.tailCache = bufLen, lines
+	h.tailAt, h.tailCache = at, lines
 	h.mu.Unlock()
 	return lines
 }

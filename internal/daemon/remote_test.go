@@ -1,8 +1,10 @@
 package daemon
 
 import (
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -96,19 +98,80 @@ func TestTheNetworkIsOffUnlessAskedFor(t *testing.T) {
 	if RemoteWanted() {
 		t.Fatalf("the network was on with nothing asking for it")
 	}
-	if got := bindAddress(); got != "127.0.0.1:0" {
-		t.Fatalf("bound to %q with remote off", got)
-	}
 	if err := SetRemote(true); err != nil {
 		t.Fatal(err)
 	}
-	if !RemoteWanted() || bindAddress() != ":0" {
-		t.Fatalf("asked for the network and got %q", bindAddress())
+	if !RemoteWanted() {
+		t.Fatal("asking for the network did not take")
 	}
 	if err := SetRemote(false); err != nil {
 		t.Fatal(err)
 	}
 	if RemoteWanted() {
 		t.Fatalf("switching it off did not take")
+	}
+}
+
+/* The switch has to work while plxr runs, in both directions.
+ *
+ * It used to be read once, when the listener was made, and the window said it
+ * would take effect at the next start of plxr. It could not: quitting the
+ * window leaves the daemon running on purpose, and the next start hands the
+ * same one back — so the switch could be turned on and nothing ever happened.
+ * The other direction was worse: turned off, the daemon that had been started
+ * with the network listener kept it and kept letting the network in, while the
+ * window said OFF.
+ */
+func TestTheDoorOpensAndClosesWhileItRuns(t *testing.T) {
+	if len(Addresses()) == 0 {
+		t.Skip("this machine has no address on a network")
+	}
+	served := make(chan struct{}, 8)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close() // only wanted for the number
+
+	door := NewDoor(port, func(l net.Listener) {
+		for {
+			c, err := l.Accept()
+			if err != nil {
+				return
+			}
+			served <- struct{}{}
+			c.Close()
+		}
+	})
+	if door.Live() {
+		t.Fatal("the door reports itself open before it was opened")
+	}
+
+	if err := door.Open(); err != nil {
+		t.Skipf("no address could be bound here: %v", err)
+	}
+	if !door.Live() {
+		t.Fatal("the door was opened and does not say so")
+	}
+	at := net.JoinHostPort(Addresses()[0], strconv.Itoa(port))
+	c, err := net.DialTimeout("tcp", at, 2*time.Second)
+	if err != nil {
+		t.Fatalf("the open door refused a connection from the network: %v", err)
+	}
+	c.Close()
+	select {
+	case <-served:
+	case <-time.After(2 * time.Second):
+		t.Fatal("nothing was served through the open door")
+	}
+
+	door.Close()
+	if door.Live() {
+		t.Fatal("the door was closed and still says it is open")
+	}
+	if c, err := net.DialTimeout("tcp", at, 2*time.Second); err == nil {
+		c.Close()
+		t.Fatal("the network still gets in after the door was closed")
 	}
 }

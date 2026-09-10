@@ -268,22 +268,32 @@ func runDaemon() {
 	// Send what is lined up, as soon as each agent is ready for it.
 	go c.WatchQueues()
 
-	/* Whether this listener can be reached from the network at all.
+	handler := daemon.CORS(daemon.Guard(info.Token, srv.Routes()))
+
+	/* The way in from the network, opened and closed while plxr runs.
 	 *
-	 * Read off the socket rather than off the setting: the setting can be
-	 * changed while the daemon runs, and the listener cannot. Saying "on" while
-	 * still bound to this machine would be a promise somebody carries into
-	 * another room and finds broken. */
-	if host, _, err := net.SplitHostPort(ln.Addr().String()); err == nil {
-		srv.Reachable(host == "::" || host == "0.0.0.0")
+	 * The same handler, on the same port, on the machine's own addresses. The
+	 * window switches it; nothing here waits for a restart, because the daemon
+	 * outlives the window and a restart of the window is not one of the daemon.
+	 */
+	door := daemon.NewDoor(info.Port, func(l net.Listener) {
+		if err := http.Serve(l, handler); err != nil {
+			log.Println("the network listener closed:", err)
+		}
+	})
+	srv.UseDoor(door)
+	if daemon.RemoteWanted() {
+		if err := door.Open(); err != nil {
+			log.Println("plxr could not be opened to the network:", err)
+		}
 	}
-	if srv.Reachable2() {
+	if srv.Reachable() {
 		for _, at := range daemon.Addresses() {
 			log.Printf("plxr is also reachable at http://%s:%d", at, info.Port)
 		}
 	}
 	log.Printf("plxr daemon on %s (PID %d)", info.URL(), info.PID)
-	log.Fatal(http.Serve(ln, daemon.CORS(daemon.Guard(info.Token, srv.Routes()))))
+	log.Fatal(http.Serve(ln, handler))
 }
 
 // raiseWindow brings the window that is already open to the front, for when

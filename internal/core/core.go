@@ -443,13 +443,25 @@ func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 		return nil, uierr.New("err.session.unknown")
 	}
 	cwd, account, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
-	c.cleanup(sessionID)
 
+	/* Started first, and only then is the old entry cleared.
+	 *
+	 * The other way round the orphan was gone before Create could refuse — and
+	 * it refuses whenever the folder is not there, which for work on a volume
+	 * that is not mounted is exactly when somebody presses resume. The tile
+	 * vanished on the next poll and the id needed to pick the conversation up
+	 * again went with it: the one thing an orphan exists to keep.
+	 */
+	start := cmd
 	if claudeID != "" {
-		return c.Create(cwd, []string{"claude", "--resume", claudeID}, s.Name, account)
+		start = []string{"claude", "--resume", claudeID}
 	}
-	// No transcript: then simply the command again, in the same directory.
-	return c.Create(cwd, cmd, s.Name, account)
+	fresh, err := c.Create(cwd, start, s.Name, account)
+	if err != nil {
+		return nil, err
+	}
+	c.cleanup(sessionID)
+	return fresh, nil
 }
 
 // SwitchAccount moves a running session over to another account: end the
@@ -1177,6 +1189,20 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 			sess.Status = session.Status(prof.Classify(screen, h.IdleFor()))
 		}
 		if useFleet {
+			/* Remembered, not only shown.
+			 *
+			 * sess is a copy out of reg.List(), so assigning to it reached
+			 * nothing: the tile carried the Claude session id and the registry
+			 * never learned it. The window therefore offered "switch account"
+			 * — the control is shown exactly when the tile has an id — and the
+			 * daemon, looking the session up again, found none and refused.
+			 * Resuming an orphaned session needs the same id to bring the
+			 * transcript back, and could not either.
+			 *
+			 * Written through once, when it changes: this runs on every poll. */
+			if st.SessionID != "" && st.SessionID != sess.ClaudeSessionID {
+				c.reg.Update(sess.ID, func(s *session.Session) { s.ClaudeSessionID = st.SessionID })
+			}
 			sess.ClaudeSessionID = st.SessionID
 			sess.Status = session.Status(st.Status)
 			sess.Title = st.Title

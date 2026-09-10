@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -68,6 +69,18 @@ func (r *Registry) load() error {
 			}
 			r.m[s.ID] = &s
 			r.persist(&s)
+			continue
+		}
+		/* An orphan from an earlier run is still an orphan.
+		 *
+		 * Only sessions still marked alive were kept, and everything else was
+		 * deleted — so an orphan survived exactly one restart and was swept
+		 * out by the next one, without a word. Applying an update takes the
+		 * daemon down on purpose, which made installing a new version the way
+		 * to lose them. It stays until somebody resumes it or clicks it away.
+		 */
+		if s.Orphaned {
+			r.m[s.ID] = &s
 			continue
 		}
 		os.Remove(p)
@@ -136,14 +149,26 @@ func (r *Registry) LiveStatus(id string) Status {
 	return StatusUnknown
 }
 
-// Busy lists the sessions running in a directory that are doing something —
-// working, or waiting for an answer. What a branch switch has to ask about.
+/* Busy lists the sessions running in a directory that are doing something —
+ * working, or waiting for an answer. What a branch switch has to ask about.
+ *
+ * "In" the directory, not "at" it, and asked of the real path.
+ *
+ * It used to compare two strings: the cwd exactly as the session was started
+ * with, and a folder path that had been resolved through its symlinks on the
+ * way in. On macOS /tmp is a link to /private/tmp, so the same directory in
+ * two spellings never matched and the guard saw nothing at all. And equality
+ * is the wrong question anyway: `git switch` rewrites the whole worktree, so
+ * an agent working in a subfolder — the ordinary layout in any project with a
+ * frontend/ in it — is affected and was never counted.
+ */
 func (r *Registry) Busy(dir string) []Session {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := []Session{}
+	want := realPath(dir)
 	for id, s := range r.m {
-		if !s.Alive || s.Cwd != dir {
+		if !s.Alive || !within(want, realPath(s.Cwd)) {
 			continue
 		}
 		status := s.Status
@@ -160,6 +185,27 @@ func (r *Registry) Busy(dir string) []Session {
 		}
 	}
 	return out
+}
+
+// realPath is the path with its symlinks followed, or the path itself when it
+// cannot be — a folder on a volume that is not mounted still has a name.
+func realPath(p string) string {
+	if p == "" {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return filepath.Clean(real)
+	}
+	return filepath.Clean(p)
+}
+
+// within says whether here is root or lies below it. The separator matters:
+// without it /project-secret counts as being inside /project.
+func within(root, here string) bool {
+	if root == "" || here == "" {
+		return false
+	}
+	return here == root || strings.HasPrefix(here, root+string(filepath.Separator))
 }
 
 func (r *Registry) List() []Session {

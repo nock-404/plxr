@@ -79,7 +79,9 @@ export default function Remote() {
           things: the listener is bound once, when the daemon starts. */}
       {state?.on && !state.live ? (
         <span className="notice warn">
-          {tr("remote.needsRestart", "It starts listening on the network the next time plxr restarts.")}
+          {state.trouble
+            ? tr("remote.notOpened", "It could not be opened to the network: {detail}", { detail: state.trouble })
+            : tr("remote.noAddress", "This machine has no address on a network right now, so there is nothing to reach it at.")}
         </span>
       ) : null}
 

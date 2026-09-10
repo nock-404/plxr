@@ -93,12 +93,12 @@ func Listen() (net.Listener, Info, error) {
 	}
 	held = f
 
-	/* Where to listen.
+	/* This machine, always.
 	 *
-	 * 127.0.0.1 unless somebody asked for the network, which is remembered
-	 * beside daemon.json and read here — before the listener exists, which is
-	 * why changing it takes a restart. */
-	ln, err := net.Listen("tcp", bindAddress())
+	 * The way in from the network is a second listener that opens and closes
+	 * while plxr runs — see Door. This one never moves, so the window always
+	 * has its door even when the other one is shut. */
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, Info{}, err
 	}

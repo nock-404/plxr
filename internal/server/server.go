@@ -33,26 +33,35 @@ type Server struct {
 	c   *core.Core
 	web fs.FS
 	up  websocket.Upgrader
-	/* Whether the listener this server is serving on is actually reachable from
-	 * the network. Told to it rather than worked out: only the caller that
-	 * opened the socket knows what it bound to, and answering "yes, on" while
-	 * the daemon is still on 127.0.0.1 from before a restart would be a lie
-	 * somebody carries into another room. */
-	reachable bool
+	/* The way in from the network, or nil when this server was started without
+	 * one. Whether it is open is asked of the door itself, never of the
+	 * setting: the setting is what somebody wants, the door is what is. */
+	door *daemon.Door
 }
 
-// Reachable records that this server was bound to the network, not only to
-// this machine.
-func (s *Server) Reachable(yes bool) { s.reachable = yes }
+// UseDoor hands the server the network listener it may open and close.
+func (s *Server) UseDoor(d *daemon.Door) { s.door = d }
 
-// Reachable2 answers the same question, for the log line at startup.
-func (s *Server) Reachable2() bool { return s.reachable }
+// Reachable says whether plxr can be reached from the network right now.
+func (s *Server) Reachable() bool { return s.door != nil && s.door.Live() }
 
 func New(c *core.Core, web fs.FS) *Server {
 	return &Server{
 		c: c, web: web,
 		// localhost only, so an open origin check is good enough.
 		up: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
+	}
+}
+
+// remoteState is the one answer about reaching plxr from elsewhere: what was
+// asked for, and what is actually the case.
+func (s *Server) remoteState(trouble string) map[string]any {
+	return map[string]any{
+		"on":        daemon.RemoteWanted(),
+		"live":      s.Reachable(),
+		"port":      daemon.MustRead().Port,
+		"addresses": daemon.Addresses(),
+		"trouble":   trouble,
 	}
 }
 
@@ -627,12 +636,7 @@ func (s *Server) Routes() *http.ServeMux {
 	 * listener is bound once, at start. The window says so rather than
 	 * pretending the switch takes effect where it does not. */
 	mux.HandleFunc("GET /api/remote", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{
-			"on":        daemon.RemoteWanted(),
-			"live":      s.reachable,
-			"port":      daemon.MustRead().Port,
-			"addresses": daemon.Addresses(),
-		})
+		writeJSON(w, s.remoteState(""))
 	})
 	mux.HandleFunc("POST /api/remote", func(w http.ResponseWriter, r *http.Request) {
 		var req remoteReq
@@ -644,19 +648,29 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, uierr.With("err.remote.notWritten", err.Error()).Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, map[string]any{
-			"on":        daemon.RemoteWanted(),
-			"live":      s.reachable,
-			"port":      daemon.MustRead().Port,
-			"addresses": daemon.Addresses(),
-		})
+		/* And the door moves with it, now, not at some next start.
+		 *
+		 * Switching off has to shut it at once above all: a daemon that keeps
+		 * listening while the window says OFF is the worst of both, and
+		 * quitting the window does not stop the daemon. */
+		trouble := ""
+		if s.door != nil {
+			if req.On {
+				if err := s.door.Open(); err != nil {
+					trouble = err.Error()
+				}
+			} else {
+				s.door.Close()
+			}
+		}
+		writeJSON(w, s.remoteState(trouble))
 	})
 	/* A code to carry to the other machine.
 	 *
 	 * Only while the network listener is actually up: a code for a daemon
 	 * nobody can reach is a code that reads as a promise. */
 	mux.HandleFunc("POST /api/remote/code", func(w http.ResponseWriter, r *http.Request) {
-		if !s.reachable {
+		if !s.Reachable() {
 			http.Error(w, uierr.New("err.remote.notListening").Error(), http.StatusBadRequest)
 			return
 		}

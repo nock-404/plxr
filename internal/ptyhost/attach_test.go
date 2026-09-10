@@ -208,3 +208,46 @@ func TestTheSmallerWindowSetsTheSize(t *testing.T) {
 		t.Fatalf("after the small window left the terminal is %dx%d, not 60x200", r, c)
 	}
 }
+
+/* The tile preview must not freeze once the scrollback is full.
+ *
+ * tailLines cached its rendered result under len(h.buf), and pump trims the
+ * ring to exactly MaxBuf — so from the first overflow on, that length is the
+ * same number for ever and the cache was never invalidated again. The tile on
+ * the dashboard then showed the same frame for the rest of the session, and
+ * because the same text is what the status is derived from, a session that
+ * started waiting for an answer went on reporting "working" indefinitely. Any
+ * session that prints more than two megabytes reaches this — a build does it
+ * in seconds.
+ */
+func TestThePreviewKeepsUpAfterTheScrollbackIsFull(t *testing.T) {
+	h := &Host{subs: map[*Viewer]struct{}{}, alive: true}
+
+	// trim is what pump does after every chunk: cut the ring back to exactly
+	// MaxBuf. That "exactly" is the whole fault.
+	trim := func(add string) {
+		h.produced += int64(len(add))
+		h.buf = append(h.buf, []byte(add)...)
+		if len(h.buf) > MaxBuf {
+			h.buf = h.buf[len(h.buf)-MaxBuf:]
+		}
+	}
+	for len(h.buf) < MaxBuf {
+		trim("filler line\n")
+	}
+	trim("OLD SCREEN\n")
+	if len(h.buf) != MaxBuf {
+		t.Fatalf("the ring is %d bytes, not the %d this is about", len(h.buf), MaxBuf)
+	}
+	if got := h.Tail(3); !strings.Contains(got, "OLD SCREEN") {
+		t.Fatalf("the preview does not even show the current end: %q", got)
+	}
+
+	trim("BRAND NEW LINE\n")
+	if len(h.buf) != MaxBuf {
+		t.Fatalf("the ring changed length, so this is not the case under test: %d", len(h.buf))
+	}
+	if got := h.Tail(3); !strings.Contains(got, "BRAND NEW LINE") {
+		t.Fatalf("the preview froze at the old frame: %q", got)
+	}
+}

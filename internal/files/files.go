@@ -166,6 +166,16 @@ func Read(root, path string) (*Content, error) {
 	c := &Content{Path: real, Size: info.Size(), Truncated: info.Size() > int64(n),
 		Mod: info.ModTime().UnixMilli()}
 
+	/* The read stops after MaxRead bytes, which can be the middle of a
+	 * character — and then the file is not valid UTF-8 by one byte and an
+	 * ordinary text file is declared binary, with the window offering no
+	 * editor at all. Every German text file over 512 KB had a fair chance of
+	 * it. The half character at the end is dropped before the question is
+	 * asked. */
+	if c.Truncated {
+		buf = withoutHalfACharacter(buf)
+	}
+
 	// A null byte near the start is the usual, sufficiently reliable sign of
 	// "not displayable". Invalid UTF-8 counts as well.
 	if bytes.IndexByte(buf, 0) >= 0 || !utf8.Valid(buf) {
@@ -175,6 +185,20 @@ func Read(root, path string) (*Content, error) {
 	c.Text = string(buf)
 	c.Lines = countLines(buf)
 	return c, nil
+}
+
+// withoutHalfACharacter drops an incomplete character at the very end.
+//
+// At most three bytes: a UTF-8 character is four at the longest, so a fourth
+// invalid byte is not a cut, it is a file that was never text.
+func withoutHalfACharacter(b []byte) []byte {
+	for i := 0; i < utf8.UTFMax-1 && len(b) > 0; i++ {
+		if r, size := utf8.DecodeLastRune(b); r != utf8.RuneError || size > 1 {
+			return b
+		}
+		b = b[:len(b)-1]
+	}
+	return b
 }
 
 // countLines counts what an editor shows as lines.
@@ -222,6 +246,17 @@ func Write(root, path, text string, expectedState int64) (*Content, error) {
 	}
 	if expectedState != 0 && info.ModTime().UnixMilli() != expectedState {
 		return nil, uierr.New("err.file.changedOutside")
+	}
+	/* A file nobody could read whole may not be written whole.
+	 *
+	 * Read stops at MaxRead and says so, but the editor was live all the same,
+	 * and what it sent back was the first half — renamed over the original.
+	 * Saving a 660 KB file cut 150 KB off it, quietly, with the mod guard
+	 * satisfied because the file had not changed since it was read. Nothing
+	 * that arrives here can be the whole of such a file, so nothing may
+	 * overwrite it. */
+	if info.Size() > int64(MaxRead) {
+		return nil, uierr.New("err.file.tooBigToEdit")
 	}
 
 	tmp := real + ".plxr-tmp"
@@ -322,7 +357,8 @@ func Create(root, path string, dir bool) (*Entry, error) {
 
 // Rename moves a file or directory, within the session's tree at both ends.
 func Rename(root, from, to string) (*Entry, error) {
-	src, err := resolve(root, from)
+	// The link, not what it points at — see resolveItself.
+	src, err := resolveItself(root, from)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +384,7 @@ func Rename(root, from, to string) (*Entry, error) {
 // the interface asks first. That is the interface's job; this one does what it
 // was told.
 func Remove(root, path string) error {
-	full, err := resolve(root, path)
+	full, err := resolveItself(root, path)
 	if err != nil {
 		return err
 	}
@@ -364,6 +400,50 @@ func Remove(root, path string) error {
 		return uierr.With("err.file.notRemoved", err.Error())
 	}
 	return nil
+}
+
+/* resolveItself resolves a path for an operation that must act on the thing
+ * named, not on what it points at.
+ *
+ * resolve follows the last part of the path as well, which is right for
+ * reading and writing — reading through a link is reading the file it names.
+ * It is wrong for deleting and renaming: DELETE on a link called `current`
+ * ran os.RemoveAll on the release directory at the other end and left the
+ * link, dangling, in the tree. Renaming moved the real directory out from
+ * under it. Both are ordinary layouts — pnpm, node_modules/.bin, every
+ * deploy scheme with a `current` link.
+ *
+ * The parent is still followed and still has to sit below the root, so a link
+ * cannot be used to reach out of the session; only the final name is left
+ * alone.
+ */
+func resolveItself(root, path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", uierr.New("err.file.noName")
+	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", err
+	}
+	full := path
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(realRoot, full)
+	}
+	full = filepath.Clean(full)
+
+	// The root itself has no parent to ask about; let the caller refuse it.
+	if full == realRoot {
+		return realRoot, nil
+	}
+	parent, err := resolve(root, filepath.Dir(full))
+	if err != nil {
+		return "", err
+	}
+	here := filepath.Join(parent, filepath.Base(full))
+	if _, err := os.Lstat(here); err != nil {
+		return "", err
+	}
+	return here, nil
 }
 
 /* resolveNew is resolve for a path that does not exist yet.
