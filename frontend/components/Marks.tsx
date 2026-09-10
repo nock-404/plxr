@@ -8,13 +8,14 @@ import type { Mark, MarkChange } from "@/lib/types";
 
 // A git tree captured before each instruction, so a change can be walked back.
 export default function Marks({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
-  const [marks, setMarks] = useState<Mark[]>([]);
+  // null until the answer is in — see emptylies.py.
+  const [marks, setMarks] = useState<Mark[] | null>(null);
   const [note, setNote] = useState("");
   /* Which mark is unfolded, and what it covers.
      The panel showed a count of files and no way to see which — the route that
      lists them was there from the start and nothing called it. */
   const [openTree, setOpenTree] = useState("");
-  const [changes, setChanges] = useState<MarkChange[]>([]);
+  const [changes, setChanges] = useState<MarkChange[] | null>(null);
 
   const load = useCallback(() => {
     api.marks(sessionId).then((m) => setMarks(m ?? [])).catch(() => setMarks([]));
@@ -57,12 +58,12 @@ export default function Marks({ sessionId, onClose }: { sessionId: string; onClo
     <div className="overlay">
       <div className="overlayBar">
         <span className="overlayName">{tr("marks.title", "Marks")}</span>
-        <span className="meta">{note || marks.length}</span>
+        <span className="meta">{note || marks?.length || 0}</span>
         <span className="spacer" />
         <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
       </div>
       <div className="ruleslist">
-        {marks.length === 0 ? (
+        {marks === null ? null : marks.length === 0 ? (
           <div className="emptyNote">
             <b>{tr("marks.emptyHead", "no marks yet")}</b>
             {tr("marks.empty", "A mark is taken before every instruction, once this session is in a git repository.")}
@@ -87,7 +88,7 @@ export default function Marks({ sessionId, onClose }: { sessionId: string; onClo
               </Button>
               {openTree === m.tree ? (
                 <div className="markfiles">
-                  {changes.length === 0 ? (
+                  {changes === null ? null : changes.length === 0 ? (
                     <span className="notice">{tr("marks.noChanges", "Nothing differs from this mark.")}</span>
                   ) : (
                     changes.map((c) => (

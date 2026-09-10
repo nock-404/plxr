@@ -28,6 +28,26 @@ import (
 // Timeout is how long any single git call may take.
 const Timeout = 20 * time.Second
 
+/* Command builds a git call: quiet, in the right directory, and in a language
+ * this program can read.
+ *
+ * git speaks the language of the machine. plxr decides what happened by
+ * reading git's own words — "nothing to commit", "did not match any files" —
+ * and on a German machine none of them match: a commit with nothing staged
+ * reports an unknown error instead of saying so. Translating the patterns
+ * would mean keeping up with every language git has, so git is asked in one
+ * instead. LANGUAGE is emptied as well: for gettext it outranks LC_ALL.
+ *
+ * Every git call in plxr comes through here, including the ones in marks,
+ * files and find — gitcalls.py holds them to it.
+ */
+func Command(ctx context.Context, dir string, args ...string) *exec.Cmd {
+	cmd := sys.Quiet(exec.CommandContext(ctx, "git", args...))
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=")
+	return cmd
+}
+
 // Run calls git in a directory and hands back its output, trimmed.
 func Run(dir string, args ...string) (string, error) {
 	out, err := Raw(dir, args...)
@@ -39,9 +59,7 @@ func Run(dir string, args ...string) (string, error) {
 func Raw(dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 	defer cancel()
-	cmd := sys.Quiet(exec.CommandContext(ctx, "git", args...))
-	cmd.Dir = dir
-	return cmd.Output()
+	return Command(ctx, dir, args...).Output()
 }
 
 // IsRepo reports whether this directory is inside a working tree.
@@ -579,12 +597,32 @@ func classify(said string) error {
 	return uierr.With("err.git.failed", strings.TrimSpace(said))
 }
 
+// millis turns git's unix seconds into what the window counts in. An
+// unreadable one becomes zero, which the window shows as no age at all rather
+// than as 1970.
+func millis(unix string) int64 {
+	n, err := strconv.ParseInt(strings.TrimSpace(unix), 10, 64)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n * 1000
+}
+
 // Entry is one commit, as the history list shows it.
 type Entry struct {
 	Hash    string `json:"hash"`
 	Subject string `json:"subject"`
 	Author  string `json:"author"`
-	When    string `json:"when"` // relative, as git words it
+
+	/* When the commit was made, in milliseconds.
+	 *
+	 * Not git's own wording. git says "3 days ago" in the language of the
+	 * machine, and that is the one string in the window nobody could
+	 * translate — it arrived already worded. Since plxr now asks git in a
+	 * fixed language so it can read the answers, the wording would be
+	 * English in a German window. A number has no language; the window says
+	 * it in its own. */
+	When int64 `json:"when"`
 }
 
 // Log returns the last commits.
@@ -595,7 +633,7 @@ func Log(dir string, n int) ([]Entry, error) {
 	// %x00 between the fields and %x01 between records: neither appears in a
 	// commit message, and a subject may hold anything else including tabs.
 	out, err := Raw(dir, "log", "--no-color", "-n", strconv.Itoa(n),
-		"--format=%h%x00%s%x00%an%x00%ar%x01")
+		"--format=%h%x00%s%x00%an%x00%at%x01")
 	if err != nil {
 		// A repository with no commits has no log, and that is not a fault.
 		return []Entry{}, nil
@@ -610,7 +648,7 @@ func Log(dir string, n int) ([]Entry, error) {
 		if len(f) < 4 {
 			continue
 		}
-		list = append(list, Entry{Hash: f[0], Subject: f[1], Author: f[2], When: f[3]})
+		list = append(list, Entry{Hash: f[0], Subject: f[1], Author: f[2], When: millis(f[3])})
 	}
 	return list, nil
 }
@@ -665,7 +703,7 @@ type Branch struct {
 	Ahead    int    `json:"ahead"`
 	Behind   int    `json:"behind"`
 	Subject  string `json:"subject"` // what its last commit says
-	When     string `json:"when"`
+	When     int64  `json:"when"`    // of its last commit, in milliseconds
 }
 
 // Branches lists the local branches, the current one first.
@@ -685,7 +723,7 @@ func Branches(dir string) ([]Branch, error) {
 	 * appear in a branch name or a commit subject. */
 	out, err := Raw(dir, "for-each-ref", "--sort=-committerdate",
 		"--format=%(HEAD)%00%(refname:short)%00%(upstream:short)%00"+
-			"%(contents:subject)%00%(committerdate:relative)%01",
+			"%(contents:subject)%00%(committerdate:unix)%01",
 		"refs/heads")
 	if err != nil {
 		return nil, uierr.With("err.git.failed", err.Error())
@@ -705,7 +743,7 @@ func Branches(dir string) ([]Branch, error) {
 			Current:  strings.TrimSpace(f[0]) == "*",
 			Upstream: f[2],
 			Subject:  f[3],
-			When:     f[4],
+			When:     millis(f[4]),
 		}
 		if b.Upstream != "" {
 			if counts, err := Run(dir, "rev-list", "--left-right", "--count",

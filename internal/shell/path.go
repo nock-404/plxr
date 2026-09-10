@@ -28,12 +28,58 @@ var (
 	loginPath string
 )
 
+/* Remembered is the file the answer is kept in, set by whoever knows where
+ * plxr keeps its things. Empty means: do not keep it.
+ *
+ * Asking costs a shell start, and on a machine with a drawn prompt that is
+ * seconds — every single time plxr starts. Kept on disk it is paid once. What
+ * is read back is used straight away and checked again in the background, so
+ * a PATH that changed is right from the next start on rather than never.
+ */
+var Remembered string
+
 // LoginPath is the PATH of the user's login shell, or "" if it cannot be had.
 // Asked once and remembered: it means starting a shell, and the answer does not
 // change while plxr runs.
 func LoginPath() string {
-	loginOnce.Do(func() { loginPath = askLoginShell() })
+	loginOnce.Do(func() { loginPath = rememberedOrAsked() })
 	return loginPath
+}
+
+func rememberedOrAsked() string {
+	if kept := readRemembered(); kept != "" {
+		// Right away, and asked again behind it: a directory added to a
+		// profile today is there the next time plxr starts.
+		go func() { writeRemembered(askLoginShell()) }()
+		return kept
+	}
+	asked := askLoginShell()
+	writeRemembered(asked)
+	return asked
+}
+
+func readRemembered() string {
+	if Remembered == "" {
+		return ""
+	}
+	b, err := os.ReadFile(Remembered)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// writeRemembered keeps the answer, and never keeps an empty one: a shell that
+// failed once would otherwise be remembered as "this machine has no PATH".
+func writeRemembered(path string) {
+	if Remembered == "" || strings.TrimSpace(path) == "" {
+		return
+	}
+	tmp := Remembered + ".tmp"
+	if os.WriteFile(tmp, []byte(path+"\n"), 0o600) != nil {
+		return
+	}
+	_ = os.Rename(tmp, Remembered)
 }
 
 /*

@@ -1,5 +1,6 @@
 "use client";
 
+import { ago } from "@/lib/format";
 import { useCallback, useEffect, useState } from "react";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
@@ -110,7 +111,7 @@ export default function Branches({ rootId }: { rootId: string }) {
           <span className="branchsubject" title={b.subject}>
             {b.subject}
           </span>
-          <span className="logwhen">{b.when}</span>
+          <span className="logwhen">{ago(b.when)}</span>
         </div>
       ))}
 

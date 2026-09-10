@@ -9,7 +9,13 @@ import type { Port } from "@/lib/types";
 
 // Which process holds which port, and a way to end it.
 export default function Ports() {
-  const [ports, setPorts] = useState<Port[]>([]);
+  /* null until the answer is in.
+   *
+   * An empty list from the start means the view says "nothing listening"
+   * while it is still asking — and asking the system who holds which port is
+   * not instant. That is a lie in the one place the window is meant to be
+   * trusted; emptylies.py holds every list to it. */
+  const [ports, setPorts] = useState<Port[] | null>(null);
   const [error, setError] = useState("");
 
   const load = useCallback(() => {
@@ -30,13 +36,13 @@ export default function Ports() {
       <TopStrip>
         <div className="listbar">
           <span className="prompt">{tr("ports.prompt", "ports>")}</span>
-          <span className="meta">{error || `${ports.length} ${tr("ports.open", "listening")}`}</span>
+          <span className="meta">{error || `${ports?.length ?? 0} ${tr("ports.open", "listening")}`}</span>
           <span className="spacer" />
           <Button onClick={load}>{tr("common.reload", "RELOAD")}</Button>
         </div>
       </TopStrip>
       <div className="listbody">
-        {ports.length === 0 ? (
+        {ports === null ? null : ports.length === 0 ? (
           <div className="emptyNote">
             <b>{tr("ports.emptyHead", "nothing listening")}</b>
             {tr("ports.empty", "No local process holds a port right now.")}

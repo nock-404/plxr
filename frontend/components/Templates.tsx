@@ -9,7 +9,8 @@ import type { Template } from "@/lib/types";
 
 // Several sessions in one go: save the current set, start it again later.
 export default function Templates({ onClose }: { onClose: () => void }) {
-  const [rows, setRows] = useState<Template[]>([]);
+  // null until the answer is in — see emptylies.py.
+  const [rows, setRows] = useState<Template[] | null>(null);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
 
@@ -41,7 +42,7 @@ export default function Templates({ onClose }: { onClose: () => void }) {
         </p>
 
         <div className="splitList">
-          {rows.length === 0 ? (
+          {rows === null ? null : rows.length === 0 ? (
             <div className="emptyNote">
               <b>{tr("templates.emptyHead", "nothing saved")}</b>
               {tr("templates.empty", "Start the sessions you want, then save the current set below.")}

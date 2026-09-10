@@ -6,8 +6,23 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
+
+/* Patience is how long a shell may take to say what its PATH is.
+ *
+ * It was four seconds, which is generous for a shell and not generous for a
+ * prompt: the machine this was written for takes 5.6 seconds to start an
+ * interactive shell, because of the theme it draws. Over the limit the shell
+ * was killed and its answer thrown away — and that answer was the only one
+ * that knew about ~/.local/bin, where claude is installed. plxr then said it
+ * could not find claude on a machine where claude works in every terminal.
+ *
+ * It is paid once, at the start of a daemon that runs for days, and only the
+ * first time: the answer is kept, see path.go.
+ */
+var Patience = 20 * time.Second
 
 /*
 Asking the shell where the tools are.
@@ -27,15 +42,32 @@ func askLoginShell() string {
 	if len(argv) == 0 {
 		return ""
 	}
+
+	/* All the forms at once, not one after the other.
+	 *
+	 * Asked in turn, a shell that takes six seconds to start costs six
+	 * seconds per form, and the slowest form is the first one. Asked
+	 * together it costs six seconds altogether — and the answers are still
+	 * put back in the same order, most complete first, because that order is
+	 * what decides which directory comes before which.
+	 */
+	forms := [][]string{{"-i", "-l"}, {"-i"}, {"-l"}}
+	answers := make([]string, len(forms))
+	var wg sync.WaitGroup
+	for i, flags := range forms {
+		wg.Add(1)
+		go func(i int, flags []string) {
+			defer wg.Done()
+			answers[i] = ask(argv[0], flags)
+		}(i, flags)
+	}
+	wg.Wait()
+
 	sep := string(os.PathListSeparator)
 	seen := map[string]bool{}
 	out := []string{}
-
-	// Most complete first. An interactive login shell reads both sets of files,
-	// where it works at all — without a terminal some shells answer nothing to
-	// it, which is why the plainer forms follow.
-	for _, flags := range [][]string{{"-i", "-l"}, {"-i"}, {"-l"}} {
-		for _, dir := range strings.Split(ask(argv[0], flags), sep) {
+	for _, answer := range answers {
+		for _, dir := range strings.Split(answer, sep) {
 			if dir == "" || seen[dir] {
 				continue
 			}
@@ -78,7 +110,7 @@ func ask(shell string, flags []string) string {
 	}()
 	select {
 	case <-done:
-	case <-time.After(4 * time.Second):
+	case <-time.After(Patience):
 		// A profile that waits for something must not hold up the start.
 		if cmd.Process != nil {
 			_ = cmd.Process.Kill()

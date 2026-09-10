@@ -263,12 +263,31 @@ for (const [name, expectRows] of [
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const item = [...document.querySelectorAll('.railitem')].find(e => e.textContent.includes(${JSON.stringify(name)}));
     if (!item) return { missing: true };
+    /* Waited for, not slept through — and for the new view, not the old one.
+     *
+     * A fixed 900ms was enough on an idle machine and not enough on a busy
+     * one: this reported "Ports: 0 of 19" during a build and all 19 a minute
+     * later, against the same code. Waiting for "a visible list with rows in
+     * it" was no better, because the list being left is still on screen and
+     * still has its rows — so it stopped at once and counted the wrong view.
+     *
+     * So: remember which element was there, wait for a different one, and
+     * then wait for that one to have something to say. */
+    const seen = () => [...document.querySelectorAll('.list')].find(el => el.offsetParent !== null);
+    const before = seen();
     item.click();
-    await wait(900);
+    let view = null;
+    for (let i = 0; i < 75; i++) {
+      view = seen();
+      const settled = view && (view.querySelectorAll('.row').length
+        || view.querySelectorAll('.ublock').length || view.querySelector('.emptyNote'));
+      if (view && view !== before && settled) break;
+      await wait(200);
+    }
     // Scoped to the section actually on screen. Counting rows anywhere in the
     // document and an empty note anywhere else produced a verdict that
     // contradicted itself — 25 rows and "it is empty" in the same breath.
-    const view = [...document.querySelectorAll('.list')].find(el => el.offsetParent !== null);
+    view = seen();
     if (!view) return { opened: false };
     const body = view.querySelector('.listbody');
     return {

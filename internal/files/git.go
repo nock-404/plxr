@@ -1,9 +1,8 @@
 package files
 
 import (
-	"os/exec"
 	"path/filepath"
-	"plxr/internal/sys"
+	"plxr/internal/git"
 	"strings"
 )
 
@@ -51,7 +50,7 @@ func Status(root string) map[string]State {
 		here = r
 	}
 	top := here
-	if b, err := sys.Quiet(exec.Command("git", "-C", root, "rev-parse", "--show-toplevel")).Output(); err == nil {
+	if b, err := git.Raw(root, "rev-parse", "--show-toplevel"); err == nil {
 		if t := strings.TrimSpace(string(b)); t != "" {
 			top = t
 			if r, err := filepath.EvalSymlinks(t); err == nil {
@@ -62,8 +61,7 @@ func Status(root string) map[string]State {
 	// --porcelain is the form promised to stay stable between versions; -z
 	// separates with NUL so a file name with a space or a newline in it does not
 	// split into two entries.
-	cmd := sys.Quiet(exec.Command("git", "-C", root, "status", "--porcelain=v1", "-z", "--untracked-files=all"))
-	b, err := cmd.Output()
+	b, err := git.Raw(root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {
 		return out // not a repository, or no git: nothing is known
 	}

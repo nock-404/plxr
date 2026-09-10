@@ -78,7 +78,8 @@ function drain(): void {
 }
 
 export default function Workbench({ onClose }: { onClose: () => void }) {
-  const [lines, setLines] = useState<Line[]>([]);
+  // null until the answer is in — see emptylies.py.
+  const [lines, setLines] = useState<Line[] | null>(null);
   const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,7 +95,7 @@ export default function Workbench({ onClose }: { onClose: () => void }) {
     <aside className="workbench">
       <div className="wbBar">
         <span className="overlayName">{tr("workbench.title", "Workbench")}</span>
-        <span className="wbHint">{lines.length}</span>
+        <span className="wbHint">{lines?.length ?? 0}</span>
         <span className="spacer" />
         <Button
           tiny
@@ -110,7 +111,7 @@ export default function Workbench({ onClose }: { onClose: () => void }) {
         </Button>
       </div>
       <div className="wbBody" ref={body}>
-        {lines.length === 0 ? (
+        {lines === null ? null : lines.length === 0 ? (
           <div className="emptyNote">
             <b>{tr("workbench.emptyHead", "quiet")}</b>
             {tr("workbench.empty", "Nothing has been logged since this window opened.")}

@@ -24,9 +24,8 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"plxr/internal/sys"
+	vcs "plxr/internal/git"
 	"sort"
 	"strconv"
 	"strings"
@@ -61,9 +60,7 @@ func Dir() string { return filepath.Join(daemon.Root(), "marks") }
 func git(dir string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 	defer cancel()
-	cmd := sys.Quiet(exec.CommandContext(ctx, "git", args...))
-	cmd.Dir = dir
-	out, err := cmd.Output()
+	out, err := vcs.Command(ctx, dir, args...).Output()
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -84,9 +81,8 @@ func Take(cwd string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 	defer cancel()
 	for _, args := range [][]string{{"add", "-A"}, {"write-tree"}} {
-		cmd := sys.Quiet(exec.CommandContext(ctx, "git", args...))
-		cmd.Dir = cwd
-		cmd.Env = append(os.Environ(), "GIT_INDEX_FILE="+tmp)
+		cmd := vcs.Command(ctx, cwd, args...)
+		cmd.Env = append(cmd.Env, "GIT_INDEX_FILE="+tmp)
 		out, err := cmd.Output()
 		if err != nil {
 			return "", err
@@ -216,9 +212,7 @@ func Restore(cwd, tree, path string) error {
 	// that is the worst possible bug.
 	ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 	defer cancel()
-	cmd := sys.Quiet(exec.CommandContext(ctx, "git", "show", tree+":"+path))
-	cmd.Dir = cwd
-	content, err := cmd.Output()
+	content, err := vcs.Command(ctx, cwd, "show", tree+":"+path).Output()
 	if err != nil {
 		return err
 	}

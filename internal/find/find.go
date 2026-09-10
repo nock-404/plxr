@@ -19,9 +19,8 @@ import (
 	"context"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"plxr/internal/sys"
+	"plxr/internal/git"
 	"regexp"
 	"strings"
 	"time"
@@ -89,8 +88,7 @@ func (q Query) compile() (*regexp.Regexp, error) {
 // is ignored exactly the way the project already means it. Outside one, the
 // tree is walked and the usual heaps are stepped over.
 func files(ctx context.Context, root string) ([]string, bool, error) {
-	cmd := sys.Quiet(exec.CommandContext(ctx, "git", "-C", root,
-		"ls-files", "-z", "--cached", "--others", "--exclude-standard"))
+	cmd := git.Command(ctx, root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
 	if out, err := cmd.Output(); err == nil {
 		var list []string
 		for _, name := range strings.Split(string(out), "\x00") {

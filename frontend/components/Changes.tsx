@@ -1,5 +1,6 @@
 "use client";
 
+import { ago } from "@/lib/format";
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { api } from "@/lib/api";
@@ -222,7 +223,7 @@ export default function Changes({
             <span key={h.hash} className="logrow">
               <span className="loghash">{h.hash}</span>
               <span className="logsubject">{h.subject}</span>
-              <span className="logwhen">{h.when}</span>
+              <span className="logwhen">{ago(h.when)}</span>
             </span>
           ))}
         </div>

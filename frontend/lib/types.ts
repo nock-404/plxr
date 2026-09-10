@@ -337,7 +337,7 @@ export interface GitEntry {
   hash: string;
   subject: string;
   author: string;
-  when: string;
+  when: number; // milliseconds; the window words the age itself
 }
 
 /* Which branch this is and how it stands against its upstream. */
@@ -359,7 +359,7 @@ export interface GitBranch {
   ahead: number;
   behind: number;
   subject: string;
-  when: string;
+  when: number; // milliseconds; the window words the age itself
 }
 
 /* Whether plxr can be reached from another machine, and where. */

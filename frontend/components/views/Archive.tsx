@@ -17,7 +17,8 @@ function day(ms: number): string {
 // Everything that ran before. Filtering by title is instant; the two search
 // modes go through the daemon and read the transcripts themselves.
 export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
-  const [rows, setRows] = useState<ArchiveEntry[]>([]);
+  // null until the answer is in — see emptylies.py.
+  const [rows, setRows] = useState<ArchiveEntry[] | null>(null);
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [mode, setMode] = useState<Mode>("titles");
   const [q, setQ] = useState("");
@@ -46,8 +47,8 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter(
+    if (!needle) return rows ?? [];
+    return (rows ?? []).filter(
       (r) =>
         r.title.toLowerCase().includes(needle) ||
         r.project.toLowerCase().includes(needle) ||
@@ -105,7 +106,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
             {tr("archive.terminals", "TERMINALS")}
           </Button>
           <span className="meta">
-            {busy ? tr("common.working", "searching…") : searching ? `${hits!.length}` : `${shown.length} / ${rows.length}`}
+            {busy ? tr("common.working", "searching…") : searching ? `${hits!.length}` : `${shown.length} / ${rows?.length ?? 0}`}
           </span>
         </div>
       </TopStrip>
@@ -137,7 +138,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
               </div>
             ))
           )
-        ) : shown.length === 0 ? (
+        ) : rows === null ? null : shown.length === 0 ? (
           <div className="emptyNote">
             <b>{tr("archive.emptyHead", "nothing found")}</b>
             {tr("archive.empty", "No transcript matches. Clear the field to see everything.")}

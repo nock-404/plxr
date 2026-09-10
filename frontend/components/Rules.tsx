@@ -8,7 +8,8 @@ import type { Rule } from "@/lib/types";
 
 // Which instructions actually reach the agent in this folder, and from where.
 export default function Rules({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
-  const [rules, setRules] = useState<Rule[]>([]);
+  // null until the answer is in — see emptylies.py.
+  const [rules, setRules] = useState<Rule[] | null>(null);
 
   useEffect(() => {
     api.rules(sessionId).then((r) => setRules(r ?? [])).catch(() => setRules([]));
@@ -18,12 +19,12 @@ export default function Rules({ sessionId, onClose }: { sessionId: string; onClo
     <div className="overlay">
       <div className="overlayBar">
         <span className="overlayName">{tr("rules.title", "Rules")}</span>
-        <span className="meta">{rules.length}</span>
+        <span className="meta">{rules?.length ?? 0}</span>
         <span className="spacer" />
         <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
       </div>
       <div className="ruleslist">
-        {rules.length === 0 ? (
+        {rules === null ? null : rules.length === 0 ? (
           <div className="emptyNote">
             <b>{tr("rules.emptyHead", "no rules")}</b>
             {tr("rules.empty", "Nothing in this folder or above it adds instructions for the agent.")}

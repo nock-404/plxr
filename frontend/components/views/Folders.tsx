@@ -25,7 +25,10 @@ import type { GitChange, GitWhere, Workspace } from "@/lib/types";
  * do with what is running: it is open because somebody opened it.
  */
 export default function Folders() {
-  const [folders, setFolders] = useState<Workspace[]>([]);
+  // null until the answer is in: "no folder open" before the list has even
+  // been read is a lie, and it is the first thing this view says. See
+  // emptylies.py.
+  const [folders, setFolders] = useState<Workspace[] | null>(null);
   const [here, setHere] = useState<Workspace | null>(null);
   const [file, setFile] = useState<string | null>(null);
   const [line, setLine] = useState<number | undefined>(undefined);
@@ -41,7 +44,7 @@ export default function Folders() {
      It used to live inside the changes panel, so looking at the tree told you
      nothing about the branch you were on or whether anything was uncommitted. */
   const [where, setWhere] = useState<GitWhere | null>(null);
-  const [changed, setChanged] = useState<GitChange[]>([]);
+  const [changed, setChanged] = useState<GitChange[] | null>(null);
 
   const load = useCallback(() => {
     api
@@ -107,7 +110,7 @@ export default function Folders() {
           <div className="folderbarTop">
             <span className="prompt">{tr("folders.prompt", "folders>")}</span>
             <span className="folderTabs">
-              {folders.map((w) => (
+              {(folders ?? []).map((w) => (
                 <Button
                   bare
                   key={w.id}
@@ -145,13 +148,15 @@ export default function Folders() {
                 <Button
                   bare
                   className="branchword"
-                  disabled={!changed.length}
+                  disabled={!changed?.length}
                   onClick={() => setSide("changes")}
-                  title={changed.length ? tr("git.showThem", "Show which ones") : undefined}
+                  title={changed?.length ? tr("git.showThem", "Show which ones") : undefined}
                 >
-                  {changed.length
-                    ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
-                    : tr("git.cleanShort", "nothing changed")}
+                  {changed === null
+                    ? tr("git.reading", "reading…")
+                    : changed.length
+                      ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
+                      : tr("git.cleanShort", "nothing changed")}
                 </Button>
               </span>
             ) : null}
@@ -186,7 +191,7 @@ export default function Folders() {
 
       {problem ? <div className="emptyNote">{problem}</div> : null}
 
-      {!here ? (
+      {folders === null ? null : !here ? (
         <div className="empty">
           <div className="emptybox">
             <p className="emptyhead">{tr("folders.emptyHead", "no folder open")}</p>

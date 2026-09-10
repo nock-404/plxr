@@ -227,6 +227,9 @@ func runDaemon() {
 	 * terminal it inherited the right PATH and the fault could not appear,
 	 * which is why it took a packaged build to find it.
 	 */
+	// Kept next to everything else plxr owns, so the seconds a drawn prompt
+	// costs are paid once and not at every start.
+	shell.Remembered = filepath.Join(daemon.Root(), "path")
 	shell.AdoptLoginPath()
 
 	reg, err := session.NewRegistry(filepath.Join(daemon.Root(), "sessions"))
