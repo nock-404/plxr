@@ -64,6 +64,8 @@ LAYOUT_ONLY = {
     "accountActions",
     # The inline toolbar strip inside a dock panel: arrangement only.
     "viewstrip",
+    # The web preview: a toolbar row and the iframe box, arrangement only.
+    "preview", "previewbar", "previewframe",
     # The CRT screen furniture, drawn from tokens rather than dressed.
     "crest", "cursor", "hint", "line", "progress", "screenbar", "term", "title",
     # xterm and CodeMirror bring their own stylesheets; a skin colours them

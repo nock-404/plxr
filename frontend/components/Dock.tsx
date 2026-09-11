@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import {
   DockviewReact,
   type DockviewApi,
@@ -18,6 +18,7 @@ import Ports from "@/components/views/Ports";
 import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
+import Preview from "@/components/Preview";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -41,6 +42,7 @@ type DockData = {
   here: string;
   connected: boolean;
   openSession: (id: string) => void;
+  openPreview: (url: string, title: string) => void;
   toOverview: () => void;
   onReplaced: (id: string) => void;
 };
@@ -66,7 +68,8 @@ function FoldersPanel() {
   return <Folders place={d.here} />;
 }
 function PortsPanel() {
-  return <Ports />;
+  const d = useDock();
+  return <Ports onPreview={d.openPreview} />;
 }
 function UsagePanel() {
   return <Usage />;
@@ -117,8 +120,13 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
   );
 }
 
+function PreviewPanel(props: IDockviewPanelProps<{ url: string }>) {
+  return <Preview url={props.params.url} />;
+}
+
 const components = {
   overview: OverviewPanel,
+  preview: PreviewPanel,
   inbox: InboxPanel,
   folders: FoldersPanel,
   ports: PortsPanel,
@@ -149,13 +157,19 @@ export default function Dock({
   onReplaced,
   focus,
   resetNonce,
-}: DockData & { focus: Focus; resetNonce: number }) {
+}: Omit<DockData, "openPreview"> & { focus: Focus; resetNonce: number }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const restored = useRef(false);
 
+  const openPreview = useCallback((url: string, title: string) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    openOrFocus(dv, `preview:${url}`, "preview", title, { url });
+  }, []);
+
   const data = useMemo<DockData>(
-    () => ({ tiles, shown, here, connected, openSession, toOverview, onReplaced }),
-    [tiles, shown, here, connected, openSession, toOverview, onReplaced],
+    () => ({ tiles, shown, here, connected, openSession, openPreview, toOverview, onReplaced }),
+    [tiles, shown, here, connected, openSession, openPreview, toOverview, onReplaced],
   );
 
   // Back to the default arrangement, on request. The saved layout is dropped

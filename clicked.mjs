@@ -753,6 +753,26 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   claim("a reset returns the dock to the default", dock.afterReset.length === 1, dock.afterReset.join(", "));
+
+  /* A port opens as a web preview panel — a dev server beside its terminal,
+     which is the point of the whole dock. */
+  const preview = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    const ports = [...document.querySelectorAll('.railitem')].find(e => /PORTS/i.test(e.textContent || ''));
+    if (ports) ports.click();
+    await w(1200);
+    const row = [...document.querySelectorAll('.row')].find(r => /VIEW|ANSEHEN/.test(r.textContent || ''));
+    if (!row) return { noPorts: true };
+    const view = [...row.querySelectorAll('button')].find(b => /VIEW|ANSEHEN/.test(b.textContent));
+    if (view) view.click();
+    await w(1500);
+    const iframe = document.querySelector('.previewframe iframe');
+    return { framed: !!iframe, src: iframe?.getAttribute('src') || '' };
+  `);
+  // Only assert when the machine has a listening port to view; otherwise skip.
+  if (!preview.noPorts) {
+    claim("a port opens as a web preview", preview.framed && /^https?:\/\/localhost:\d+/.test(preview.src), preview.src);
+  }
 }
 
 cdp.close();

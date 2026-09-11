@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import type { Port } from "@/lib/types";
 
 // Which process holds which port, and a way to end it.
-export default function Ports() {
+export default function Ports({ onPreview }: { onPreview?: (url: string, title: string) => void }) {
   /* null until the answer is in.
    *
    * An empty list from the start means the view says "nothing listening"
@@ -55,6 +55,15 @@ export default function Ports() {
               <span className="hitProject">{p.addr}</span>
               <span className="hitSmall">pid {p.pid}</span>
               <span className="hitAction">
+                {onPreview ? (
+                  <Button
+                    tiny
+                    title={tr("ports.viewTip", "Show what this port serves, in a panel")}
+                    onClick={() => onPreview(`http://localhost:${p.port}`, `:${p.port}`)}
+                  >
+                    {tr("ports.view", "VIEW")}
+                  </Button>
+                ) : null}
                 <Button tiny onClick={() => api.portKill(p.pid).then(load)}>
                   {tr("ports.kill", "KILL")}
                 </Button>
