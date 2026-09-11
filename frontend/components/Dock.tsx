@@ -245,11 +245,15 @@ export default function Dock({
         }
         if (event.api.panels.length === 0) {
           defaultLayout(event.api);
+        } else {
+          ensureRail(event.api);
         }
       })
       .catch(() => {
         if (event.api.panels.length === 0) {
           defaultLayout(event.api);
+        } else {
+          ensureRail(event.api);
         }
       });
 
@@ -282,16 +286,33 @@ export default function Dock({
 // return to.
 function defaultLayout(dv: DockviewApi) {
   // The rail on the left, a panel like any other, and the overview beside it.
-  dv.addPanel({ id: "rail", component: "rail", title: "plxr" });
+  addRail(dv);
   dv.addPanel({
     id: "overview",
     component: "overview",
     title: VIEW_TITLES.overview,
     position: { referencePanel: "rail", direction: "right" },
   });
-  // A narrow rail; the rest is the overview's.
+}
+
+// addRail puts the rail panel at the left edge, narrow.
+function addRail(dv: DockviewApi) {
+  dv.addPanel({ id: "rail", component: "rail", title: "plxr", position: { direction: "left" } });
   const rail = dv.getPanel("rail");
   if (rail) rail.api.setSize({ width: 210 });
+}
+
+/* ensureRail guarantees the launcher is on screen.
+ *
+ * A layout saved before the rail was a panel — anyone who upgrades — comes back
+ * without it, and then there is no menu and no obvious way to reach one. So on
+ * every load, if the restored arrangement has no rail, one is put back at the
+ * left. The rail is the way to everything else; it is allowed to be moved, not
+ * to be lost. */
+function ensureRail(dv: DockviewApi) {
+  if (!dv.getPanel("rail")) {
+    addRail(dv);
+  }
 }
 
 // openOrFocus makes the panel if it is not there and brings it to the front.

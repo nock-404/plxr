@@ -8,6 +8,7 @@ import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
 import Viewer from "@/components/Viewer";
 import Button from "@/components/ui/Button";
+import OverflowBar from "@/components/ui/OverflowBar";
 import Splitter from "@/components/ui/Splitter";
 import FolderPick from "@/components/ui/FolderPick";
 import TopStrip from "@/components/ui/TopStrip";
@@ -136,59 +137,69 @@ export default function Folders({ place }: { place?: string }) {
             <Button onClick={() => setPicking(true)}>{tr("folders.open", "+ FOLDER")}</Button>
           </div>
 
-          <div className="folderbarLow">
-            {where ? (
-              <span className="foldergit">
-                <span className="branchname" data-on="yes">
-                  {where.detached
-                    ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
-                    : where.branch}
+          <OverflowBar
+            className="folderbarLow"
+            moreTitle={tr("common.more", "More")}
+            left={
+              where ? (
+                <span className="foldergit">
+                  <span className="branchname" data-on="yes">
+                    {where.detached
+                      ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
+                      : where.branch}
+                  </span>
+                  {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
+                  {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
                 </span>
-                {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
-                {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
-                {/* A count nobody can act on is a boast. This one opens the
-                    list it is counting. */}
-                <Button
-                  bare
-                  className="branchword"
-                  disabled={!changed?.length}
-                  onClick={() => setSide("changes")}
-                  title={changed?.length ? tr("git.showThem", "Show which ones") : undefined}
-                >
-                  {changed === null
-                    ? tr("git.reading", "reading…")
-                    : changed.length
-                      ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
-                      : tr("git.cleanShort", "nothing changed")}
-                </Button>
-              </span>
-            ) : null}
-            <span className="spacer" />
-            {here && !here.missing ? (
-              <>
-                <Button on={side === "tree"} onClick={() => setSide("tree")}>
-                  {tr("folders.tree", "FILES")}
-                </Button>
-                <Button on={side === "find"} onClick={() => setSide("find")}>
-                  {tr("find.open", "FIND")}
-                </Button>
-                <Button on={side === "changes"} onClick={() => setSide("changes")}>
-                  {tr("git.open", "CHANGES")}
-                </Button>
-                <Button on={side === "branches"} onClick={() => setSide("branches")}>
-                  {tr("branch.open", "BRANCHES")}
-                </Button>
-              </>
-            ) : null}
-            {here ? (
-              <Button
-                onClick={() => void close(here.id)}
-                title={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}
-              >
-                {tr("folders.close", "CLOSE")}
-              </Button>
-            ) : null}
-          </div>
+              ) : null
+            }
+            items={[
+              ...(where
+                ? [
+                    {
+                      key: "changed",
+                      // A count nobody can act on is a boast. This one opens
+                      // the list it is counting.
+                      node: (
+                        <Button
+                          bare
+                          className="branchword"
+                          disabled={!changed?.length}
+                          onClick={() => setSide("changes")}
+                          title={changed?.length ? tr("git.showThem", "Show which ones") : undefined}
+                        >
+                          {changed === null
+                            ? tr("git.reading", "reading…")
+                            : changed.length
+                              ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
+                              : tr("git.cleanShort", "nothing changed")}
+                        </Button>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(here && !here.missing
+                ? [
+                    { key: "tree", node: <Button on={side === "tree"} onClick={() => setSide("tree")}>{tr("folders.tree", "FILES")}</Button> },
+                    { key: "find", node: <Button on={side === "find"} onClick={() => setSide("find")}>{tr("find.open", "FIND")}</Button> },
+                    { key: "changes", node: <Button on={side === "changes"} onClick={() => setSide("changes")}>{tr("git.open", "CHANGES")}</Button> },
+                    { key: "branches", node: <Button on={side === "branches"} onClick={() => setSide("branches")}>{tr("branch.open", "BRANCHES")}</Button> },
+                  ]
+                : []),
+              ...(here
+                ? [
+                    {
+                      key: "close",
+                      node: (
+                        <Button onClick={() => void close(here.id)} title={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}>
+                          {tr("folders.close", "CLOSE")}
+                        </Button>
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
       </TopStrip>
 

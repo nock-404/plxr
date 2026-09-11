@@ -251,7 +251,9 @@ await reload();
 const bar = await run(`${HELPERS}
   byText('.railhome', /folders/i).click(); await wait(2000);
   const box = document.querySelector('.folderbar').getBoundingClientRect();
+  const visible = e => e.offsetParent !== null && !e.closest('.obarMeasureBox');
   const out = [...document.querySelectorAll('.folderbar *')]
+    .filter(visible)
     .filter(e => e.getBoundingClientRect().right > box.right + 2 || e.getBoundingClientRect().bottom > box.bottom + 2)
     .map(e => e.textContent.trim().slice(0, 24));
   /* Squeezed counts as broken.
@@ -260,7 +262,8 @@ const bar = await run(`${HELPERS}
    * flex box simply crushed the tabs and the buttons until they fitted, which
    * is what made the bar unreadable in the first place. A piece of text narrower
    * than a few characters is a piece of text nobody can read. */
-  const squeezed = [...document.querySelectorAll('.folderTab, .folderbar .branchname, .folderbar .branchword, .folderbarLow > button')]
+  const squeezed = [...document.querySelectorAll('.folderTab, .folderbar .branchname, .folderbar .obarItems button')]
+    .filter(visible)
     .filter(e => e.textContent.trim().length > 2 && e.getBoundingClientRect().width < 28)
     .map(e => e.textContent.trim().slice(0, 24) + ' (' + Math.round(e.getBoundingClientRect().width) + 'px)');
   return { tabs: document.querySelectorAll('.folderTab').length, spilled: out, squeezed };
@@ -282,7 +285,8 @@ await cdp.send("Emulation.setDeviceMetricsOverride", {
 const narrow = await run(`${HELPERS}
   byText('.folderTab', /^folder$/).click(); await wait(2000);
   const box = document.querySelector('.folderbar').getBoundingClientRect();
-  const parts = [...document.querySelectorAll('.folderTab, .folderbar .branchname, .folderbar .branchword, .folderbarLow > button')];
+  const visible = e => e.offsetParent !== null && !e.closest('.obarMeasureBox');
+  const parts = [...document.querySelectorAll('.folderTab, .folderbar .branchname, .folderbar .obarItems button')].filter(visible);
   return {
     branch: document.querySelector('.foldergit .branchname')?.textContent.trim() ?? '',
     spilled: parts.filter(e => e.getBoundingClientRect().right > box.right + 2)

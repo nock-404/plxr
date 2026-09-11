@@ -751,6 +751,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   `);
   const saved = await api("/api/prefs").then((p) => Boolean(p && p.dock)).catch(() => false);
   claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
+  claim("the rail is always on screen as a panel", dock.many.includes("plxr"), dock.many.join(", "));
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   claim("a reset returns the dock to the default", dock.afterReset.includes("Overview") && dock.afterReset.length <= 2, dock.afterReset.join(", "));
 

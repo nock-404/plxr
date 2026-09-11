@@ -123,6 +123,7 @@
   "common.delete": "DELETE",
   "common.done": "DONE",
   "common.loading": "reading…",
+  "common.more": "More",
   "common.notSaved": "Not saved",
   "common.off": "OFF",
   "common.on": "ON",
