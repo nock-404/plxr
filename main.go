@@ -230,7 +230,9 @@ func runDaemon() {
 	// Kept next to everything else plxr owns, so the seconds a drawn prompt
 	// costs are paid once and not at every start.
 	shell.Remembered = filepath.Join(daemon.Root(), "path")
-	shell.AdoptLoginPath()
+	// Asked now, waited for only by the first session that starts — never by
+	// the listener, which the window is waiting on.
+	shell.Prepare()
 
 	reg, err := session.NewRegistry(filepath.Join(daemon.Root(), "sessions"))
 	if err != nil {

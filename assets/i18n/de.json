@@ -286,6 +286,7 @@
   "files.revealTip": "Dort zeigen, wo dieses System Dateien zeigt",
   "find.cappedFiles": "nur die ersten {n} Dateien",
   "find.cappedHits": "nur die ersten {n} Zeilen",
+  "find.cappedIgnore": "die Ignorier-Regeln des Projekts wurden nicht angewandt — git hat nicht geantwortet",
   "find.cappedLine": "lange Zeilen wurden gekürzt",
   "find.cappedOther": "die Antwort ist nicht vollständig",
   "find.cappedSize": "sehr große Dateien wurden ausgelassen",

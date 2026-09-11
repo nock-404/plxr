@@ -154,6 +154,9 @@ func newID() string {
 // Create starts a command. account picks the Claude configuration directory;
 // empty means the default account.
 func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.Session, error) {
+	// The PATH the person actually has, before anything is started in it. The
+	// first time this may wait for a slow prompt; after that it is instant.
+	shell.AdoptLoginPath()
 	if cwd == "" {
 		cwd, _ = os.UserHomeDir()
 	}

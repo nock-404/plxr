@@ -25,6 +25,7 @@ const CAPPED: Record<string, [string, string]> = {
   size: ["find.cappedSize", "very large files were left out"],
   line: ["find.cappedLine", "long lines were cut"],
   time: ["find.cappedTime", "it ran out of time"],
+  ignore: ["find.cappedIgnore", "the project's ignore rules were not applied — git did not answer"],
 };
 
 export default function FileSearch({

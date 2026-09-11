@@ -98,3 +98,26 @@ func TestAFailureIsNotKept(t *testing.T) {
 		t.Fatalf("the good answer was overwritten with nothing: %q", got)
 	}
 }
+
+// The daemon's start must not wait for the shell; only the first session does.
+func TestPreparingDoesNotWait(t *testing.T) {
+	slowShell(t, 6*time.Second)
+	start := time.Now()
+	Prepare()
+	if took := time.Since(start); took > time.Second {
+		t.Fatalf("Prepare waited %s — the listener, and the window behind it, wait with it", took)
+	}
+}
+
+// A poor fresh answer must not throw away a good kept one.
+func TestTheRefreshNeverShrinksTheAnswer(t *testing.T) {
+	Remembered = filepath.Join(t.TempDir(), "state", "path") // the directory does not exist yet
+	defer func() { Remembered = "" }()
+	writeRemembered("/the/good/bin:/usr/bin")
+	if got := readRemembered(); got != "/the/good/bin:/usr/bin" {
+		t.Fatalf("the first answer was not kept on a fresh machine: %q", got)
+	}
+	if got := joined("/usr/bin", "/the/good/bin:/usr/bin"); !strings.Contains(got, "/the/good/bin") {
+		t.Fatalf("a fresh answer without the good directory lost it: %q", got)
+	}
+}

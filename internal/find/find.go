@@ -24,18 +24,23 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
 	MaxHits     = 500
 	MaxFileSize = 1 << 20 // 1 MB: past that it is data, not source
 	MaxLineLen  = 400
-	MaxFiles    = 20000
 	Deadline    = 5 * time.Second
 	// Skipped wherever they appear. Everything else in a folder without a
 	// repository is fair game.
 	sniff = 8 << 10
 )
+
+// MaxFiles is how many files one search will read. A variable so a test can
+// reach the ceiling without making twenty thousand files.
+var MaxFiles = 20000
 
 var junk = map[string]bool{
 	".git": true, "node_modules": true, ".next": true, "vendor": true,
@@ -75,33 +80,72 @@ func (q Query) compile() (*regexp.Regexp, error) {
 	if !q.Regex {
 		pattern = regexp.QuoteMeta(pattern)
 	}
-	if q.Word {
-		pattern = `\b(?:` + pattern + `)\b`
-	}
+	// WORD is not put into the pattern: see wholeWord.
 	if !q.Case {
 		pattern = `(?i)` + pattern
 	}
 	return regexp.Compile(pattern)
 }
 
-// files lists what to read. Inside a repository git decides, so what is ignored
-// is ignored exactly the way the project already means it. Outside one, the
-// tree is walked and the usual heaps are stepped over.
-func files(ctx context.Context, root string) ([]string, bool, error) {
+/* wholeWord keeps the matches that stand on their own.
+ *
+ * It used to be `\b` in the pattern, and Go's `\b` is an ASCII word boundary:
+ * a query beginning or ending in ü, é or a bracket could not match anywhere,
+ * so WORD turned "über" into "nothing found" without a word. The neighbours
+ * are judged here instead, as characters — a letter, a digit or an
+ * underscore on either side means it is part of something longer.
+ */
+func wholeWord(text string, where [][]int) [][]int {
+	isWord := func(r rune) bool { return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) }
+	out := where[:0]
+	for _, w := range where {
+		if w[0] > 0 {
+			if r, _ := utf8.DecodeLastRuneInString(text[:w[0]]); isWord(r) {
+				continue
+			}
+		}
+		if w[1] < len(text) {
+			if r, _ := utf8.DecodeRuneInString(text[w[1]:]); isWord(r) {
+				continue
+			}
+		}
+		out = append(out, w)
+	}
+	return out
+}
+
+/* files lists what to read.
+ *
+ * Inside a repository git decides, so what is ignored is ignored exactly the
+ * way the project already means it. Outside one, the tree is walked and the
+ * usual heaps are stepped over.
+ *
+ * Two ways git's answer is not the answer. When git is not there, or refuses
+ * — a mounted volume trips its ownership check — the walk is used and the
+ * report says "ignore": the project's ignore rules were not applied, and a
+ * .env in the results is the reason that has to be said. And when git
+ * answers with nothing, the folder itself may be one the repository ignores
+ * (build/, dist/, vendor/), which is not the same as an empty folder; the
+ * walk decides then.
+ */
+func files(ctx context.Context, root string) (list []string, byGit bool, err error) {
 	cmd := git.Command(ctx, root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
-	if out, err := cmd.Output(); err == nil {
-		var list []string
+	out, gitErr := cmd.Output()
+	if gitErr == nil {
 		for _, name := range strings.Split(string(out), "\x00") {
 			if name == "" {
 				continue
 			}
 			list = append(list, name)
 		}
-		return list, true, nil
+		if len(list) > 0 {
+			return list, true, nil
+		}
 	}
-
-	var list []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	// git said nothing usable: not a repository, no git, or a folder the
+	// repository ignores. The walk decides, and byGit says the rules did not.
+	byGit, list = false, nil
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // an unreadable corner is not a reason to stop
 		}
@@ -133,6 +177,26 @@ func files(ctx context.Context, root string) ([]string, bool, error) {
 	return list, false, err
 }
 
+// inRepo says whether git would have had a say here at all. It decides whether
+// a walk means "the ignore rules were skipped" or simply "there are none".
+func inRepo(ctx context.Context, root string) bool {
+	out, err := git.Command(ctx, root, "rev-parse", "--is-inside-work-tree").Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+// hasGitDir looks for a .git up the tree without asking git — for the report
+// line that says the rules were skipped, when git itself is what is missing.
+func hasGitDir(root string) bool {
+	for dir := root; ; dir = filepath.Dir(dir) {
+		if _, err := os.Lstat(filepath.Join(dir, ".git")); err == nil {
+			return true
+		}
+		if filepath.Dir(dir) == dir {
+			return false
+		}
+	}
+}
+
 func matchesGlob(glob, rel string) bool {
 	if glob == "" {
 		return true
@@ -161,15 +225,6 @@ func Search(root string, q Query) (Report, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), Deadline)
 	defer cancel()
 
-	list, _, err := files(ctx, root)
-	if err != nil && len(list) == 0 {
-		return report, err
-	}
-	if len(list) > MaxFiles {
-		list = list[:MaxFiles]
-		report.Capped = append(report.Capped, "files")
-	}
-
 	cap := func(what string) {
 		for _, had := range report.Capped {
 			if had == what {
@@ -177,6 +232,40 @@ func Search(root string, q Query) (Report, error) {
 			}
 		}
 		report.Capped = append(report.Capped, what)
+	}
+
+	list, byGit, err := files(ctx, root)
+	if err != nil && len(list) == 0 {
+		if ctx.Err() != nil {
+			// The time went on listing. That is a short answer, not a fault.
+			cap("time")
+			report.TookMs = time.Since(started).Milliseconds()
+			return report, nil
+		}
+		return report, err
+	}
+	if !byGit && len(list) > 0 && (hasGitDir(root) || inRepo(ctx, root)) {
+		cap("ignore")
+	}
+
+	/* The glob first, the ceiling second.
+	 *
+	 * The other way round a glob that selects one file among twenty-five
+	 * thousand found nothing: the list was cut at twenty thousand before the
+	 * glob had looked, and the notice said "the first 20000 files only" about
+	 * a search that never reached the file it was for. */
+	if q.Glob != "" {
+		kept := list[:0]
+		for _, rel := range list {
+			if matchesGlob(q.Glob, rel) {
+				kept = append(kept, rel)
+			}
+		}
+		list = kept
+	}
+	if len(list) > MaxFiles {
+		list = list[:MaxFiles]
+		cap("files")
 	}
 
 	for _, rel := range list {
@@ -188,11 +277,15 @@ func Search(root string, q Query) (Report, error) {
 			cap("hits")
 			break
 		}
-		if !matchesGlob(q.Glob, rel) {
-			continue
-		}
 		full := filepath.Join(root, filepath.FromSlash(rel))
-		info, err := os.Stat(full)
+		/* Lstat, not Stat: a link is not followed.
+		 *
+		 * git lists links as files, and a repository can contain
+		 * `key -> ~/.ssh/id_rsa`. Followed, that file's lines came back as
+		 * hits — content from outside the folder, shown in the window, and
+		 * over the network when remote access is on. What a link points at
+		 * is searched where it lives, if it lives in this folder at all. */
+		info, err := os.Lstat(full)
 		if err != nil || info.IsDir() {
 			continue
 		}
@@ -237,14 +330,22 @@ func Search(root string, q Query) (Report, error) {
 			}
 			text := scanner.Text()
 			where := re.FindAllStringIndex(text, -1)
-			if where == nil {
+			if q.Word {
+				where = wholeWord(text, where)
+			}
+			if len(where) == 0 {
 				continue
 			}
 			found = true
 			// A very long line is cut, and the ranges with it: the window shows
-			// this text, so an offset past its end would land nowhere.
+			// this text, so an offset past its end would land nowhere. Cut
+			// between characters — inside one it would show as garbage.
 			if len(text) > MaxLineLen {
-				text = text[:MaxLineLen]
+				end := MaxLineLen
+				for end > 0 && !utf8.RuneStart(text[end]) {
+					end--
+				}
+				text = text[:end]
 				cap("line")
 			}
 			ranges := make([][2]int, 0, len(where))

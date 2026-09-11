@@ -2,6 +2,7 @@ package shell
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -49,13 +50,31 @@ func LoginPath() string {
 func rememberedOrAsked() string {
 	if kept := readRemembered(); kept != "" {
 		// Right away, and asked again behind it: a directory added to a
-		// profile today is there the next time plxr starts.
-		go func() { writeRemembered(askLoginShell()) }()
+		// profile today is there the next time plxr starts. What was kept is
+		// carried along behind the fresh answer — a shell that answered
+		// poorly once, because the machine was busy or a profile misfired,
+		// must not cost a directory that was known to be right.
+		go func() { writeRemembered(joined(askLoginShell(), kept)) }()
 		return kept
 	}
 	asked := askLoginShell()
 	writeRemembered(asked)
 	return asked
+}
+
+// joined is first, then whatever of second is not already in it.
+func joined(first, second string) string {
+	sep := string(os.PathListSeparator)
+	seen := map[string]bool{}
+	out := []string{}
+	for _, dir := range append(strings.Split(first, sep), strings.Split(second, sep)...) {
+		if dir == "" || seen[dir] {
+			continue
+		}
+		seen[dir] = true
+		out = append(out, dir)
+	}
+	return strings.Join(out, sep)
 }
 
 func readRemembered() string {
@@ -75,6 +94,11 @@ func writeRemembered(path string) {
 	if Remembered == "" || strings.TrimSpace(path) == "" {
 		return
 	}
+	// The state directory may not exist yet: on a fresh machine this is the
+	// very first thing plxr writes, and the first answer is the expensive one.
+	if os.MkdirAll(filepath.Dir(Remembered), 0o755) != nil {
+		return
+	}
 	tmp := Remembered + ".tmp"
 	if os.WriteFile(tmp, []byte(path+"\n"), 0o600) != nil {
 		return
@@ -92,7 +116,23 @@ AdoptLoginPath puts that PATH into this process.
 	What the process already has is kept and appended: a PLXR_HOME set by hand, a
 	PATH set deliberately for a test, both survive.
 */
-func AdoptLoginPath() {
+var adoptOnce sync.Once
+
+/* Prepare starts asking in the background.
+ *
+ * The daemon used to ask first and listen second — so on a machine whose
+ * prompt takes six seconds to draw, daemon.json appeared after six seconds,
+ * and the window, which gives up after eight, was one busy afternoon away
+ * from "the daemon did not come up" at every first start. The listener does
+ * not need the PATH; only a session about to start does, and that one waits
+ * in AdoptLoginPath. Everything after the first start has the kept answer and
+ * waits for nothing.
+ */
+func Prepare() { go LoginPath() }
+
+func AdoptLoginPath() { adoptOnce.Do(adopt) }
+
+func adopt() {
 	from := LoginPath()
 	if from == "" {
 		return
