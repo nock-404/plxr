@@ -98,14 +98,20 @@ Said on 11.09.2026, in this order of weight:
   the terminal. The terminal has to wait for `document.fonts.load` before it
   measures, or every cell is the wrong width. No foreign server involved; a
   download by URL into that folder is an explicit action, never automatic.
-- **Twenty-odd confirmed audit findings** (10.09.), the sharpest: a commit
-  from a subfolder commits the whole repository's index while the list is
-  folder-scoped; unstaging a rename whose old name is above the folder leaves
-  the deletion staged; the batch retry aborts at the first bad path; the diff
-  of a deleted file cannot be opened; git's 20 s deadline is not held when git
-  spawns a grandchild; RESTORE of a mark fails on a rename since the mark, and
-  writes through a symlink; unsaved edits are thrown away without a word when
-  another file is clicked; two files with the same name share one undo history.
+- **Audit findings, git and marks — done 11.09.** Commit from a subfolder no
+  longer sweeps in work staged outside it (refused, with a message); unstaging
+  a rename across the folder edge undoes both halves; the batch retry finishes
+  the batch; the diff of a deleted file opens; a staged rename's diff shows the
+  move, not a whole-file rewrite; an unchanged-in-this-direction file reads as
+  "no difference"; git's deadline is held even when git leaves a grandchild on
+  the pipe; RESTORE survives a rename since the mark, recreates a removed
+  directory, and never writes through a symlink out of the repo; the untracked
+  line count is streamed, not read whole; blank context lines keep the diff's
+  line numbers right.
+- **Still open from the audit:** unsaved edits thrown away without a word when
+  another file is clicked; two files of the same name sharing one undo history;
+  git marks not showing when the folder resolves through a symlink or on
+  Windows; the token on stdout/URL with --browser; a handful of minor ones.
 - **plxr as an MCP server.**
 
 ## Details behind the decisions

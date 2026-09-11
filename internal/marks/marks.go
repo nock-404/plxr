@@ -146,7 +146,13 @@ func List(sessionID string) []Mark {
 // a mark whose tree object was gone, a git that is not installed at all, every
 // one of them read as an all-clear.
 func Changed(cwd, tree string) ([]Change, error) {
-	out, err := git(cwd, "diff", "--name-status", tree)
+	/* --no-renames: a rename since the mark is then a delete of the old name
+	 * and an add of the new, each on its own line. With rename detection on,
+	 * git wrote R100<tab>old<tab>new — two tabs — the parser took "old\tnew"
+	 * as one path, git show could not find it, and the whole restore failed.
+	 * As delete+add the old name is simply put back and the new one left
+	 * alone, which is what restore already promises. */
+	out, err := git(cwd, "diff", "--no-renames", "--name-status", tree)
 	if err != nil {
 		return nil, err
 	}
@@ -183,18 +189,25 @@ func RestoreAll(cwd, tree string) (int, error) {
 		return 0, err
 	}
 	done := 0
+	var firstErr error
 	for _, c := range changes {
 		// Added since the mark: there is nothing in the tree to put back, and
 		// deleting somebody's new file is not what "restore" promises.
 		if c.Status == "A" {
 			continue
 		}
+		// One file that cannot be put back must not take the others with it:
+		// a half-restored mark is worse than a fully restored one that names
+		// the file it could not reach.
 		if err := Restore(cwd, tree, c.Path); err != nil {
-			return done, err
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
 		done++
 	}
-	return done, nil
+	return done, firstErr
 }
 
 func Restore(cwd, tree, path string) error {
@@ -216,11 +229,48 @@ func Restore(cwd, tree, path string) error {
 	if err != nil {
 		return err
 	}
-	target := filepath.Join(cwd, filepath.Clean(path))
-	if !strings.HasPrefix(target, filepath.Clean(cwd)+string(os.PathSeparator)) {
+	return safeWrite(cwd, path, content)
+}
+
+/* safeWrite puts the content back at cwd/path, and only there.
+ *
+ * Two traps a plain WriteFile walked into. The directory may have been removed
+ * since the mark, and then the write failed with ENOENT and — before the loop
+ * above forgave it — took the whole restore down; so the parent is recreated
+ * first. And path, or a directory along it, may since have become a symlink
+ * pointing out of the repository, and WriteFile follows it: a mark could then
+ * overwrite a file anywhere the link reached. So the parent is resolved for
+ * real and checked against the real cwd, and the file is written through a
+ * sibling temp and renamed over the name — rename replaces the link itself
+ * rather than following it.
+ */
+func safeWrite(cwd, path string, content []byte) error {
+	realCwd, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		return err
+	}
+	full := filepath.Join(realCwd, filepath.Clean(path))
+	parent := filepath.Dir(full)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return err
+	}
+	realParent, err := filepath.EvalSymlinks(parent)
+	if err != nil {
+		return err
+	}
+	if realParent != realCwd && !strings.HasPrefix(realParent, realCwd+string(os.PathSeparator)) {
 		return os.ErrInvalid
 	}
-	return os.WriteFile(target, content, 0o644)
+	dst := filepath.Join(realParent, filepath.Base(full))
+	tmp := dst + ".plxr-restore"
+	if err := os.WriteFile(tmp, content, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
 }
 
 // ---- Stuck: going round in circles ----

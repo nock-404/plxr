@@ -171,6 +171,7 @@
   "err.commit.noIdentity": "git weiß nicht, wer du bist. Setze user.name und user.email.",
   "err.commit.noMessage": "Ein Commit braucht eine Nachricht.",
   "err.commit.nothing": "Es ist nichts bereitgestellt, also gibt es nichts zu committen.",
+  "err.commit.outsideStaged": "Außerhalb dieses Ordners ist etwas bereitgestellt. Öffne den Wurzelordner des Repos, um alles zu committen, oder nimm es vorher zurück — ein Commit von hier hätte es mitgenommen, ohne es zu zeigen.",
   "err.cwd.gone": "Arbeitsverzeichnis gibt es nicht mehr: {detail}",
   "err.daemon.alreadyRunning": "Hier läuft schon ein anderes plxr.",
   "err.daemonGone": "plxr antwortet nicht — verbinde neu.",

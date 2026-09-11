@@ -1,11 +1,13 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func repo(t *testing.T) string {
@@ -283,4 +285,40 @@ func mustChanges(t *testing.T, dir string) []Change {
 		t.Fatal(err)
 	}
 	return list
+}
+
+// gitOut runs git and returns its output, failing on error.
+func gitOut(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v: %s", args, err, out)
+	}
+	return string(out)
+}
+
+// The deadline ends the call even when git leaves a grandchild holding the pipe.
+func TestTheDeadlineIsActuallyHeld(t *testing.T) {
+	dir := t.TempDir()
+	// A stand-in git that starts a background process inheriting stdout and
+	// then blocks itself. Killing "git" does not reach the background one, so
+	// the pipe stays open — which is what used to hang Output().
+	fake := filepath.Join(dir, "git")
+	script := "#!/bin/sh\nsleep 30 &\nsleep 30\n"
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	start := time.Now()
+	_, _ = Command(ctx, dir, "status").Output()
+	if took := time.Since(start); took > 8*time.Second {
+		t.Fatalf("git ran %s past a one-second deadline — the grandchild held the pipe", took)
+	}
 }

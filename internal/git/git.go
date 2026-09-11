@@ -45,6 +45,16 @@ func Command(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	cmd := sys.Quiet(exec.CommandContext(ctx, "git", args...))
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "LANGUAGE=")
+	/* The deadline has to actually end the call.
+	 *
+	 * CommandContext kills git when the context fires, but Output()'s Wait
+	 * then blocks on the goroutine copying stdout, and that goroutine waits
+	 * for every process still holding the write end of the pipe — git's
+	 * grandchildren, a credential helper or a filter git started, which the
+	 * kill did not reach. Measured a 20 s deadline outlived by forty seconds.
+	 * WaitDelay bounds that wait: a short grace after the process is gone,
+	 * then the pipes are closed and the call returns. */
+	cmd.WaitDelay = 3 * time.Second
 	return cmd
 }
 
@@ -197,16 +207,38 @@ func Changes(dir string) ([]Change, error) {
 // rename, two of them, old and new.
 // lines counts the lines of a file, and says so if it turns out not to be text.
 func lines(dir, path string) (int, bool) {
-	body, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(path)))
+	f, err := os.Open(filepath.Join(dir, filepath.FromSlash(path)))
 	if err != nil {
 		return 0, false
 	}
-	if bytes.IndexByte(body, 0) >= 0 {
-		return 0, true
+	defer f.Close()
+	/* Streamed, never read whole into memory.
+	 *
+	 * This runs for every untracked file a status lists, only to count its
+	 * newlines — os.ReadFile on a multi-gigabyte log to learn how many lines
+	 * it has is the kind of thing that makes opening a folder cost the machine.
+	 * A 64 KB window is enough to count and to spot a NUL. */
+	buf := make([]byte, 64<<10)
+	n := 0
+	var last byte
+	any := false
+	for {
+		read, err := f.Read(buf)
+		if read > 0 {
+			any = true
+			chunk := buf[:read]
+			if bytes.IndexByte(chunk, 0) >= 0 {
+				return 0, true
+			}
+			n += bytes.Count(chunk, []byte("\n"))
+			last = chunk[read-1]
+		}
+		if err != nil {
+			break
+		}
 	}
-	n := bytes.Count(body, []byte("\n"))
 	// A last line without a newline still counts.
-	if len(body) > 0 && body[len(body)-1] != '\n' {
+	if any && last != '\n' {
 		n++
 	}
 	return n, false
@@ -316,21 +348,46 @@ type Diff struct {
 // there is one parser and no second opinion about what changed, and the colours
 // come from this project's own tokens instead of a dependency's stylesheet.
 func Difference(dir, path string, staged bool) (Diff, error) {
+	return DifferenceOf(dir, path, "", staged)
+}
+
+// DifferenceOf is Difference that also knows the file's old name, for a
+// rename. Both names go into the pathspec so git can pair them; with only the
+// new one it cannot see the deletion of the old, calls it a new file, and
+// marks every line an addition — a whole-file rewrite where the row said +1 -1.
+func DifferenceOf(dir, path, was string, staged bool) (Diff, error) {
 	out := Diff{Path: path, Staged: staged, Hunks: []Hunk{}}
-	args := []string{"diff", "--no-color", "--no-ext-diff", "-U3"}
+	// diff.suppressBlankEmpty, if the user has it set, makes git print a blank
+	// context line as "" rather than " " — which the parser cannot tell from
+	// the header gap and miscounts, throwing every later line number off. Held
+	// off for this one call.
+	args := []string{"-c", "diff.suppressBlankEmpty=false",
+		"diff", "--no-color", "--no-ext-diff", "-M", "-U3"}
 	if staged {
 		args = append(args, "--cached")
 	}
 	// -- keeps a path that starts with a dash from being read as an option.
 	args = append(args, "--", path)
+	if was != "" && was != path {
+		args = append(args, was)
+	}
 	raw, err := Raw(dir, args...)
 	if err != nil {
 		return out, err
 	}
 	if len(raw) == 0 {
-		// Untracked: there is nothing to compare against, so the whole file is
-		// the difference. /dev/null on one side is how git says that itself.
-		raw, err = Raw(dir, "diff", "--no-color", "--no-ext-diff", "-U3",
+		/* Nothing in this direction. For an untracked file that means the
+		 * whole file is the difference — /dev/null on one side, which is how
+		 * git says it. For a tracked file it means exactly what it says:
+		 * nothing. Telling the two apart matters, because the /dev/null
+		 * fallback on a tracked file with no unstaged change presented the
+		 * entire file as freshly added. */
+		if tracked(dir, path) {
+			out.Empty = true
+			return out, nil
+		}
+		raw, err = Raw(dir, "-c", "diff.suppressBlankEmpty=false",
+			"diff", "--no-color", "--no-ext-diff", "-U3",
 			"--no-index", "--", devNull, path)
 		if err != nil && len(raw) == 0 {
 			out.Empty = true
@@ -340,6 +397,13 @@ func Difference(dir, path string, staged bool) (Diff, error) {
 	out.Hunks, out.Binary = parse(string(raw))
 	out.Empty = len(out.Hunks) == 0 && !out.Binary
 	return out, nil
+}
+
+// tracked says whether git already knows this path — the difference between
+// "no change" and "a brand new file".
+func tracked(dir, path string) bool {
+	out, err := Raw(dir, "ls-files", "--error-unmatch", "-z", "--", path)
+	return err == nil && len(out) > 0
 }
 
 func parse(text string) ([]Hunk, bool) {
@@ -447,6 +511,7 @@ func each(dir string, paths []string, args ...string) error {
 	if len(paths) == 0 {
 		return nil
 	}
+	var firstErr error
 	one := func(path string) error {
 		// -- so a path that begins with a dash is a path and not an option.
 		call := append(append([]string{}, args...), "--", path)
@@ -474,12 +539,16 @@ func each(dir string, paths []string, args ...string) error {
 		 * files went nowhere. Retried one at a time, and only a path git
 		 * genuinely objects to is reported. */
 		for _, path := range batch {
-			if err := one(path); err != nil {
-				return err
+			if e := one(path); e != nil && firstErr == nil {
+				// Remembered, not returned: the point of going one at a time is
+				// that a single path git will not take does not stop the rest.
+				// Returning here undid exactly that — everything after the
+				// offender was never attempted.
+				firstErr = e
 			}
 		}
 	}
-	return nil
+	return firstErr
 }
 
 // Stage puts files into the index.
@@ -530,11 +599,64 @@ func origins(dir string, paths []string) []string {
 		if !inside || !want[here] {
 			continue
 		}
-		if old, ok := toHere(from); ok && !want[old] {
+		/* The other half of the rename, wherever it is.
+		 *
+		 * A rename staged from outside the folder — git mv important.txt
+		 * inner/important.txt, folder opened on inner — has its old name above
+		 * the folder. toHere then says "outside" and the old half was dropped,
+		 * so Unstage reset only the new name and left "D important.txt" staged;
+		 * the next commit removed the original. The reset has to reach it, so
+		 * the path is taken relative to the folder even when that means going
+		 * up, which git reset accepts. */
+		if old := relToFolder(dir, from); old != "" && !want[old] {
 			extra = append(extra, old)
 		}
 	}
 	return extra
+}
+
+// relToFolder gives a repo path as it is named from the opened folder, even
+// when that is a step up (../old). "" if it cannot be worked out.
+func relToFolder(dir, repoPath string) string {
+	here := dir
+	if r, err := filepath.EvalSymlinks(dir); err == nil {
+		here = r
+	}
+	top := here
+	if t, err := Run(dir, "rev-parse", "--show-toplevel"); err == nil && t != "" {
+		top = t
+		if r, err := filepath.EvalSymlinks(t); err == nil {
+			top = r
+		}
+	}
+	rel, err := filepath.Rel(here, filepath.Join(top, filepath.FromSlash(repoPath)))
+	if err != nil {
+		return ""
+	}
+	return filepath.ToSlash(rel)
+}
+
+// stagedOutside says whether the index holds staged changes above or beside the
+// opened folder — work a commit would sweep in that the folder never showed.
+func stagedOutside(dir string) (bool, error) {
+	all, err := Raw(dir, "diff", "--cached", "--name-only")
+	if err != nil {
+		return false, err
+	}
+	here, err := Raw(dir, "diff", "--cached", "--name-only", "--", ".")
+	if err != nil {
+		return false, err
+	}
+	count := func(b []byte) int {
+		n := 0
+		for _, l := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+			if strings.TrimSpace(l) != "" {
+				n++
+			}
+		}
+		return n
+	}
+	return count(all) > count(here), nil
 }
 
 // Commit records what is staged.
@@ -545,6 +667,21 @@ func origins(dir string, paths []string) []string {
 func Commit(dir, message string, amend bool) (string, error) {
 	if strings.TrimSpace(message) == "" {
 		return "", ErrNoMessage
+	}
+	/* Nothing may go in that this folder does not show.
+	 *
+	 * git commit with no pathspec commits the whole index, and the window's
+	 * list is scoped to the opened folder with `-- .`. A subfolder open with
+	 * an agent staging work in a sibling folder would commit that work too,
+	 * under the user's message, with nothing on screen to show it. `commit
+	 * -- .` is not the fix: with a pathspec git takes the working-tree content
+	 * of those paths and ignores the index, so it would commit unstaged
+	 * changes and skip staged ones — the opposite of what plxr promises. So
+	 * the commit stays an index commit, and it is refused when the index holds
+	 * staged work this folder cannot see. At the repository root there is no
+	 * outside, so the ordinary case never meets this. */
+	if outside, err := stagedOutside(dir); err == nil && outside {
+		return "", ErrOutsideStaged
 	}
 	args := []string{"commit", "-m", message}
 	if amend {
@@ -572,6 +709,9 @@ var (
 	ErrNothing   = uierr.New("err.commit.nothing")
 	ErrNoIdent   = uierr.New("err.commit.noIdentity")
 	ErrHook      = uierr.New("err.commit.hookRefused")
+	// Something is staged outside the opened folder — a commit from here would
+	// have swept it in without the folder ever showing it.
+	ErrOutsideStaged = uierr.New("err.commit.outsideStaged")
 )
 
 // classify reads git's answer.

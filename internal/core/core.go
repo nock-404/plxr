@@ -1076,12 +1076,27 @@ func (c *Core) Difference(id, path string, staged bool) (git.Diff, error) {
 	if !git.IsRepo(root) {
 		return git.Diff{}, uierr.New("err.git.noRepo")
 	}
-	// The path comes from the caller, so it is held to the same leash as every
-	// other file operation: inside the folder, no walking out through a link.
-	if _, err := files.Resolve(root, path); err != nil {
+	/* Held to the same leash as every other file operation: inside the folder,
+	 * no walking out through a link. ResolveMaybeGone, not Resolve, because a
+	 * deleted file is exactly what a diff is often asked for — Resolve's
+	 * EvalSymlinks fails on a path that is no longer there, and the diff of a
+	 * deletion could not be opened at all. Containment is still checked, against
+	 * the nearest parent that does exist. */
+	if _, err := files.ResolveMaybeGone(root, path); err != nil {
 		return git.Diff{}, err
 	}
-	out, err := git.Difference(root, path, staged)
+	// If this path is a staged rename, git needs its old name too, or it shows
+	// the whole file as freshly added.
+	was := ""
+	if changes, err := git.Changes(root); err == nil {
+		for _, c := range changes {
+			if c.Path == path && c.Renamed != "" {
+				was = c.Renamed
+				break
+			}
+		}
+	}
+	out, err := git.DifferenceOf(root, path, was, staged)
 	if err != nil {
 		return git.Diff{}, uierr.With("err.git.failed", err.Error())
 	}

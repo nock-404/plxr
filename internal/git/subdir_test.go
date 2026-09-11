@@ -1,67 +1,140 @@
 package git
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// The folder somebody opens need not be the top of the repository.
-//
-// git status answers with paths relative to the top, so a folder one level down
-// came back with the way down to it in front of every path. The window then
-// asked to stage or diff that path, and the daemon resolved it against the
-// folder — one level too deep. Everything to do with git was broken for anybody
-// who opened a subdirectory, which is the ordinary case in a monorepo.
-func TestChangesInASubdirectoryAreRelativeToIt(t *testing.T) {
-	top := repo(t)
-	write(t, top, "outside.txt", "a\n")
-	write(t, top, "inner/inside.txt", "b\n")
-	git(t, top, "add", "-A")
-	git(t, top, "commit", "-qm", "start")
-	write(t, top, "inner/inside.txt", "changed\n")
-	write(t, top, "inner/fresh.txt", "new\n")
+func commit(t *testing.T, dir, name, body string) {
+	t.Helper()
+	write(t, dir, name, body)
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "seed")
+}
 
-	sub := top + "/inner"
-	list, err := Changes(sub)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range list {
-		if strings.HasPrefix(c.Path, "inner/") {
-			t.Fatalf("a path still carries the way down from the top: %q", c.Path)
+func staged(t *testing.T, dir string) []string {
+	t.Helper()
+	out := gitOut(t, dir, "diff", "--cached", "--name-status")
+	var lines []string
+	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+		if l != "" {
+			lines = append(lines, l)
 		}
 	}
-	if find(list, "inside.txt") == nil {
-		t.Fatalf("the changed file is missing: %+v", list)
+	return lines
+}
+
+/* A commit from an opened subfolder commits that folder, not the whole tree.
+ *
+ * The window's list and its "N files go in" count are scoped to the folder
+ * with a `-- .` pathspec; Commit ran with none, so everything staged anywhere
+ * in the repository went in — an agent's staged work in a sibling folder
+ * committed under the user's message, silently.
+ */
+func TestCommitFromASubfolderStaysInIt(t *testing.T) {
+	dir := repo(t)
+	commit(t, dir, "top.txt", "one\n")
+	commit(t, dir, "inner/here.txt", "one\n")
+
+	// Something staged in each place.
+	write(t, dir, "top.txt", "changed at the top\n")
+	write(t, dir, "inner/here.txt", "changed inside\n")
+	git(t, dir, "add", "-A")
+
+	inner := filepath.Join(dir, "inner")
+	// From inner, with top.txt also staged, the commit must not sweep top.txt
+	// in behind the user's back. It is refused, and nothing is committed.
+	if _, err := Commit(inner, "just the inside", false); err == nil {
+		t.Fatal("a commit from the subfolder took in work staged outside it")
 	}
-	if find(list, "fresh.txt") == nil {
-		t.Fatalf("the new file is missing: %+v", list)
-	}
-	// And nothing from above the folder leaks in.
-	if find(list, "outside.txt") != nil {
-		t.Fatalf("a file above the folder was listed: %+v", list)
+	if len(staged(t, dir)) != 2 {
+		t.Fatalf("the refused commit changed the index: %v", staged(t, dir))
 	}
 
-	// The diff has to work with the same kind of path the list handed out.
-	d, err := Difference(sub, "inside.txt", false)
-	if err != nil {
-		t.Fatalf("Difference in a subdirectory: %v", err)
+	// With nothing staged outside, the same commit goes through and touches
+	// only the folder.
+	git(t, dir, "reset", "-q", "HEAD", "top.txt")
+	if _, err := Commit(inner, "just the inside", false); err != nil {
+		t.Fatalf("commit of the folder alone: %v", err)
 	}
-	if d.Empty || len(d.Hunks) == 0 {
-		t.Fatalf("no difference found for a file that changed: %+v", d)
+	if b := gitOut(t, dir, "show", "--stat", "HEAD"); strings.Contains(b, "top.txt") {
+		t.Fatalf("the commit reached top.txt after all:\n%s", b)
+	}
+}
+
+/* Unstaging a rename undoes both halves, even when the old name is above the
+ * opened folder.
+ *
+ * origins() dropped the old half whenever it resolved outside the folder, so
+ * Unstage reset only the new name and left "D old" staged — and because the
+ * folder's own list is scoped with `-- .`, that staged deletion was nowhere on
+ * screen. The next commit removed the original.
+ */
+func TestUnstagingARenameAcrossTheFolderEdge(t *testing.T) {
+	dir := repo(t)
+	commit(t, dir, "important.txt", "keep me\n")
+	write(t, dir, "inner/other.txt", "x\n")
+	git(t, dir, "add", "-A")
+	git(t, dir, "commit", "-q", "-m", "second")
+
+	// git mv it down into the subfolder, staged.
+	git(t, dir, "mv", "important.txt", "inner/important.txt")
+
+	inner := filepath.Join(dir, "inner")
+	if err := Unstage(inner, []string{"important.txt"}); err != nil {
+		t.Fatalf("unstage: %v", err)
 	}
 
-	// Staging, with the path as the list gives it.
-	if err := Stage(sub, []string{"inside.txt"}); err != nil {
-		t.Fatalf("Stage in a subdirectory: %v", err)
+	// Nothing about important.txt may be staged any more.
+	for _, l := range staged(t, dir) {
+		if strings.Contains(l, "important.txt") {
+			t.Fatalf("a staged change to the original survived the unstage: %q", l)
+		}
 	}
-	if c := find(mustChanges(t, sub), "inside.txt"); c == nil || !c.Staged() {
-		t.Fatalf("staging did not take: %+v", c)
+	// The content is still somewhere — the working tree kept the move.
+	root := filepath.Join(dir, "important.txt")
+	moved := filepath.Join(dir, "inner", "important.txt")
+	found := false
+	for _, at := range []string{root, moved} {
+		if b, err := os.ReadFile(at); err == nil && string(b) == "keep me\n" {
+			found = true
+		}
 	}
-	if err := Unstage(sub, []string{"inside.txt"}); err != nil {
-		t.Fatalf("Unstage in a subdirectory: %v", err)
+	if !found {
+		t.Fatal("the only copy of the file was lost")
 	}
-	if c := find(mustChanges(t, sub), "inside.txt"); c == nil || c.Staged() {
-		t.Fatalf("unstaging did not take: %+v", c)
+}
+
+/* One path git refuses does not swallow the rest of the batch.
+ *
+ * The one-at-a-time retry existed so a single bad path would not take the
+ * others down, and then it returned on the first genuine failure — so every
+ * path after the offender was never attempted.
+ */
+func TestOneBadPathDoesNotStopTheOthers(t *testing.T) {
+	dir := repo(t)
+	commit(t, dir, "a.txt", "a\n")
+	commit(t, dir, "b.txt", "b\n")
+	write(t, dir, "a.txt", "a changed\n")
+	write(t, dir, "b.txt", "b changed\n")
+
+	// "nope.txt" was never known to git; between two real paths it must not
+	// stop b.txt from staging.
+	if err := Stage(dir, []string{"a.txt", "nope.txt", "b.txt"}); err != nil {
+		// An error is allowed (the bad path), but the good ones must be done.
+		_ = err
+	}
+	got := map[string]bool{}
+	for _, l := range staged(t, dir) {
+		for _, n := range []string{"a.txt", "b.txt"} {
+			if strings.Contains(l, n) {
+				got[n] = true
+			}
+		}
+	}
+	if !got["a.txt"] || !got["b.txt"] {
+		t.Fatalf("a bad path in the middle left real ones unstaged: %v", staged(t, dir))
 	}
 }

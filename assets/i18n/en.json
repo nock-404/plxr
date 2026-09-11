@@ -172,6 +172,7 @@
   "err.commit.noIdentity": "git does not know who you are. Set user.name and user.email.",
   "err.commit.noMessage": "A commit needs a message.",
   "err.commit.nothing": "Nothing is staged, so there is nothing to commit.",
+  "err.commit.outsideStaged": "Something is staged outside this folder. Open the repository root to commit everything, or unstage it first — a commit here would have taken it in without showing it.",
   "err.cwd.gone": "The working directory is gone: {detail}",
   "err.daemon.alreadyRunning": "Another plxr is already running here.",
   "err.daemonGone": "plxr is not answering — reconnecting.",
