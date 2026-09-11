@@ -168,12 +168,27 @@ export default function Terminal({
       if (!held) return;
       const style = getComputedStyle(document.documentElement);
       const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
-      held.term.options.fontFamily =
-        style.getPropertyValue("--term-font").trim() || "ui-monospace, Menlo, monospace";
+      const family = style.getPropertyValue("--term-font").trim() || "ui-monospace, Menlo, monospace";
+      held.term.options.fontFamily = family;
       held.term.options.fontSize = Math.round(
         parseFloat(style.getPropertyValue("--term-size") || "0.8125") * rootSize,
       );
       held.term.options.theme = colours();
+      /* A brought-in font is not on the machine until it has loaded, and xterm
+         measures the cell the moment it is told the family — so a fit done now
+         uses the fallback's width and every column is off until the next
+         change. So when the font is not ready yet, the fit is done again once
+         it is. */
+      if (typeof document !== "undefined" && document.fonts) {
+        const px = held.term.options.fontSize || 13;
+        document.fonts.load(`${px}px ${family}`).then(() => {
+          const still = canvas.current;
+          if (!still) return;
+          still.webgl?.clearTextureAtlas();
+          still.fit.fit();
+          still.term.refresh(0, still.term.rows - 1);
+        }).catch(() => undefined);
+      }
       // A different size means a different number of rows and columns.
       /* The GPU renderer keeps the glyphs it has already drawn in a texture,
          and it keeps them at the size and colour they were drawn at. Setting a

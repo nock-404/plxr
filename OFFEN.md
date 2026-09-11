@@ -91,13 +91,14 @@ Said on 11.09.2026, in this order of weight:
 - **Managing accounts.** There is `GET /api/accounts` and nothing else — no
   adding, naming or setting a default. Wanted properly: add, name, default,
   switch, and see which one a session is on.
-- **Fonts.** None can be brought in today. The plan: a `fonts/` folder next to
-  everything else plxr owns; a file dropped there — .ttf, .otf, .woff2 — is
-  served by the daemon under `/fonts/`, the window writes the `@font-face` for
-  it, and the settings offer it for the interface and, if it is monospace, for
-  the terminal. The terminal has to wait for `document.fonts.load` before it
-  measures, or every cell is the wrong width. No foreign server involved; a
-  download by URL into that folder is an explicit action, never automatic.
+- **Fonts — done 11.09.** A `.woff2`, `.otf` or `.ttf` imported in Settings →
+  LOOK → FONTS lands in a `fonts/` folder plxr owns, is served under
+  `/userfonts/`, gets its `@font-face` written by the window, and can be chosen
+  for the interface and the terminal. The terminal waits for
+  `document.fonts.load` before it re-fits, so no column is the wrong width.
+  Nothing is downloaded — the file the user picks is served from this machine.
+  Path traversal on the name is refused; the window gate imports one, declares
+  it, picks it and measures that `--font` changed.
 - **Audit findings, git and marks — done 11.09.** Commit from a subfolder no
   longer sweeps in work staged outside it (refused, with a message); unstaging
   a rename across the folder edge undoes both halves; the batch retry finishes

@@ -21,6 +21,7 @@ import (
 	"plxr/internal/core"
 	"plxr/internal/daemon"
 	"plxr/internal/find"
+	"plxr/internal/fonts"
 	"plxr/internal/notify"
 	"plxr/internal/queue"
 	"plxr/internal/shell"
@@ -93,6 +94,29 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/themes", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Themes()) })
 	mux.HandleFunc("POST /api/themes", s.importTheme)
+
+	// Fonts a person brings in themselves. Listed, imported, served and removed
+	// here; the window writes the @font-face and offers them.
+	mux.HandleFunc("GET /api/fonts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, fonts.List()) })
+	mux.HandleFunc("POST /api/fonts", s.importFont)
+	mux.HandleFunc("DELETE /api/fonts/{file}", func(w http.ResponseWriter, r *http.Request) {
+		if err := fonts.Delete(r.PathValue("file")); err != nil {
+			http.Error(w, uierr.With("err.font.notRemoved", err.Error()).Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	mux.HandleFunc("GET /userfonts/{file}", func(w http.ResponseWriter, r *http.Request) {
+		full := fonts.Path(r.PathValue("file"))
+		if full == "" {
+			http.NotFound(w, r)
+			return
+		}
+		// A brought-in font is not secret and does not change under the window,
+		// so it may be cached hard.
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		http.ServeFile(w, r, full)
+	})
 	mux.HandleFunc("DELETE /api/themes/{name}", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.ThemeDelete(r.PathValue("name")); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -881,6 +905,25 @@ func (s *Server) killPort(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) importFont(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, uierr.New("err.font.noName").Error(), http.StatusBadRequest)
+		return
+	}
+	raw, err := io.ReadAll(io.LimitReader(r.Body, fonts.MaxSize+1))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	f, err := fonts.Import(name, raw)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, f)
 }
 
 func (s *Server) importTheme(w http.ResponseWriter, r *http.Request) {

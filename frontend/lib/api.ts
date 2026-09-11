@@ -4,6 +4,7 @@ import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
   NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  UserFont,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -56,6 +57,17 @@ export const api = {
   themeImport: (text: string) => req<void>("/api/themes", { method: "POST", body: text }),
   themeDelete: (name: string) =>
     req<void>(`/api/themes/${encodeURIComponent(name)}`, { method: "DELETE" }),
+
+  // Fonts a person brings in — the ones not shipped with plxr.
+  fonts: () => req<UserFont[]>("/api/fonts"),
+  fontImport: (name: string, data: ArrayBuffer) =>
+    req<UserFont>(`/api/fonts?name=${encodeURIComponent(name)}`, {
+      method: "POST",
+      body: data,
+      headers: { "Content-Type": "application/octet-stream" },
+    }),
+  fontDelete: (file: string) =>
+    req<void>(`/api/fonts/${encodeURIComponent(file)}`, { method: "DELETE" }),
   updateApply: () => req<UpdateStatus>("/api/update", { method: "POST" }),
   updateProgress: () => req<UpdateStatus>("/api/update"),
   restart: () => req<void>("/api/restart", { method: "POST" }),

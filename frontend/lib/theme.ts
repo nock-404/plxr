@@ -52,6 +52,11 @@ export interface ThemeState {
   scan: number;
   size: number;
   termSize: number;
+  /* A brought-in font for the interface and one for the terminal, by family
+     name, or "" to keep the skin's own. Applied on top of every skin, so the
+     choice holds whichever skin is on. */
+  uiFont: string;
+  termFont: string;
   /* The CRT skin is one theme with a colour: hue drives the whole palette. */
   hue: number;
   brightness: number;
@@ -68,6 +73,7 @@ export const DEFAULTS: ThemeState = {
   settingsWidth: 26,
   filesWidth: 16.25,
   glow: 0.35, scan: 0.09, size: 0.9375, termSize: 0.8125,
+  uiFont: "", termFont: "",
   // Brightness is the value of the picked colour now, not a contrast target,
   // so 50 would be a genuinely dim screen. 74 is the tube as it looked before.
   hue: 140, brightness: 74, saturation: 100,
@@ -157,6 +163,39 @@ export function fitPalette(state: ThemeState): ThemeState {
   return { ...state, palette: (state.skin === "crt" ? "green" : own) ?? "custom" };
 }
 
+function applyFont(varName: string, family: string): void {
+  const root = document.documentElement;
+  if (family) {
+    // A quoted family name, then the skin's own stack behind it as a fallback
+    // in case the file has not loaded yet.
+    root.style.setProperty(varName, `"${family}", ui-monospace, Menlo, monospace`);
+  } else {
+    root.style.removeProperty(varName);
+  }
+}
+
+/* installUserFonts writes one @font-face per brought-in font into a style tag
+ * of its own, so the families chosen in the settings actually resolve. Called
+ * at startup and whenever a font is imported or removed. */
+export function installUserFonts(fonts: { family: string; file: string }[]): void {
+  if (typeof document === "undefined") return;
+  const id = "plxr-userfonts";
+  let tag = document.getElementById(id) as HTMLStyleElement | null;
+  if (!tag) {
+    tag = document.createElement("style");
+    tag.id = id;
+    document.head.appendChild(tag);
+  }
+  tag.textContent = fonts
+    .map(
+      (f) =>
+        `@font-face { font-family: "${f.family}"; font-display: swap; src: url("/userfonts/${encodeURIComponent(
+          f.file,
+        )}"); }`,
+    )
+    .join("\n");
+}
+
 export function apply(state: ThemeState): void {
   const root = document.documentElement;
   root.setAttribute("data-skin", state.skin);
@@ -184,6 +223,12 @@ export function apply(state: ThemeState): void {
   root.style.setProperty("--files-w", `${state.filesWidth}rem`);
   root.style.setProperty("--size", `${state.size}rem`);
   root.style.setProperty("--term-size", `${state.termSize}rem`);
+
+  /* A chosen font wins over the skin's, because an inline property beats a
+     stylesheet selector; cleared, the skin's own --font/--term-font shows
+     through again. */
+  applyFont("--font", state.uiFont);
+  applyFont("--term-font", state.termFont);
 
   // Clear first, so switching back to a palette that leaves a role unset really
   // falls back to the skin's own value instead of keeping the last one.

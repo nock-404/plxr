@@ -12,8 +12,8 @@ import StyleEditor from "@/components/StyleEditor";
 import { api } from "@/lib/api";
 import { askVersionNow, watchVersion } from "@/lib/version";
 import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
-import { DEFAULTS, apply, fitPalette, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
-import type { Theme, VersionInfo } from "@/lib/types";
+import { DEFAULTS, apply, fitPalette, installUserFonts, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
+import type { Theme, UserFont, VersionInfo } from "@/lib/types";
 
 type Tab = "look" | "colours" | "notify" | "agents" | "status";
 
@@ -37,6 +37,16 @@ const TABS: { id: Tab; label: () => string }[] = [
 ];
 
 // Everything adjustable about the look, plus what is actually running.
+// The font choices: the skin's own first, then the shipped monospace family,
+// then everything brought in.
+function fontOptions(fonts: UserFont[], defaultLabel: string) {
+  return [
+    { value: "", label: defaultLabel },
+    { value: "IBM Plex Mono", label: "IBM Plex Mono" },
+    ...fonts.map((f) => ({ value: f.family, label: f.family })),
+  ];
+}
+
 export default function Settings({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("look");
   // "en", to match what happens with no setting at all. Showing "System" here
@@ -78,6 +88,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     return `${name} — ${tr("settings.checkFailed", "could not reach the release page")}`;
   }
   const [themes, setThemes] = useState<Theme[]>([]);
+  const [fonts, setFonts] = useState<UserFont[]>([]);
   const [note, setNote] = useState("");
 
   useEffect(() => watchVersion(setVersion), []);
@@ -88,7 +99,31 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     // than showing whatever the last beat happened to find.
     askVersionNow();
     api.themes().then((t) => setThemes(t ?? [])).catch(() => setThemes([]));
+    reloadFonts();
   }, []);
+
+  // The brought-in fonts, and the @font-face for each so the choices resolve.
+  const reloadFonts = () =>
+    api
+      .fonts()
+      .then((f) => {
+        setFonts(f ?? []);
+        installUserFonts(f ?? []);
+      })
+      .catch(() => setFonts([]));
+
+  // A font file the person picked. Read as bytes and sent to the daemon, which
+  // stores it beside everything else plxr owns and serves it under /userfonts/.
+  async function importFont(file: File) {
+    setNote("");
+    try {
+      await api.fontImport(file.name, await file.arrayBuffer());
+      await reloadFonts();
+      setNote(tr("font.imported", "{name} imported", { name: file.name }));
+    } catch (e) {
+      setNote(errText(e));
+    }
+  }
 
   const reloadThemes = () =>
     api
@@ -261,6 +296,32 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                     {tr("common.delete", "DELETE")}
                   </Button>
                 ) : null}
+              </span>
+            </div>
+
+            <div className="field">
+              <span className="fieldName">{tr("settings.fonts", "fonts")}</span>
+              <span className="rowInline">
+                <Select
+                  value={state.uiFont}
+                  options={fontOptions(fonts, tr("settings.fontDefault", "skin default"))}
+                  onChange={(uiFont) => change({ uiFont })}
+                  title={tr("settings.uiFontTip", "The font of the interface")}
+                />
+                <Select
+                  value={state.termFont}
+                  options={fontOptions(fonts, tr("settings.fontDefault", "skin default"))}
+                  onChange={(termFont) => change({ termFont })}
+                  title={tr("settings.termFontTip", "The font of the terminal — pick a monospace one, or its columns will not line up")}
+                />
+                <FilePick
+                  accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf"
+                  label={tr("settings.import", "IMPORT")}
+                  onPick={importFont}
+                />
+              </span>
+              <span className="notice">
+                {tr("settings.fontsHint", "Bring in a .woff2, .otf or .ttf and choose it for the interface or the terminal. Nothing is downloaded — the file you pick is served from this machine.")}
               </span>
             </div>
 

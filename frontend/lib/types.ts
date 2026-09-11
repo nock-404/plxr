@@ -385,3 +385,9 @@ export interface RemoteCode {
   until: number;
   port: number;
 }
+
+/* A font a person brought into plxr, not one shipped with it. */
+export interface UserFont {
+  family: string;
+  file: string;
+}

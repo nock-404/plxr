@@ -652,6 +652,44 @@ claim("and it is where NEW starts", place.cwd.replace(/\/+$/, "") === taken, pla
 const known = await api("/api/workspaces");
 claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path === taken), `${(known ?? []).length} open`);
 
+// ---- a brought-in font is declared, offered and applied -------------------
+/* The one thing a check can prove about fonts without eyes: a font imported
+   through the API is declared as an @font-face, appears in the settings, and
+   choosing it sets --font. Nothing is downloaded; the file is served by the
+   daemon from this machine. */
+{
+  const bytes = readFileSync(join(HERE, "frontend", "public", "fonts", "caveat.woff2"));
+  const put = await fetch(`${base}/api/fonts?name=GateCaveat.woff2`, {
+    method: "POST",
+    headers: { "X-Plxr-Token": info.token, "Content-Type": "application/octet-stream" },
+    body: bytes,
+  });
+  claim("a font can be brought in", put.ok, `HTTP ${put.status}`);
+  const served = await fetch(`${base}/userfonts/GateCaveat.woff2`, { headers: { "X-Plxr-Token": info.token } });
+  claim("the brought-in font is served from this machine", served.ok, `HTTP ${served.status}`);
+
+  const font = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙|settings/i.test(b.textContent || b.title || ''));
+    if (gear) gear.click();
+    await w(1200);
+    const declared = (document.getElementById('plxr-userfonts')?.textContent || '').includes('GateCaveat');
+    const btn = [...document.querySelectorAll('.select .selectButton')].find(b => /skin default/i.test(b.textContent));
+    let picked = false;
+    if (btn) {
+      btn.click(); await w(400);
+      const row = [...document.querySelectorAll('.selectRow')].find(r => /GateCaveat/.test(r.textContent));
+      if (row) { row.click(); picked = true; await w(700); }
+    }
+    let loaded = false;
+    try { loaded = await document.fonts.load('16px GateCaveat').then(f => f.length > 0); } catch {}
+    return { declared, picked, loaded, font: getComputedStyle(document.documentElement).getPropertyValue('--font').trim() };
+  `);
+  claim("the font is declared and offered in the settings", font.declared && font.picked, JSON.stringify(font));
+  claim("choosing it sets the interface font and the font loads",
+    /GateCaveat/.test(font.font) && font.loaded, JSON.stringify(font));
+}
+
 cdp.close();
 
 // ---- the verdict ----------------------------------------------------------

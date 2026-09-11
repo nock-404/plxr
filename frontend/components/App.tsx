@@ -26,7 +26,7 @@ import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import Splitter from "@/components/ui/Splitter";
-import { adopt, apply, fitPalette, load, persistVia, rememberThemes, save, type ThemeState } from "@/lib/theme";
+import { adopt, apply, fitPalette, load, persistVia, rememberThemes, save, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
 
 // The control room. Title bar, status strip, rail, content — the arrangement
@@ -111,6 +111,10 @@ export default function App() {
     // a shipped one. Applied once they are in — until then the skin's own
     // defaults are already on screen.
     apply(load());
+    // The brought-in fonts have to be declared before a chosen one can render,
+    // so the @font-face are installed at startup, not only when the settings
+    // are opened.
+    api.fonts().then((f) => installUserFonts(f ?? [])).catch(() => undefined);
     persistVia(async (state) => {
       await api.setPrefs({ theme: state }).catch(() => undefined);
     });
