@@ -13,7 +13,6 @@ import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
-import Rail, { type View } from "@/components/Rail";
 import Dock, { type Focus } from "@/components/Dock";
 import { titleOf } from "@/lib/state";
 import Archive from "@/components/views/Archive";
@@ -35,8 +34,9 @@ import { useTiles } from "@/lib/useTiles";
 // stays the same in every skin; only the dressing changes.
 export default function App() {
   const { tiles, connected } = useTiles();
-  const [view, setView] = useState<View>("overview");
-  const [openId, setOpenId] = useState<string | null>(null);
+  // Navigation lives in the dock now — the rail is a panel like any other and
+  // drives it through the dock's own actions. App keeps only what opens a panel
+  // from outside the dock: a freshly created session.
   /* The place you are.
    *
    * It used to be a filter for the overview and nothing else: a folder chosen
@@ -225,7 +225,6 @@ export default function App() {
     return tiles.filter((t) => t.cwd.toLowerCase().includes(needle) || t.name.toLowerCase().includes(needle));
   }, [tiles, filter]);
 
-  const open = tiles.find((t) => t.id === openId) ?? null;
   // One reading for the counter, the brake, the room state and the inbox badge.
   const herd = herdOf(tiles);
   const room = roomOf(herd);
@@ -251,18 +250,12 @@ export default function App() {
 
   const [focus, setFocus] = useState<Focus>(null);
   const [resetNonce, setResetNonce] = useState(0);
+  // Opening a session from outside the dock — a new one just created — asks the
+  // dock to bring it up; inside the dock the rail and the tiles call the dock
+  // directly.
   function openSession(id: string) {
-    setOpenId(id);
-    setView("session");
     const t = tiles.find((x) => x.id === id);
     setFocus({ kind: "session", id, name: t ? titleOf(t) : id });
-  }
-  function goView(v: View) {
-    setView(v);
-    if (v !== "session") {
-      setOpenId(null);
-      setFocus({ kind: "view", view: v });
-    }
   }
 
   return (
@@ -367,15 +360,6 @@ export default function App() {
       </div>
 
       <div className="body">
-        <Rail
-          view={view}
-          tiles={shown}
-          openId={openId}
-          counts={{ inbox: needsAnswer, ports, archive }}
-          onView={goView}
-          onOpen={openSession}
-        />
-
         {/* The view's own bar, lifted out of the view.
             It used to sit inside, which put it beside the settings panel
             rather than above it: with the panel open the bar lost 280px, its
@@ -392,8 +376,8 @@ export default function App() {
             shown={shown}
             here={here}
             connected={connected}
+            counts={{ inbox: needsAnswer, ports, archive }}
             openSession={openSession}
-            toOverview={() => goView("overview")}
             onReplaced={openSession}
             focus={focus}
             resetNonce={resetNonce}

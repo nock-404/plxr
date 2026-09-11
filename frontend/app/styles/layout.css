@@ -177,7 +177,8 @@ body {
 
 .body { flex: 1; min-height: 0; display: flex; }
 
-.rail { flex: 0 0 auto; width: var(--rail-w); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+/* The rail is a dock panel now: it fills whatever width the panel has. */
+.rail { width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
 .railitem {
   display: flex; gap: 0.5rem; width: 100%; text-align: left; cursor: pointer;
   padding: 0 0.625rem; font: inherit; color: inherit; background: none; border: 0;
