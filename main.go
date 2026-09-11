@@ -88,8 +88,18 @@ func main() {
 	}
 
 	if *browser {
-		url := fmt.Sprintf("%s/?token=%s", info.URL(), info.Token)
-		fmt.Printf("\n  plxr is running. Daemon PID %d, port %d\n  %s\n\n", info.PID, info.Port, url)
+		/* A one-time code, not the token.
+		 *
+		 * The token is the whole of the daemon's security once it is reachable,
+		 * and putting it in the URL spilled it three ways: onto stdout and so
+		 * into shell scrollback, into the argv of open/xdg-open where any other
+		 * local user's `ps` can read it, and into the browser's own history and
+		 * session restore. A pairing code is single use and expires in minutes,
+		 * so a copy left in any of those is not a key. The first hit exchanges
+		 * it for the cookie and lands on a clean URL. */
+		code, _ := daemon.NewCode()
+		url := fmt.Sprintf("%s/join/%s", info.URL(), code)
+		fmt.Printf("\n  plxr is running. Daemon PID %d, port %d\n  Opening %s\n\n", info.PID, info.Port, info.URL())
 		openBrowser(url)
 		return
 	}

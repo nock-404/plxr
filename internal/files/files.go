@@ -31,8 +31,17 @@ var noise = map[string]bool{
 }
 
 type Entry struct {
-	Name  string `json:"name"`
-	Path  string `json:"path"` // absolute
+	Name string `json:"name"`
+	Path string `json:"path"` // absolute, resolved
+	/* Rel is the path relative to the opened folder — the one stable key.
+	 *
+	 * Path is absolute and resolved (/private/var/...), while the window holds
+	 * the folder as the user gave it (/var/...), so slicing one off the other
+	 * to get a relative key failed on any symlinked path and the git marks
+	 * simply did not appear. git Status is keyed relative to the same resolved
+	 * folder, so this matches it exactly, and it is what file operations send
+	 * back. */
+	Rel   string `json:"rel"`
 	Dir   bool   `json:"dir"`
 	Size  int64  `json:"size"`
 	Mod   int64  `json:"mod"`
@@ -85,6 +94,10 @@ func List(root, dir string) ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	realRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		realRoot = root
+	}
 	entries, err := os.ReadDir(real)
 	if err != nil {
 		return nil, err
@@ -97,10 +110,28 @@ func List(root, dir string) ([]Entry, error) {
 			continue
 		}
 		name := de.Name()
+		full := filepath.Join(real, name)
+		rel := name
+		if r, err := filepath.Rel(realRoot, full); err == nil {
+			rel = filepath.ToSlash(r)
+		}
+		/* A symlink to a folder is a folder here.
+		 *
+		 * de.IsDir() is false for a symlink whatever it points at, so a link to
+		 * a directory — node_modules/.bin, a deploy's current -> release —
+		 * showed as a file with no chevron and could not be opened. What it
+		 * points at is asked, once, without following further. */
+		isDir := de.IsDir()
+		if !isDir && de.Type()&os.ModeSymlink != 0 {
+			if ti, err := os.Stat(full); err == nil {
+				isDir = ti.IsDir()
+			}
+		}
 		e := Entry{
 			Name: name,
-			Path: filepath.Join(real, name),
-			Dir:  de.IsDir(),
+			Path: full,
+			Rel:  rel,
+			Dir:  isDir,
 			Mod:  info.ModTime().UnixMilli(),
 			// noise is known names plus everything starting with a dot.
 			Noise: noise[name] || (strings.HasPrefix(name, ".") && name != ".env.example"),

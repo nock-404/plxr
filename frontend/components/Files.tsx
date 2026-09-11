@@ -361,14 +361,14 @@ export default function Files({
 
       <div className="filetree" ref={tree} tabIndex={0} onKeyDown={onKey}>
         {visible.map(({ entry, depth }) => {
-          const mark = MARKS[git[relative(entry.path)] ?? ""] ?? "";
+          const mark = MARKS[git[entry.rel] ?? ""] ?? "";
           return (
             <div
               key={entry.path}
               className={`frow${entry.noise ? " noise" : ""}`}
               data-path={entry.path}
               data-at={entry.path === here ? "yes" : "no"}
-              data-git={git[relative(entry.path)] ?? ""}
+              data-git={git[entry.rel] ?? ""}
               style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
               onClick={() => toggle(entry)}
             >

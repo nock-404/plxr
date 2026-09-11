@@ -55,7 +55,14 @@ export default function Viewer({
         setText(b.text);
         setDirty(false);
       })
-      .catch((e) => setError(errText(e)));
+      .catch((e) => {
+        // Clear what was there: leaving the previous file's text on screen
+        // under the new name reads as "this is that file", which it is not.
+        setBody(null);
+        setText("");
+        setDirty(false);
+        setError(errText(e));
+      });
   }, [sessionId, shown]);
 
   async function save() {

@@ -175,3 +175,22 @@ func TestTheDoorOpensAndClosesWhileItRuns(t *testing.T) {
 		t.Fatal("the network still gets in after the door was closed")
 	}
 }
+
+// The --browser path must not put the token where other processes and the
+// browser history can keep it: it opens a one-time /join code instead. This
+// checks the shape the code relies on — a fresh code is single use.
+func TestBrowserUsesASingleUseCode(t *testing.T) {
+	t.Setenv("PLXR_HOME", t.TempDir())
+	code, until := NewCode()
+	if code == "" || !until.After(timeZero()) {
+		t.Fatalf("no usable code: %q", code)
+	}
+	if !TakeCode(code) {
+		t.Fatal("a fresh code was refused")
+	}
+	if TakeCode(code) {
+		t.Fatal("the code was accepted a second time — it is not single use")
+	}
+}
+
+func timeZero() time.Time { return time.Now().Add(-time.Second) }

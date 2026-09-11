@@ -133,6 +133,10 @@ export interface VersionInfo {
 export interface FileEntry {
   name: string;
   path: string;
+  /* Relative to the opened folder — the one key that matches the git marks and
+     that file operations send back. Path is absolute and resolved, which does
+     not line up with the folder as the window holds it. */
+  rel: string;
   dir: boolean;
   size: number;
   mod: number;

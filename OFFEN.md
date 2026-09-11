@@ -115,9 +115,15 @@ Said on 11.09.2026, in this order of weight:
   silence when another file is opened: the window asks first. And two files of
   the same name no longer share one editor and one undo history — the editor is
   keyed on the whole path now.
-- **Still open from the audit:** git marks not showing when the folder resolves
-  through a symlink or on Windows; the token on stdout/URL with --browser; a
-  handful of minor ones.
+- **More audit fixes — 11.09.** Git marks now show when the folder is reached
+  through a symlink (every entry carries a stable `rel` the marks are keyed by);
+  the `--browser` open uses a single-use code instead of putting the token on
+  stdout, in `ps`, and in browser history; a symlink to a directory is a
+  directory in the tree and opens; a failed file read clears the old text
+  instead of leaving it under the new name.
+- **Still open from the audit:** the Windows path form of the same git-mark
+  keying; a directory that cannot be read expanding to nothing without saying
+  why; RESTORE not refreshing the list it changed; a handful of minor ones.
 - **plxr as an MCP server.**
 
 ## Details behind the decisions
