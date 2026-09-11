@@ -531,8 +531,11 @@ body {
 
 /* The difference itself. A monospaced grid: two line numbers, the mark, the
    text — so the columns line up down the whole hunk. */
-/* The difference fills the wide area and scrolls in it. */
-.diffwrap { overflow: auto; padding: 0.5rem; }
+/* The difference fills the wide area and scrolls in it. It shares .viewerwrap,
+   which is a flex row for a single editor; a diff holds a stack of hunks, so
+   here the direction is a column and they read top to bottom. Without this the
+   hunks sit side by side and a second one overlaps the first. */
+.diffwrap { overflow: auto; padding: 0.5rem; flex-direction: column; align-items: flex-start; }
 .hunk { display: flex; flex-direction: column; min-width: 0; }
 .hunkhead { padding: 0.2rem 0; }
 .diffline { display: flex; gap: 0.35rem; min-width: 0; }
@@ -710,3 +713,10 @@ body {
 .paletteLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .paletteHint { flex: 0 0 auto; font-size: 0.85em; }
 .paletteEmpty { padding: 0.8rem; }
+
+/* The standalone git changes panel fills its dock panel. */
+.changesPanel { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
+
+/* A diff opens as its own dock panel; this is the positioned box its overlay
+   fills, so the diff stays inside this panel and not over the whole dock. */
+.diffPanel { position: relative; width: 100%; height: 100%; }

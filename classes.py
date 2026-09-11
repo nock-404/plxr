@@ -66,6 +66,10 @@ LAYOUT_ONLY = {
     "viewstrip",
     # The web preview: a toolbar row and the iframe box, arrangement only.
     "preview", "previewbar", "previewframe",
+    # The standalone changes panel: fills its dock panel, arrangement only.
+    "changesPanel",
+    # A diff in its own dock panel: the positioned box its overlay fills.
+    "diffPanel",
     # The context menu label cell: arrangement; the item and hint carry colour.
     "menuLabel",
     # The command palette: the scrolling list and the label cell are arrangement.

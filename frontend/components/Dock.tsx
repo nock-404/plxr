@@ -20,6 +20,8 @@ import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Rail, { type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
+import ChangesPanel from "@/components/ChangesPanel";
+import Difference from "@/components/Difference";
 import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
@@ -47,6 +49,7 @@ type DockData = {
   activeId: string;
   openSession: (id: string) => void;
   openPreview: (url: string, title: string) => void;
+  openDiff: (rootId: string, path: string, staged: boolean, title: string) => void;
   openPanel: (view: string) => void;
   onReplaced: (id: string) => void;
 };
@@ -128,6 +131,23 @@ function PreviewPanel(props: IDockviewPanelProps<{ url: string }>) {
   return <Preview url={props.params.url} />;
 }
 
+function ChangesDockPanel() {
+  const d = useDock();
+  return <ChangesPanel here={d.here} onDiff={d.openDiff} />;
+}
+
+function DiffPanel(props: IDockviewPanelProps<{ rootId: string; path: string; staged: boolean }>) {
+  const p = props.params;
+  // Difference is an overlay (position: absolute; inset: 0). On its own it fills
+  // the nearest positioned ancestor, which in a dock is not reliably this panel.
+  // This wrapper is that ancestor, so the diff fills exactly its panel.
+  return (
+    <div className="diffPanel">
+      <Difference rootId={p.rootId} path={p.path} staged={p.staged} onClose={() => props.api.close()} />
+    </div>
+  );
+}
+
 function RailPanel() {
   const d = useDock();
   // The active dock panel decides what the rail highlights: a view name, or a
@@ -150,6 +170,8 @@ const components = {
   rail: RailPanel,
   overview: OverviewPanel,
   preview: PreviewPanel,
+  changes: ChangesDockPanel,
+  diff: DiffPanel,
   inbox: InboxPanel,
   folders: FoldersPanel,
   ports: PortsPanel,
@@ -165,6 +187,7 @@ const VIEW_TITLES: Record<string, string> = {
   ports: "Ports",
   usage: "Usage",
   archive: "Archive",
+  changes: "Changes",
 };
 
 // A change from the rail: open or focus a view, or a session.
@@ -181,7 +204,7 @@ export default function Dock({
   focus,
   resetNonce,
   appCommands,
-}: Omit<DockData, "openPreview" | "openPanel" | "activeId"> & {
+}: Omit<DockData, "openPreview" | "openDiff" | "openPanel" | "activeId"> & {
   focus: Focus;
   resetNonce: number;
   appCommands: Command[];
@@ -208,6 +231,12 @@ export default function Dock({
     openOrFocus(dv, `preview:${url}`, "preview", title, { url });
   }, []);
 
+  const openDiff = useCallback((rootId: string, path: string, staged: boolean, title: string) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    openOrFocus(dv, `diff:${staged ? "s" : "u"}:${path}`, "diff", title, { rootId, path, staged });
+  }, []);
+
   const openPanel = useCallback((view: string) => {
     const dv = apiRef.current;
     if (!dv) return;
@@ -215,8 +244,8 @@ export default function Dock({
   }, []);
 
   const data = useMemo<DockData>(
-    () => ({ tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced }),
-    [tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced],
+    () => ({ tiles, shown, here, connected, counts, activeId, openSession, openPreview, openDiff, openPanel, onReplaced }),
+    [tiles, shown, here, connected, counts, activeId, openSession, openPreview, openDiff, openPanel, onReplaced],
   );
 
   const commands = useMemo<Command[]>(() => {

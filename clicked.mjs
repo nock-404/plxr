@@ -801,6 +801,51 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   }
 }
 
+// ---- the changes panel, and a diff opening beside it ----------------------
+/* Git source control as a panel: point the window at a repository, open
+   CHANGES, and a changed file opens its diff as its own dock panel — the point
+   of putting the changes beside the terminal instead of over it. The diff used
+   to lay its hunks out side by side, so a second hunk overlapped the first;
+   this holds that they stack. Skipped when the session is not in a repository
+   with something changed, the way the preview claim skips with no port. */
+{
+  const cwd = sessions[0]?.cwd || "";
+  const diff = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+    const field = document.querySelector('.filter input');
+    if (!field) return { noField: true };
+    set(field, ${JSON.stringify(cwd)});
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await w(1200);
+    const changes = [...document.querySelectorAll('.railitem')].find(e => /CHANGES/i.test(e.textContent || ''));
+    if (!changes) return { noRail: true };
+    changes.click();
+    await w(1500);
+    const rows = [...document.querySelectorAll('.changesPanel .changepath')];
+    if (rows.length === 0) return { nothingChanged: true };
+    const before = document.querySelectorAll('.dv-tab').length;
+    rows[0].click();
+    await w(1500);
+    const after = document.querySelectorAll('.dv-tab').length;
+    const hunks = [...document.querySelectorAll('.diffPanel .hunk')].map(h => { const b = h.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; });
+    // Stacked, not side by side: every hunk begins at or below the one before it.
+    let stacked = true;
+    for (let i = 1; i < hunks.length; i++) if (hunks[i].top < hunks[i - 1].bottom - 1) stacked = false;
+    return {
+      rows: rows.length,
+      openedPanel: after > before,
+      diffLines: document.querySelectorAll('.diffPanel .diffline').length,
+      hunks: hunks.length,
+      stacked,
+    };
+  `);
+  if (!diff.noField && !diff.noRail && !diff.nothingChanged) {
+    claim("a changed file opens as a diff panel", diff.openedPanel && diff.diffLines > 0, `${diff.rows} changed, ${diff.diffLines} diff lines`);
+    claim("a diff stacks its hunks, one above the next", diff.stacked, `${diff.hunks} hunks`);
+  }
+}
+
 // ---- the command palette reaches everything -------------------------------
 /* ⌘K opens a search over every command — views, sessions, the shell's own
    actions. Typing a view name narrows to it. */
