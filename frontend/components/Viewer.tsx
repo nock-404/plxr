@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Editor from "@/components/ui/Editor";
+import Ask from "@/components/ui/Ask";
 import { api } from "@/lib/api";
 import { tr, errText } from "@/lib/i18n";
 import type { FileBody } from "@/lib/types";
@@ -22,22 +23,40 @@ export default function Viewer({
   line?: number;
   onClose: () => void;
 }) {
+  /* The file this viewer actually has open, which is not always the one the
+   * parent last asked for. Clicking another file in the tree changes `path`,
+   * and if the open one has unsaved edits, switching straight to the new file
+   * threw them away without a word. So the load follows `shown`, not `path`,
+   * and a change of `path` while there are unsaved edits asks first. */
+  const [shown, setShown] = useState(path);
   const [body, setBody] = useState<FileBody | null>(null);
   const [text, setText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
+  // The file waiting behind an unsaved one, while the question stands.
+  const [pending, setPending] = useState<string | null>(null);
+
+  // The parent asked for a different file.
+  useEffect(() => {
+    if (path === shown) return;
+    if (dirty) {
+      setPending(path);
+    } else {
+      setShown(path);
+    }
+  }, [path, shown, dirty]);
 
   useEffect(() => {
     setError("");
     api
-      .readFile(sessionId, path)
+      .readFile(sessionId, shown)
       .then((b) => {
         setBody(b);
         setText(b.text);
         setDirty(false);
       })
       .catch((e) => setError(errText(e)));
-  }, [sessionId, path]);
+  }, [sessionId, shown]);
 
   async function save() {
     setError("");
@@ -46,7 +65,7 @@ export default function Viewer({
          the write when the file has changed on disk since — an agent working
          in the same tree is exactly the case this is for. The answer carries
          the new timestamp, so a second save is measured against the right one. */
-      const fresh = await api.writeFile(sessionId, path, text, body?.mod ?? 0);
+      const fresh = await api.writeFile(sessionId, shown, text, body?.mod ?? 0);
       setBody(fresh);
       setDirty(false);
     } catch (e) {
@@ -54,7 +73,7 @@ export default function Viewer({
     }
   }
 
-  const name = path.split("/").pop() ?? path;
+  const name = shown.split("/").pop() ?? shown;
 
   return (
     <div className="overlay viewer">
@@ -73,7 +92,7 @@ export default function Viewer({
         <span className="spacer" />
         {dirty ? <span className="dirty">{tr("viewer.dirty", "unsaved")}</span> : null}
         {dirty && !body?.truncated ? <Button onClick={save}>{tr("common.save", "SAVE")}</Button> : null}
-        <span className="notice">{tr("viewer.keys", "\u2318S save \u00b7 \u2318F find")}</span>
+        <span className="notice">{tr("viewer.keys", "⌘S save · ⌘F find")}</span>
         <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
       </div>
       <div className="viewerwrap">
@@ -84,6 +103,11 @@ export default function Viewer({
           </div>
         ) : (
           <Editor
+            /* One editor per file, by its whole path — not its name.
+               Keyed on the basename, two files called index.ts anywhere in the
+               tree shared one editor, and with it one undo history: an undo in
+               the second could reach back into edits made in the first. */
+            key={shown}
             value={text}
             filename={name}
             goToLine={line}
@@ -105,6 +129,25 @@ export default function Viewer({
           />
         )}
       </div>
+
+      {pending ? (
+        <Ask
+          title={tr("viewer.unsavedHead", "Unsaved changes")}
+          detail={tr(
+            "viewer.unsavedSwitch",
+            "{name} has changes you have not saved. Leave it and lose them?",
+            { name },
+          )}
+          confirmLabel={tr("viewer.discard", "Discard and switch")}
+          danger
+          onConfirm={() => {
+            setDirty(false);
+            setShown(pending);
+            setPending(null);
+          }}
+          onCancel={() => setPending(null)}
+        />
+      ) : null}
     </div>
   );
 }

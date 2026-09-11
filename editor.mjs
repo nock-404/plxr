@@ -69,6 +69,12 @@ const git = (...args) => {
 writeFileSync(join(work, "a.go"), "package main\n\nfunc main() {}\n");
 writeFileSync(join(work, "notes.md"), "a line to look for: FINDTHISWORD\nand another\n");
 writeFileSync(join(work, "inner", "deep.txt"), "nothing special\n");
+// Two files with the same name, in different folders — the editor must keep an
+// undo history apart for each, and not carry one file's edits into the other.
+mkdirSync(join(work, "one"), { recursive: true });
+mkdirSync(join(work, "two"), { recursive: true });
+writeFileSync(join(work, "one", "same.txt"), "ONE original\n");
+writeFileSync(join(work, "two", "same.txt"), "TWO original\n");
 // A branch name of the length people actually use, because a short one hides
 // a bar that cannot cope.
 const repo = git("init", "-q", "-b", "feature/mobile-ui", ".") && git("add", "-A") && git("commit", "-qm", "start");
@@ -352,6 +358,38 @@ if (!undone.err) {
 }
 claim("undo does not undo the arrival of the file",
   undone.after === undone.before && undone.dirty === false, JSON.stringify(undone));
+
+/* ---- unsaved edits are not thrown away in silence ------------------------ */
+/* Open a file, change it without saving, click another file. The window has to
+ * ask before it drops the change — it used to switch and lose it without a
+ * word. */
+const guarded = await run(`${HELPERS}
+  byText('.overlay button, .viewer button', /^BACK$/)?.click(); await wait(600);
+  byText('.folderbarLow button', /^FILES$/)?.click(); await wait(700);
+  const rowFor = (suffix) => [...document.querySelectorAll('.frow')].find(r => (r.dataset.path || '').endsWith(suffix));
+  const expand = (name) => { const f = [...document.querySelectorAll('.frow')].find(r => r.querySelector('.fname')?.textContent.trim() === name); if (f) f.click(); };
+  expand('one'); await wait(600);
+  const first = rowFor('one/same.txt');
+  if (!first) return { err: 'one/same.txt not in the tree', paths: [...document.querySelectorAll('.frow')].map(r=>r.dataset.path) };
+  first.click(); await wait(1800);
+  const cm = document.querySelector('.cm-content');
+  if (!cm) return { err: 'editor did not open' };
+  cm.focus();
+  const sel = window.getSelection(); const range = document.createRange();
+  range.selectNodeContents(cm); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
+  document.execCommand('insertText', false, 'UNSAVEDEDIT');
+  await wait(400);
+  const dirty = !!document.querySelector('.dirty');
+  // now click the other same-named file, still unsaved
+  expand('two'); await wait(600);
+  const other = rowFor('two/same.txt');
+  if (other) other.click();
+  await wait(1200);
+  const asked = !!byText('.overlay, .ask, [class*=ask], .dialog', /Discard|unsaved|Unsaved|verwerfen|Verwerfen|Ungespeicherte/);
+  return { dirty, asked, stillOne: (document.querySelector('.cm-content')?.innerText || '').includes('UNSAVEDEDIT') };
+`);
+claim("unsaved edits are not dropped in silence when another file is opened",
+  guarded.err ? false : (guarded.dirty === true && guarded.asked === true), JSON.stringify(guarded));
 
 // ---- the search finds a word and lands on its line -------------------------
 const found = await run(`${HELPERS}

@@ -111,10 +111,13 @@ Said on 11.09.2026, in this order of weight:
 - **The session bar is dynamic — done 11.09.** No more wrapping onto a second
   line: it measures what fits at the panel's real width and moves the rest
   under a single "\u22ef" menu. Survives any width the window manager hands it.
-- **Still open from the audit:** unsaved edits thrown away without a word when
-  another file is clicked; two files of the same name sharing one undo history;
-  git marks not showing when the folder resolves through a symlink or on
-  Windows; the token on stdout/URL with --browser; a handful of minor ones.
+- **Editor safety — done 11.09.** Unsaved edits are no longer dropped in
+  silence when another file is opened: the window asks first. And two files of
+  the same name no longer share one editor and one undo history — the editor is
+  keyed on the whole path now.
+- **Still open from the audit:** git marks not showing when the folder resolves
+  through a symlink or on Windows; the token on stdout/URL with --browser; a
+  handful of minor ones.
 - **plxr as an MCP server.**
 
 ## Details behind the decisions

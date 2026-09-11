@@ -366,6 +366,7 @@ export default function Files({
             <div
               key={entry.path}
               className={`frow${entry.noise ? " noise" : ""}`}
+              data-path={entry.path}
               data-at={entry.path === here ? "yes" : "no"}
               data-git={git[relative(entry.path)] ?? ""}
               style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
