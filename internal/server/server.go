@@ -160,38 +160,58 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/accounts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Accounts()) })
 	mux.HandleFunc("POST /api/accounts", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
+		var req struct {
 			Dir   string `json:"dir"`
 			Label string `json:"label"`
 		}
-		if json.NewDecoder(r.Body).Decode(&in) != nil {
-			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+		_ = json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req)
+		// A directory given means "take this one I already have" (option a);
+		// none means "make a fresh one to sign in to" (option b).
+		if strings.TrimSpace(req.Dir) != "" {
+			list, err := s.c.AddAccount(req.Dir, req.Label)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			writeJSON(w, list)
 			return
 		}
-		list, err := accounts.Add(in.Dir, in.Label)
+		acc, list, err := s.c.CreateAccount(req.Label)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		writeJSON(w, list)
+		writeJSON(w, map[string]any{"account": acc, "accounts": list})
 	})
 	mux.HandleFunc("PATCH /api/accounts/{name}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Label string `json:"label"`
+		var req struct {
+			Label   *string `json:"label"`
+			Default *bool   `json:"default"`
 		}
-		if json.NewDecoder(r.Body).Decode(&in) != nil {
+		if json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req) != nil {
 			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
 			return
 		}
-		list, err := accounts.Rename(r.PathValue("name"), in.Label)
+		name := r.PathValue("name")
+		var list []accounts.Account
+		var err error
+		if req.Label != nil {
+			list, err = s.c.RenameAccount(name, *req.Label)
+		}
+		if err == nil && req.Default != nil && *req.Default {
+			list, err = s.c.SetDefaultAccount(name)
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
+		}
+		if list == nil {
+			list = s.c.Accounts()
 		}
 		writeJSON(w, list)
 	})
 	mux.HandleFunc("DELETE /api/accounts/{name}", func(w http.ResponseWriter, r *http.Request) {
-		list, err := accounts.Remove(r.PathValue("name"))
+		list, err := s.c.RemoveAccount(r.PathValue("name"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

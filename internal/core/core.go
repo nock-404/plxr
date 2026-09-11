@@ -167,7 +167,13 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 		cmd = shell.Default()
 	}
 
-	acc, _ := accounts.ByName(c.Accounts(), account)
+	all := c.Accounts()
+	acc, ok := accounts.ByName(all, account)
+	if account == "" || !ok {
+		// Nothing chosen (or a name that no longer exists): the default one,
+		// which is the marked account or the first.
+		acc = accounts.Default(all)
+	}
 	id := newID()
 	h, err := ptyhost.Start(id, cwd, cmd, acc.Env())
 	if err != nil {
@@ -363,6 +369,31 @@ func (c *Core) TemplateDelete(name string) error { return template.Delete(daemon
 // ---- Accounts and archive ----
 
 func (c *Core) Accounts() []accounts.Account { return accounts.Discover() }
+
+// AddAccount takes an existing configuration directory into the list.
+func (c *Core) AddAccount(dir, label string) ([]accounts.Account, error) {
+	return accounts.Add(dir, label)
+}
+
+// CreateAccount makes a fresh account to log in to.
+func (c *Core) CreateAccount(label string) (accounts.Account, []accounts.Account, error) {
+	return accounts.Create(label)
+}
+
+// RenameAccount changes what an account is called on screen.
+func (c *Core) RenameAccount(name, label string) ([]accounts.Account, error) {
+	return accounts.Rename(name, label)
+}
+
+// SetDefaultAccount picks the account a new session starts under.
+func (c *Core) SetDefaultAccount(name string) ([]accounts.Account, error) {
+	return accounts.SetDefault(name)
+}
+
+// RemoveAccount takes an account out of the list; its directory stays.
+func (c *Core) RemoveAccount(name string) ([]accounts.Account, error) {
+	return accounts.Remove(name)
+}
 
 func (c *Core) Archive(pathFilter string) []archive.Entry {
 	return archive.List(c.Accounts(), pathFilter)

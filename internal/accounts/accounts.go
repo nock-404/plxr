@@ -32,6 +32,10 @@ type Account struct {
 	// three accounts all read "/Users/matthiasgiesse…" and tell nobody apart.
 	Short    string `json:"short"`
 	Sessions int    `json:"sessions"`
+	// Default marks the account a new session starts under when none is
+	// chosen. Exactly one is default; if the saved list names none, the first
+	// one stands in.
+	Default bool `json:"default,omitempty"`
 }
 
 // Env returns the environment variable that makes a process use this account.
@@ -161,6 +165,80 @@ func ByName(list []Account, name string) (Account, bool) {
  * holds every transcript that account ever made, and a list is not the place to
  * decide that they should go.
  */
+
+// Create makes a fresh account in the next free numbered directory — .claude if
+// it is somehow missing, otherwise .claude2, .claude3 and so on — and returns
+// it and the new list. This is "add an account and log in": the directory is
+// empty, so the first `claude` run in it asks to sign in.
+func Create(label string) (Account, []Account, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Account{}, nil, err
+	}
+	taken := map[string]bool{}
+	for _, a := range Discover() {
+		taken[a.Dir] = true
+	}
+	for number := 1; number <= 999; number++ {
+		name := ".claude"
+		if number > 1 {
+			name += strconv.Itoa(number)
+		}
+		dir := filepath.Join(home, name)
+		if taken[dir] {
+			continue
+		}
+		if _, err := os.Stat(dir); err == nil {
+			continue // a directory is there but not in the list; do not claim it
+		}
+		list, err := Add(dir, label)
+		if err != nil {
+			return Account{}, nil, err
+		}
+		for _, a := range list {
+			if a.Dir == dir {
+				return a, list, nil
+			}
+		}
+		return Account{}, list, nil
+	}
+	return Account{}, nil, uierr.New("err.account.noRoom")
+}
+
+// SetDefault makes one account the one a new session starts under. Saving the
+// list is what fixes it — the probe-discovered list has no default, so the
+// choice only sticks once there is a saved list, which Add and this both write.
+func SetDefault(name string) ([]Account, error) {
+	list := Discover()
+	found := false
+	for i := range list {
+		list[i].Default = list[i].Name == name
+		if list[i].Default {
+			found = true
+		}
+	}
+	if !found {
+		return nil, uierr.With("err.account.unknown", name)
+	}
+	if err := Save(list); err != nil {
+		return nil, err
+	}
+	return count(list), nil
+}
+
+// Default returns the account a new session should start under: the one marked,
+// or the first when none is.
+func Default(list []Account) Account {
+	for _, a := range list {
+		if a.Default {
+			return a
+		}
+	}
+	if len(list) > 0 {
+		return list[0]
+	}
+	return Account{}
+}
 
 // Add takes a directory into the list. The directory is made if it is not there
 // yet, along with the projects folder inside it, because a configuration

@@ -20,6 +20,7 @@ export default function Status() {
     { kind: "add" } | { kind: "rename" | "remove"; account: Account } | null
   >(null);
   const [problem, setProblem] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
   const [meter, setMeter] = useState(false);
 
   useEffect(() => {
@@ -34,6 +35,30 @@ export default function Status() {
       setAccounts(await what());
     } catch (e) {
       setProblem(errText(e));
+    }
+  }
+
+  // Option b: a fresh account, and a session started in it so its first claude
+  // run asks you to sign in. The directory is empty, which is exactly what
+  // makes claude prompt for a login.
+  async function signInNew() {
+    setProblem("");
+    setSigningIn(true);
+    try {
+      const { account, accounts: list } = await api.accountCreate("");
+      setAccounts(list);
+      await api
+        .create("", ["claude"], tr("accounts.loginName", "sign in: {name}", { name: account.name }), account.name)
+        .catch(() => undefined);
+      setProblem(
+        tr("accounts.added", "{name} added — a session was started in it. Close settings to sign in there.", {
+          name: account.name,
+        }),
+      );
+    } catch (e) {
+      setProblem(errText(e));
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -131,10 +156,23 @@ export default function Status() {
               <span className="accountName">
                 {a.label || tr("accounts.numbered", `account ${a.number}`, { n: a.number })}
               </span>
-              <span className="accountDir" title={a.dir}>{a.short || a.dir}</span>
               <span className="accountCount">
                 {a.sessions} {tr("accounts.sessions", "sessions")}
               </span>
+              <span className="accountDir" title={a.dir}>{a.short || a.dir}</span>
+              <span className="accountActions">
+              {a.default ? (
+                <span className="accountDefault">{tr("accounts.isDefault", "default")}</span>
+              ) : (
+                <Button
+                  tiny
+                  data-do="default-account"
+                  title={tr("accounts.makeDefaultTip", "New sessions start under this account unless another is chosen.")}
+                  onClick={() => void act(() => api.accountSetDefault(a.name))}
+                >
+                  {tr("accounts.makeDefault", "MAKE DEFAULT")}
+                </Button>
+              )}
               <Button
                 tiny
                 data-do="rename-account"
@@ -156,15 +194,22 @@ export default function Status() {
               >
                 {tr("common.remove", "REMOVE")}
               </Button>
+              </span>
             </div>
           ))}
         </div>
         <span className="rowInline">
+          <Button data-do="signin-account" busy={signingIn} onClick={signInNew}>
+            {tr("accounts.signIn", "+ SIGN IN NEW")}
+          </Button>
           <Button data-do="add-account" onClick={() => setAsking({ kind: "add" })}>
-            {tr("accounts.add", "+ ACCOUNT")}
+            {tr("accounts.add", "+ EXISTING")}
           </Button>
           <span className="notice">
-            {tr("accounts.addHint", "A second Claude Code configuration directory. It is made if it is not there yet.")}
+            {tr(
+              "accounts.addHint2",
+              "Sign in new makes a fresh account and starts a session in it to log in. Existing takes a config directory you already have.",
+            )}
           </span>
         </span>
         {problem ? <span className="notice warn">{problem}</span> : null}

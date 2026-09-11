@@ -283,10 +283,14 @@ body {
 }
 /* Rows named outright. Left to place itself, the full-width path took row two
    and pushed the count and the buttons down to a third. */
+.accountRow { grid-template-columns: 1fr auto; }
 .accountName { grid-row: 1; grid-column: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .accountCount { grid-row: 1; grid-column: 2; white-space: nowrap; }
-.accountRow button { grid-row: 1; }
 .accountDir { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The actions on their own row, wrapping — three buttons and a count do not
+   fit beside a name in a panel this narrow, and the name collapsed to "a…". */
+.accountActions { grid-row: 3; grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; }
+.accountDefault { white-space: nowrap; }
 
 .hitTitle { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hitMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.12rem; }

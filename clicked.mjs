@@ -690,6 +690,40 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     /GateCaveat/.test(font.font) && font.loaded, JSON.stringify(font));
 }
 
+// ---- accounts can be managed from the settings ----------------------------
+/* The STATUS tab lists the Claude accounts with the actions to name one, make
+   it the default, remove it, and add one — sign in a fresh account, or take an
+   existing directory. Read-only here: creating an account writes a real
+   .claude directory in the user's home, which a check must not do. The
+   create/default/rename/remove behaviour is proved in the accounts package. */
+{
+  const accts = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    // Open the settings only if they are not already open — the gear toggles.
+    if (!document.querySelector('.settingspanel')) {
+      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙|settings/i.test(b.textContent || b.title || ''));
+      if (gear) gear.click();
+      await w(1000);
+    }
+    const status = [...document.querySelectorAll('.tab')].find(b => /status/i.test(b.textContent));
+    if (status) status.click();
+    await w(1200);
+    const rows = [...document.querySelectorAll('.accountRow')];
+    const actions = rows[0] ? [...rows[0].querySelectorAll('button')].map(b => b.textContent.trim()) : [];
+    return {
+      rows: rows.length,
+      actions,
+      signIn: !!document.querySelector('[data-do="signin-account"]'),
+      addExisting: !!document.querySelector('[data-do="add-account"]'),
+    };
+  `);
+  claim("the settings list the accounts", accts.rows > 0, `${accts.rows} rows`);
+  claim("each account can be named, defaulted and removed",
+    accts.actions.length >= 3, accts.actions.join(", "));
+  claim("a new account can be signed in or an existing one added",
+    accts.signIn && accts.addExisting, JSON.stringify({ signIn: accts.signIn, addExisting: accts.addExisting }));
+}
+
 cdp.close();
 
 // ---- the verdict ----------------------------------------------------------

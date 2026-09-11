@@ -105,6 +105,8 @@ export interface Account {
      end tells them apart from nothing. */
   short: string;
   sessions: number;
+  /* The account a new session starts under when none is chosen. */
+  default?: boolean;
 }
 
 /* How far along an update is.

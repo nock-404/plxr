@@ -87,13 +87,13 @@ usage on the second screen. The one open question for you: does the rail
 (OVERVIEW/FOLDERS/PORTS/…) stay as it is with the dock inside the session area,
 or does the whole thing become one dock?
 
-**Account management — needs one decision from you.** GET /api/accounts lists
-them today; nothing adds, names, or sets a default. The question is what "add
-an account" does: (a) point plxr at an existing CLAUDE_CONFIG_DIR you already
-have, or (b) create a fresh one and run `claude` in it once to log in. My
-advice is (a) first — name and set-default over the dirs that exist — and (b)
-as a second step. Once you say which, this is a settings panel plus four small
-routes.
+**Account management — done 11.09 (both a and b).** Settings → STATUS →
+ACCOUNTS: each account can be named, made the default (new sessions start under
+it), and removed (its directory stays). Two ways to add: "+ SIGN IN NEW" makes
+a fresh numbered config directory and starts a session in it to log in
+(option b), and "+ EXISTING" takes a directory you already have (option a).
+Proved in the accounts package (create/default/rename/remove) and the window
+gate (the section and its actions render).
 
 
 

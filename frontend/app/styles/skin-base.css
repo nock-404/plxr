@@ -600,6 +600,8 @@
    somebody came here to look at, so it is dressed like the path, not like
    furniture. */
 .accountCount { color: var(--dim); font-size: .8em; }
+/* The account a new session starts under — named in the accent, not dimmed. */
+.accountDefault { color: var(--accent); font-size: .8em; }
 
 /* Choosing a folder. The trail reads as the quiet part, the folders as the
    part you act on, and the one you are standing in is the accent. */
