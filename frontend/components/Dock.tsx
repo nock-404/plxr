@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   DockviewReact,
   type DockviewApi,
@@ -18,6 +18,7 @@ import Ports from "@/components/views/Ports";
 import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
+import Rail, { type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
@@ -41,9 +42,11 @@ type DockData = {
   shown: Tile[];
   here: string;
   connected: boolean;
+  counts: { inbox: number; ports: number; archive: number };
+  activeId: string;
   openSession: (id: string) => void;
   openPreview: (url: string, title: string) => void;
-  toOverview: () => void;
+  openPanel: (view: string) => void;
   onReplaced: (id: string) => void;
 };
 
@@ -124,7 +127,26 @@ function PreviewPanel(props: IDockviewPanelProps<{ url: string }>) {
   return <Preview url={props.params.url} />;
 }
 
+function RailPanel() {
+  const d = useDock();
+  // The active dock panel decides what the rail highlights: a view name, or a
+  // session when a "session:" panel is active.
+  const activeView = (d.activeId.startsWith("session:") ? "session" : d.activeId) as View;
+  const activeSession = d.activeId.startsWith("session:") ? d.activeId.slice("session:".length) : null;
+  return (
+    <Rail
+      view={activeView}
+      tiles={d.tiles}
+      openId={activeSession}
+      counts={d.counts}
+      onView={(v) => d.openPanel(v)}
+      onOpen={d.openSession}
+    />
+  );
+}
+
 const components = {
+  rail: RailPanel,
   overview: OverviewPanel,
   preview: PreviewPanel,
   inbox: InboxPanel,
@@ -152,14 +174,15 @@ export default function Dock({
   shown,
   here,
   connected,
+  counts,
   openSession,
-  toOverview,
   onReplaced,
   focus,
   resetNonce,
-}: Omit<DockData, "openPreview"> & { focus: Focus; resetNonce: number }) {
+}: Omit<DockData, "openPreview" | "openPanel" | "activeId"> & { focus: Focus; resetNonce: number }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const restored = useRef(false);
+  const [activeId, setActiveId] = useState("overview");
 
   const openPreview = useCallback((url: string, title: string) => {
     const dv = apiRef.current;
@@ -167,9 +190,15 @@ export default function Dock({
     openOrFocus(dv, `preview:${url}`, "preview", title, { url });
   }, []);
 
+  const openPanel = useCallback((view: string) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    openOrFocus(dv, view, view, VIEW_TITLES[view] ?? view, {});
+  }, []);
+
   const data = useMemo<DockData>(
-    () => ({ tiles, shown, here, connected, openSession, openPreview, toOverview, onReplaced }),
-    [tiles, shown, here, connected, openSession, openPreview, toOverview, onReplaced],
+    () => ({ tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced }),
+    [tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced],
   );
 
   // Back to the default arrangement, on request. The saved layout is dropped
@@ -199,6 +228,7 @@ export default function Dock({
 
   function onReady(event: DockviewReadyEvent) {
     apiRef.current = event.api;
+    event.api.onDidActivePanelChange((e) => setActiveId(e.panel?.id ?? ""));
     // Bring back the arrangement from last time; if there is none, or it does
     // not load, open the overview so the window is never blank.
     api
@@ -251,7 +281,17 @@ export default function Dock({
 // Overview alone for now — a clean slate the user builds on and can always
 // return to.
 function defaultLayout(dv: DockviewApi) {
-  openOrFocus(dv, "overview", "overview", VIEW_TITLES.overview, {});
+  // The rail on the left, a panel like any other, and the overview beside it.
+  dv.addPanel({ id: "rail", component: "rail", title: "plxr" });
+  dv.addPanel({
+    id: "overview",
+    component: "overview",
+    title: VIEW_TITLES.overview,
+    position: { referencePanel: "rail", direction: "right" },
+  });
+  // A narrow rail; the rest is the overview's.
+  const rail = dv.getPanel("rail");
+  if (rail) rail.api.setSize({ width: 210 });
 }
 
 // openOrFocus makes the panel if it is not there and brings it to the front.
