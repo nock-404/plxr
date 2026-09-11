@@ -250,6 +250,7 @@ export default function App() {
   }, [tiles]);
 
   const [focus, setFocus] = useState<Focus>(null);
+  const [resetNonce, setResetNonce] = useState(0);
   function openSession(id: string) {
     setOpenId(id);
     setView("session");
@@ -321,6 +322,13 @@ export default function App() {
               {herd.halted ? tr("header.brakeRelease", "RESUME ALL") : tr("header.brake", "PAUSE ALL")}
             </Button>
           ) : null}
+          <Button
+            icon
+            title={tr("header.resetLayout", "Reset the panel layout to the default")}
+            onClick={() => setResetNonce((n) => n + 1)}
+          >
+            ⟲
+          </Button>
           <Button icon title={tr("keys.tip", "Keyboard shortcuts")} onClick={() => setKeys(true)}>?</Button>
           {/* The same button both ways. It only ever set the panel open, so the
               way back out was the DONE button at the bottom of a panel long
@@ -383,10 +391,12 @@ export default function App() {
             tiles={tiles}
             shown={shown}
             here={here}
+            connected={connected}
             openSession={openSession}
             toOverview={() => goView("overview")}
             onReplaced={openSession}
             focus={focus}
+            resetNonce={resetNonce}
           />
         </main>
 

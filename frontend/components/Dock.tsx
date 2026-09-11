@@ -18,6 +18,8 @@ import Ports from "@/components/views/Ports";
 import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
+import Button from "@/components/ui/Button";
+import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { Tile } from "@/lib/types";
 
@@ -37,6 +39,7 @@ type DockData = {
   tiles: Tile[];
   shown: Tile[];
   here: string;
+  connected: boolean;
   openSession: (id: string) => void;
   toOverview: () => void;
   onReplaced: (id: string) => void;
@@ -76,21 +79,41 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
   const d = useDock();
   const id = props.params.id;
   const tile = d.tiles.find((t) => t.id === id);
-  if (!tile) {
-    // The session ended or was cleared away: close this panel.
-    props.api.close();
-    return null;
+  if (tile) {
+    return (
+      <Session
+        tile={tile}
+        others={d.tiles.filter((t) => t.id !== id)}
+        onBack={() => props.api.close()}
+        onReplaced={(nextId) => {
+          props.api.close();
+          d.onReplaced(nextId);
+        }}
+      />
+    );
   }
+  /* No tile — but a panel must never close itself on that alone.
+   *
+   * On a restore the layout comes back before the tiles have loaded, so the
+   * session is missing for a moment; a panel that closed then would delete
+   * itself from the saved layout and never come back. So while the tiles are
+   * still on their way this waits, and only once they are in and the session
+   * is genuinely not among them does it offer to close — the session ended, or
+   * the daemon was restarted and this id is from before. */
   return (
-    <Session
-      tile={tile}
-      others={d.tiles.filter((t) => t.id !== id)}
-      onBack={() => props.api.close()}
-      onReplaced={(nextId) => {
-        props.api.close();
-        d.onReplaced(nextId);
-      }}
-    />
+    <div className="emptyNote">
+      {!d.connected ? (
+        <b>{tr("dock.sessionLoading", "opening…")}</b>
+      ) : (
+        <>
+          <b>{tr("dock.sessionGone", "this session is not running")}</b>
+          {tr("dock.sessionGoneHint", "It ended, or plxr was restarted since. Close this panel.")}
+          <span className="rowInline">
+            <Button onClick={() => props.api.close()}>{tr("common.close", "CLOSE")}</Button>
+          </span>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -120,18 +143,34 @@ export default function Dock({
   tiles,
   shown,
   here,
+  connected,
   openSession,
   toOverview,
   onReplaced,
   focus,
-}: DockData & { focus: Focus }) {
+  resetNonce,
+}: DockData & { focus: Focus; resetNonce: number }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const restored = useRef(false);
 
   const data = useMemo<DockData>(
-    () => ({ tiles, shown, here, openSession, toOverview, onReplaced }),
-    [tiles, shown, here, openSession, toOverview, onReplaced],
+    () => ({ tiles, shown, here, connected, openSession, toOverview, onReplaced }),
+    [tiles, shown, here, connected, openSession, toOverview, onReplaced],
   );
+
+  // Back to the default arrangement, on request. The saved layout is dropped
+  // and the default rebuilt, which then saves itself again.
+  const firstReset = useRef(true);
+  useEffect(() => {
+    if (firstReset.current) {
+      firstReset.current = false;
+      return; // the initial render is not a reset
+    }
+    const dv = apiRef.current;
+    if (!dv) return;
+    dv.clear();
+    defaultLayout(dv);
+  }, [resetNonce]);
 
   // Open or focus whatever the rail asked for.
   useEffect(() => {
@@ -161,12 +200,12 @@ export default function Dock({
           }
         }
         if (event.api.panels.length === 0) {
-          openOrFocus(event.api, "overview", "overview", VIEW_TITLES.overview, {});
+          defaultLayout(event.api);
         }
       })
       .catch(() => {
         if (event.api.panels.length === 0) {
-          openOrFocus(event.api, "overview", "overview", VIEW_TITLES.overview, {});
+          defaultLayout(event.api);
         }
       });
 
@@ -192,6 +231,13 @@ export default function Dock({
       </InlineStrip.Provider>
     </Ctx.Provider>
   );
+}
+
+// defaultLayout is the arrangement a fresh window, or a reset, starts from.
+// Overview alone for now — a clean slate the user builds on and can always
+// return to.
+function defaultLayout(dv: DockviewApi) {
+  openOrFocus(dv, "overview", "overview", VIEW_TITLES.overview, {});
 }
 
 // openOrFocus makes the panel if it is not there and brings it to the front.

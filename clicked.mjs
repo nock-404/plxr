@@ -490,7 +490,8 @@ const settings = await run(`
   document.querySelectorAll('.railhome')[0].click();
   await wait(400);
   const before = document.documentElement.getAttribute('data-skin');
-  document.querySelectorAll('.btn.icon')[1].click();
+  // The gear, by its glyph — not by index: buttons come and go in that row.
+  [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || b.title || '')).click();
   await wait(500);
   const opened = !!document.querySelector('.settingspanel');
   // The point of docking it: the window it changes stays on screen beside it.
@@ -722,6 +723,36 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     accts.actions.length >= 3, accts.actions.join(", "));
   claim("a new account can be signed in or an existing one added",
     accts.signIn && accts.addExisting, JSON.stringify({ signIn: accts.signIn, addExisting: accts.addExisting }));
+}
+
+// ---- the dock: many panels at once, saved, and resettable ------------------
+/* The content is a dock now: every view and session is a panel you can split,
+   tab and float, the arrangement is saved, and a reset returns it to the
+   default. */
+{
+  const dock = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    const R = [...document.querySelectorAll('.railitem')];
+    const c = re => { const it = R.find(e => re.test(e.textContent || '')); if (it) it.click(); };
+    // Close the settings if they are covering the rail.
+    if (document.querySelector('.settingspanel')) {
+      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || b.title || ''));
+      if (gear) gear.click();
+      await w(400);
+    }
+    c(/USAGE/i); await w(500);
+    c(/PORTS/i); await w(500);
+    const many = [...document.querySelectorAll('.dv-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).filter(Boolean);
+    const reset = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⟲/.test(b.textContent || ''));
+    if (reset) reset.click();
+    await w(700);
+    const afterReset = [...document.querySelectorAll('.dv-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).filter(Boolean);
+    return { many, afterReset };
+  `);
+  const saved = await api("/api/prefs").then((p) => Boolean(p && p.dock)).catch(() => false);
+  claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
+  claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
+  claim("a reset returns the dock to the default", dock.afterReset.length === 1, dock.afterReset.join(", "));
 }
 
 cdp.close();
