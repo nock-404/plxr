@@ -49,51 +49,45 @@ func (a Account) ProjectsDir() string { return filepath.Join(a.Dir, "projects") 
 
 func configPath() string { return filepath.Join(daemon.Root(), "accounts.json") }
 
-// Discover finds accounts: our own list first, otherwise ~/.claude and the
-// numbered siblings beside it.
+// probeUpTo is how far the numbered siblings are looked for when there is no
+// saved list — .claude, .claude2 … .claude(probeUpTo). Somebody with more
+// accounts than this can add them by hand, which writes the list and stops the
+// probing entirely.
+const probeUpTo = 24
+
+// Discover finds accounts: our own saved list first, otherwise ~/.claude and
+// the numbered siblings beside it.
+//
+// The known names are stat'd one by one, never by listing the home directory.
+// Reading the whole of ~ is what macOS 15 flags as "wants to access data from
+// other apps", and the daemon did it on the first overview after every start —
+// a permission prompt at each launch, for a listing plxr never needed: it
+// already knows the only names an account can have.
 func Discover() []Account {
 	if list, err := load(); err == nil && len(list) > 0 {
 		return count(list)
 	}
 
 	home, _ := os.UserHomeDir()
-	entries, _ := os.ReadDir(home)
+	if home == "" {
+		return count(nil)
+	}
 	var out []Account
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
+	for number := 1; number <= probeUpTo; number++ {
+		name := ".claude"
+		if number > 1 {
+			name += strconv.Itoa(number)
 		}
-		n := e.Name()
-		// ".claude", ".claude2", ".claude3" — but nothing with a hyphen, which is
-		// how other tools name their helper directories.
-		if !strings.HasPrefix(n, ".claude") || strings.Contains(n, "-") {
-			continue
-		}
-		rest := strings.TrimPrefix(n, ".claude")
-		if rest != "" && !isNumber(rest) {
-			continue
-		}
-		dir := filepath.Join(home, n)
+		dir := filepath.Join(home, name)
+		// A real account has a projects directory; a bare .claude that some
+		// other tool left behind does not.
 		if _, err := os.Stat(filepath.Join(dir, "projects")); err != nil {
 			continue
 		}
-		number := 1
-		if rest != "" {
-			number, _ = strconv.Atoi(rest)
-		}
-		out = append(out, Account{Name: n[1:], Number: number, Dir: dir})
+		out = append(out, Account{Name: name[1:], Number: number, Dir: dir})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Dir < out[j].Dir })
 	return count(out)
-}
-
-func isNumber(s string) bool {
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return len(s) > 0
 }
 
 // count counts the transcripts per account — only the top-level ones, not those
