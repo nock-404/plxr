@@ -767,3 +767,12 @@
 .menuItem:disabled { color: var(--dim); cursor: default; }
 .menuHint { color: var(--dim); }
 .menuSep { border-top: var(--hair) solid var(--line); }
+
+/* The palette on the panel surface, the picked row in the accent. */
+.paletteScrim { background: rgba(0,0,0,0.45); }
+.palette { background: var(--panel); border: var(--hair) solid var(--line); box-shadow: 0 1rem 3rem var(--shadow, rgba(0,0,0,0.5)); }
+.paletteRow { color: var(--fg); }
+.paletteRow.on, .paletteRow:hover { background: var(--line); color: var(--accent); }
+.paletteGroup { color: var(--dim); }
+.paletteHint { color: var(--dim); }
+.paletteEmpty { color: var(--dim); }

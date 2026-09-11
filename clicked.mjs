@@ -801,6 +801,30 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   }
 }
 
+// ---- the command palette reaches everything -------------------------------
+/* ⌘K opens a search over every command — views, sessions, the shell's own
+   actions. Typing a view name narrows to it. */
+{
+  const pal = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
+    await w(400);
+    const open = !!document.querySelector('.palette');
+    const total = document.querySelectorAll('.paletteRow').length;
+    const inp = document.querySelector('.palette input');
+    let narrowed = [];
+    if (inp) {
+      const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
+      set(inp, 'usage'); await w(300);
+      narrowed = [...document.querySelectorAll('.paletteRow .paletteLabel')].map(l => l.textContent.trim());
+    }
+    document.querySelector('.paletteScrim')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    return { open, total, narrowed };
+  `);
+  claim("the command palette opens on the keyboard and lists commands", pal.open && pal.total >= 5, `${pal.total} commands`);
+  claim("typing narrows the palette", pal.narrowed.length > 0 && pal.narrowed.every(l => /usage/i.test(l)), pal.narrowed.join(", "));
+}
+
 cdp.close();
 
 // ---- the verdict ----------------------------------------------------------

@@ -68,6 +68,8 @@ LAYOUT_ONLY = {
     "preview", "previewbar", "previewframe",
     # The context menu label cell: arrangement; the item and hint carry colour.
     "menuLabel",
+    # The command palette: the scrolling list and the label cell are arrangement.
+    "paletteList", "paletteLabel",
     # The CRT screen furniture, drawn from tokens rather than dressed.
     "crest", "cursor", "hint", "line", "progress", "screenbar", "term", "title",
     # xterm and CodeMirror bring their own stylesheets; a skin colours them

@@ -14,6 +14,7 @@ import UpdateBar from "@/components/UpdateBar";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
 import Dock, { type Focus } from "@/components/Dock";
+import { type Command } from "@/components/CommandPalette";
 import { titleOf } from "@/lib/state";
 import Archive from "@/components/views/Archive";
 import Inbox from "@/components/views/Inbox";
@@ -250,6 +251,24 @@ export default function App() {
 
   const [focus, setFocus] = useState<Focus>(null);
   const [resetNonce, setResetNonce] = useState(0);
+
+  // The actions that belong to the shell, not to any panel — offered in the
+  // command palette (⌘K) alongside the views and sessions.
+  const appCommands = useMemo<Command[]>(
+    () => [
+      { id: "cmd:new", group: tr("palette.action", "Action"), label: tr("palette.newSession", "New session"), run: () => setCreating(true) },
+      { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: () => setSettings(true) },
+      { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
+      { id: "cmd:reset", group: tr("palette.action", "Action"), label: tr("palette.resetLayout", "Reset the panel layout"), run: () => setResetNonce((n) => n + 1) },
+      {
+        id: "cmd:pauseall",
+        group: tr("palette.action", "Action"),
+        label: herd.halted ? tr("header.brakeRelease", "RESUME ALL") : tr("header.brake", "PAUSE ALL"),
+        run: () => void (herd.halted ? api.releaseBrake() : api.emergencyBrake()).catch(() => undefined),
+      },
+    ],
+    [herd.halted],
+  );
   // Opening a session from outside the dock — a new one just created — asks the
   // dock to bring it up; inside the dock the rail and the tiles call the dock
   // directly.
@@ -381,6 +400,7 @@ export default function App() {
             onReplaced={openSession}
             focus={focus}
             resetNonce={resetNonce}
+            appCommands={appCommands}
           />
         </main>
 

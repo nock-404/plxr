@@ -20,6 +20,7 @@ import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Rail, { type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
+import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -179,10 +180,27 @@ export default function Dock({
   onReplaced,
   focus,
   resetNonce,
-}: Omit<DockData, "openPreview" | "openPanel" | "activeId"> & { focus: Focus; resetNonce: number }) {
+  appCommands,
+}: Omit<DockData, "openPreview" | "openPanel" | "activeId"> & {
+  focus: Focus;
+  resetNonce: number;
+  appCommands: Command[];
+}) {
   const apiRef = useRef<DockviewApi | null>(null);
   const restored = useRef(false);
   const [activeId, setActiveId] = useState("overview");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, []);
 
   const openPreview = useCallback((url: string, title: string) => {
     const dv = apiRef.current;
@@ -200,6 +218,37 @@ export default function Dock({
     () => ({ tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced }),
     [tiles, shown, here, connected, counts, activeId, openSession, openPreview, openPanel, onReplaced],
   );
+
+  const commands = useMemo<Command[]>(() => {
+    const views: Command[] = Object.entries(VIEW_TITLES).map(([id, title]) => ({
+      id: `view:${id}`,
+      group: tr("palette.view", "View"),
+      label: tr("palette.openThing", "Open {name}", { name: title }),
+      run: () => openPanel(id),
+    }));
+    const sessions: Command[] = tiles.flatMap((t) => {
+      const name = t.name || t.id;
+      const rows: Command[] = [
+        { id: `open:${t.id}`, group: tr("palette.session", "Session"), label: tr("palette.openThing", "Open {name}", { name }), run: () => openSession(t.id) },
+      ];
+      if (t.alive) {
+        rows.push({
+          id: `pause:${t.id}`,
+          group: tr("palette.session", "Session"),
+          label: (t.frozen ? tr("palette.resume", "Resume {name}", { name }) : tr("palette.pause", "Pause {name}", { name })),
+          run: () => void (t.frozen ? api.unfreeze(t.id) : api.freeze(t.id)).catch(() => undefined),
+        });
+        rows.push({
+          id: `kill:${t.id}`,
+          group: tr("palette.session", "Session"),
+          label: tr("palette.terminate", "Terminate {name}", { name }),
+          run: () => void api.kill(t.id).catch(() => undefined),
+        });
+      }
+      return rows;
+    });
+    return [...appCommands, ...views, ...sessions];
+  }, [appCommands, tiles, openPanel, openSession]);
 
   // Back to the default arrangement, on request. The saved layout is dropped
   // and the default rebuilt, which then saves itself again.
@@ -277,6 +326,7 @@ export default function Dock({
       <InlineStrip.Provider value={true}>
         <DockviewReact className="plxrDock" components={components} onReady={onReady} />
       </InlineStrip.Provider>
+      {paletteOpen ? <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} /> : null}
     </Ctx.Provider>
   );
 }

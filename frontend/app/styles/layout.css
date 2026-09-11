@@ -699,3 +699,14 @@ body {
 .menuLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menuHint { flex: 0 0 auto; font-size: 0.85em; }
 .menuSep { height: 0; margin: 0.25rem 0.4rem; }
+
+/* The command palette: a centred box near the top, over a dim scrim. */
+.paletteScrim { position: fixed; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
+.palette { width: min(40rem, 92vw); max-height: 70vh; display: flex; flex-direction: column; }
+.palette .input { width: 100%; font-size: 1.05rem; padding: 0.6rem 0.8rem; }
+.paletteList { overflow-y: auto; margin-top: 0.4rem; }
+.paletteRow { display: flex; align-items: baseline; gap: 0.6rem; width: 100%; padding: 0.4rem 0.7rem; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
+.paletteGroup { flex: 0 0 auto; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; min-width: 4.5rem; }
+.paletteLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.paletteHint { flex: 0 0 auto; font-size: 0.85em; }
+.paletteEmpty { padding: 0.8rem; }
