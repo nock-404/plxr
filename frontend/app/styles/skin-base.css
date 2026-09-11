@@ -758,3 +758,12 @@
   --dv-tabs-container-scrollbar-color: var(--line);
 }
 .plxrDock .dv-tab { font: inherit; }
+
+/* The context menu on the panel surface, the picked item in the accent. */
+.menu { background: var(--panel); border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow, rgba(0,0,0,0.4)); }
+.menuItem { color: var(--fg); }
+.menuItem:hover:not(:disabled) { background: var(--line); color: var(--accent); }
+.menuItem.danger { color: var(--warn, #e66); }
+.menuItem:disabled { color: var(--dim); cursor: default; }
+.menuHint { color: var(--dim); }
+.menuSep { border-top: var(--hair) solid var(--line); }

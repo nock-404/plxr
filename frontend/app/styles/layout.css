@@ -690,3 +690,12 @@ body {
 .previewbar .input { flex: 1; min-width: 0; }
 .previewframe { flex: 1; min-height: 0; position: relative; }
 .previewframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+/* The one context menu, at the pointer. */
+.menu { position: fixed; z-index: 60; min-width: 11rem; max-width: 20rem; padding: 0.25rem;
+  display: flex; flex-direction: column; }
+.menuItem { display: flex; align-items: center; gap: 0.75rem; width: 100%;
+  padding: 0.28rem 0.6rem; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
+.menuLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menuHint { flex: 0 0 auto; font-size: 0.85em; }
+.menuSep { height: 0; margin: 0.25rem 0.4rem; }

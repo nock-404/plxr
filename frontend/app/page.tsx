@@ -1,5 +1,10 @@
 import App from "@/components/App";
+import { MenuProvider } from "@/components/ui/Menu";
 
 export default function Home() {
-  return <App />;
+  return (
+    <MenuProvider>
+      <App />
+    </MenuProvider>
+  );
 }

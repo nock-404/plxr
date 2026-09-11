@@ -3,6 +3,8 @@
 import Button from "@/components/ui/Button";
 import { shortNumber } from "@/lib/format";
 import { tr } from "@/lib/i18n";
+import { api } from "@/lib/api";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { agentOf, detailOf, stateOf, tileLine, titleOf, unattended } from "@/lib/state";
 import type { Tile as TileData } from "@/lib/types";
 
@@ -24,6 +26,32 @@ export default function Tile({
   // through the archive, and came back as a third tile beside the two dead ones
   // it was meant to replace.
   const stopped = state === "dead" || state === "orphaned";
+
+  const ctx = useContextMenu();
+  const menu: MenuItem[] = [
+    { label: tr("tile.menuOpen", "Open"), onClick: onOpen },
+    ...(stopped
+      ? onResume
+        ? [{ label: tr("tile.menuResume", "Resume"), onClick: onResume }]
+        : []
+      : tile.frozen
+        ? [{ label: tr("tile.menuUnfreeze", "Resume"), onClick: () => void api.unfreeze(tile.id).catch(() => undefined) }]
+        : [{ label: tr("tile.menuFreeze", "Pause"), onClick: () => void api.freeze(tile.id).catch(() => undefined) }]),
+    ...(tile.alive
+      ? [
+          { separator: true as const },
+          { label: tr("tile.menuTerminate", "Terminate"), danger: true, onClick: () => void api.kill(tile.id).catch(() => undefined) },
+        ]
+      : onForget
+        ? [
+            { separator: true as const },
+            { label: tr("tile.menuForget", "Remove from the board"), onClick: onForget },
+          ]
+        : []),
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(tile.cwd).catch(() => undefined) },
+  ];
+
   return (
     <div
       className="tile"
@@ -33,6 +61,7 @@ export default function Tile({
       role="button"
       tabIndex={0}
       onClick={onOpen}
+      onContextMenu={ctx(menu)}
       title={unattended(tile) ? tr("tile.unattended", "Started with its permission prompts turned off — nothing will stop it to ask") : undefined}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

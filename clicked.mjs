@@ -776,6 +776,31 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   }
 }
 
+// ---- right-click opens a context menu ------------------------------------
+/* Anything with actions offers them at the pointer. A session tile is the one
+   the gate can always reach. */
+{
+  const cm = await run(`
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    const rail = [...document.querySelectorAll('.railitem')].find(e => /OVERVIEW/i.test(e.textContent || ''));
+    if (rail) rail.click();
+    await w(800);
+    const tile = document.querySelector('.tile');
+    if (!tile) return { noTile: true };
+    const r = tile.getBoundingClientRect();
+    tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: Math.round(r.x + 30), clientY: Math.round(r.y + 20) }));
+    await w(300);
+    const menu = document.querySelector('.menu');
+    const items = menu ? [...menu.querySelectorAll('.menuItem')].map(b => b.textContent.trim()) : [];
+    // close it again
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    return { shown: !!menu, items };
+  `);
+  if (!cm.noTile) {
+    claim("right-click opens a context menu", cm.shown && cm.items.length >= 2, cm.items.join(", "));
+  }
+}
+
 cdp.close();
 
 // ---- the verdict ----------------------------------------------------------

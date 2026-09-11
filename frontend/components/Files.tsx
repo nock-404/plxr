@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { api } from "@/lib/api";
 import { errText, tr } from "@/lib/i18n";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import type { FileEntry } from "@/lib/types";
 
 /* The tree beside the terminal.
@@ -302,6 +303,38 @@ export default function Files({
   const dirOfSelection = selected ? (selected.dir ? selected.path : parentOf(selected.path)) : "";
   const relative = (path: string) => (path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path);
 
+  const ctx = useContextMenu();
+  // The right-click menu for one row — the same actions the toolbar offers, at
+  // the pointer, and always about the row clicked (not whatever was selected).
+  function rowMenu(entry: FileEntry): MenuItem[] {
+    const dir = entry.dir ? entry.path : entry.path.slice(0, entry.path.lastIndexOf("/")) || root;
+    return [
+      {
+        label: entry.dir ? tr("files.menuOpenFolder", "Open") : tr("files.menuOpen", "Open"),
+        onClick: () => toggle(entry),
+      },
+      { separator: true },
+      { label: tr("files.newFile", "+ FILE"), onClick: () => setPending({ kind: "newFile", dir }) },
+      { label: tr("files.newFolder", "+ FOLDER"), onClick: () => setPending({ kind: "newFolder", dir }) },
+      { separator: true },
+      { label: tr("files.rename", "RENAME"), onClick: () => setPending({ kind: "rename", entry }) },
+      {
+        label: tr("common.delete", "DELETE"),
+        danger: true,
+        onClick: () => setPending({ kind: "delete", entry }),
+      },
+      { separator: true },
+      {
+        label: tr("files.copy", "COPY PATH"),
+        onClick: () => void navigator.clipboard?.writeText(entry.path).catch(() => undefined),
+      },
+      {
+        label: tr("files.reveal", "SHOW"),
+        onClick: () => void run(() => api.revealFile(sessionId, entry.path), dir),
+      },
+    ];
+  }
+
   async function run(what: () => Promise<unknown>, refresh: string) {
     setError("");
     try {
@@ -383,6 +416,7 @@ export default function Files({
               data-git={git[entry.rel] ?? ""}
               style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
               onClick={() => toggle(entry)}
+              onContextMenu={ctx(rowMenu(entry))}
             >
               <span className="fchev">{entry.dir ? (expanded.has(entry.path) ? "▾" : "▸") : ""}</span>
               <span className="ficon" data-kind={kindOf(entry)}>{iconOf(entry)}</span>
