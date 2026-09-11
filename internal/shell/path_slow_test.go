@@ -107,6 +107,8 @@ func TestPreparingDoesNotWait(t *testing.T) {
 	if took := time.Since(start); took > time.Second {
 		t.Fatalf("Prepare waited %s — the listener, and the window behind it, wait with it", took)
 	}
+	// Let it finish before the next test moves the kept file somewhere else.
+	LoginPath()
 }
 
 // A poor fresh answer must not throw away a good kept one.
