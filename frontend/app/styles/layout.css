@@ -208,6 +208,8 @@ body {
    the whole point — the bar is above the panel, not beside it. */
 .work { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .workstrip { flex: 0 0 auto; }
+/* The same strip, but inside a dock panel rather than lifted to the frame. */
+.viewstrip { flex: 0 0 auto; }
 .workrow { flex: 1 1 auto; min-height: 0; display: flex; }
 
 .content { flex: 1 1 auto; min-width: 16rem; display: flex; flex-direction: column; }
@@ -677,3 +679,6 @@ body {
 .pathfield .input { flex: 1; min-width: 0; }
 .pathList { max-width: 90vw; }
 .pathList .selectRow { direction: ltr; }
+
+/* The dock fills the content area, and its own panels lay themselves out. */
+.plxrDock { width: 100%; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }

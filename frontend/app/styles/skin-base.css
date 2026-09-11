@@ -726,3 +726,35 @@
 
 /* The line somebody reads off this screen and types on another keyboard. */
 .joinline { color: var(--accent); border: var(--hair) solid var(--line); font-size: 1.15em; letter-spacing: .04em; }
+
+/* Dockview dressed through its own variables, pointed at plxr's tokens — so the
+   dock takes on whichever skin is on, tabs and all, without reaching into
+   another project's classes. */
+.plxrDock {
+  --dv-group-view-background-color: transparent;
+  --dv-tabs-and-actions-container-background-color: var(--panel);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-activegroup-visiblepanel-tab-color: var(--fg);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-activegroup-hiddenpanel-tab-color: var(--dim);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--dim);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--dim);
+  --dv-separator-border: var(--line);
+  --dv-tab-divider-color: var(--line);
+  --dv-paneview-active-outline-color: var(--accent);
+  --dv-active-sash-color: var(--accent);
+  --dv-sash-color: transparent;
+  --dv-icon-hover-background-color: var(--line);
+  --dv-tab-group-color: var(--dim);
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-floating-titlebar-background-color: var(--panel);
+  --dv-floating-group-border: var(--line);
+  --dv-context-menu-background-color: var(--panel);
+  --dv-context-menu-color: var(--fg);
+  --dv-scrollbar-background-color: var(--line);
+  --dv-tabs-container-scrollbar-color: var(--line);
+}
+.plxrDock .dv-tab { font: inherit; }

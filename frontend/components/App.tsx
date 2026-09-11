@@ -14,6 +14,8 @@ import UpdateBar from "@/components/UpdateBar";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
 import Rail, { type View } from "@/components/Rail";
+import Dock, { type Focus } from "@/components/Dock";
+import { titleOf } from "@/lib/state";
 import Archive from "@/components/views/Archive";
 import Inbox from "@/components/views/Inbox";
 import Overview from "@/components/views/Overview";
@@ -247,13 +249,19 @@ export default function App() {
     changed(tiles);
   }, [tiles]);
 
+  const [focus, setFocus] = useState<Focus>(null);
   function openSession(id: string) {
     setOpenId(id);
     setView("session");
+    const t = tiles.find((x) => x.id === id);
+    setFocus({ kind: "session", id, name: t ? titleOf(t) : id });
   }
   function goView(v: View) {
     setView(v);
-    if (v !== "session") setOpenId(null);
+    if (v !== "session") {
+      setOpenId(null);
+      setFocus({ kind: "view", view: v });
+    }
   }
 
   return (
@@ -371,30 +379,15 @@ export default function App() {
           <div className="workrow">
 
         <main className="content">
-          {view === "session" && open ? (
-            <Session
-              tile={open}
-              others={tiles.filter((t) => t.id !== open.id)}
-              onBack={() => goView("overview")}
-              /* Moving to another account gives the session a new id: the
-                 daemon takes the old one off the register and starts the
-                 transcript again under the other account. Without this the
-                 window kept staring at the one that no longer exists. */
-              onReplaced={openSession}
-            />
-          ) : view === "inbox" ? (
-            <Inbox tiles={tiles} onOpen={openSession} />
-          ) : view === "folders" ? (
-            <Folders place={here} />
-          ) : view === "ports" ? (
-            <Ports />
-          ) : view === "usage" ? (
-            <Usage />
-          ) : view === "archive" ? (
-            <Archive onOpen={openSession} />
-          ) : (
-            <Overview tiles={shown} onOpen={openSession} />
-          )}
+          <Dock
+            tiles={tiles}
+            shown={shown}
+            here={here}
+            openSession={openSession}
+            toOverview={() => goView("overview")}
+            onReplaced={openSession}
+            focus={focus}
+          />
         </main>
 
         {settings ? (

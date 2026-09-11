@@ -62,6 +62,8 @@ LAYOUT_ONLY = {
     "obar", "obarLeft", "obarItems", "obarMoreWrap", "obarMore", "obarMenuItem", "obarMeasure", "obarMeasureBox",
     # The account row's action buttons: a flex row that only arranges them.
     "accountActions",
+    # The inline toolbar strip inside a dock panel: arrangement only.
+    "viewstrip",
     # The CRT screen furniture, drawn from tokens rather than dressed.
     "crest", "cursor", "hint", "line", "progress", "screenbar", "term", "title",
     # xterm and CodeMirror bring their own stylesheets; a skin colours them
