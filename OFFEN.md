@@ -76,16 +76,14 @@ are deliberately NOT built unattended — they reshape the window (Dockview) or
 need a design call (accounts); both want you awake to steer. Everything after
 them is done as of 11.09 unless it says otherwise.
 
-**Dockview — planned, not built.** The plan when you are ready: load Dockview
-(UMD from a CDN, pinned) and make the main area a DockviewReact. Panels become
-dockable: a terminal, FILES, CHANGES, FIND, USAGE, an account panel. `toJSON`
-on change → saved to prefs (so a second window and the next start open the same
-layout); `fromJSON` on load. Dress it through Dockview's CSS variables in each
-of the four skins; xterm gets a fit on every panel resize (the resize hook is
-already the shape the OverflowBar uses). Panels pop out into their own window —
-usage on the second screen. The one open question for you: does the rail
-(OVERVIEW/FOLDERS/PORTS/…) stay as it is with the dock inside the session area,
-or does the whole thing become one dock?
+**Dockview — the first version is in (11.09).** The content is a dock now:
+every view and every session is a panel you can split, tab, drag and float; the
+arrangement is saved and comes back at the next start; a ⟲ in the header resets
+to the default. The rail stays the launcher. Dressed in all four skins. Still
+open, when you want them: the rich per-panel widgets (web preview of a detected
+port, live usage/cost meter, a changes panel, a notes scratchpad, a session
+grid), floating panels popping out into their own OS window, and — your call —
+whether the rail itself goes away so the whole thing is one dock.
 
 **Account management — done 11.09 (both a and b).** Settings → STATUS →
 ACCOUNTS: each account can be named, made the default (new sessions start under
