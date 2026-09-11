@@ -164,8 +164,16 @@ export default function Files({
 
   const list = useCallback(
     async (dir: string) => {
-      const rows = await api.listDir(sessionId, dir).catch(() => [] as FileEntry[]);
-      setOpen((o) => ({ ...o, [dir]: rows ?? [] }));
+      try {
+        const rows = await api.listDir(sessionId, dir);
+        setOpen((o) => ({ ...o, [dir]: rows ?? [] }));
+        setError((e) => (e && dir === "" ? "" : e));
+      } catch (e) {
+        // A directory that cannot be read — a permission wall, a volume gone —
+        // used to expand to nothing, which reads as "empty". Say why instead.
+        setOpen((o) => ({ ...o, [dir]: [] }));
+        setError(errText(e));
+      }
     },
     [sessionId],
   );
@@ -183,12 +191,16 @@ export default function Files({
   }, [reload]);
 
   // Git changes while an agent works, so it is asked again now and then rather
-  // than only when something is clicked.
+  // than only when something is clicked — and at once when something in the
+  // window changed the tree, like a mark being restored.
   useEffect(() => {
-    const t = window.setInterval(() => {
-      api.gitStatus(sessionId).then(setGit).catch(() => undefined);
-    }, 4000);
-    return () => window.clearInterval(t);
+    const ask = () => api.gitStatus(sessionId).then(setGit).catch(() => undefined);
+    const t = window.setInterval(ask, 4000);
+    window.addEventListener("plxr:files-changed", ask);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("plxr:files-changed", ask);
+    };
   }, [sessionId]);
 
   /* The rows as one flat list, which is what both the drawing and the keyboard

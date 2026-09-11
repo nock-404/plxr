@@ -71,7 +71,31 @@ not answer for you.
 
 ## Still open
 
-Said on 11.09.2026, in this order of weight:
+Said on 11.09.2026, in this order of weight. The first two are the big ones and
+are deliberately NOT built unattended — they reshape the window (Dockview) or
+need a design call (accounts); both want you awake to steer. Everything after
+them is done as of 11.09 unless it says otherwise.
+
+**Dockview — planned, not built.** The plan when you are ready: load Dockview
+(UMD from a CDN, pinned) and make the main area a DockviewReact. Panels become
+dockable: a terminal, FILES, CHANGES, FIND, USAGE, an account panel. `toJSON`
+on change → saved to prefs (so a second window and the next start open the same
+layout); `fromJSON` on load. Dress it through Dockview's CSS variables in each
+of the four skins; xterm gets a fit on every panel resize (the resize hook is
+already the shape the OverflowBar uses). Panels pop out into their own window —
+usage on the second screen. The one open question for you: does the rail
+(OVERVIEW/FOLDERS/PORTS/…) stay as it is with the dock inside the session area,
+or does the whole thing become one dock?
+
+**Account management — needs one decision from you.** GET /api/accounts lists
+them today; nothing adds, names, or sets a default. The question is what "add
+an account" does: (a) point plxr at an existing CLAUDE_CONFIG_DIR you already
+have, or (b) create a fresh one and run `claude` in it once to log in. My
+advice is (a) first — name and set-default over the dirs that exist — and (b)
+as a second step. Once you say which, this is a settings panel plus four small
+routes.
+
+
 
 - **The path field is the place you are.** Choosing a folder there used to
   narrow the overview and nothing else — + NEW then asked for the same folder
@@ -122,9 +146,12 @@ Said on 11.09.2026, in this order of weight:
   stdout, in `ps`, and in browser history; a symlink to a directory is a
   directory in the tree and opens; a failed file read clears the old text
   instead of leaving it under the new name.
-- **Still open from the audit:** the Windows path form of the same git-mark
-  keying; a directory that cannot be read expanding to nothing without saying
-  why; RESTORE not refreshing the list it changed; a handful of minor ones.
+- **Even more — 11.09.** RESTORE now tells the tree and the changes panel to
+  look again, so a file put back stops showing as changed at once. A directory
+  that cannot be read says why instead of expanding to nothing.
+- **Still open from the audit (all minor):** the Windows path form of the
+  git-mark keying; a failed save possibly leaving a .plxr-tmp; an update
+  offered for a platform with no archive; a fish login shell yielding no PATH.
 - **plxr as an MCP server.**
 
 ## Details behind the decisions

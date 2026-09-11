@@ -49,6 +49,9 @@ export default function Marks({ sessionId, onClose }: { sessionId: string; onClo
       setNote(tr("marks.restored", "{n} put back", { n: restored }));
       if (openTree === tree) void unfold(tree), setOpenTree(tree);
       load();
+      // The tree on the left and the changes panel still show the file as it
+      // was before the restore until their next poll; tell them to look again.
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("plxr:files-changed"));
     } catch (e) {
       setNote(errText(e));
     }
