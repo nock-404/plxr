@@ -134,7 +134,16 @@ export default function Settings({ onClose }: { onClose: () => void }) {
        both are on screen at once and a switch can be watched as it is thrown. */
     <aside className="settingspanel">
       <div className="settingsbody">
-        <b className="cardTitle">{tr("settings.title", "settings")}</b>
+        <div className="settingshead">
+          <b className="cardTitle">{tr("settings.title", "settings")}</b>
+          <span className="spacer" />
+          {/* The way out, at the top where it is looked for. The gear closes
+              it too, and so does the button at the bottom — but a panel whose
+              only close sits below the fold is a panel with no close. */}
+          <Button bare className="settingsclose" title={tr("common.close", "Close")} onClick={onClose}>
+            ✕
+          </Button>
+        </div>
 
         <div className="tabs" role="tablist">
           {TABS.map(({ id, label }) => (

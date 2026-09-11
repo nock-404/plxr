@@ -629,6 +629,11 @@
 .filter[data-on="yes"] .prompt { color: var(--accent); }
 .filterclear { color: var(--dim); }
 .filterclear:hover { color: var(--accent); }
+/* The ↵ that takes a typed folder: not dim — it is the one thing to do next. */
+.settingsclose { color: var(--dim); }
+.settingsclose:hover { color: var(--accent); }
+.filtergo { color: var(--accent); }
+.filtergo:hover { color: var(--fg); }
 .hiding { color: var(--accent); }
 
 /* Set off from the reading above it, because it is a control and that is not. */

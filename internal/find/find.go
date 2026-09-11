@@ -90,8 +90,8 @@ func (q Query) compile() (*regexp.Regexp, error) {
 /* wholeWord keeps the matches that stand on their own.
  *
  * It used to be `\b` in the pattern, and Go's `\b` is an ASCII word boundary:
- * a query beginning or ending in ü, é or a bracket could not match anywhere,
- * so WORD turned "über" into "nothing found" without a word. The neighbours
+ * a query beginning or ending in é, ñ or a bracket could not match anywhere,
+ * so WORD turned "été" into "nothing found" without a word. The neighbours
  * are judged here instead, as characters — a letter, a digit or an
  * underscore on either side means it is part of something longer.
  */

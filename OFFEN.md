@@ -4,7 +4,7 @@ Everything said, shown or measured that is not done yet. New things land here
 when they turn up, not when there is time for them. What is finished leaves —
 there is no archive.
 
-Checked against the running build on 31.08.2026, not from memory.
+Checked against the running build on 31.08.2026, not from memory; added to on 11.09.2026.
 
 ## Waiting for you — three decisions, two minutes
 
@@ -71,9 +71,42 @@ not answer for you.
 
 ## Still open
 
-- **plxr as an MCP server.**
+Said on 11.09.2026, in this order of weight:
+
+- **The path field is the place you are.** Choosing a folder there used to
+  narrow the overview and nothing else — + NEW then asked for the same folder
+  again, and FOLDERS did not know about it. In progress: a committed folder
+  (Enter, or ↵) is opened in FOLDERS, is where + NEW starts, and is remembered.
+  Still to come: opening files straight from there, and whether the whole git
+  side holds up in daily use — the aim is to replace VS Code with its plugins
+  and the terminal, nothing less.
+- **Panels that dock — Dockview.** Chosen over FlexLayout, rc-dock and the
+  grid engines: framework-free core with a React binding, deep nesting, tabs,
+  `toJSON`/`fromJSON` for saving, and panels that pop out into a window of
+  their own — usage on the second screen. Dressed through its CSS variables in
+  the four skins; xterm gets a fit on every panel resize. Layout saved and
+  restored at the next start. Needed so that usage
+  and accounts can be on screen all the time instead of behind a tab.
+- **Usage visible at any time.** A panel, not a view — see the point above.
 - **Managing accounts.** There is `GET /api/accounts` and nothing else — no
-  adding, naming or setting a default. Needs a design first.
+  adding, naming or setting a default. Wanted properly: add, name, default,
+  switch, and see which one a session is on.
+- **Fonts.** None can be brought in today. The plan: a `fonts/` folder next to
+  everything else plxr owns; a file dropped there — .ttf, .otf, .woff2 — is
+  served by the daemon under `/fonts/`, the window writes the `@font-face` for
+  it, and the settings offer it for the interface and, if it is monospace, for
+  the terminal. The terminal has to wait for `document.fonts.load` before it
+  measures, or every cell is the wrong width. No foreign server involved; a
+  download by URL into that folder is an explicit action, never automatic.
+- **Twenty-odd confirmed audit findings** (10.09.), the sharpest: a commit
+  from a subfolder commits the whole repository's index while the list is
+  folder-scoped; unstaging a rename whose old name is above the folder leaves
+  the deletion staged; the batch retry aborts at the first bad path; the diff
+  of a deleted file cannot be opened; git's 20 s deadline is not held when git
+  spawns a grandchild; RESTORE of a mark fails on a rename since the mark, and
+  writes through a symlink; unsaved edits are thrown away without a word when
+  another file is clicked; two files with the same name share one undo history.
+- **plxr as an MCP server.**
 
 ## Details behind the decisions
 

@@ -582,6 +582,41 @@ claim(
   `${skin} is wearing ${palette}`,
 );
 
+// ---- the path field is the place you are ----------------------------------
+/* Choosing a folder at the top used to narrow the overview and nothing else:
+   + NEW asked for the same folder again, FOLDERS did not know about it. Now a
+   folder taken there (Enter) is open in FOLDERS, and is where NEW starts. */
+const place = await run(`
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true })); };
+  const field = document.querySelector('.filter input');
+  if (!field) return { noField: true };
+  field.focus();
+  set(field, ${JSON.stringify(process.cwd() + "/frontend")});
+  await wait(300);
+  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await wait(1200);
+  const folders = [...document.querySelectorAll('.railitem')].find(e => /FOLDERS/i.test(e.textContent || ''));
+  folders?.click();
+  await wait(1500);
+  const openFolder = (document.querySelector('.folderbar .prompt')?.nextElementSibling?.textContent || '')
+    + ' ' + [...document.querySelectorAll('.folderTabs .btn, .folderTabs button')].map(b => b.textContent).join(' ');
+  const plus = [...document.querySelectorAll('.tools .btn')].find(b => /NEW/.test(b.textContent || ''));
+  plus?.click();
+  await wait(900);
+  const cwd = document.querySelector('.card .pathfield input')?.value || '';
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  return { openFolder, cwd };
+`);
+// A folder that is NOT where the gate's own session runs, so NEW cannot
+// arrive at it by falling back to "where the last session was".
+const taken = process.cwd() + "/frontend";
+claim("a folder taken at the top is open in FOLDERS", !place.noField && place.openFolder.includes("frontend"), place.openFolder.trim().slice(0, 60));
+claim("and it is where NEW starts", place.cwd.replace(/\/+$/, "") === taken, place.cwd);
+const known = await api("/api/workspaces");
+claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path === taken), `${(known ?? []).length} open`);
+
 cdp.close();
 
 // ---- the verdict ----------------------------------------------------------

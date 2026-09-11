@@ -455,7 +455,9 @@ body {
 
 .tactions { display: flex; gap: 0.375rem; padding: 0.375rem 0.625rem 0.5rem; }
 
-.filterclear { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.settingshead { display: flex; align-items: center; gap: 0.5rem; }
+.settingsclose { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.filterclear, .filtergo { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
 .hiding { margin-left: 0; }
 
 /* ---------- the frame-rate readout ---------- */

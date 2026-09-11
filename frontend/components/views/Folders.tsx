@@ -24,7 +24,7 @@ import type { GitChange, GitWhere, Workspace } from "@/lib/types";
  * a session is cleared away shortly after it ends. A folder here has nothing to
  * do with what is running: it is open because somebody opened it.
  */
-export default function Folders() {
+export default function Folders({ place }: { place?: string }) {
   // null until the answer is in: "no folder open" before the list has even
   // been read is a lie, and it is the first thing this view says. See
   // emptylies.py.
@@ -51,11 +51,14 @@ export default function Folders() {
       .workspaces()
       .then((list) => {
         setFolders(list);
-        // The one used last, so coming back lands where you left off.
-        setHere((was) => (was ? list.find((w) => w.id === was.id) ?? null : list[0] ?? null));
+        // The place chosen at the top wins; otherwise the one used last, so
+        // coming back lands where you left off.
+        const same = (a: string, b: string) => a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
+        const chosen = place ? list.find((w) => same(w.path, place)) : undefined;
+        setHere((was) => chosen ?? (was ? list.find((w) => w.id === was.id) ?? null : list[0] ?? null));
       })
       .catch((e) => setProblem(errText(e)));
-  }, []);
+  }, [place]);
 
   useEffect(load, [load]);
 

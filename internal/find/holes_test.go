@@ -51,8 +51,8 @@ func TestALinkDoesNotReachOutOfTheFolder(t *testing.T) {
 
 // WORD has to work for words that do not begin or end in ASCII.
 func TestWordMatchesBeyondASCII(t *testing.T) {
-	dir := tree(t, map[string]string{"a.txt": "über alles\nüberhaupt nicht\ncafé\nhello()\n"})
-	for _, q := range []string{"über", "café", "hello()"} {
+	dir := tree(t, map[string]string{"a.txt": "été chaud\nétés\ncafé\nhello()\n"})
+	for _, q := range []string{"été", "café", "hello()"} {
 		r, err := Search(dir, Query{Text: q, Word: true})
 		if err != nil {
 			t.Fatal(err)
@@ -62,7 +62,7 @@ func TestWordMatchesBeyondASCII(t *testing.T) {
 		}
 	}
 	// And the ordinary case still holds: a word inside a longer one is not it.
-	r, _ := Search(dir, Query{Text: "haupt", Word: true})
+	r, _ := Search(dir, Query{Text: "té", Word: true})
 	if len(r.Hits) != 0 {
 		t.Fatalf("WORD matched inside a longer word: %+v", r.Hits)
 	}

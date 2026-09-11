@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Logo from "@/components/ui/Logo";
 import PathField from "@/components/ui/PathField";
@@ -35,7 +35,41 @@ export default function App() {
   const { tiles, connected } = useTiles();
   const [view, setView] = useState<View>("overview");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
+  /* The place you are.
+   *
+   * It used to be a filter for the overview and nothing else: a folder chosen
+   * here narrowed the tiles, and then + NEW asked for the same folder again,
+   * and FOLDERS did not know about it either. Now it is the one folder the
+   * window is about — it narrows the overview, it is where a new session
+   * starts, and it is the folder open in FOLDERS. Remembered across starts. */
+  const [filter, setFilter] = useState(() => {
+    try {
+      return localStorage.getItem("plxr.here") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  /* Taken as a folder only when committed — Enter, or a pick from the list —
+     never while it is being typed: half a path is not a place. */
+  const [here, setHere] = useState<string>(() => {
+    try {
+      return localStorage.getItem("plxr.here") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const goHere = useCallback((path: string) => {
+    const p = path.trim().replace(/\/+$/, "");
+    setFilter(p);
+    setHere(p);
+    try {
+      if (p) localStorage.setItem("plxr.here", p);
+      else localStorage.removeItem("plxr.here");
+    } catch {
+      /* no storage — it lasts for this window only */
+    }
+    if (p) api.openWorkspace(p).catch(() => {/* not a folder, or not there: the overview still filters by it */});
+  }, []);
   const [creating, setCreating] = useState(false);
   const [settings, setSettings] = useState(false);
   // The readout is off unless somebody asked for it: a frame loop that is
@@ -233,17 +267,31 @@ export default function App() {
           <PathField
             value={filter}
             onChange={setFilter}
-            placeholder={tr("header.pathPlaceholder", "Filter by path")}
+            onSubmit={() => goHere(filter)}
+            placeholder={tr("header.pathPlaceholder", "the folder you are working in")}
           />
           {/* A filter that hides things without saying so is a window that lies.
               This one hid the session somebody was talking to, in a list of two
               where there were five, with nothing on screen to explain it. */}
+          {/* Typed but not yet taken: Enter, or this, makes it the place. A
+              pick from the list keeps the list open on purpose — that is how
+              you walk down into a folder — so the pick alone does not commit. */}
+          {filter.trim() && filter.trim().replace(/\/+$/, "") !== here ? (
+            <Button
+              bare
+              className="filtergo"
+              title={tr("header.go", "Make this the folder you are working in")}
+              onClick={() => goHere(filter)}
+            >
+              ↵
+            </Button>
+          ) : null}
           {filter.trim() ? (
             <Button
               bare
               className="filterclear"
               title={tr("header.filterClear", "Show everything again")}
-              onClick={() => setFilter("")}
+              onClick={() => goHere("")}
             >
               ✕
             </Button>
@@ -333,7 +381,7 @@ export default function App() {
           ) : view === "inbox" ? (
             <Inbox tiles={tiles} onOpen={openSession} />
           ) : view === "folders" ? (
-            <Folders />
+            <Folders place={here} />
           ) : view === "ports" ? (
             <Ports />
           ) : view === "usage" ? (
@@ -379,6 +427,7 @@ export default function App() {
 
       {creating ? (
         <NewSession
+          here={here}
           running={tiles}
           onClose={() => setCreating(false)}
           onCreated={(id) => {

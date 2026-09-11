@@ -10,15 +10,19 @@ import type { Account, Agent, Tile } from "@/lib/types";
 
 // Start a session: where, what to start, under which account.
 export default function NewSession({
+  here,
   running,
   onClose,
   onCreated,
 }: {
+  /* The folder the window is about, from the path field at the top. A new
+     session starts there — nobody should have to find the same folder twice. */
+  here?: string;
   running: Tile[];
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
-  const [cwd, setCwd] = useState("");
+  const [cwd, setCwd] = useState(here ?? "");
   const [browsing, setBrowsing] = useState(false);
   const [pick, setPick] = useState("shell");
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -45,6 +49,9 @@ export default function NewSession({
      * ~/3d, and the folder browser opened there too. The sessions know where
      * they ran; the newest of them is the answer. With none, the home
      * directory, which is what "~" resolves to. */
+    // With a place chosen at the top, that is where it starts; the guesswork
+    // below is for a window that has no place yet.
+    if (here) return;
     api
       .sessions()
       .then((list) => {

@@ -52,6 +52,9 @@ LAYOUT_ONLY = {
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
     "hitMain", "hitAction", "draghandle", "brand", "rtext", "rname", "rmain",
     "fname", "style", "styleRow", "pathfield", "colourPicker", "settingsbody",
+    # The settings panel's top row: a title, a spacer and the close, each with
+    # its own dressing; the row itself only lines them up.
+    "settingshead",
     # The CRT screen furniture, drawn from tokens rather than dressed.
     "crest", "cursor", "hint", "line", "progress", "screenbar", "term", "title",
     # xterm and CodeMirror bring their own stylesheets; a skin colours them
