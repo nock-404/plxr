@@ -631,6 +631,8 @@
 .filterclear:hover { color: var(--accent); }
 /* The ↵ that takes a typed folder: not dim — it is the one thing to do next. */
 .settingsclose { color: var(--dim); }
+/* The overflow menu sits on the same surface as the panels do. */
+.obarMenu { background: var(--panel); border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow, rgba(0,0,0,0.4)); }
 .settingsclose:hover { color: var(--accent); }
 .filtergo { color: var(--accent); }
 .filtergo:hover { color: var(--fg); }

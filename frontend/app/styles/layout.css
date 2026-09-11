@@ -319,13 +319,29 @@ body {
    outside the bar it lives in. The name and the path give up their width
    first; only when that is not enough does the row take a second line, so a
    window narrow enough still shows every button. */
-.sessbar {
-  display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto;
-  flex-wrap: wrap; row-gap: 0.25rem;
-  min-height: var(--strip-h); padding: 0.25rem 0.875rem;
-}
-.sessbar > button, .sessbar > .btn, .sessbar > .select { flex: 0 0 auto; }
+.sessbar { min-height: var(--strip-h); padding: 0.25rem 0.875rem; }
 .sesstitle { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* The overflow bar: one line at any width, the rest of the controls under a
+   single trigger. The left slot grows and shrinks (its text ellipsises), the
+   items keep their size and spill into the menu from the end. */
+.obar { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; width: 100%; min-width: 0;
+  --obar-left-min: 3rem; }
+.obarLeft { flex: 1 1 auto; min-width: var(--obar-left-min); display: flex; align-items: center; gap: 0.75rem; overflow: hidden; }
+.obarItems { flex: 0 0 auto; display: flex; align-items: center; gap: 0.75rem; }
+.obarItems > span { flex: 0 0 auto; display: inline-flex; }
+.obarMoreWrap { position: relative; flex: 0 0 auto; }
+.obarMore { flex: 0 0 auto; }
+.obarMenu { position: absolute; top: 100%; right: 0; z-index: 40; margin-top: 0.25rem;
+  display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; padding: 0.375rem; min-width: 9rem; }
+.obarMenuItem { display: flex; }
+.obarMenuItem > * { flex: 1; }
+/* Laid out for measuring, taken out of flow and out of sight. max-content so
+   the row never compresses — compressed cells report near-zero widths and then
+   nothing ever looks too wide to fit. */
+.obarMeasureBox { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.obarMeasure { display: flex; gap: 0.75rem; white-space: nowrap; width: max-content; }
+.obarMeasure > span { flex: 0 0 auto; }
 .sesssplit { position: relative; flex: 1; min-height: 0; display: flex; }
 
 .files { flex: 0 1 auto; min-width: 10rem; width: var(--files-w); display: flex; flex-direction: column; min-height: 0; }

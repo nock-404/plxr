@@ -332,6 +332,41 @@ if (live.length > 0) {
   claim("a session opens", session.inSession && !session.noLiveTile);
   claim("its terminal paints", session.canvases > 0, `${session.canvases} canvases`);
   claim("its toolbar is there", session.toolbar >= 6, `${session.toolbar} buttons`);
+
+  /* The session bar is one line at any width, and hides nothing.
+   *
+   * It used to be a flex-wrap row with a spacer that took the first line for
+   * itself, so it broke onto four lines even at 1440px and TERMINATE fell off
+   * the bottom. Now it measures what fits and moves the rest under a single
+   * "⋯". Checked at a wide width (everything on the bar) and a narrow one (the
+   * row still one line, the overflow reachable through the menu), because the
+   * window manager will hand this panel any width it likes. */
+  const bar = await run(`
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const strip = document.querySelector('.sessbar');
+    const overflows = () => strip.scrollWidth > strip.clientWidth + 2;
+    const menuCount = async () => {
+      const more = document.querySelector('.obarItems .obarMore');
+      if (!more) return 0;
+      more.click();
+      await wait(120); // the menu renders on the next React tick, not on the click
+      const n = document.querySelectorAll('.obarMenuItem').length;
+      more.click();
+      return n;
+    };
+    // Wide: the gate's own window (1400px). Everything on the bar, no overflow.
+    await wait(200);
+    const wide = { h: Math.round(strip.getBoundingClientRect().height), over: overflows() };
+    // Narrow: force the strip's own box small; the ResizeObserver recomputes.
+    strip.style.maxWidth = '520px';
+    await wait(600);
+    const narrow = { h: Math.round(strip.getBoundingClientRect().height), over: overflows(), menu: await menuCount() };
+    strip.style.maxWidth = '';
+    return { wide, narrow };
+  `);
+  claim("the session bar is one line when wide", bar.wide.h <= 56 && !bar.wide.over, JSON.stringify(bar.wide));
+  claim("the session bar stays one line when narrow", bar.narrow.h <= 56 && !bar.narrow.over, JSON.stringify(bar.narrow));
+  claim("what does not fit is in the overflow menu", bar.narrow.menu > 0, `${bar.narrow.menu} in the menu`);
   claim("the file tree loads", session.fileRows > 0, `${session.fileRows} entries`);
 
   /* The browser can change things, not only look at them, and the editor

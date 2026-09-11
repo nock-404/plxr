@@ -582,6 +582,7 @@
   "session.kill": "BEENDEN",
   "session.killAsk": "Session wirklich beenden?",
   "session.killTip": "Diese Session beenden — der Mitschnitt bleibt",
+  "session.more": "Weitere Aktionen",
   "session.notRunning": "diese Session läuft nicht",
   "session.pause": "PAUSIEREN",
   "session.pauseFailed": "Anhalten fehlgeschlagen",

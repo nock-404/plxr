@@ -583,6 +583,7 @@
   "session.kill": "TERMINATE",
   "session.killAsk": "Really terminate this session?",
   "session.killTip": "End this session — the recording stays",
+  "session.more": "More actions",
   "session.notRunning": "this session is not running",
   "session.pause": "PAUSE",
   "session.pauseFailed": "Could not pause",

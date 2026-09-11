@@ -55,6 +55,11 @@ LAYOUT_ONLY = {
     # The settings panel's top row: a title, a spacer and the close, each with
     # its own dressing; the row itself only lines them up.
     "settingshead",
+    # The overflow bar: arrangement only. The left slot and the item cells
+    # place their contents, the trigger is a Button that dresses itself, and
+    # the measuring copy is never seen. The menu surface IS dressed (skins can
+    # colour .obarMenu), so it is not here.
+    "obar", "obarLeft", "obarItems", "obarMoreWrap", "obarMore", "obarMenuItem", "obarMeasure", "obarMeasureBox",
     # The CRT screen furniture, drawn from tokens rather than dressed.
     "crest", "cursor", "hint", "line", "progress", "screenbar", "term", "title",
     # xterm and CodeMirror bring their own stylesheets; a skin colours them

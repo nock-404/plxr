@@ -108,6 +108,9 @@ Said on 11.09.2026, in this order of weight:
   directory, and never writes through a symlink out of the repo; the untracked
   line count is streamed, not read whole; blank context lines keep the diff's
   line numbers right.
+- **The session bar is dynamic — done 11.09.** No more wrapping onto a second
+  line: it measures what fits at the panel's real width and moves the rest
+  under a single "\u22ef" menu. Survives any width the window manager hands it.
 - **Still open from the audit:** unsaved edits thrown away without a word when
   another file is clicked; two files of the same name sharing one undo history;
   git marks not showing when the folder resolves through a symlink or on

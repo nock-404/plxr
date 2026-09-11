@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
+import OverflowBar from "@/components/ui/OverflowBar";
 import type { SearchAddon } from "@xterm/addon-search";
 import Button from "@/components/ui/Button";
 import Files from "@/components/Files";
@@ -80,92 +81,137 @@ export default function Session({
     label: tr("accounts.numbered", `account ${a.number}`, { n: a.number }),
   }));
 
+  const account = accountOptions.length
+    ? canSwitch
+      ? (
+          <Select
+            value={tile.account ?? accountOptions[0].value}
+            options={accountOptions}
+            /* The answer is not thrown away any more.
+               A switch that failed said nothing at all: the picker snapped back
+               and that was the whole report. Somebody whose account had just
+               run into its limit was left guessing. */
+            onChange={(acct) => {
+              setSwitching(true);
+              setSwitchError("");
+              api
+                .switchAccount(tile.id, acct)
+                .then((moved) => onReplaced?.(moved.id))
+                .catch((e) => setSwitchError(errText(e)))
+                .finally(() => setSwitching(false));
+            }}
+            disabled={switching}
+            title={tr("session.accountTip", "Continue under another account")}
+          />
+        )
+      : (
+          <span
+            className="meta"
+            title={tr("session.accountBlocked", "No Claude session id is known here, so there is nothing to move.")}
+          >
+            {tile.account ?? ""}
+          </span>
+        )
+    : null;
+
+  const barItems = [
+    { key: "files", node: <Button on={files} onClick={() => setFiles((f) => !f)}>{tr("session.files", "FILES")}</Button> },
+    {
+      key: "queue",
+      node: (
+        <Button
+          on={queueOpen}
+          onClick={() => setQueueOpen((q) => !q)}
+          title={tr("queue.tip", "Line instructions up instead of sending them at once")}
+        >
+          {tr("queue.open", "QUEUE")}
+        </Button>
+      ),
+    },
+    {
+      key: "rules",
+      node: (
+        <Button on={pane === "rules"} onClick={() => setPane((p) => (p === "rules" ? "none" : "rules"))}>
+          {tr("session.rules", "RULES")}
+        </Button>
+      ),
+    },
+    {
+      key: "player",
+      node: (
+        <Button
+          on={pane === "player"}
+          onClick={() => setPane((p) => (p === "player" ? "none" : "player"))}
+          title={tr("player.tip", "Watch this session back")}
+        >
+          {tr("player.open", "PLAYBACK")}
+        </Button>
+      ),
+    },
+    {
+      key: "marks",
+      node: (
+        <Button on={pane === "marks"} onClick={() => setPane((p) => (p === "marks" ? "none" : "marks"))}>
+          {tr("marks.open", "MARKS")}
+        </Button>
+      ),
+    },
+    {
+      key: "split",
+      node: (
+        <Button
+          on={Boolean(split)}
+          onClick={() => setSplit((v) => (v ? null : (others[0]?.id ?? null)))}
+          disabled={!split && others.length === 0}
+          title={
+            others.length === 0
+              ? tr("session.splitNone", "There is no second session to place alongside.")
+              : tr("session.splitTip", "Put a second session next to this one")
+          }
+        >
+          {tr("session.split", "SPLIT")}
+        </Button>
+      ),
+    },
+    ...(account ? [{ key: "account", node: account }] : []),
+    ...(switchError ? [{ key: "switchError", node: <span className="notice warn">{switchError}</span> }] : []),
+    {
+      key: "pause",
+      node: tile.frozen ? (
+        <Button onClick={() => api.unfreeze(tile.id)}>{tr("session.resume", "RESUME")}</Button>
+      ) : (
+        <Button onClick={() => api.freeze(tile.id)}>{tr("session.pause", "PAUSE")}</Button>
+      ),
+    },
+    {
+      key: "kill",
+      node: (
+        <Button
+          onClick={() => {
+            api.kill(tile.id).catch(() => undefined);
+            onBack();
+          }}
+        >
+          {tr("session.kill", "TERMINATE")}
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <section className="session">
       <TopStrip>
-        <div className="sessbar">
-          <span className="sesstitle">{titleOf(tile)}</span>
-          <span className="meta">{shortPath(tile.cwd)}</span>
-          <span className="spacer" />
-          <Button on={files} onClick={() => setFiles((f) => !f)}>{tr("session.files", "FILES")}</Button>
-          <Button
-            on={queueOpen}
-            onClick={() => setQueueOpen((q) => !q)}
-            title={tr("queue.tip", "Line instructions up instead of sending them at once")}
-          >
-            {tr("queue.open", "QUEUE")}
-          </Button>
-          <Button on={pane === "rules"} onClick={() => setPane((p) => (p === "rules" ? "none" : "rules"))}>
-            {tr("session.rules", "RULES")}
-          </Button>
-          <Button
-            on={pane === "player"}
-            onClick={() => setPane((p) => (p === "player" ? "none" : "player"))}
-            title={tr("player.tip", "Watch this session back")}
-          >
-            {tr("player.open", "PLAYBACK")}
-          </Button>
-          <Button on={pane === "marks"} onClick={() => setPane((p) => (p === "marks" ? "none" : "marks"))}>
-            {tr("marks.open", "MARKS")}
-          </Button>
-          <Button
-            on={Boolean(split)}
-            onClick={() => setSplit((v) => (v ? null : (others[0]?.id ?? null)))}
-            disabled={!split && others.length === 0}
-            title={
-              others.length === 0
-                ? tr("session.splitNone", "There is no second session to place alongside.")
-                : tr("session.splitTip", "Put a second session next to this one")
-            }
-          >
-            {tr("session.split", "SPLIT")}
-          </Button>
-          {accountOptions.length ? (
-            canSwitch ? (
-              <Select
-                value={tile.account ?? accountOptions[0].value}
-                options={accountOptions}
-                /* The answer is not thrown away any more.
-                   A switch that failed said nothing at all: the picker snapped
-                   back and that was the whole report. Somebody whose account
-                   had just run into its limit was left guessing. */
-                onChange={(account) => {
-                  setSwitching(true);
-                  setSwitchError("");
-                  api
-                    .switchAccount(tile.id, account)
-                    .then((moved) => onReplaced?.(moved.id))
-                    .catch((e) => setSwitchError(errText(e)))
-                    .finally(() => setSwitching(false));
-                }}
-                disabled={switching}
-                title={tr("session.accountTip", "Continue under another account")}
-              />
-            ) : (
-              <span
-                className="meta"
-                title={tr("session.accountBlocked", "No Claude session id is known here, so there is nothing to move.")}
-              >
-                {tile.account ?? ""}
-              </span>
-            )
-          ) : null}
-          {/* Said out loud, where the switch was made. */}
-          {switchError ? <span className="notice warn">{switchError}</span> : null}
-          {tile.frozen ? (
-            <Button onClick={() => api.unfreeze(tile.id)}>{tr("session.resume", "RESUME")}</Button>
-          ) : (
-            <Button onClick={() => api.freeze(tile.id)}>{tr("session.pause", "PAUSE")}</Button>
-          )}
-          <Button
-            onClick={() => {
-              api.kill(tile.id).catch(() => undefined);
-              onBack();
-            }}
-          >
-            {tr("session.kill", "TERMINATE")}
-          </Button>
-        </div>
+        <OverflowBar
+          className="sessbar"
+          moreTitle={tr("session.more", "More actions")}
+          left={
+            <>
+              <span className="sesstitle">{titleOf(tile)}</span>
+              <span className="meta">{shortPath(tile.cwd)}</span>
+            </>
+          }
+          items={barItems}
+        />
       </TopStrip>
 
       <div className="sesssplit" data-files={files ? "open" : undefined}>
