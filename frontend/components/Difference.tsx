@@ -42,12 +42,17 @@ export default function Difference({
   rootId,
   path,
   staged,
+  base = "",
   onClose,
   onEdit,
 }: {
   rootId: string;
   path: string;
   staged: boolean;
+  /* Range mode: the working tree against the merge-base of this ref — what
+     the review panel opens. Staged means nothing then; the whole branch is
+     read. Empty for the ordinary staged/unstaged diff. */
+  base?: string;
   onClose: () => void;
   /* The file in the editor, at the line that was clicked. */
   onEdit?: (path: string, line: number) => void;
@@ -68,19 +73,19 @@ export default function Difference({
     let dropped = false;
     setProblem("");
     api
-      .diff(rootId, path, staged)
+      .diff(rootId, path, staged, base)
       .then((d) => !dropped && setDiff(d))
       .catch((e) => !dropped && setProblem(errText(e)));
     return () => {
       dropped = true;
     };
-  }, [rootId, path, staged, again]);
+  }, [rootId, path, staged, base, again]);
 
   // A different file is a blank slate; the same file moving keeps its text
   // on screen until the new one is in.
   useEffect(() => {
     setDiff(null);
-  }, [rootId, path, staged]);
+  }, [rootId, path, staged, base]);
 
   const name = path.split("/").pop() ?? path;
 
@@ -89,7 +94,11 @@ export default function Difference({
       <div className="overlayBar">
         <span className="overlayName">{name}</span>
         <span className="meta">
-          {staged ? tr("git.staged", "staged") : tr("git.unstaged", "not staged")}
+          {base
+            ? tr("git.sinceBase", "since {base}", { base })
+            : staged
+              ? tr("git.staged", "staged")
+              : tr("git.unstaged", "not staged")}
           {diff && !diff.binary && !diff.empty
             ? ` · ${trN("git.hunks", diff.hunks.length, "{n} place", "{n} places")}`
             : ""}

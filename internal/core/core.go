@@ -1266,6 +1266,127 @@ func (c *Core) Difference(id, path string, staged bool) (git.Diff, error) {
 	return out, nil
 }
 
+// DifferenceSince is the range diff: one file as the working tree has it
+// against the merge-base of a branch review. The path is held to the same
+// leash as Difference; the base is resolved the way the review resolves it,
+// so the hunks here match the list there.
+func (c *Core) DifferenceSince(id, path, base string) (git.Diff, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return git.Diff{}, err
+	}
+	if _, err := files.ResolveMaybeGone(root, path); err != nil {
+		return git.Diff{}, err
+	}
+	mb, err := git.MergeBase(root, base)
+	if err != nil {
+		return git.Diff{}, err
+	}
+	was := ""
+	if review, err := git.ReviewOf(root, base); err == nil {
+		for _, f := range review.Files {
+			if f.Path == path && f.Renamed != "" {
+				was = f.Renamed
+				break
+			}
+		}
+	}
+	out, err := git.DifferenceSince(root, path, was, mb)
+	if err != nil {
+		return git.Diff{}, uierr.With("err.git.failed", err.Error())
+	}
+	return out, nil
+}
+
+// Review lists what the branch changed against a base — from the merge-base
+// to the working tree, untracked files included.
+func (c *Core) Review(id, base string) (git.Review, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return git.Review{}, err
+	}
+	return git.ReviewOf(root, base)
+}
+
+/* Discard throws the working-tree changes of these paths away: a tracked
+ * file goes back to the way the index has it, an untracked one is removed.
+ *
+ * Every path is held to the folder's leash before anything is touched. The
+ * ordinary Resolve follows a link to wherever it points, which is exactly the
+ * check wanted here — a link out of the folder is refused, not removed at the
+ * far end. A path that is gone (a deletion being discarded, so it comes back)
+ * cannot be followed, and is checked against its nearest parent instead. */
+func (c *Core) Discard(id string, paths []string) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	if len(paths) == 0 {
+		return uierr.New("err.git.noPaths")
+	}
+	for _, p := range paths {
+		if err := leashed(root, p); err != nil {
+			return err
+		}
+	}
+	if err := git.Discard(root, paths); err != nil {
+		return err
+	}
+	c.pokeWatch(root)
+	return nil
+}
+
+// leashed refuses a path that leaves the folder, through a link or otherwise.
+func leashed(root, path string) error {
+	if strings.TrimSpace(path) == "" || path == "." {
+		return uierr.New("err.file.notTheRoot")
+	}
+	_, err := files.Resolve(root, path)
+	if err == nil {
+		return nil
+	}
+	if strings.HasPrefix(err.Error(), "err.file.outsideRoot") {
+		return err
+	}
+	// Not there — a deletion being undone. Its parent still has to be inside.
+	_, err = files.ResolveMaybeGone(root, path)
+	return err
+}
+
+// StashPush puts every change aside under a message; StashPop takes the
+// newest one back. Stashes lists what is put aside.
+func (c *Core) StashPush(id, message string) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	if err := git.StashPush(root, message); err != nil {
+		return err
+	}
+	c.pokeWatch(root)
+	return nil
+}
+
+func (c *Core) StashPop(id string) error {
+	root, err := c.repo(id)
+	if err != nil {
+		return err
+	}
+	if err := git.StashPop(root); err != nil {
+		return err
+	}
+	c.pokeWatch(root)
+	return nil
+}
+
+func (c *Core) Stashes(id string) ([]git.Stash, error) {
+	root, err := c.repo(id)
+	if err != nil {
+		return nil, err
+	}
+	return git.Stashes(root)
+}
+
 // Baseline is one file as HEAD has it — what an editor's gutter measures the
 // buffer against.
 type Baseline struct {

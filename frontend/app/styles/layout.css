@@ -825,3 +825,9 @@ button.diffline { cursor: pointer; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */
 .filesPanel .files { flex: 1; width: 100%; min-height: 0; }
+
+/* ---- review (branch review panel) ----
+   The branch review fills its dock panel; its list is a column like the
+   changes list, but takes the panel's whole width rather than a tree's. */
+.reviewPanel { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.review { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; }

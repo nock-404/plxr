@@ -72,6 +72,12 @@ LAYOUT_ONLY = {
     "preview", "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.
     "changesPanel",
+    # The branch review panel and its list column: arrangement only, every
+    # row in it wears the changes list's classes.
+    "reviewPanel", "review",
+    # dockview's own content box, given a height in layout.css so a panel's
+    # root fills it: arrangement only, dockview dresses its own parts.
+    "dv-react-part",
     # Find in files as a dock panel: the same, arrangement only.
     "searchPanel",
     # A diff in its own dock panel: the positioned box its overlay fills.

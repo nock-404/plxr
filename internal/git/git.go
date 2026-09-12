@@ -340,6 +340,9 @@ type Diff struct {
 	// compared against. Said plainly rather than as an empty list, which reads
 	// as "something went wrong".
 	Empty bool `json:"empty"`
+	// Since is the commit the working tree was measured against, for a range
+	// diff; empty for the ordinary staged/unstaged one.
+	Since string `json:"since,omitempty"`
 }
 
 // Difference returns what changed in one file, parsed.
@@ -356,7 +359,20 @@ func Difference(dir, path string, staged bool) (Diff, error) {
 // new one it cannot see the deletion of the old, calls it a new file, and
 // marks every line an addition — a whole-file rewrite where the row said +1 -1.
 func DifferenceOf(dir, path, was string, staged bool) (Diff, error) {
-	out := Diff{Path: path, Staged: staged, Hunks: []Hunk{}}
+	return difference(dir, path, was, staged, "")
+}
+
+// DifferenceSince is the range variant: the file as it stands in the working
+// tree against a commit — the merge-base of the branch, for a review of
+// everything the branch did. `since` is a resolved commit or any ref git can
+// read; the diff carries it back so the window can say what it was measured
+// against.
+func DifferenceSince(dir, path, was, since string) (Diff, error) {
+	return difference(dir, path, was, false, since)
+}
+
+func difference(dir, path, was string, staged bool, since string) (Diff, error) {
+	out := Diff{Path: path, Staged: staged, Hunks: []Hunk{}, Since: since}
 	// diff.suppressBlankEmpty, if the user has it set, makes git print a blank
 	// context line as "" rather than " " — which the parser cannot tell from
 	// the header gap and miscounts, throwing every later line number off. Held
@@ -365,6 +381,11 @@ func DifferenceOf(dir, path, was string, staged bool) (Diff, error) {
 		"diff", "--no-color", "--no-ext-diff", "-M", "-U3"}
 	if staged {
 		args = append(args, "--cached")
+	}
+	// A range: the working tree against that commit, index ignored — which is
+	// what "everything this branch did" means whether or not it is staged.
+	if since != "" {
+		args = append(args, since)
 	}
 	// -- keeps a path that starts with a dash from being read as an option.
 	args = append(args, "--", path)

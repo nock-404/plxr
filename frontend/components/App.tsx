@@ -457,6 +457,7 @@ export default function App() {
         hint: caption(bindingOf(VIEW_ACTIONS[i])),
         onClick: () => setFocus({ kind: "view", view: v.view }),
       })),
+      { label: tr("rail.review", "Review"), onClick: () => setFocus({ kind: "view", view: "review" }) },
       { separator: true },
       { header: true, label: tr("menu.help", "Help") },
       { label: tr("keys.title", "Keyboard"), hint: caption(bindingOf("help")), onClick: () => setKeys(true) },

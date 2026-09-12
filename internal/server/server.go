@@ -22,6 +22,7 @@ import (
 	"plxr/internal/daemon"
 	"plxr/internal/find"
 	"plxr/internal/fonts"
+	"plxr/internal/git"
 	"plxr/internal/notify"
 	"plxr/internal/queue"
 	"plxr/internal/shell"
@@ -639,13 +640,88 @@ func (s *Server) Routes() *http.ServeMux {
 			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
 			return
 		}
-		out, err := s.c.Difference(r.PathValue("id"), req.Path, req.Staged)
+		var out git.Diff
+		var err error
+		if req.Base != "" {
+			out, err = s.c.DifferenceSince(r.PathValue("id"), req.Path, req.Base)
+		} else {
+			out, err = s.c.Difference(r.PathValue("id"), req.Path, req.Staged)
+		}
 		if err != nil {
 			code := http.StatusBadRequest
 			if forbidden(err) {
 				code = http.StatusForbidden
 			}
 			http.Error(w, err.Error(), code)
+			return
+		}
+		writeJSON(w, out)
+	})
+
+	/* A branch's work against a base, and the working-tree actions around
+	 * it: discard, stash, unstash. Every one goes through the core's leash. */
+	mux.HandleFunc("GET /api/review/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.Review(r.PathValue("id"), r.URL.Query().Get("base"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/git/{id}/discard", func(w http.ResponseWriter, r *http.Request) {
+		var req discardReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.Discard(r.PathValue("id"), req.Paths); err != nil {
+			code := http.StatusBadRequest
+			if forbidden(err) {
+				code = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), code)
+			return
+		}
+		out, err := s.c.Changes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/git/{id}/stash", func(w http.ResponseWriter, r *http.Request) {
+		var req stashReq
+		if json.NewDecoder(r.Body).Decode(&req) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.c.StashPush(r.PathValue("id"), req.Message); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		out, err := s.c.Stashes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("POST /api/git/{id}/unstash", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.c.StashPop(r.PathValue("id")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		out, err := s.c.Stashes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	mux.HandleFunc("GET /api/git/{id}/stashes", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.Stashes(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		writeJSON(w, out)
@@ -871,6 +947,17 @@ type commitReq struct {
 type diffReq struct {
 	Path   string `json:"path"`
 	Staged bool   `json:"staged"`
+	// Base: a range diff, the working tree against the merge-base of this
+	// ref. Staged is ignored then — a review reads the whole branch.
+	Base string `json:"base"`
+}
+
+type discardReq struct {
+	Paths []string `json:"paths"`
+}
+
+type stashReq struct {
+	Message string `json:"message"`
 }
 
 type remoteReq struct {
