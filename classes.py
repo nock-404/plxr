@@ -101,6 +101,14 @@ LAYOUT_ONLY = {
     # it and nothing else. The frame's border is .pterm's, the note's colour is
     # .endedNote's — both dressed in every skin.
     "paneEnded",
+    # The windows he asked for: the notes panel's column, the inbox's group
+    # and heading rows (the .uhead and .meta inside carry the colour), and
+    # the overview's column above its grid — arrangement only.
+    "notesPanel", "inboxGroup", "inboxHead", "inboxSub", "inboxProject", "overviewPanel",
+    # Dockview's own host for a panel's root: layout.css tells the root to
+    # fill it (height: 100%) and nothing else — another project's class, like
+    # xterm's, never dressed.
+    "dv-react-part",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

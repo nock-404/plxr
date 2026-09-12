@@ -825,3 +825,24 @@ button.diffline { cursor: pointer; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */
 .filesPanel .files { flex: 1; width: 100%; min-height: 0; }
+
+/* ---------- windows: notes, inbox groups, session grid ---------- */
+
+/* The notes panel: its bar, and the editor filling the rest of the panel. */
+.notesPanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+/* The inbox, grouped: an account heading, project headings under it, rows
+   under those. The headings are arrangement; .uhead and .meta inside them
+   carry the colour. */
+.inboxGroup { padding: 0.5rem 0 0.25rem; }
+.inboxHead { display: flex; align-items: baseline; gap: 0.5rem; padding: 0.35rem 0.875rem 0.15rem; }
+.inboxHead .uhead { margin-bottom: 0; }
+.inboxSub { padding-left: 1.5rem; }
+.inboxProject + .inboxProject { margin-top: 0.25rem; }
+
+/* The overview: its strip above, the grid filling the rest and scrolling. */
+.overviewPanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.overviewPanel > .grid, .overviewPanel > .empty { min-height: 0; }
+/* Dense — the session grid: more columns, shorter tiles, less air. */
+.grid[data-dense="yes"] { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.5rem; padding: 0.5rem; }
+.grid[data-dense="yes"] .tile { height: 8.5rem; }
