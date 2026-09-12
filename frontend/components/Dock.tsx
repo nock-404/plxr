@@ -33,6 +33,7 @@ import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
 
 /* The window as dockable panels.
@@ -147,7 +148,7 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           props.api.close();
           d.onReplaced(nextId);
         }}
-        onOpenFile={(path) => d.openEditor(tile.id, path)}
+        onOpenFile={(path, line) => d.openEditor(tile.id, path, line)}
         /* The changes panel follows the session focused last, and the click
            that asks for it lands in this panel — so it is this session's
            folder the panel comes up on. */
@@ -306,6 +307,41 @@ function EditorTab(props: IDockviewPanelHeaderProps) {
   );
 }
 
+/* The tab of a session panel: its title, and a mark when the terminal rang
+   its bell while the panel was not in front.
+ *
+ * A BEL is a program asking for attention — a build that finished, a prompt
+ * that came up — and in a panel behind three others it rang into the void.
+ * The bell library keeps which sessions have rung and have not been looked at
+ * since; this tab reads it, and the mark goes when the panel comes to the
+ * front. The title text stays exactly the title, so nothing that reads tab
+ * titles finds a dot appended to it. */
+function SessionTab(props: IDockviewPanelHeaderProps) {
+  const id = props.api.id.startsWith("session:") ? props.api.id.slice("session:".length) : props.api.id;
+  const [marked, setMarked] = useState(() => hasBell(id));
+  useEffect(() => {
+    // A panel already in front has been looked at: its flash is enough.
+    const follow = () => {
+      if (props.api.isActive) clearBell(id);
+      setMarked(hasBell(id));
+    };
+    window.addEventListener(BELL_CHANGED, follow);
+    const active = props.api.onDidActiveChange((e) => {
+      if (e.isActive) clearBell(id);
+    });
+    return () => {
+      window.removeEventListener(BELL_CHANGED, follow);
+      active.dispose();
+    };
+  }, [id, props.api]);
+  return (
+    <div className="sessionTab" data-bell={marked ? "yes" : "no"}>
+      <span className="sessionTabName">{props.api.title}</span>
+      <span className="sessionTabBell" aria-hidden="true" />
+    </div>
+  );
+}
+
 /* The file tree of one root, as a panel. A row opens its file as an editor
    panel beside whatever is on screen — the terminal stays where it is. */
 function FilesPanel(props: IDockviewPanelProps<{ rootId: string; root: string }>) {
@@ -401,8 +437,9 @@ export type LayoutRequest =
   | { type: "activity"; arg: Activity };
 export type LayoutAction = LayoutRequest & { seq: number };
 
-// The tabs that are not dockview's default: the editor's, whose close is guarded.
-const tabComponents = { editorTab: EditorTab };
+// The tabs that are not dockview's default: the editor's, whose close is
+// guarded, and the session's, which carries the bell mark.
+const tabComponents = { editorTab: EditorTab, sessionTab: SessionTab };
 
 export default function Dock({
   tiles,
@@ -885,8 +922,9 @@ function openOrFocus(
     existing.api.setActive();
     return false;
   }
-  // An editor gets its own tab, whose close will not drop unsaved edits.
-  const tab = component === "editor" ? { tabComponent: "editorTab" } : {};
+  // An editor gets its own tab, whose close will not drop unsaved edits; a
+  // session gets one that can show the bell.
+  const tab = component === "editor" ? { tabComponent: "editorTab" } : component === "session" ? { tabComponent: "sessionTab" } : {};
   dv.addPanel({ id, component, title, params, ...tab, ...sized(dv, place(dv, laneOf(role, id))) });
   return true;
 }

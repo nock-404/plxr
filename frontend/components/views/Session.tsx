@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import OverflowBar from "@/components/ui/OverflowBar";
 import type { SearchAddon } from "@xterm/addon-search";
@@ -37,9 +37,10 @@ export default function Session({
   /* Called when this session has been replaced by another with a new id —
      moving to a different account does exactly that. */
   onReplaced?: (id: string) => void;
-  /* A file picked in the tree. It opens as a panel beside this one — the
-     terminal stays where it is — so the session itself holds no editor. */
-  onOpenFile: (path: string) => void;
+  /* A file picked in the tree, or a path clicked in the terminal — with the
+     line it named, when it named one. It opens as a panel beside this one —
+     the terminal stays where it is — so the session itself holds no editor. */
+  onOpenFile: (path: string, line?: number) => void;
   /* Source control for this session's folder, as a panel beside it. */
   onChanges?: () => void;
 }) {
@@ -85,12 +86,26 @@ export default function Session({
     [],
   );
 
+  /* ⌘F opens the find box of THIS session only.
+   *
+   * Every open session listened on the document, so one ⌘F opened a find box
+   * in each of them — measured: three panels, three boxes. Now the key counts
+   * here only when it was pressed inside this section, or, pressed outside
+   * any session at all, when this section sits in the dock's active group. */
+  const root = useRef<HTMLElement>(null);
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (matches(e, "find")) {
-        e.preventDefault();
-        setFind(true);
+      if (!matches(e, "find")) return;
+      const here = root.current;
+      const target = e.target as Node | null;
+      const inside = Boolean(here && target && here.contains(target));
+      if (!inside) {
+        const el = target as Element | null;
+        if (el?.closest?.(".session")) return;
+        if (!here?.closest(".dv-active-group")) return;
       }
+      e.preventDefault();
+      setFind(true);
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -285,7 +300,7 @@ export default function Session({
   ];
 
   return (
-    <section className="session">
+    <section className="session" ref={root}>
       <TopStrip>
         <OverflowBar
           className="sessbar"
@@ -319,7 +334,9 @@ export default function Session({
             ended={!tile.alive}
             orphaned={Boolean(tile.orphaned)}
             exitCode={tile.exit_code}
+            endedAt={tile.ended_at}
             onRestart={restart}
+            onOpenPath={onOpenFile}
           />
           {split ? (
             <Terminal
@@ -336,6 +353,7 @@ export default function Session({
               ended={others.some((o) => o.id === split && !o.alive)}
               orphaned={Boolean(others.find((o) => o.id === split)?.orphaned)}
               exitCode={others.find((o) => o.id === split)?.exit_code ?? 0}
+              endedAt={others.find((o) => o.id === split)?.ended_at}
               onRestart={() => api.resume(split)}
             />
           ) : null}

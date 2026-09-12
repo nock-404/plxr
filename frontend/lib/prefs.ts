@@ -20,7 +20,29 @@ export type TerminalPrefs = {
   scrollback: number;
   cursorStyle: "block" | "underline" | "bar";
   cursorBlink: boolean;
+  /* How the cursor is drawn while the terminal does not have the keyboard —
+     an outline by default, so a pane that is not being typed in says so. */
+  cursorInactive: "outline" | "block" | "bar" | "underline" | "none";
+  /* The typeface's weight for plain and for bold text, as xterm names them. */
+  fontWeight: TerminalWeight;
+  fontWeightBold: TerminalWeight;
+  /* Row pitch as a multiple of the font size, and the room added between
+     characters in rem — the same unit as every other size in the window;
+     xterm is handed the pixel value at apply time. */
+  lineHeight: number;
+  letterSpacing: number;
+  /* The smallest contrast xterm may draw text at; 1 leaves the palette alone. */
+  minContrast: number;
+  /* Bold text takes the bright half of the palette, the way most terminals do. */
+  boldBright: boolean;
+  /* The sound a BEL plays, from the notification sounds; empty for none. The
+     frame flashes either way. */
+  bellSound: string;
 };
+
+export type TerminalWeight = "300" | "normal" | "500" | "600" | "bold";
+export const TERMINAL_WEIGHTS: TerminalWeight[] = ["300", "normal", "500", "600", "bold"];
+export const CURSOR_INACTIVE: TerminalPrefs["cursorInactive"][] = ["outline", "block", "bar", "underline", "none"];
 
 export type EditorPrefs = {
   /* Which keymap the editor answers to: the full default set, the smaller
@@ -30,7 +52,19 @@ export type EditorPrefs = {
   tabSize: 2 | 4 | 8;
 };
 
-export const DEFAULT_TERMINAL: TerminalPrefs = { scrollback: 10000, cursorStyle: "block", cursorBlink: true };
+export const DEFAULT_TERMINAL: TerminalPrefs = {
+  scrollback: 10000,
+  cursorStyle: "block",
+  cursorBlink: true,
+  cursorInactive: "outline",
+  fontWeight: "normal",
+  fontWeightBold: "bold",
+  lineHeight: 1.15,
+  letterSpacing: 0,
+  minContrast: 1,
+  boldBright: true,
+  bellSound: "",
+};
 export const DEFAULT_EDITOR: EditorPrefs = { keymap: "default", wrap: true, tabSize: 2 };
 
 let terminal: TerminalPrefs = DEFAULT_TERMINAL;
@@ -78,13 +112,31 @@ function announce(): void {
   }
 }
 
+// A number within its range, or the default when it is missing or absurd.
+function between(raw: unknown, low: number, high: number, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.min(high, Math.max(low, n)) : fallback;
+}
+
 function fitTerminal(raw: unknown): TerminalPrefs {
   const p = (raw ?? {}) as Partial<TerminalPrefs>;
   const scrollback = Number(p.scrollback);
+  const weight = (w: unknown, fallback: TerminalWeight): TerminalWeight =>
+    TERMINAL_WEIGHTS.includes(w as TerminalWeight) ? (w as TerminalWeight) : fallback;
   return {
     scrollback: Number.isFinite(scrollback) && scrollback >= 0 ? Math.min(200000, Math.round(scrollback)) : DEFAULT_TERMINAL.scrollback,
     cursorStyle: p.cursorStyle === "underline" || p.cursorStyle === "bar" ? p.cursorStyle : "block",
     cursorBlink: typeof p.cursorBlink === "boolean" ? p.cursorBlink : DEFAULT_TERMINAL.cursorBlink,
+    cursorInactive: CURSOR_INACTIVE.includes(p.cursorInactive as TerminalPrefs["cursorInactive"])
+      ? (p.cursorInactive as TerminalPrefs["cursorInactive"])
+      : DEFAULT_TERMINAL.cursorInactive,
+    fontWeight: weight(p.fontWeight, DEFAULT_TERMINAL.fontWeight),
+    fontWeightBold: weight(p.fontWeightBold, DEFAULT_TERMINAL.fontWeightBold),
+    lineHeight: between(p.lineHeight, 1, 2, DEFAULT_TERMINAL.lineHeight),
+    letterSpacing: between(p.letterSpacing, 0, 0.25, DEFAULT_TERMINAL.letterSpacing),
+    minContrast: between(p.minContrast, 1, 21, DEFAULT_TERMINAL.minContrast),
+    boldBright: typeof p.boldBright === "boolean" ? p.boldBright : DEFAULT_TERMINAL.boldBright,
+    bellSound: typeof p.bellSound === "string" ? p.bellSound : DEFAULT_TERMINAL.bellSound,
   };
 }
 

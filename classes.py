@@ -101,6 +101,12 @@ LAYOUT_ONLY = {
     # it and nothing else. The frame's border is .pterm's, the note's colour is
     # .endedNote's — both dressed in every skin.
     "paneEnded",
+    # The session panel's tab: a row holding the title and the bell mark. The
+    # row and the name only arrange; the mark itself is dressed.
+    "sessionTab", "sessionTabName",
+    # Dockview's own React mount point: a box the dock fills, addressed only
+    # to make it fill its host. It is dockview's class, not a skin's.
+    "dv-react-part",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

@@ -825,3 +825,14 @@ button.diffline { cursor: pointer; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */
 .filesPanel .files { flex: 1; width: 100%; min-height: 0; }
+
+/* ---- terminal: the ended overlay, the bell, the session tab ------------ */
+/* The note over an ended session lies on the terminal's last screen, inside
+   the same frame: the frame is the box it fills. */
+.pterm { position: relative; }
+.endedOverlay { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; overflow: auto; }
+/* The session's tab: its title, and the bell mark beside it when it rang. */
+.sessionTab { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.sessionTabName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionTabBell { flex: 0 0 auto; width: 0.5rem; height: 0.5rem; }
+.sessionTab[data-bell="no"] .sessionTabBell { display: none; }

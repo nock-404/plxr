@@ -388,3 +388,26 @@
 [data-skin="win95"] .tooltip { background: #ffffe1; color: var(--dk); border: var(--hair) solid var(--dk); box-shadow: none; text-shadow: none; }
 [data-skin="win95"] .menuHeader { color: var(--sh); letter-spacing: 0; text-transform: none; font-weight: bold; }
 
+/* ---- terminal: VGA palette, ended overlay, bell ------------------------ */
+/* The sixteen colours of the text mode this look comes from, exactly. */
+[data-skin="win95"] {
+  --term-black: #000000;
+  --term-red: #aa0000;
+  --term-green: #00aa00;
+  --term-yellow: #aa5500;
+  --term-blue: #0000aa;
+  --term-magenta: #aa00aa;
+  --term-cyan: #00aaaa;
+  --term-white: #aaaaaa;
+  --term-brightBlack: #555555;
+  --term-brightRed: #ff5555;
+  --term-brightGreen: #55ff55;
+  --term-brightYellow: #ffff55;
+  --term-brightBlue: #5555ff;
+  --term-brightMagenta: #ff55ff;
+  --term-brightCyan: #55ffff;
+  --term-brightWhite: #ffffff;
+}
+[data-skin="win95"] .endedOverlay { background: color-mix(in srgb, var(--panel) 82%, transparent); }
+[data-skin="win95"] .pane[data-bell="yes"] .pterm { border-color: var(--blocked); box-shadow: inset 0 0 0 var(--bevel) var(--blocked); }
+[data-skin="win95"] .sessionTabBell { background: var(--blocked); border-radius: 0; border: var(--hair) solid var(--dk); }

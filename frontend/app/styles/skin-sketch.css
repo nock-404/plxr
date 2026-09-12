@@ -479,3 +479,26 @@
 }
 [data-skin="sketch"] .menuHeader { color: var(--dim); letter-spacing: 0; text-transform: none; font-style: italic; }
 
+/* ---- terminal: ink palette, ended overlay, bell ------------------------ */
+/* Inks on the slate: the same reds, greens and blues the interface writes in. */
+[data-skin="sketch"] {
+  --term-black: #2b2b2b;
+  --term-red: #c1440e;
+  --term-green: #2e8b57;
+  --term-yellow: #b8860b;
+  --term-blue: #1b6ca8;
+  --term-magenta: #8e4585;
+  --term-cyan: #2a9d8f;
+  --term-white: #e8e4d8;
+  --term-brightBlack: #716d62;
+  --term-brightRed: #e0603a;
+  --term-brightGreen: #4fb37a;
+  --term-brightYellow: #d9a441;
+  --term-brightBlue: #4a90c8;
+  --term-brightMagenta: #b06aa5;
+  --term-brightCyan: #52bfb2;
+  --term-brightWhite: #fffdf6;
+}
+[data-skin="sketch"] .endedOverlay { background: color-mix(in srgb, var(--panel) 74%, transparent); }
+[data-skin="sketch"] .pane[data-bell="yes"] .pterm { border-color: var(--blocked); box-shadow: 0 0 0 .15rem color-mix(in srgb, var(--blocked) 35%, transparent); }
+[data-skin="sketch"] .sessionTabBell { background: var(--blocked); border-radius: 0.3rem 0.2rem 0.35rem 0.25rem / 0.25rem 0.35rem 0.2rem 0.3rem; }

@@ -366,3 +366,26 @@
 }
 [data-skin="pixel"] .menuHeader { color: var(--accent); letter-spacing: 0; }
 
+/* ---- terminal: arcade palette, ended overlay, bell --------------------- */
+/* Saturated and bright, the way a cabinet draws them. */
+[data-skin="pixel"] {
+  --term-black: #0f0f1b;
+  --term-red: #ff5c6c;
+  --term-green: #6ee7a0;
+  --term-yellow: #ffd23f;
+  --term-blue: #4f8fff;
+  --term-magenta: #ff6ec7;
+  --term-cyan: #4fe3ff;
+  --term-white: #e8e8f0;
+  --term-brightBlack: #3a3f6b;
+  --term-brightRed: #ff8a96;
+  --term-brightGreen: #9ff5c0;
+  --term-brightYellow: #ffe07a;
+  --term-brightBlue: #86b3ff;
+  --term-brightMagenta: #ff9ad9;
+  --term-brightCyan: #8df0ff;
+  --term-brightWhite: #ffffff;
+}
+[data-skin="pixel"] .endedOverlay { background: color-mix(in srgb, var(--bg) 76%, transparent); }
+[data-skin="pixel"] .pane[data-bell="yes"] .pterm { border-color: var(--accent); box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--accent), 0 var(--px) 0 0 var(--accent), calc(-1 * var(--px)) 0 0 0 var(--accent), var(--px) 0 0 0 var(--accent); }
+[data-skin="pixel"] .sessionTabBell { background: var(--accent); border-radius: 0; }
