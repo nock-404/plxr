@@ -180,7 +180,7 @@ await open();
 // The active tab, as dockview marks it — what a person sees as "the session
 // in front".
 const ACTIVE = "return [...document.querySelectorAll('.plxrDock .dv-tab.dv-active-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).join('|')";
-const names = (id, name) => new RegExp(`(^|\\|)(${name}|${id.slice(0, 8)})(\\||$)`);
+const names = (id, name) => new RegExp(`(^|\\|)(${name}|${id.slice(0, 8)})( · |$|\\|)`) // a tab reads "name · state" now, so the name is matched as a word before the state, the end, or the next tab
 const active = () => run(ACTIVE).catch(() => "");
 
 // What the window does on a click: the same PUT, with the token.
