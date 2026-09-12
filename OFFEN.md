@@ -14,7 +14,7 @@ because they run headless and never opened a menu over a terminal or ended a
 session and looked. This is the whole list, captured so he has a status instead
 of watching me push to git blind ("and I have zero status").
 
-1. **Popovers are see-through over content.** ("what the hell is this?", images
+1. **Popovers are see-through over content.** (shipped 0.75/0.76: opaque surfaces, overflow menu above the terminal)  ("what the hell is this?", images
    6 + 7) The overflow menu and the hover tooltip let the terminal text behind
    them bleed through, so nothing in them is readable. Cause found: the crt skin
    turns surfaces into glass (`--panel-glass` + a backdrop blur), and at his low
@@ -22,35 +22,35 @@ of watching me push to git blind ("and I have zero status").
    over app content. Every floating surface — context menu, overflow menu,
    tooltip, account dropdown, palette, select, dialog — must be opaque, not glass.
 
-2. **The terminal does not fill its height.** ("why doesn't the terminal have
+2. **The terminal does not fill its height.** (shipped 0.75/0.77: every panel root fills its host)  ("why doesn't the terminal have
    full height?", image 4) A dead session panel leaves a large empty area below
    the terminal instead of the terminal reaching the bottom.
 
-3. **The path is cut off.** ("why is the path cut off?") The folder path in the
+3. **The path is cut off.** (0.77: the whole path shows on hover; COPY PATH everywhere)  ("why is the path cut off?") The folder path in the
    session bar is truncated with no way to see or copy the full path.
 
-4. **A stopped session cannot be resumed.** ("why can't I resume there?") It
+4. **A stopped session cannot be resumed.** (shipped 0.76: RESTART in place, same id)  ("why can't I resume there?") It
    shows "[plxr] this session is not running" and offers no way to start it again
    — only, at best, to close it.
 
-5. **Ctrl+C / the command ending does not leave a shell.** ("when I end a session
+5. **Ctrl+C / the command ending does not leave a shell.** (shipped 0.76: the CLI runs inside the login shell)  ("when I end a session
    with Ctrl+C, why don't I just get a shell back?") When the CLI in a session
    exits, the session dies. A terminal replacement must drop back to a live shell
    in the same folder, the way a real terminal does.
 
-6. **There is no real, visible menu.** ("why is there no proper menu anywhere?")
+6. **There is no real, visible menu.** (shipped 0.76: header MENU; 0.77: Settings window)  ("why is there no proper menu anywhere?")
    Only the hidden palette and the settings button exist. He wants a proper,
    visible menu with all the settings, reachable without knowing a shortcut.
 
-7. **There is no context menu where he right-clicks.** ("why is there no context
+7. **There is no context menu where he right-clicks.** (shipped 0.76/0.77: a menu on every object)  ("why is there no context
    menu anywhere?") The context menus I added are not reaching the places he
    actually right-clicks.
 
-8. **The rail opens everything into the same panel.** ("why does everything in
+8. **The rail opens everything into the same panel.** (shipped 0.76: two lanes; 0.77: open in a new group, float)  ("why does everything in
    the left menu open in the same panel?") Every view from the left rail replaces
    the content of one panel instead of behaving like a real window manager.
 
-9. **He has no status.** ("and here you are working, pushing to git all nicely,
+9. **He has no status.** (shipped 0.76: live source control that follows the session; spend readout)  ("and here you are working, pushing to git all nicely,
    and I have zero status") While I work and push releases, the app gives him no
    overview of what is happening or what is tracked — above all no live view of
    the code changes / git diff, which is the whole point of a VS Code replacement.
@@ -61,7 +61,7 @@ of watching me push to git blind ("and I have zero status").
     from here: verify in the actually-rendered app, in the skin, over real
     content — a gate is only proof of what it looks for.
 
-11. **Notifications wear the wrong app.** (image 15) A plxr notification arrives with
+11. **Notifications wear the wrong app.** (shipped 0.77: the window posts with the icon; click opens the session)  (image 15) A plxr notification arrives with
     no icon, and clicking it opens Script Editor with a file dialog. Measured:
     notify_darwin.go has a native UserNotifications path (icon, click opens plxr) but
     it is sent by the background service, whose native call fails (no app run loop /
