@@ -76,9 +76,14 @@ func killProcess(p *os.Process, platform any) {
 	_ = p.Kill()
 }
 
-// killProcessHard exists on Windows only for completeness: TerminateJobObject
-// is hard anyway, a second attempt changes nothing.
-func killProcessHard(p *os.Process, platform any) { killProcess(p, platform) }
+// killStep is every step of the escalation at once: TerminateJobObject is
+// hard anyway, so the second and third attempt change nothing — they are made
+// all the same, for a process that escaped the job in its first milliseconds.
+func killStep(p *os.Process, platform any, _ int) { killProcess(p, platform) }
+
+// killStrayStep never runs on Windows — strays finds nothing there, the job
+// object is what holds the session together.
+func killStrayStep(int, int) {}
 
 /*
 Windows has no SIGSTOP. What comes closest is suspending every thread of

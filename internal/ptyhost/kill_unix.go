@@ -11,21 +11,29 @@ import (
 // of its own, so the process group is already there.
 func afterStart(*os.Process) any { return nil }
 
-// killProcess terminates the entire process group. The group id equals the
-// process id; the negative sign addresses the group. Without it the node
-// grandchild of `npm run dev` survives and keeps holding its port.
-func killProcess(p *os.Process, _ any) {
-	if err := syscall.Kill(-p.Pid, syscall.SIGTERM); err != nil {
+// steps are the escalation, in order: the polite one, the one a shell reads
+// as "the terminal is gone", and the one nothing can ignore.
+var steps = [...]syscall.Signal{syscall.SIGTERM, syscall.SIGHUP, syscall.SIGKILL}
+
+// killStep sends one step of the escalation to the entire process group. The
+// group id equals the process id; the negative sign addresses the group.
+// Without it the node grandchild of `npm run dev` survives and keeps holding
+// its port.
+func killStep(p *os.Process, _ any, step int) {
+	sig := steps[min(step, len(steps)-1)]
+	if err := syscall.Kill(-p.Pid, sig); err != nil {
 		// No group of its own, or already gone: then just the process.
-		_ = p.Signal(syscall.SIGTERM)
+		_ = p.Signal(sig)
 	}
 }
 
-// killProcessHard does not negotiate. The group comes first here as well:
-// otherwise whatever the session started survives.
-func killProcessHard(p *os.Process, _ any) {
-	if err := syscall.Kill(-p.Pid, syscall.SIGKILL); err != nil {
-		_ = p.Signal(syscall.SIGKILL)
+// killStrayStep sends the same step to a process that left the group. Its own
+// group first — a `setsid` child leads one, with children of its own in it —
+// and the process alone when it has none.
+func killStrayStep(pid int, step int) {
+	sig := steps[min(step, len(steps)-1)]
+	if err := syscall.Kill(-pid, sig); err != nil {
+		_ = syscall.Kill(pid, sig)
 	}
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { tr, trN } from "./i18n";
+import { clock } from "./format";
 import type { Tile } from "./types";
 
 /* One state, one word.
@@ -80,9 +81,36 @@ export function agentOf(t: Tile): string {
 
 /* The one line each place shows. Every one of them starts with the same word. */
 
-// Rail: the state, and what is doing it.
+// Rail: the state, and what is doing it — or, once it is over, when.
 export function railLine(t: Tile): string {
-  return [stateWord(stateOf(t)), agentOf(t)].filter(Boolean).join(" · ");
+  return [stateWord(stateOf(t)), endedAt(t) || agentOf(t)].filter(Boolean).join(" · ");
+}
+
+/* When a session ended, as a clock time: "ended" alone says nothing about
+   whether that was a minute ago or before lunch, and that is the first thing
+   anyone coming back to the board wants to know. Empty while it runs. */
+export function endedAt(t: Tile): string {
+  if (t.alive || !t.ended_at) return "";
+  return clock(new Date(t.ended_at));
+}
+
+/* The dock tab: the name, then the state — so which sessions need somebody
+   can be read off the tab strip without opening any of them. */
+export function tabTitle(t: Tile): string {
+  return `${titleOf(t)} · ${stateWord(stateOf(t))}`;
+}
+
+/* The session bar: the state, what the agent is doing, and once it is over
+   the time and the exit code. The same words as the tile, in the same order. */
+export function barLine(t: Tile): string {
+  const word = stateWord(stateOf(t));
+  if (!t.alive) {
+    const when = endedAt(t);
+    return [word, when, t.orphaned ? "" : tr("session.endedCode", "exit code {code}", { code: t.exit_code })]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  return [word, detailOf(t)].filter(Boolean).join(" · ");
 }
 
 // Tile: the state, and what it is doing right now when that is known. Never
@@ -92,6 +120,8 @@ export function tileLine(t: Tile): string {
   const word = stateWord(stateOf(t));
   // A crash explains itself in the tooltip; in the line it stays one word.
   if (t.orphaned) return word;
+  // Over: when, rather than what it was last doing.
+  if (!t.alive) return [word, endedAt(t)].filter(Boolean).join(" · ");
   return [word, detail].filter(Boolean).join(" · ");
 }
 

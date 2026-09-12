@@ -42,6 +42,10 @@ export interface Agent {
   label: string;
   match: string[];
   own: boolean;
+  /* Whether the CLI is on the PATH sessions get. The dialog greys out one
+     that is not, with "not found", instead of starting it into a shell that
+     says the same thing after the click. */
+  found: boolean;
 }
 
 export interface Theme {

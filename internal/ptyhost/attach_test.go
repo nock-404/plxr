@@ -175,9 +175,25 @@ func TestAttachLosesNothingInBetween(t *testing.T) {
 }
 
 // And the check above has to be able to see that happening.
+//
+// The two-step attach only loses output that is written during its two
+// milliseconds, so it has to land inside the flood — which begins some twenty
+// milliseconds after the start, once the child is up, and is over fifty
+// later. Attaching at a fixed offset from the start missed it on a loaded
+// machine, in every round, and the test then failed for having proven
+// nothing. So each round waits for the first output before it attaches.
 func TestTheGapWouldBeSeen(t *testing.T) {
 	for round := 0; round < 15; round++ {
 		h := flooding(t)
+		for start := time.Now(); time.Since(start) < 3*time.Second; {
+			h.mu.Lock()
+			begun := h.produced > 0
+			h.mu.Unlock()
+			if begun {
+				break
+			}
+			time.Sleep(200 * time.Microsecond)
+		}
 		time.Sleep(time.Duration(round) * time.Millisecond)
 		err := contiguous(t, h, twoStep(h))
 		h.Kill()

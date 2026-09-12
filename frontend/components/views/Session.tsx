@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import OverflowBar from "@/components/ui/OverflowBar";
 import type { SearchAddon } from "@xterm/addon-search";
+import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
@@ -19,7 +20,7 @@ import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { matches } from "@/lib/keymap";
 import { shortPath } from "@/lib/format";
-import { titleOf } from "@/lib/state";
+import { barLine, titleOf } from "@/lib/state";
 import type { Account, Tile } from "@/lib/types";
 
 // One open session: the terminal, and the tools that act on it.
@@ -49,6 +50,23 @@ export default function Session({
   const [switchError, setSwitchError] = useState("");
   const [restarting, setRestarting] = useState(false);
   const [restartError, setRestartError] = useState("");
+  const [askKill, setAskKill] = useState(false);
+  const [killing, setKilling] = useState(false);
+
+  /* TERMINATE does not close the panel.
+     It used to: the click sent the kill and left, so the ended state — the
+     last lines, the exit code, RESTART — was never seen, and a session whose
+     shell ignored the polite signal ran on with nothing showing it. Now the
+     panel stays; the tile turns ended on the next snapshot and the terminal
+     shows it. The service escalates on its own: TERM, then HUP, then KILL. */
+  const kill = useCallback(() => {
+    setAskKill(false);
+    setKilling(true);
+    api.kill(tile.id).catch(() => undefined);
+  }, [tile.id]);
+  useEffect(() => {
+    if (!tile.alive) setKilling(false);
+  }, [tile.alive]);
   const [files, setFiles] = useState(false);
   const [pane, setPane] = useState<"none" | "rules" | "marks" | "player">("none");
   const [queueOpen, setQueueOpen] = useState(false);
@@ -238,14 +256,11 @@ export default function Session({
           {
             key: "kill",
             node: (
-              <Button
-                onClick={() => {
-                  api.kill(tile.id).catch(() => undefined);
-                  onBack();
-                }}
-              >
-                {tr("session.kill", "TERMINATE")}
-              </Button>
+              <Tooltip text={tr("session.killTip", "End this session — the recording stays")}>
+                <Button danger busy={killing} onClick={() => setAskKill(true)}>
+                  {killing ? tr("session.terminating", "ENDING…") : tr("session.kill", "TERMINATE")}
+                </Button>
+              </Tooltip>
             ),
           },
         ]
@@ -259,6 +274,12 @@ export default function Session({
                 </Button>
               </Tooltip>
             ),
+          },
+          /* Beside it, the other thing an ended session is for: closing the
+             panel. The tile stays on the board, restartable, for hours. */
+          {
+            key: "close",
+            node: <Button onClick={onBack}>{tr("common.close", "CLOSE")}</Button>,
           },
         ]),
   ];
@@ -288,13 +309,14 @@ export default function Session({
           {
             label: tr("session.kill", "TERMINATE"),
             danger: true,
-            onClick: () => {
-              api.kill(tile.id).catch(() => undefined);
-              onBack();
-            },
+            disabled: killing,
+            onClick: () => setAskKill(true),
           },
         ]
-      : [{ label: tr("session.restart", "RESTART"), onClick: () => void restart() }]),
+      : [
+          { label: tr("session.restart", "RESTART"), onClick: () => void restart() },
+          { label: tr("common.close", "CLOSE"), onClick: onBack },
+        ]),
     { separator: true },
     { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(tile.cwd).catch(() => undefined) },
   ];
@@ -311,6 +333,9 @@ export default function Session({
               <Tooltip text={tile.cwd}>
                 <span className="meta">{shortPath(tile.cwd)}</span>
               </Tooltip>
+              {/* The state, here as well as on the tile and the tab: what the
+                  agent is doing, or when it ended and with what. */}
+              <span className="meta">{barLine(tile)}</span>
             </>
           }
           items={barItems}
@@ -372,6 +397,20 @@ export default function Session({
       </div>
 
       {queueOpen ? <Queue tile={tile} /> : null}
+
+      {askKill ? (
+        <Ask
+          heading={tr("session.killAsk", "Really terminate this session?")}
+          detail={tr(
+            "session.killDetail",
+            "It gets SIGTERM, then SIGHUP, then SIGKILL — everything it started ends with it. The recording stays, and RESTART brings it back under the same id.",
+          )}
+          confirmLabel={tr("session.kill", "TERMINATE")}
+          danger
+          onCancel={() => setAskKill(false)}
+          onConfirm={kill}
+        />
+      ) : null}
     </section>
   );
 }

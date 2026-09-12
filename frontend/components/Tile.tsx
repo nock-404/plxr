@@ -33,7 +33,7 @@ export default function Tile({
     { label: tr("tile.menuOpen", "Open"), onClick: onOpen },
     ...(stopped
       ? onResume
-        ? [{ label: tr("tile.menuResume", "Resume"), onClick: onResume }]
+        ? [{ label: tr("tile.menuRestart", "Restart"), onClick: onResume }]
         : []
       : tile.frozen
         ? [{ label: tr("tile.menuUnfreeze", "Resume"), onClick: () => void api.unfreeze(tile.id).catch(() => undefined) }]
@@ -101,9 +101,9 @@ export default function Tile({
       {stopped && (onResume || onForget) ? (
         <div className="tactions" onClick={(e) => e.stopPropagation()}>
           {onResume ? (
-            <Tooltip text={tr("tile.resumeTip", "Carry on where this left off, in place of this one")}>
+            <Tooltip text={tr("session.restartTip", "Start this session again, right here, under the same id")}>
               <Button tiny data-do="resume" onClick={onResume}>
-                {tr("tile.resume", "RESUME")}
+                {tr("session.restart", "RESTART")}
               </Button>
             </Tooltip>
           ) : null}

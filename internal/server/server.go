@@ -392,6 +392,10 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/agents", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.AgentList())
 	})
+	// The folders to offer in the new-session dialog: where sessions ran last.
+	mux.HandleFunc("GET /api/recent", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.RecentFolders(8))
+	})
 	mux.HandleFunc("GET /api/agents/{name}", func(w http.ResponseWriter, r *http.Request) {
 		text, err := s.c.AgentRead(r.PathValue("name"))
 		if err != nil {

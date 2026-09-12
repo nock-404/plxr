@@ -46,6 +46,8 @@ export const api = {
   releaseBrake: () => req<void>("/api/unfreeze", { method: "POST" }),
 
   agents: () => req<Agent[]>("/api/agents"),
+  // The folders sessions were last started in, for the new-session dialog.
+  recent: () => req<string[]>("/api/recent"),
   windowLog: (lines: string) =>
     req<void>("/api/window-log", { method: "POST", body: lines, headers: { "Content-Type": "text/plain" } }),
   prefsRev: () => req<{ rev: number }>("/api/prefs/rev"),

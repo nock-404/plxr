@@ -57,6 +57,9 @@ export default function Rail({
      the one action on the rail that is not a view. */
   onNewShell?: () => void;
 }) {
+  /* Started again under the same id, the way the tile does it: the entry that
+     was stopped is the entry that runs, so nothing here navigates. */
+  const restart = (t: Tile) => void api.resume(t.id).catch(() => undefined);
   const ctx = useContextMenu();
   /* The same actions the overview tile offers under the right button, here
      on the rail entry: open it, pause or resume it, end it, copy its folder.
@@ -71,7 +74,14 @@ export default function Rail({
           { separator: true as const },
           { label: tr("tile.menuTerminate", "Terminate"), danger: true, onClick: () => void api.kill(t.id).catch(() => undefined) },
         ]
-      : []),
+      : [
+          /* Ended or orphaned: the way back, and the way off the board — the
+             same two the tile offers, so no session has to be found on the
+             overview first to be brought back. */
+          { label: tr("tile.menuRestart", "Restart"), onClick: () => restart(t) },
+          { separator: true as const },
+          { label: tr("tile.menuForget", "Remove from the board"), onClick: () => void api.forget(t.id).catch(() => undefined) },
+        ]),
     { separator: true as const },
     { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(t.cwd).catch(() => undefined) },
   ];
