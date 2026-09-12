@@ -454,6 +454,21 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/notify/try", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"via": string(notify.Service.Try(r.URL.Query().Get("sound")))})
 	})
+	// The page cannot ask the system for the permission: it is a page. The
+	// window can, and this asks it to — the answer comes back the way the
+	// permission always does, and the settings show it.
+	mux.HandleFunc("POST /api/notify/authorize", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]bool{"asked": notify.Service.Authorize()})
+	})
+	// Where a refused permission is switched back on. A system URL, which a
+	// page is not allowed to follow; the service runs it.
+	mux.HandleFunc("POST /api/notify/system-settings", func(w http.ResponseWriter, r *http.Request) {
+		if err := notify.OpenSystemSettings(); err != nil {
+			http.Error(w, uierr.With("err.notify.settingsNotOpened", err.Error()).Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 
 	mux.HandleFunc("GET /api/queue/{id}", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, queue.Read(r.PathValue("id")))

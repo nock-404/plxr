@@ -14,7 +14,6 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -491,13 +490,24 @@ func runWindow(info daemon.Info) {
  * with the icon, and with a click that comes back here.
  *
  * A click brings the window forward and tells the page which session it was
- * about. The page still talks only to the daemon; this is the one thing pushed
- * into it from Go, as an event it can listen for.
+ * about — through the daemon, not into the page. This window loads the
+ * daemon's address, so the Wails runtime is not in the page, and a script
+ * pushed with ExecJS waits for a ready that never comes — the event went
+ * out and nothing heard it. The daemon's settings blob is the one wire
+ * every page already listens on, so the request is written there, and the
+ * page opens the session on its next look. See notify.RequestFocus.
  */
 func followNotifications(win *application.WebviewWindow) {
 	if !notify.WindowCapable() {
 		log.Println("notifications: not bundled, the daemon shows them itself")
 		return
+	}
+	where := func() (notify.Endpoint, bool) {
+		info, err := daemon.Read()
+		if err != nil || info.Port == 0 {
+			return notify.Endpoint{}, false
+		}
+		return notify.Endpoint{URL: info.URL(), Token: info.Token}, true
 	}
 	notify.WindowInstall(func(sessionID string) {
 		win.Show()
@@ -505,17 +515,17 @@ func followNotifications(win *application.WebviewWindow) {
 		if sessionID == "" {
 			return
 		}
-		id, _ := json.Marshal(sessionID)
-		win.ExecJS("window.dispatchEvent(new CustomEvent('plxr:focus-session', { detail: " + string(id) + " }))")
+		ep, ok := where()
+		if !ok {
+			log.Println("notifications: clicked, but the daemon is not there to open the session")
+			return
+		}
+		if err := notify.RequestFocus(ep, sessionID); err != nil {
+			log.Printf("notifications: the session could not be opened: %v", err)
+		}
 	})
 	notify.WindowAuthorize()
-	notify.FollowService(func() (notify.Endpoint, bool) {
-		info, err := daemon.Read()
-		if err != nil || info.Port == 0 {
-			return notify.Endpoint{}, false
-		}
-		return notify.Endpoint{URL: info.URL(), Token: info.Token}, true
-	}, notify.WindowPost, notify.WindowPermission, notify.PermissionChanged())
+	notify.FollowService(where, notify.WindowPost, notify.WindowPermission, notify.PermissionChanged(), notify.WindowAuthorize)
 }
 
 // migrateRecordings moves the scrollback written by earlier versions, which

@@ -93,7 +93,11 @@ int plxrWindowStatus(void) {
             status = (long)settings.authorizationStatus;
             dispatch_semaphore_signal(done);
         }];
-        if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) {
+        // Compiled without ARC: let go here. The block holds its own
+        // reference, so an answer after the timeout still has a semaphore.
+        long waited = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
+        dispatch_release(done);
+        if (waited != 0) {
             return -1;
         }
         return (int)status;
@@ -115,17 +119,21 @@ int plxrWindowPost(const char *title, const char *body, const char *sound, const
         if (sessionId != NULL && strlen(sessionId) > 0) {
             content.userInfo = @{@"sessionId": [NSString stringWithUTF8String:sessionId]};
         }
+        // The request copies the content and is autoreleased itself.
         UNNotificationRequest *request =
             [UNNotificationRequest requestWithIdentifier:[[NSUUID UUID] UUIDString]
                                                  content:content
                                                  trigger:nil];
+        [content release];
         dispatch_semaphore_t done = dispatch_semaphore_create(0);
         __block int ok = 0;
         [centre addNotificationRequest:request withCompletionHandler:^(NSError *error) {
             ok = error == nil ? 1 : 0;
             dispatch_semaphore_signal(done);
         }];
-        if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) {
+        long waited = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
+        dispatch_release(done);
+        if (waited != 0) {
             return 0;
         }
         return ok;

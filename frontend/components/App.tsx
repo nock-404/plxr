@@ -30,6 +30,7 @@ import Usage from "@/components/views/Usage";
 import { api } from "@/lib/api";
 import { clock } from "@/lib/format";
 import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
+import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
@@ -117,6 +118,11 @@ export default function App() {
      it is on, and the status row says so, because silence that is not shown
      looks like notifications that broke. */
   const [dnd, setDnd] = useState(false);
+  // The seq of the last click on a notification this page has acted on or
+  // started with; the revision watch opens a session when it changes.
+  const focusSeen = useRef<number | undefined>(undefined);
+  // openSession, as the revision watch — started once — reaches it.
+  const openRef = useRef<(id: string) => void>(() => undefined);
   const [keys, setKeys] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [bench, setBench] = useState(false);
@@ -180,6 +186,9 @@ export default function App() {
     Promise.all([api.themes().catch(() => []), api.prefs().catch(() => ({}))]).then(
       ([themes, prefs]) => {
         rememberThemes(themes ?? []);
+        // The last click on a notification is remembered, not acted on: a
+        // page that has just started has nothing to bring forward yet.
+        focusSeen.current ??= requestedFocus(prefs)?.seq;
         const kept = (prefs as { theme?: Partial<ThemeState> }).theme;
         // Fitted only now: which palettes belong to which skin is not known
         // until the daemon has said what it serves, one line above.
@@ -218,6 +227,13 @@ export default function App() {
               adoptPrefs(prefs);
               setMeter(Boolean((prefs as { meter?: unknown }).meter));
               setDnd(Boolean((prefs as { dnd?: unknown }).dnd));
+              // A click on a notification: the plxr window wrote which
+              // session it was about, and this is the page's cue to open it.
+              const wanted = freshFocus(prefs, focusSeen.current);
+              if (wanted) {
+                focusSeen.current = wanted.seq;
+                openRef.current(wanted.id);
+              }
               if (prefs.theme) {
                 const state = fitPalette({ ...load(), ...prefs.theme });
                 adopt(state);
@@ -547,21 +563,11 @@ export default function App() {
 
   /* A click on a notification.
    *
-   * The plxr window posts the notifications from its own process, and when
-   * one is clicked it brings itself forward and dispatches this event with
-   * the session the notification was about. The page still talks only to the
-   * service; this is the one thing pushed into it from the window. Read
-   * through a ref so the listener, registered once, sees the current tiles. */
-  const openRef = useRef(openSession);
+   * The plxr window posts the notifications from its own process, and a click
+   * there reaches this page through the settings — {focusSession} on the
+   * revision watch above, see lib/focus.ts. Read through a ref so the watch,
+   * started once, opens against the current tiles. */
   openRef.current = openSession;
-  useEffect(() => {
-    const onFocus = (e: Event) => {
-      const id = (e as CustomEvent).detail;
-      if (typeof id === "string" && id) openRef.current(id);
-    };
-    window.addEventListener("plxr:focus-session", onFocus);
-    return () => window.removeEventListener("plxr:focus-session", onFocus);
-  }, []);
 
   return (
     <div className="app">

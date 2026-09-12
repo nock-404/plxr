@@ -44,6 +44,13 @@ func deliver(title, body, sound string) {
 	_ = exec.Command("osascript", "-e", script).Run()
 }
 
+// OpenSystemSettings opens the system's notification settings, where a
+// permission that was refused is switched back on. The page cannot do this:
+// a URL scheme of the system's is not one a browser will follow.
+func OpenSystemSettings() error {
+	return exec.Command("open", "x-apple.systempreferences:com.apple.Notifications-Settings.extension").Run()
+}
+
 // The sounds macOS ships in /System/Library/Sounds. A file picker instead would
 // mean carrying somebody's chosen file around and failing once it moves.
 func sounds() []string {

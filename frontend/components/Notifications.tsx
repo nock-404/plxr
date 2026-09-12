@@ -15,10 +15,13 @@ import type { NotifyInfo, NotifyPermission, NotifySettings, NotifyVia } from "@/
 // session getting stuck, and it has to know the answer at a moment when no
 // window may be open at all.
 //
-// The showing is the plxr window's job: it holds the system permission and
-// posts with the icon, and the service hands it what to say. So this panel
-// also says how that permission stands and where a test notification came
-// from — the two things that explain a notification that did not arrive.
+// The showing is the plxr window's job when it holds the system permission:
+// then it posts with the icon, and the service hands it what to say. Without
+// the permission the service shows a plain one itself — a refusal must not
+// be silence. So this panel also says how that permission stands, offers the
+// way to get it (the window puts the system's question; a refusal is undone
+// in System Settings, which a button opens), and says where a test
+// notification came from.
 const EVENTS: { key: keyof NotifySettings["when"]; text: string; english: string }[] = [
   { key: "needsYou", text: "notify.needsYou", english: "an agent asks a question" },
   { key: "waiting", text: "notify.waiting", english: "an agent falls idle" },
@@ -37,9 +40,11 @@ function permissionText(p: NotifyPermission, windows: number): string {
   }
   if (p === "granted") return tr("notify.permGranted", "granted — the plxr window shows them, with the icon");
   if (p === "denied") {
-    return tr("notify.permDenied", "refused — allow plxr under System Settings › Notifications; until then nothing is shown");
+    return tr("notify.permDenied", "turned off in System Settings › Notifications — the service shows plain ones instead, without the icon");
   }
-  if (p === "notAsked") return tr("notify.permNotAsked", "not asked yet — the window asks the system when it opens");
+  if (p === "notAsked") {
+    return tr("notify.permNotAsked", "not allowed yet — the service shows plain ones, without the icon, until plxr is allowed");
+  }
   return tr("notify.permUnknown", "the plxr window has not reported yet");
 }
 
@@ -109,6 +114,27 @@ export default function Notifications() {
     try {
       await api.setPrefs({ dnd: on });
       setNote(tr("common.saved", "saved"));
+    } catch (e) {
+      setNote(errText(e));
+    }
+  }
+
+  // The window puts the system's question; the answer arrives with the next
+  // poll and the line above the button changes with it.
+  async function allow() {
+    setNote("");
+    try {
+      const { asked } = await api.notifyAuthorize();
+      if (!asked) setNote(tr("notify.permNoWindow", "no plxr window open — the service shows plain notifications, without the icon"));
+    } catch (e) {
+      setNote(errText(e));
+    }
+  }
+
+  async function openSystemSettings() {
+    setNote("");
+    try {
+      await api.openNotifySettings();
     } catch (e) {
       setNote(errText(e));
     }
@@ -188,6 +214,16 @@ export default function Notifications() {
             <span className="fieldName">{tr("notify.permission", "system permission")}</span>
             <span className="rowInline">
               <span className="notice">{permissionText(permission, windows)}</span>
+              {windows > 0 && permission === "notAsked" ? (
+                <Tooltip text={tr("notify.allowTip", "The plxr window puts the system's question")}>
+                  <Button onClick={() => void allow()}>{tr("notify.allow", "ALLOW NOTIFICATIONS")}</Button>
+                </Tooltip>
+              ) : null}
+              {permission === "denied" ? (
+                <Tooltip text={tr("notify.openSettingsTip", "Opens System Settings › Notifications, where plxr is switched back on")}>
+                  <Button onClick={() => void openSystemSettings()}>{tr("notify.openSettings", "OPEN SYSTEM SETTINGS")}</Button>
+                </Tooltip>
+              ) : null}
               <Tooltip text={tr("notify.testTip", "Shows one now and says who showed it")}>
                 <Button onClick={() => void test()}>{tr("notify.test", "TEST")}</Button>
               </Tooltip>

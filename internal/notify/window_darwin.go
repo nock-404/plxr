@@ -30,9 +30,10 @@ import (
    The permission is asked for once, when the window comes up. The answer is
    read before every post rather than remembered, because it can be changed
    in System Settings at any time and a stale "granted" would post into
-   nothing. Denied is respected: nothing is posted, nothing is tried by any
-   other route — the script route would hand the notification to Script
-   Editor, and somebody who said no to plxr did not say yes to that. */
+   nothing. Without the permission nothing is posted from here — and the
+   service, told how the permission stands, does not hand anything here
+   either: it shows the notification itself, by its own route, so that a
+   permission not granted does not mean silence. */
 
 // WindowCapable says whether this process can show notifications itself: it
 // has to be bundled, or there is no name to post under.

@@ -269,6 +269,13 @@ export type NotifyPermission = "unknown" | "granted" | "denied" | "notAsked";
    open. */
 export type NotifyVia = "window" | "local";
 
+/* A click on a notification, as the plxr window writes it into the settings
+   under focusSession: which session, and a number that changes per click. */
+export interface FocusRequest {
+  id: string;
+  seq: number;
+}
+
 export interface NotifyInfo {
   settings: NotifySettings;
   sounds: string[];

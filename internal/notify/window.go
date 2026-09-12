@@ -1,7 +1,9 @@
 package notify
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
@@ -31,13 +33,14 @@ type Endpoint struct {
 
 // FollowService keeps a window subscribed for as long as the process runs.
 // find says where the service is now, show shows one message from this
-// process, permission says how the system permission stands, and changed
-// wakes the loop when that answer changes.
-func FollowService(find func() (Endpoint, bool), show func(Message), permission func() string, changed <-chan struct{}) {
+// process, permission says how the system permission stands, changed wakes
+// the loop when that answer changes, and authorize puts the system's
+// question again when the service asks for that on somebody's behalf.
+func FollowService(find func() (Endpoint, bool), show func(Message), permission func() string, changed <-chan struct{}, authorize func()) {
 	wait := time.Second
 	for {
 		ep, ok := find()
-		if ok && follow(ep, show, permission, changed) {
+		if ok && follow(ep, show, permission, changed, authorize) {
 			wait = time.Second // it was up: start fresh on the next drop
 		}
 		time.Sleep(wait)
@@ -50,7 +53,7 @@ func FollowService(find func() (Endpoint, bool), show func(Message), permission 
 // follow holds one connection until it drops. Reports whether it connected
 // at all, so the caller can tell a service that is gone from one that is
 // merely busy.
-func follow(ep Endpoint, show func(Message), permission func() string, changed <-chan struct{}) bool {
+func follow(ep Endpoint, show func(Message), permission func() string, changed <-chan struct{}, authorize func()) bool {
 	u, err := url.Parse(ep.URL)
 	if err != nil {
 		return false
@@ -102,6 +105,11 @@ func follow(ep Endpoint, show func(Message), permission func() string, changed <
 	for {
 		select {
 		case m := <-frames:
+			if m.Authorize {
+				// The answer comes back on changed and is said then.
+				authorize()
+				continue
+			}
 			show(m)
 		case <-changed:
 			if !say() {
@@ -132,6 +140,54 @@ func ReadPermission(data []byte) string {
 		return ""
 	}
 	return f.Permission
+}
+
+/* A click on a notification, handed to the page.
+
+   The window process is where the click arrives, and the page is where the
+   session is opened. There is no wire from one to the other: the page loads
+   the service's address, not the asset server's, so the Wails runtime is not
+   in it and anything pushed with ExecJS waits for a ready that never comes.
+   So the event was dispatched, nothing ran it, and the window came forward
+   on whatever session it was already showing.
+
+   What does join the two is the service. The settings blob is written over
+   the service's API and every page watches its revision, so the request is
+   written there: {focusSession: {id, seq}}. The page opens the session when
+   the seq changes, and remembers the seq so that a reload does not open it
+   again. The seq is the clock, so it rises across restarts of the window. */
+
+// FocusRequest is what a click writes into the settings under focusSession.
+type FocusRequest struct {
+	ID  string `json:"id"`
+	Seq int64  `json:"seq"`
+}
+
+// RequestFocus asks every page on the service to open the session, by
+// writing the request into the settings.
+func RequestFocus(ep Endpoint, sessionID string) error {
+	if sessionID == "" {
+		return errors.New("no session named")
+	}
+	body, err := json.Marshal(map[string]any{"focusSession": FocusRequest{ID: sessionID, Seq: time.Now().UnixNano()}})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPut, strings.TrimRight(ep.URL, "/")+"/api/prefs", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("X-Plxr-Token", ep.Token)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode/100 != 2 {
+		return errors.New("the service answered " + res.Status)
+	}
+	return nil
 }
 
 // logOnce says a thing once per process. The window has no one to say it to

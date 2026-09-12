@@ -24,7 +24,10 @@ import (
    system, with a run loop. It can hold the permission and post with the icon,
    and a click on what it posted comes back to it. So a window that is open
    subscribes here, and everything the service wants to say goes to the newest
-   window instead of being shown from the service. With no window open the
+   window that HOLDS the permission instead of being shown from the service.
+   A window that reports the permission as denied, not asked or unknown is not
+   able to show anything — it used to be given the message all the same, and
+   the message went nowhere. Now it is passed over: with no capable window the
    service shows it itself, exactly as before — a plain notification is still
    better than none.
 
@@ -41,6 +44,11 @@ type Message struct {
 	Sound     string `json:"sound"`
 	SessionID string `json:"sessionId,omitempty"`
 	Kind      string `json:"kind"`
+	// Not a notification but a request to the window: ask the system for
+	// the permission again and report the answer. Sent when somebody presses
+	// ALLOW NOTIFICATIONS in the settings, which run in a page that cannot
+	// ask the system itself.
+	Authorize bool `json:"authorize,omitempty"`
 }
 
 // How the system permission stands, as the window reports it. "unknown" is
@@ -166,12 +174,21 @@ func (h *Hub) Permission() string {
 	return h.lastPermission
 }
 
-// route hands the message to the newest window that will take it, and to the
-// local route when there is none. A window whose queue is full is one that
-// has stopped reading — it is passed over, not waited for.
+// capable says whether the window can show a notification: only with the
+// permission granted (provisional counts as granted on the window's side).
+// Denied, not asked and unknown all end in nothing being shown, and a
+// message handed to such a window is a message lost.
+func (s *Subscriber) capable() bool { return s.permission == PermissionGranted }
+
+// route hands the message to the newest capable window that will take it,
+// and to the local route when there is none. A window whose queue is full is
+// one that has stopped reading — it is passed over, not waited for.
 func (h *Hub) route(m Message) Outcome {
 	h.mu.Lock()
 	for i := len(h.subs) - 1; i >= 0; i-- {
+		if !h.subs[i].capable() {
+			continue
+		}
 		select {
 		case h.subs[i].frames <- m:
 			h.mu.Unlock()
@@ -182,6 +199,22 @@ func (h *Hub) route(m Message) Outcome {
 	h.mu.Unlock()
 	h.local(m)
 	return ViaLocal
+}
+
+// Authorize asks the newest window to put the system's question again and
+// report the answer. Reports whether a window was there to ask; the
+// permission is not required for this — it is the way to get one.
+func (h *Hub) Authorize() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i := len(h.subs) - 1; i >= 0; i-- {
+		select {
+		case h.subs[i].frames <- Message{Authorize: true}:
+			return true
+		default:
+		}
+	}
+	return false
 }
 
 // Post says one thing, subject to do-not-disturb and the ceiling.

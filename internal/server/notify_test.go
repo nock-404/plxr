@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -155,11 +157,12 @@ func TestTheWindowClientReceivesWhatTheServicePosts(t *testing.T) {
 			defer mu.Unlock()
 			shown = append(shown, m)
 		},
-		func() string { return notify.PermissionDenied },
+		func() string { return notify.PermissionGranted },
 		make(chan struct{}),
+		func() {},
 	)
 	waitFor(t, "the window client to subscribe", func() bool { return notify.Service.Windows() == 1 })
-	waitFor(t, "the permission to be reported", func() bool { return notify.Service.Permission() == notify.PermissionDenied })
+	waitFor(t, "the permission to be reported", func() bool { return notify.Service.Permission() == notify.PermissionGranted })
 
 	if out := notify.Service.Post(notify.Message{Title: "one", Body: "waiting for your answer", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaWindow {
 		t.Fatalf("outcome %q, want %q", out, notify.ViaWindow)
@@ -171,5 +174,84 @@ func TestTheWindowClientReceivesWhatTheServicePosts(t *testing.T) {
 	})
 	if rec.count() != 0 {
 		t.Errorf("the service showed %d itself", rec.count())
+	}
+}
+
+// A window that is connected but may not post: the service shows it
+// itself, so that the refusal is not silence. And ALLOW NOTIFICATIONS: the
+// route hands the window an authorize frame, the window asks the system,
+// and the answer it then gives is what the settings show.
+func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
+	rec, srv := bench(t)
+
+	var mu sync.Mutex
+	var shown []notify.Message
+	permission := notify.PermissionNotAsked
+	asked := 0
+	changed := make(chan struct{}, 1)
+	go notify.FollowService(
+		func() (notify.Endpoint, bool) { return notify.Endpoint{URL: srv.URL, Token: "t"}, true },
+		func(m notify.Message) {
+			mu.Lock()
+			defer mu.Unlock()
+			shown = append(shown, m)
+		},
+		func() string {
+			mu.Lock()
+			defer mu.Unlock()
+			return permission
+		},
+		changed,
+		func() {
+			// What the window does on the frame: puts the system's question
+			// and, when it is answered, reports the new standing.
+			mu.Lock()
+			asked++
+			permission = notify.PermissionGranted
+			mu.Unlock()
+			changed <- struct{}{}
+		},
+	)
+	waitFor(t, "the window client to subscribe", func() bool { return notify.Service.Windows() == 1 })
+	waitFor(t, "the permission to be reported", func() bool { return notify.Service.Permission() == notify.PermissionNotAsked })
+
+	if out := notify.Service.Post(notify.Message{Title: "one", Body: "waiting for your answer", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaLocal {
+		t.Fatalf("with the permission not asked: outcome %q, want %q", out, notify.ViaLocal)
+	}
+	if rec.count() != 1 {
+		t.Errorf("the service showed %d, want 1", rec.count())
+	}
+
+	res, err := http.Post(srv.URL+"/api/notify/authorize", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reply struct{ Asked bool }
+	if err := json.NewDecoder(res.Body).Decode(&reply); err != nil || !reply.Asked {
+		t.Fatalf("authorize answered %+v, %v — want asked", reply, err)
+	}
+	res.Body.Close()
+	waitFor(t, "the window to be asked and to report granted", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return asked == 1 && notify.Service.Permission() == notify.PermissionGranted
+	})
+	mu.Lock()
+	if len(shown) != 0 {
+		t.Errorf("the authorize frame was shown as a notification: %+v", shown)
+	}
+	mu.Unlock()
+
+	// Now it holds the permission, and the next one is its to show.
+	if out := notify.Service.Post(notify.Message{Title: "two", Body: "still waiting", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaWindow {
+		t.Fatalf("once granted: outcome %q, want %q", out, notify.ViaWindow)
+	}
+	waitFor(t, "the window to show it", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(shown) == 1 && shown[0].Title == "two"
+	})
+	if rec.count() != 1 {
+		t.Errorf("the service showed %d, want still 1", rec.count())
 	}
 }

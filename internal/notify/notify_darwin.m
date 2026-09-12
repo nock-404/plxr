@@ -46,7 +46,12 @@ int plxrNotify(const char *title, const char *subtitle, const char *body, const 
             status = (long)settings.authorizationStatus;
             dispatch_semaphore_signal(asked);
         }];
-        if (dispatch_semaphore_wait(asked, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC)) != 0) {
+        // Compiled without ARC: what is made here is let go here. The block
+        // holds its own reference to the semaphore, so a late answer after
+        // the timeout still has something to signal.
+        long waited = dispatch_semaphore_wait(asked, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
+        dispatch_release(asked);
+        if (waited != 0) {
             return 0;
         }
         if (status != UNAuthorizationStatusAuthorized && status != UNAuthorizationStatusProvisional) {
@@ -65,10 +70,13 @@ int plxrNotify(const char *title, const char *subtitle, const char *body, const 
                 [NSString stringWithFormat:@"%s.aiff", sound]];
         }
 
+        // The request copies the content and is autoreleased itself; the
+        // centre keeps what it needs of the request.
         UNNotificationRequest *request =
             [UNNotificationRequest requestWithIdentifier:[[NSUUID UUID] UUIDString]
                                                  content:content
                                                  trigger:nil];
+        [content release];
         [centre addNotificationRequest:request withCompletionHandler:^(NSError *error) { (void)error; }];
         return 1;
     }
