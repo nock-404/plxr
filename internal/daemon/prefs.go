@@ -3,8 +3,11 @@ package daemon
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -101,6 +104,38 @@ func WritePrefs(change map[string]any) error {
 		return err
 	}
 	return os.Rename(tmp, prefsPath())
+}
+
+/* The one setting the service reads for itself.
+
+   The ceiling on the five-hour spend rides the same blob as everything else —
+   `paceLimit`, a number of tokens, written by the usage panel through the same
+   PUT and picked up by every other window through the revision watch. It is
+   read here because the crossing has to be noticed with no window open: the
+   window shows the readout, the service says the one word when the line is
+   crossed. Zero or absent means no ceiling was set. */
+
+// PaceLimit is the self-set ceiling for the five-hour spend, in tokens; zero
+// when none is set. A number that arrived as text counts too — a field is where
+// it gets typed.
+func PaceLimit() int64 {
+	return paceLimitOf(ReadPrefs()["paceLimit"])
+}
+
+func paceLimitOf(raw any) int64 {
+	var n float64
+	switch v := raw.(type) {
+	case float64:
+		n = v
+	case string:
+		n, _ = strconv.ParseFloat(strings.TrimSpace(v), 64)
+	default:
+		return 0
+	}
+	if n <= 0 || n != n || n > math.MaxInt64/2 {
+		return 0
+	}
+	return int64(n)
 }
 
 /* What the window complains about, written where it can be read.

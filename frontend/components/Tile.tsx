@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { shortNumber } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -53,6 +54,7 @@ export default function Tile({
   ];
 
   return (
+    <Tooltip text={unattended(tile) ? tr("tile.unattended", "Started with its permission prompts turned off — nothing will stop it to ask") : undefined}>
     <div
       className="tile"
       data-status={state}
@@ -62,7 +64,6 @@ export default function Tile({
       tabIndex={0}
       onClick={onOpen}
       onContextMenu={ctx(menu)}
-      title={unattended(tile) ? tr("tile.unattended", "Started with its permission prompts turned off — nothing will stop it to ask") : undefined}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -81,7 +82,9 @@ export default function Tile({
       </div>
       <div className="tbody">{tile.question || tile.preview}</div>
       <div className="tfoot">
-        <span className="act" title={detailOf(tile) || undefined}>{tileLine(tile)}</span>
+        <Tooltip text={detailOf(tile) || undefined}>
+          <span className="act">{tileLine(tile)}</span>
+        </Tooltip>
         {/* Tokens, not a percentage.
             The hook adds up input, output and both cache figures and puts the
             sum here; the tile hung a % on it, so a session with 388,650 tokens
@@ -89,36 +92,31 @@ export default function Tile({
             would need the model's window size, which differs per model and goes
             stale the moment one changes — the count is the honest number. */}
         {tile.context ? (
-          <span className="ctx" title={tr("tile.contextTip", "Tokens behind this conversation")}>
-            {shortNumber(tile.context)}
-          </span>
+          <Tooltip text={tr("tile.contextTip", "Tokens behind this conversation")}>
+            <span className="ctx">{shortNumber(tile.context)}</span>
+          </Tooltip>
         ) : null}
         {agentOf(tile) ? <span className="agent">{agentOf(tile)}</span> : null}
       </div>
       {stopped && (onResume || onForget) ? (
         <div className="tactions" onClick={(e) => e.stopPropagation()}>
           {onResume ? (
-            <Button
-              tiny
-              data-do="resume"
-              title={tr("tile.resumeTip", "Carry on where this left off, in place of this one")}
-              onClick={onResume}
-            >
-              {tr("tile.resume", "RESUME")}
-            </Button>
+            <Tooltip text={tr("tile.resumeTip", "Carry on where this left off, in place of this one")}>
+              <Button tiny data-do="resume" onClick={onResume}>
+                {tr("tile.resume", "RESUME")}
+              </Button>
+            </Tooltip>
           ) : null}
           {onForget ? (
-            <Button
-              tiny
-              data-do="forget"
-              title={tr("tile.forgetTip", "Take it off the board. The transcript stays in the archive.")}
-              onClick={onForget}
-            >
-              {tr("tile.forget", "CLEAR")}
-            </Button>
+            <Tooltip text={tr("tile.forgetTip", "Take it off the board. The transcript stays in the archive.")}>
+              <Button tiny data-do="forget" onClick={onForget}>
+                {tr("tile.forget", "CLEAR")}
+              </Button>
+            </Tooltip>
           ) : null}
         </div>
       ) : null}
     </div>
+    </Tooltip>
   );
 }

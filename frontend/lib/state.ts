@@ -48,7 +48,7 @@ export function stateWord(state: string): string {
 // not a way of saying it.
 export function detailOf(t: Tile): string {
   if (t.orphaned) {
-    return tr("tile.crashedHint", "Daemon crashed — a click picks the conversation back up");
+    return tr("tile.crashedHint", "plxr stopped unexpectedly — a click picks the conversation back up");
   }
   if (t.stuck) {
     const files = (t.stuck.files ?? []).slice(0, 2).join(", ");

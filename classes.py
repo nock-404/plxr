@@ -52,9 +52,10 @@ LAYOUT_ONLY = {
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
     "hitMain", "hitAction", "draghandle", "brand", "rtext", "rname", "rmain",
     "fname", "style", "styleRow", "pathfield", "colourPicker", "settingsbody",
-    # The settings panel's top row: a title, a spacer and the close, each with
-    # its own dressing; the row itself only lines them up.
-    "settingshead",
+    # The floating window's body: it scrolls and pads what it holds; the frame,
+    # the title bar and the grip carry the dressing. A short numeric field is
+    # the plain field with a width. The shortcut row's buttons are a flex row.
+    "windowBody", "short", "keyActions",
     # The overflow bar: arrangement only. The left slot and the item cells
     # place their contents, the trigger is a Button that dresses itself, and
     # the measuring copy is never seen. The menu surface IS dressed (skins can
@@ -62,14 +63,25 @@ LAYOUT_ONLY = {
     "obar", "obarLeft", "obarItems", "obarMoreWrap", "obarMore", "obarMenuItem", "obarMeasure", "obarMeasureBox",
     # The account row's action buttons: a flex row that only arranges them.
     "accountActions",
+    # The ceiling row under the live pace: label, field and note in a flex
+    # row; each of the three carries its own dressing.
+    "paceLimit",
     # The inline toolbar strip inside a dock panel: arrangement only.
     "viewstrip",
     # The web preview: a toolbar row and the iframe box, arrangement only.
     "preview", "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.
     "changesPanel",
+    # Find in files as a dock panel: the same, arrangement only.
+    "searchPanel",
     # A diff in its own dock panel: the positioned box its overlay fills.
     "diffPanel",
+    # The editor and the file tree in dock panels of their own, and the
+    # editor's own column: boxes that fill a panel, arrangement only.
+    "editorPanel", "filesPanel", "editorBody",
+    # The editor's own tab (title + guarded close): arrangement only, it wears
+    # the tab's colours.
+    "editorTab", "editorTabName", "editorTabClose",
     # The context menu label cell: arrangement; the item and hint carry colour.
     "menuLabel",
     # The command palette: the scrolling list and the label cell are arrangement.
@@ -85,6 +97,10 @@ LAYOUT_ONLY = {
     # belong to .pterm around it, and this one carries nothing at all — which
     # is the whole point of it, not an oversight.
     "ptermbox",
+    # The terminal frame while its session has ended: centres the note inside
+    # it and nothing else. The frame's border is .pterm's, the note's colour is
+    # .endedNote's — both dressed in every skin.
+    "paneEnded",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

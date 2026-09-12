@@ -105,6 +105,20 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* The spend readout: the number in the accent like every other figure here,
+   the hot state in the blocked colour. */
+[data-skin="pixel"] .pace { color: var(--dim); }
+[data-skin="pixel"] .paceNum { color: var(--accent); }
+[data-skin="pixel"] .paceTrend { color: var(--fg); }
+[data-skin="pixel"] .paceActive { color: var(--dim); }
+[data-skin="pixel"] .pace.pace--hot,
+[data-skin="pixel"] .pace.pace--hot .paceNum,
+[data-skin="pixel"] .pace.pace--hot .paceTrend { color: var(--blocked); }
+[data-skin="pixel"] .pacenow { border-bottom: var(--px) solid var(--line); }
+[data-skin="pixel"] .pacenow.pace--hot .ubig { color: var(--blocked); }
+[data-skin="pixel"] .paceLimitLabel { color: var(--dim); letter-spacing: 0; font-size: 0.8em; }
+[data-skin="pixel"] .paceNote { color: var(--dim); font-size: 0.8em; }
+[data-skin="pixel"] .pacenow.pace--hot .paceNote { color: var(--blocked); }
 
 /* ---- rail ---- */
 [data-skin="pixel"] .rail {
@@ -214,6 +228,7 @@
 }
 [data-skin="pixel"] .frow { color: var(--fg); font-size: 0.8em; }
 [data-skin="pixel"] .frow:hover { background: var(--panel); color: var(--accent); }
+[data-skin="pixel"] .findmark { background: var(--panel); color: var(--accent); }
 [data-skin="pixel"] .filesroot { color: var(--dim); font-size: 0.75em; }
 [data-skin="pixel"] .pterm { background: var(--term-bg); }
 [data-skin="pixel"] .panelabel {
@@ -320,6 +335,10 @@
 [data-skin="pixel"] .styleNumber { color: var(--fg); font-size: .8em; }
 [data-skin="pixel"] .emptyNote { color: var(--dim); font-size: .85em; }
 [data-skin="pixel"] .emptyNote b { color: var(--accent); letter-spacing: .05em; }
+[data-skin="pixel"] .endedNote { color: var(--dim); font-size: .85em; }
+[data-skin="pixel"] .endedTitle { color: var(--accent); letter-spacing: .05em; text-transform: uppercase; }
+[data-skin="pixel"] .endedMeta { color: var(--fg); }
+[data-skin="pixel"] .endedHint { color: var(--dim); }
 [data-skin="pixel"] .input {
   background: var(--bg); color: var(--fg); outline: none; border: 0;
   box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
@@ -327,8 +346,23 @@
 }
 [data-skin="pixel"] .pathList .selectRow { font-size: .8em; }
 
-/* Placed like a block, not bordered like a box. */
-[data-skin="pixel"] .settingspanel {
-  background: var(--bg-glass);
-  border-left: var(--px) solid var(--line);
+/* The window and the tooltip as blocks: four hard shadows, no rounding. */
+[data-skin="pixel"] .window {
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+              calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
 }
+[data-skin="pixel"] .windowHead { background: var(--bg); border-bottom: var(--px) solid var(--line); }
+[data-skin="pixel"] .windowTitle { color: var(--accent); letter-spacing: 0; text-transform: uppercase; }
+[data-skin="pixel"] .windowGrip { background: var(--line); }
+[data-skin="pixel"] .tooltip {
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+              calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
+}
+[data-skin="pixel"] .menuHeader { color: var(--accent); letter-spacing: 0; }
+

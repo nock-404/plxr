@@ -184,7 +184,8 @@ const run = async (expression) => {
     returnByValue: true,
     awaitPromise: true,
   });
-  if (r.exceptionDetails) throw new Error(r.exceptionDetails.text);
+  // The text alone reads "Uncaught"; the description says what was thrown.
+  if (r.exceptionDetails) throw new Error(`${r.exceptionDetails.text} ${r.exceptionDetails.exception?.description ?? ""}`.trim());
   return r.result?.value;
 };
 
@@ -314,7 +315,7 @@ const saved = await run(`${HELPERS}
   range.selectNodeContents(cm); range.collapse(false); sel.removeAllRanges(); sel.addRange(range);
   document.execCommand('insertText', false, 'WRITTENBYTHECHECK\\n');
   await wait(500);
-  const save = byText('.viewer button, .overlay button', /^SAVE$/);
+  const save = byText('.editorPanel button', /^SAVE$/);
   if (!save) return { err: 'no save button', dirtyBefore };
   save.click(); await wait(1800);
   return { dirtyBefore, dirtyAfter: !!document.querySelector('.dirty') };
@@ -326,7 +327,7 @@ claim("what was typed in the editor is on disk afterwards",
 
 /* ---- undo must not undo the file itself --------------------------------- */
 const undone = await run(`${HELPERS}
-  byText('.overlay button, .viewer button', /^BACK$/)?.click(); await wait(600);
+  byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
   byText('.folderbarLow button', /^FILES$/)?.click(); await wait(700);
   const row = byText('.frow', /a\\.go/);
   if (!row) return { err: 'a.go is not in the tree' };
@@ -365,10 +366,11 @@ claim("undo does not undo the arrival of the file",
 
 /* ---- unsaved edits are not thrown away in silence ------------------------ */
 /* Open a file, change it without saving, click another file. The window has to
- * ask before it drops the change — it used to switch and lose it without a
- * word. */
+ * keep the change — it used to switch and lose it without a word. Every file
+ * is a dock panel of its own now, so the second file opens beside the first
+ * and the first keeps its edit; back on its tab, the edit is still there. */
 const guarded = await run(`${HELPERS}
-  byText('.overlay button, .viewer button', /^BACK$/)?.click(); await wait(600);
+  byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
   byText('.folderbarLow button', /^FILES$/)?.click(); await wait(700);
   const rowFor = (suffix) => [...document.querySelectorAll('.frow')].find(r => (r.dataset.path || '').endsWith(suffix));
   const expand = (name) => { const f = [...document.querySelectorAll('.frow')].find(r => r.querySelector('.fname')?.textContent.trim() === name); if (f) f.click(); };
@@ -389,15 +391,24 @@ const guarded = await run(`${HELPERS}
   const other = rowFor('two/same.txt');
   if (other) other.click();
   await wait(1200);
-  const asked = !!byText('.overlay, .ask, [class*=ask], .dialog', /Discard|unsaved|Unsaved|verwerfen|Verwerfen|Ungespeicherte/);
-  return { dirty, asked, stillOne: (document.querySelector('.cm-content')?.innerText || '').includes('UNSAVEDEDIT') };
+  // Two tabs called same.txt, one per file; the first opened is the edited one.
+  // A tab switches on the pointer, not on click.
+  const shown = () => [...document.querySelectorAll('.editorPanel')].find(e => e.offsetParent !== null);
+  const otherShown = (shown()?.querySelector('.cm-content')?.innerText || '');
+  const tabs = [...document.querySelectorAll('.dv-tab')].filter(t => (t.textContent || '').trim() === 'same.txt');
+  const firstTab = tabs[0];
+  if (firstTab) { firstTab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 })); firstTab.click(); }
+  await wait(600);
+  return { dirty, tabs: tabs.length, otherClean: !otherShown.includes('UNSAVEDEDIT'),
+           stillOne: (shown()?.querySelector('.cm-content')?.innerText || '').includes('UNSAVEDEDIT'),
+           stillDirty: !!shown()?.querySelector('.dirty') };
 `);
-claim("unsaved edits are not dropped in silence when another file is opened",
-  guarded.err ? false : (guarded.dirty === true && guarded.asked === true), JSON.stringify(guarded));
+claim("unsaved edits are kept when another file is opened: each file is its own panel",
+  guarded.err ? false : (guarded.dirty === true && guarded.tabs === 2 && guarded.otherClean && guarded.stillOne && guarded.stillDirty), JSON.stringify(guarded));
 
 // ---- the search finds a word and lands on its line -------------------------
 const found = await run(`${HELPERS}
-  byText('.overlay button, .viewer button', /^BACK$/)?.click(); await wait(600);
+  byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
   byText('.folderbarLow button', /^FIND$/).click(); await wait(800);
   const box = document.querySelector('.filesearch input');
   set(box, 'FINDTHISWORD'); await wait(200);
@@ -423,7 +434,7 @@ claim("clicking a hit opens that file on that line",
 // ---- the changed count is a way in, not a boast ---------------------------
 if (repo) {
   const changes = await run(`${HELPERS}
-    byText('.overlay button, .viewer button', /^BACK$/)?.click(); await wait(600);
+    byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
     byText('.folderbarLow button', /^FILES$/).click(); await wait(900);
     const count = document.querySelector('.branchword');
     if (!count) return { err: 'no count in the bar' };

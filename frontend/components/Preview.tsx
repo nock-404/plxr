@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
 import LinkButton from "@/components/ui/LinkButton";
 import TopStrip from "@/components/ui/TopStrip";
@@ -49,9 +50,11 @@ export default function Preview({ url }: { url: string }) {
           <Button tiny onClick={() => go(address)}>
             {tr("preview.go", "GO")}
           </Button>
-          <Button tiny onClick={() => setNonce((n) => n + 1)} title={tr("preview.reload", "Reload")}>
-            {tr("common.reload", "RELOAD")}
-          </Button>
+          <Tooltip text={tr("preview.reload", "Reload")}>
+            <Button tiny onClick={() => setNonce((n) => n + 1)}>
+              {tr("common.reload", "RELOAD")}
+            </Button>
+          </Tooltip>
           {/* A real browser, for a page that will not be framed. */}
           <LinkButton tiny href={live} target="_blank" rel="noreferrer">
             {tr("preview.open", "OPEN")}
@@ -64,7 +67,7 @@ export default function Preview({ url }: { url: string }) {
             key={`${live}#${nonce}`}
             ref={frame}
             src={live}
-            title={tr("preview.title", "preview")}
+            aria-label={tr("preview.title", "preview")}
             /* Let the framed page do its thing, but keep it walled off from
                plxr — no access to this window, only its own. */
             sandbox="allow-scripts allow-forms allow-same-origin allow-popups"

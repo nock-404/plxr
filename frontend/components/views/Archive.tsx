@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -81,30 +82,28 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
 {/* Searching every transcript for nothing would return every transcript, so
               with an empty field these say why they are not available instead of
               doing nothing when clicked. */}
-          <Button
-            on={mode === "conversations"}
-            disabled={!q.trim()}
-            title={
+          <Tooltip
+            text={
               q.trim()
                 ? tr("archive.conversationsTip", "Search inside the conversations")
                 : tr("archive.needsWords", "Type something to look for first")
             }
-            onClick={() => runSearch("conversations")}
           >
-            {tr("archive.conversations", "CONVERSATIONS")}
-          </Button>
-          <Button
-            on={mode === "terminals"}
-            disabled={!q.trim()}
-            title={
+            <Button on={mode === "conversations"} disabled={!q.trim()} onClick={() => runSearch("conversations")}>
+              {tr("archive.conversations", "CONVERSATIONS")}
+            </Button>
+          </Tooltip>
+          <Tooltip
+            text={
               q.trim()
                 ? tr("archive.terminalsTip", "Search inside the recorded terminals")
                 : tr("archive.needsWords", "Type something to look for first")
             }
-            onClick={() => runSearch("terminals")}
           >
-            {tr("archive.terminals", "TERMINALS")}
-          </Button>
+            <Button on={mode === "terminals"} disabled={!q.trim()} onClick={() => runSearch("terminals")}>
+              {tr("archive.terminals", "TERMINALS")}
+            </Button>
+          </Tooltip>
           <span className="meta">
             {busy ? tr("common.working", "searching…") : searching ? `${hits!.length}` : `${shown.length} / ${rows?.length ?? 0}`}
           </span>

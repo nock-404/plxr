@@ -12,14 +12,21 @@ import { createPortal } from "react-dom";
  * provided at the root, and anything reaches it through useMenu().
  */
 export type MenuItem =
-  | { separator: true }
+  | { separator: true; header?: false }
+  /* A section's name, not something to click: it groups the rows under it
+     the way the header MENU is read — Actions, Tools, Views. */
+  | { header: true; separator?: false; label: string }
   | {
       separator?: false;
+      header?: false;
       label: string;
       onClick: () => void;
       danger?: boolean;
       disabled?: boolean;
       hint?: string; // a keyboard shortcut, shown greyed on the right
+      /* A row that is a switch says which way it stands: a tick in front of
+         it when on, an empty cell when off, so the rows stay lined up. */
+      checked?: boolean;
     };
 
 type Opened = { x: number; y: number; items: MenuItem[] };
@@ -106,11 +113,16 @@ function MenuSurface({ x, y, items, onClose }: Opened & { onClose: () => void })
       {items.map((it, i) =>
         it.separator ? (
           <div key={i} className="menuSep" />
+        ) : it.header ? (
+          <div key={i} className="menuHeader" role="presentation">
+            {it.label}
+          </div>
         ) : (
           <button
             key={i}
             type="button"
-            role="menuitem"
+            role={it.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+            aria-checked={it.checked === undefined ? undefined : it.checked}
             className={`menuItem${it.danger ? " danger" : ""}`}
             disabled={it.disabled}
             onClick={() => {
@@ -118,6 +130,11 @@ function MenuSurface({ x, y, items, onClose }: Opened & { onClose: () => void })
               it.onClick();
             }}
           >
+            {it.checked === undefined ? null : (
+              <span className="menuCheck" aria-hidden="true">
+                {it.checked ? "✓" : ""}
+              </span>
+            )}
             <span className="menuLabel">{it.label}</span>
             {it.hint ? <span className="menuHint">{it.hint}</span> : null}
           </button>

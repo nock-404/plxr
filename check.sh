@@ -86,6 +86,9 @@ step "palette maths" node --experimental-strip-types frontend/lib/crtPalette.tes
 # The other crossing that has no compiler: an error code from Go turning back
 # into a sentence, with its untranslatable detail intact.
 step "errors read back" node --experimental-strip-types frontend/lib/i18n.test.mjs
+# The editor gutter's arithmetic: which lines differ from HEAD. A gutter that
+# marks the wrong line says "this changed" about a line that did not.
+step "gutter diff" node --experimental-strip-types frontend/components/ui/editor/lineDiff.test.mjs
 
 printf '  %-22s ' "typescript"
 if out=$(cd frontend && npx tsc --noEmit 2>&1); then echo "ok"; else echo "FAILED"; echo "$out" | head -20; fail=1; fi
@@ -160,6 +163,30 @@ step "windows agree" node agree.mjs
 # with four folders open, and a save that had never once written anything.
 # It brings up a daemon in a home of its own, so nobody's real plxr is touched.
 step "editor works" node editor.mjs
+
+# Source control follows the session and moves by itself: two folders, the
+# one panel switching between them as sessions are clicked, files appearing
+# and moving groups within a second of being written — with no AGAIN — the
+# diff and the editor gutter following, and, sampled at the process level,
+# one `git status` loop for two windows and none once they are gone.
+step "changes follow" node changes.mjs
+
+# Files managed from the tree and the project searched from a panel: a file
+# made from a row's context menu, renamed, moved through the folder picker
+# and deleted after the question — each held against the disk and the
+# service's listing, with the git mark on its row — then SEARCH beside the
+# terminal finding a word in two files with the right line numbers, and a
+# hit opening the editor with the cursor on that line, scrolled to it.
+step "files and search" node manage.mjs
+
+# Everything reachable from something you can see: the header MENU with every
+# group, the ⌘K palette and its typing guard, plxr's own right-click menus on
+# the terminal, the rail, a folder tab and the session title, the tooltip on
+# the opaque surface, the settings as a window that is dragged and resized, a
+# terminal setting reaching the running xterm, a rebound key that fires, a
+# layout saved and applied. Measured in a real browser against a service of
+# its own.
+step "surfaces reachable" node surfaces.mjs
 
 # Two windows on ONE session — the kitchen screen and the machine the session
 # runs on. Nothing is synchronised there: one terminal, one process, two

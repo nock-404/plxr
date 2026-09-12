@@ -6,8 +6,9 @@ import Changes from "@/components/Changes";
 import Difference from "@/components/Difference";
 import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
-import Viewer from "@/components/Viewer";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import OverflowBar from "@/components/ui/OverflowBar";
 import Splitter from "@/components/ui/Splitter";
 import FolderPick from "@/components/ui/FolderPick";
@@ -25,14 +26,22 @@ import type { GitChange, GitWhere, Workspace } from "@/lib/types";
  * a session is cleared away shortly after it ends. A folder here has nothing to
  * do with what is running: it is open because somebody opened it.
  */
-export default function Folders({ place }: { place?: string }) {
+export default function Folders({
+  place,
+  onOpenFile,
+}: {
+  place?: string;
+  /* A file picked in the tree or found by a search opens as an editor panel
+     beside this one, at the line when there is one. The view used to hold the
+     editor itself, in the column beside the tree; a panel can be put next to
+     the terminal the file is about, which the column could not. */
+  onOpenFile: (rootId: string, path: string, line?: number) => void;
+}) {
   // null until the answer is in: "no folder open" before the list has even
   // been read is a lie, and it is the first thing this view says. See
   // emptylies.py.
   const [folders, setFolders] = useState<Workspace[] | null>(null);
   const [here, setHere] = useState<Workspace | null>(null);
-  const [file, setFile] = useState<string | null>(null);
-  const [line, setLine] = useState<number | undefined>(undefined);
   /* Which of the three the left column shows: the tree, a search, or what has
      changed. One at a time, because they all want the same width and reading
      two of them at once is reading neither. */
@@ -46,6 +55,28 @@ export default function Folders({ place }: { place?: string }) {
      nothing about the branch you were on or whether anything was uncommitted. */
   const [where, setWhere] = useState<GitWhere | null>(null);
   const [changed, setChanged] = useState<GitChange[] | null>(null);
+
+  const ctx = useContextMenu();
+  /* What a folder tab offers under the right button: look at it, copy its
+     path, show it where the system shows files, or take it off the list. */
+  const tabMenu = (w: Workspace): MenuItem[] => [
+    {
+      label: tr("tile.menuOpen", "Open"),
+      onClick: () => {
+        setHere(w);
+        setDiff(null);
+        setSide("tree");
+      },
+    },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(w.path).catch(() => undefined) },
+    {
+      label: tr("files.reveal", "SHOW"),
+      disabled: Boolean(w.missing),
+      onClick: () => void api.revealFile(w.id, "").catch((e) => setProblem(errText(e))),
+    },
+    { separator: true },
+    { label: tr("folders.remove", "Remove folder"), danger: true, onClick: () => void close(w.id) },
+  ];
 
   const load = useCallback(() => {
     api
@@ -84,7 +115,6 @@ export default function Folders({ place }: { place?: string }) {
       const made = await api.openWorkspace(path);
       setFolders(await api.workspaces());
       setHere(made);
-      setFile(null);
     } catch (e) {
       setProblem(errText(e));
     }
@@ -94,10 +124,7 @@ export default function Folders({ place }: { place?: string }) {
     setProblem("");
     try {
       await api.closeWorkspace(id);
-      if (here?.id === id) {
-        setHere(null);
-        setFile(null);
-      }
+      if (here?.id === id) setHere(null);
       load();
     } catch (e) {
       setProblem(errText(e));
@@ -115,22 +142,21 @@ export default function Folders({ place }: { place?: string }) {
             <span className="prompt">{tr("folders.prompt", "folders>")}</span>
             <span className="folderTabs">
               {(folders ?? []).map((w) => (
-                <Button
-                  bare
-                  key={w.id}
-                  className={`folderTab${here?.id === w.id ? " on" : ""}`}
-                  data-missing={w.missing ? "yes" : undefined}
-                  title={w.missing ? tr("folders.missing", "Not reachable right now — {path}", { path: w.path }) : w.path}
-                  onClick={() => {
-                    setHere(w);
-                    setFile(null);
-                    setDiff(null);
-                    setLine(undefined);
-                    setSide("tree");
-                  }}
-                >
-                  {w.path.split(/[\\/]/).filter(Boolean).pop() ?? w.path}
-                </Button>
+                <Tooltip key={w.id} text={w.missing ? tr("folders.missing", "Not reachable right now — {path}", { path: w.path }) : w.path}>
+                  <Button
+                    bare
+                    className={`folderTab${here?.id === w.id ? " on" : ""}`}
+                    data-missing={w.missing ? "yes" : undefined}
+                    onClick={() => {
+                      setHere(w);
+                      setDiff(null);
+                      setSide("tree");
+                    }}
+                    onContextMenu={ctx(tabMenu(w))}
+                  >
+                    {w.path.split(/[\\/]/).filter(Boolean).pop() ?? w.path}
+                  </Button>
+                </Tooltip>
               ))}
             </span>
             <span className="spacer" />
@@ -161,19 +187,15 @@ export default function Folders({ place }: { place?: string }) {
                       // A count nobody can act on is a boast. This one opens
                       // the list it is counting.
                       node: (
-                        <Button
-                          bare
-                          className="branchword"
-                          disabled={!changed?.length}
-                          onClick={() => setSide("changes")}
-                          title={changed?.length ? tr("git.showThem", "Show which ones") : undefined}
-                        >
-                          {changed === null
-                            ? tr("git.reading", "reading…")
-                            : changed.length
-                              ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
-                              : tr("git.cleanShort", "nothing changed")}
-                        </Button>
+                        <Tooltip text={changed?.length ? tr("git.showThem", "Show which ones") : undefined}>
+                          <Button bare className="branchword" disabled={!changed?.length} onClick={() => setSide("changes")}>
+                            {changed === null
+                              ? tr("git.reading", "reading…")
+                              : changed.length
+                                ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
+                                : tr("git.cleanShort", "nothing changed")}
+                          </Button>
+                        </Tooltip>
                       ),
                     },
                   ]
@@ -191,9 +213,9 @@ export default function Folders({ place }: { place?: string }) {
                     {
                       key: "close",
                       node: (
-                        <Button onClick={() => void close(here.id)} title={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}>
-                          {tr("folders.close", "CLOSE")}
-                        </Button>
+                        <Tooltip text={tr("folders.closeTip", "Take it off the list. Nothing on disk is touched.")}>
+                          <Button onClick={() => void close(here.id)}>{tr("folders.close", "CLOSE")}</Button>
+                        </Tooltip>
                       ),
                     },
                   ]
@@ -232,27 +254,19 @@ export default function Folders({ place }: { place?: string }) {
             <Changes
               rootId={here.id}
               shown={diff}
-              onShow={(what) => {
-                setDiff(what);
-                setFile(null);
-              }}
+              onShow={setDiff}
+              onEdit={(path) => onOpenFile(here.id, path)}
             />
           ) : side === "find" ? (
             <FileSearch
               rootId={here.id}
-              onOpen={(path, at) => {
-                setFile(path);
-                setLine(at);
-              }}
+              onOpen={(path, at) => onOpenFile(here.id, path, at)}
             />
           ) : (
             <Files
               rootId={here.id}
               root={here.path}
-              onPick={(path) => {
-                setFile(path);
-                setLine(undefined);
-              }}
+              onPick={(path) => onOpenFile(here.id, path)}
             />
           )}
 
@@ -277,9 +291,8 @@ export default function Folders({ place }: { place?: string }) {
               path={diff.path}
               staged={diff.staged}
               onClose={() => setDiff(null)}
+              onEdit={(path, line) => onOpenFile(here.id, path, line || undefined)}
             />
-          ) : file ? (
-            <Viewer sessionId={here.id} path={file} line={line} onClose={() => setFile(null)} />
           ) : (
             <div className="empty">
               <div className="emptybox">

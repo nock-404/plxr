@@ -122,6 +122,26 @@ body {
 
 .app { position: relative; height: 100%; display: flex; flex-direction: column; }
 
+/* ---------- the z-ladder ----------
+   Every floating thing has a rung, and the rungs are named here so nothing is
+   ever given a number in the dark. Reading upwards:
+       2-5   in-panel furniture: pane labels, the find box's neighbours, splitters
+      50     .fx        the skin's effect layer (scanlines, vignette) — every
+                        overlay below this rung wears the tube's stripes
+      60     .obarMenu, .find   the overflow menu and the find box, over a terminal
+      70     .paletteScrim      the ⌘K palette and its scrim
+      90     .meter             the frame-rate readout
+     150     .window            floating windows (settings): over the work,
+                                under a dialog, so a question asked from one
+                                stands over it
+     200     .backdrop          dialogs
+     300     .menu              the context menu and the header MENU — over
+                                everything it can be opened from, a window or
+                                a dialog included
+     400     .selectList        a dropdown's list, over any of the above
+     410     .tooltip           a hint, over everything — it is read last
+*/
+
 /* The skin's effect layer: scanlines, vignette, grain. Above everything,
    catches no clicks. */
 .fx { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
@@ -172,6 +192,11 @@ body {
 
 .updatebar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; padding: 0.45rem 1rem; }
 .statusrow { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; height: var(--status-h); padding: 0 1rem; }
+/* The spend readout on the status row: number, trend glyph, active count in
+   one line that never wraps; the glyph gets a fixed slot so a change of
+   direction does not shift the number. */
+.pace { display: inline-flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; white-space: nowrap; }
+.paceTrend { display: inline-block; width: 1em; text-align: center; }
 
 /* ---------- body: rail left, content right ---------- */
 
@@ -317,6 +342,14 @@ body {
 .usum { display: flex; gap: 1.625rem; flex-wrap: wrap; padding: 0.75rem 1rem; }
 .ubox { display: flex; flex-direction: column; gap: 0.12rem; }
 .ubig { font-size: 1.5em; }
+/* Right now: the live pace above the history, with the ceiling field under
+   it. The band carries the padding, so the summary row inside it drops its
+   own and the ceiling row lines up with the numbers. */
+.pacenow { padding: 0.75rem 1rem 0.625rem; }
+.pacenow .usum { padding: 0.375rem 0 0.625rem; }
+.paceLimit { display: flex; align-items: center; gap: 0.625rem; flex-wrap: wrap; }
+.paceLimitLabel { flex: 0 0 auto; }
+.paceNote { flex: 1 1 14rem; min-width: 0; max-width: 46rem; }
 
 /* ---------- session ---------- */
 
@@ -344,7 +377,9 @@ body {
 .obarItems > span { flex: 0 0 auto; display: inline-flex; }
 .obarMoreWrap { position: relative; flex: 0 0 auto; }
 .obarMore { flex: 0 0 auto; }
-.obarMenu { position: absolute; top: 100%; right: 0; z-index: 60; margin-top: 0.25rem;
+/* Portalled to <body> and placed in viewport coordinates (top/right set inline),
+   so it clears the terminal's own compositing layer instead of sitting under it. */
+.obarMenu { position: fixed; z-index: 60;
   display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; padding: 0.375rem; min-width: 9rem; }
 .obarMenuItem { display: flex; }
 .obarMenuItem > * { flex: 1; }
@@ -392,10 +427,17 @@ body {
 .ptermbox { height: 100%; }
 .pterm .xterm { height: 100%; }
 .pterm .xterm-viewport { background: transparent !important; }
+/* The session has ended: the terminal's frame stays, and the note inside fills
+   it — the whole pane, not a band at the top of a blank one. */
+.pterm.paneEnded { display: flex; align-items: center; justify-content: center; }
+.endedNote {
+  display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
+  max-width: 29rem; padding: 1.25rem; text-align: center; line-height: 1.55;
+}
+.endedNote .rowInline { justify-content: center; }
 
-/* rules, viewer and playback lie across the layout */
+/* rules, the diff and playback lie across the layout */
 .overlay { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; }
-.sesssplit[data-files="open"] .viewer { left: var(--files-w); }
 .overlayBar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.75rem; }
 .overlayName { flex: 0 0 auto; }
 .viewerwrap { position: relative; flex: 1; min-height: 0; display: flex; }
@@ -483,8 +525,6 @@ body {
 
 .tactions { display: flex; gap: 0.375rem; padding: 0.375rem 0.625rem 0.5rem; }
 
-.settingshead { display: flex; align-items: center; gap: 0.5rem; }
-.settingsclose { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
 .filterclear, .filtergo { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
 .hiding { margin-left: 0; }
 
@@ -543,7 +583,11 @@ body {
 .diffwrap { overflow: auto; padding: 0.5rem; flex-direction: column; align-items: flex-start; }
 .hunk { display: flex; flex-direction: column; min-width: 0; }
 .hunkhead { padding: 0.2rem 0; }
-.diffline { display: flex; gap: 0.35rem; min-width: 0; }
+/* A line is a button where it can be jumped to — the editor opens at it — and
+   a span where it cannot (a removed line has no line to land on). Both are
+   the same row; the button carries none of a button's frame. */
+.diffline { display: flex; gap: 0.35rem; min-width: 0; text-align: left; background: none; border: 0; font: inherit; padding: 0; width: 100%; }
+button.diffline { cursor: pointer; }
 .diffno { flex: 0 0 2.2rem; text-align: right; }
 .diffmark { flex: 0 0 0.6rem; }
 /* A code line is not wrapped: wrapping shifts every line below it and the two
@@ -625,16 +669,31 @@ body {
   width: var(--hair, 0.0625rem); transform: translateX(-50%);
 }
 
-/* ---------- settings, docked ---------- */
-/* Same column geometry as the workbench: it takes its width from the frame and
-   never from its content, so throwing a switch cannot make the panel jump. */
-/* Never more than three fifths of the window, whatever is stored.
-   Clamping only while the handle is being dragged was not enough: a width saved
-   on a wide screen came back on a narrow one and squeezed the work beside it
-   down to nothing, which the window gate caught. In CSS it also holds when the
-   window itself is made smaller, with nobody dragging anything. */
-.settingspanel { flex: 0 1 auto; min-width: 14rem; width: min(var(--settings-w), 60vw); display: flex; flex-direction: column; min-height: 0; }
-.settingsbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.25rem 1.375rem; display: flex; flex-direction: column; gap: 0.875rem; }
+/* ---------- settings, in a window ---------- */
+/* The settings' column of tabs and fields, inside the floating window. The
+   window scrolls it; the column only spaces what is in it. */
+.settingsbody { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.875rem; }
+/* A short numeric field beside its explanation, not a line-long one. */
+.input.short { flex: 0 0 auto; width: 7rem; }
+/* One shortcut row: the key, the action, and the buttons that rebind it. */
+.keyRow { align-items: center; }
+.keyActions { flex: 0 0 auto; display: flex; gap: 0.375rem; }
+/* One saved arrangement: its name, whether it is in use, and APPLY. */
+.presetRow { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
+.presetName { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.presetCurrent { flex: 0 0 auto; }
+
+/* ---------- a floating window ---------- */
+/* Placed and sized at runtime (left/top/width/height are inline px, the
+   sanctioned exception, like the menu): the stylesheet only says how it is
+   built — a title bar to drag it by, a body that scrolls, a corner to resize
+   it by. Its rung is in the ladder at the top. */
+.window { position: fixed; z-index: 150; display: flex; flex-direction: column; min-width: 18rem; min-height: 12rem; overflow: hidden; }
+.windowHead { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.75rem; cursor: move; touch-action: none; user-select: none; -webkit-user-select: none; }
+.windowTitle { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: normal; }
+.windowClose { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.windowBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1rem 1.375rem 1.25rem; display: flex; flex-direction: column; }
+.windowGrip { position: absolute; right: 0; bottom: 0; width: 1.1rem; height: 1.1rem; cursor: nwse-resize; touch-action: none; }
 
 /* ---------- workbench ---------- */
 /* Docked beside the interface, not on top of it: the whole point is watching the
@@ -699,14 +758,28 @@ body {
 .previewframe { flex: 1; min-height: 0; position: relative; }
 .previewframe iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
 
-/* The one context menu, at the pointer. */
-.menu { position: fixed; z-index: 60; min-width: 11rem; max-width: 20rem; padding: 0.25rem;
+/* The one context menu, at the pointer — and the header MENU, under its button. */
+.menu { position: fixed; z-index: 300; min-width: 11rem; max-width: 20rem; max-height: calc(100vh - 1rem); overflow-y: auto; padding: 0.25rem;
   display: flex; flex-direction: column; }
 .menuItem { display: flex; align-items: center; gap: 0.75rem; width: 100%;
   padding: 0.28rem 0.6rem; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
 .menuLabel { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menuHint { flex: 0 0 auto; font-size: 0.85em; }
+/* The tick in front of a row that is a switch: a fixed cell, so the labels in
+   a section line up whether or not each row is on. */
+.menuCheck { flex: 0 0 auto; width: 1em; text-align: center; line-height: 1; }
 .menuSep { height: 0; margin: 0.25rem 0.4rem; }
+/* A section's name: not a row, not clickable, set apart from the rows under it. */
+.menuHeader { padding: 0.35rem 0.6rem 0.15rem; font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* The one tooltip: placed at runtime beside the thing it explains, hidden
+   until it has been measured so it never flashes at the corner first. */
+.tooltip { position: fixed; z-index: 410; max-width: 22rem; padding: 0.3rem 0.55rem; pointer-events: none; line-height: 1.4; }
+.tooltip[data-placed="no"] { visibility: hidden; }
+
+/* What the clipboard refused, said inside the pane, over the top-right corner
+   of the terminal and out of the way of the label on the left. */
+.ptermNote { position: absolute; top: calc(var(--label-h) / 2 + 0.5rem); right: 1rem; z-index: 3; padding: 0.25rem 0.5rem; max-width: 60%; }
 
 /* The command palette: a centred box near the top, over a dim scrim. */
 .paletteScrim { position: fixed; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
@@ -722,6 +795,25 @@ body {
 /* The standalone git changes panel fills its dock panel. */
 .changesPanel { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
+/* Find in files as a dock panel: the search box takes the whole panel, not
+   the tree's column it was measured for in the folders view. */
+.searchPanel { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.searchPanel .filesearch { flex: 1 1 auto; width: 100%; min-height: 0; }
+
 /* A diff opens as its own dock panel; this is the positioned box its overlay
    fills, so the diff stays inside this panel and not over the whole dock. */
 .diffPanel { position: relative; width: 100%; height: 100%; }
+
+/* The editor and the file tree as dock panels beside the terminal. Not
+   overlays: each is a column that fills its panel, and nothing in it is
+   positioned, so the terminal beside it stays exactly where it was. */
+.editorPanel, .filesPanel { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+/* An editor's tab: the title and its own close, laid out like dockview's default
+   tab — arrangement only, the colours are the tab's. */
+.editorTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 0.5rem; white-space: nowrap; }
+.editorTabName { overflow: hidden; text-overflow: ellipsis; }
+.editorTabClose { padding: 0 0.125rem; line-height: 1; }
+.editorBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* In its own panel the tree takes the whole width, not the column it was
+   measured for beside a terminal. */
+.filesPanel .files { flex: 1; width: 100%; min-height: 0; }

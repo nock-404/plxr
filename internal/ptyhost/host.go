@@ -10,6 +10,7 @@ package ptyhost
 
 import (
 	"bytes"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,10 @@ type Host struct {
 	recording *os.File
 	timeline  *timeline
 	written   int64
+	// capped says the recording has reached MaxRecording and stopped. Said
+	// once in the log, because from that point playback and marks silently
+	// end while the session goes on.
+	capped bool
 
 	// platform holds whatever only one specific system needs — on Windows for
 	// instance the job object through which the whole process group ends.
@@ -131,6 +136,18 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 			if err == nil {
 				h.recording = f
 				h.timeline = openTimeline(filepath.Join(RecordingDir, id+".idx"))
+				/* A restart under the same id appends to the recording that is
+				   already there, and the timeline marks carry offsets into that
+				   file. Counting from zero again would point every new mark at
+				   the beginning of the old run, so the count starts where the
+				   file already ends. */
+				if fi, err := f.Stat(); err == nil {
+					h.written = fi.Size()
+				}
+				if h.written >= MaxRecording {
+					h.capped = true
+					log.Printf("session %s: recording %s is at its cap of %d bytes; this run is not recorded", id, id+".log", MaxRecording)
+				}
 			}
 		}
 	}
@@ -203,6 +220,9 @@ func (h *Host) pump() {
 				if n, err := h.recording.Write(chunk); err == nil {
 					h.written += int64(n)
 				}
+			} else if h.recording != nil && !h.capped {
+				h.capped = true
+				log.Printf("session %s: recording stopped at its cap of %d bytes; playback ends here while the session goes on", h.ID, MaxRecording)
 			}
 			h.produced += int64(len(chunk))
 			h.buf = append(h.buf, chunk...)

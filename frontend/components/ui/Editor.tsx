@@ -3,12 +3,15 @@
 import { useEffect, useRef } from "react";
 import { EditorState, Compartment, Transaction } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, placeholder as cmPlaceholder } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, emacsStyleKeymap, history, historyKeymap, indentWithTab, standardKeymap } from "@codemirror/commands";
 import { searchKeymap, highlightSelectionMatches, search } from "@codemirror/search";
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput, syntaxHighlighting, HighlightStyle, LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import { tags } from "@lezer/highlight";
 import { THEME_CHANGED } from "@/lib/theme";
+import { editorPrefs } from "@/lib/prefs";
+import { pluginExtensions, pluginReconfigure } from "@/components/ui/editor/registry";
+import { hasChangeGutter, setBaseline } from "@/components/ui/editor/gutter";
 
 /* A real editor, wrapped so the rest of the app never sees the library.
  *
@@ -19,6 +22,11 @@ import { THEME_CHANGED } from "@/lib/theme";
  * Like the terminal, it draws through its own DOM and is not reached by a
  * stylesheet, so it is handed the palette here and told again whenever the
  * palette changes.
+ *
+ * What it is beyond a text box comes from the plugin registry beside it
+ * (ui/editor/registry.ts): one compartment per plugin, reconfigured in place.
+ * The change gutter is the first of them; it is fed the file's HEAD text
+ * through `baseline` and marks the buffer against it as the operator types.
  */
 
 const token = (name: string, fallback: string) => {
@@ -78,12 +86,27 @@ function look() {
   ];
 }
 
+/* The editor's own settings, as extensions: which keymap it answers to, whether
+   long lines wrap, how wide a tab is. One compartment, reconfigured in place
+   when the settings change — the same wire the palette arrives on. */
+function behaviour() {
+  const p = editorPrefs();
+  const keys = p.keymap === "standard" ? standardKeymap : p.keymap === "emacs" ? emacsStyleKeymap : defaultKeymap;
+  return [
+    keymap.of([...keys, ...historyKeymap, ...searchKeymap, ...foldKeymap, indentWithTab]),
+    ...(p.wrap ? [EditorView.lineWrapping] : []),
+    EditorState.tabSize.of(p.tabSize),
+  ];
+}
+
 export default function Editor({
   value,
   filename,
   goToLine,
+  jump: jumpNonce = 0,
   placeholder,
   readOnly = false,
+  baseline,
   onChange,
   onSave,
 }: {
@@ -93,10 +116,18 @@ export default function Editor({
      Watched on its own, never together with the text: keyed on both, every
      keystroke would drag the view back to the line somebody searched for. */
   goToLine?: number;
+  /* Counts up when the same line is asked for again. The line alone cannot
+     say "again": the number has not changed, so nothing would move. */
+  jump?: number;
   /* What an empty editor shows instead of a blank field: an example is worth
      more than a hint, in a box where somebody has to know the syntax. */
   placeholder?: string;
   readOnly?: boolean;
+  /* The file as HEAD has it, for the change gutter. Undefined while it is
+     not known yet, null when there is nothing to measure against — a file
+     git never saw shows as all added, a binary or a cut-off file shows no
+     marks — and the text otherwise. */
+  baseline?: string | null;
   onChange: (text: string) => void;
   onSave?: () => void;
 }) {
@@ -104,6 +135,8 @@ export default function Editor({
   const view = useRef<EditorView | null>(null);
   const theming = useRef(new Compartment());
   const language = useRef(new Compartment());
+  const settings = useRef(new Compartment());
+  const plugins = () => ({ token, filename });
   // Held in a ref so changing the handler does not rebuild the editor and throw
   // away the undo history with it.
   const save = useRef(onSave);
@@ -134,17 +167,13 @@ export default function Editor({
               return true;
             },
           },
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...searchKeymap,
-          ...foldKeymap,
-          indentWithTab,
         ]),
+        settings.current.of(behaviour()),
         ...(placeholder ? [cmPlaceholder(placeholder)] : []),
-        EditorView.lineWrapping,
         EditorState.readOnly.of(readOnly),
         theming.current.of(look()),
         language.current.of([]),
+        ...pluginExtensions(plugins()),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) changed.current(u.state.doc.toString());
         }),
@@ -177,7 +206,7 @@ export default function Editor({
     wanted.current = goToLine ?? null;
     jump();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goToLine, filename]);
+  }, [goToLine, jumpNonce, filename]);
 
   function jump() {
     const v = view.current;
@@ -230,13 +259,30 @@ export default function Editor({
     };
   }, [filename]);
 
-  // The palette is handed over, and handed over again when it changes.
+  // The palette is handed over, and handed over again when it changes — to
+  // the theme and to every plugin that draws in it. The editor's own settings
+  // travel the same way: keymap, wrapping and tab width follow at once.
   useEffect(() => {
     const follow = () =>
-      view.current?.dispatch({ effects: theming.current.reconfigure(look()) });
+      view.current?.dispatch({
+        effects: [theming.current.reconfigure(look()), settings.current.reconfigure(behaviour()), ...pluginReconfigure(plugins())],
+      });
     window.addEventListener(THEME_CHANGED, follow);
     return () => window.removeEventListener(THEME_CHANGED, follow);
+    // plugins() reads the filename at the time of the change; the editor is
+    // rebuilt per file anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* The baseline, when it arrives or changes — a commit moved HEAD, the file
+     was reloaded from disk. An effect on the live view, never a rebuild, so
+     the undo history stays. Undefined is "not known yet" and paints nothing,
+     which is the honest state until the answer is in. */
+  useEffect(() => {
+    const v = view.current;
+    if (!v || baseline === undefined || !hasChangeGutter(v.state)) return;
+    v.dispatch({ effects: setBaseline.of(baseline) });
+  }, [baseline, filename]);
 
   return <div className="editor" ref={host} />;
 }

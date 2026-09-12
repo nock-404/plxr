@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import Accounts from "@/components/Accounts";
 import Agents from "@/components/Agents";
+import EditorSettings from "@/components/EditorSettings";
+import Keybindings from "@/components/Keybindings";
+import LayoutSettings, { type LayoutControls } from "@/components/LayoutSettings";
 import Notifications from "@/components/Notifications";
 import Status from "@/components/Status";
+import TerminalSettings from "@/components/TerminalSettings";
 import Button from "@/components/ui/Button";
 import FilePick from "@/components/ui/FilePick";
 import Select from "@/components/ui/Select";
 import ColourPicker from "@/components/ui/ColourPicker";
+import Window from "@/components/ui/Window";
 import StyleEditor from "@/components/StyleEditor";
 import { api } from "@/lib/api";
 import { askVersionNow, watchVersion } from "@/lib/version";
@@ -15,28 +21,26 @@ import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
 import { DEFAULTS, apply, fitPalette, installUserFonts, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
 import type { Theme, UserFont, VersionInfo } from "@/lib/types";
 
-type Tab = "look" | "colours" | "notify" | "agents" | "status";
+type Tab = "skins" | "terminal" | "editor" | "keys" | "accounts" | "layouts" | "notify" | "agents" | "status";
 
 /* The tabs, with their texts spelled out.
  *
  * This was tr(`settings.tab.${t}`, t) — a key assembled at runtime, which
  * nothing can check. Four of the five keys did not exist, and so four tabs
- * showed their own identifier: look, colours, agents, status. In English those
- * read like words, which is why it survived — it took switching the window to
- * the other language, where one tab was translated and four were not, for
- * anybody to see it at all.
- *
- * A function rather than a string, because the table is loaded after this
- * module is read. */
+ * showed their own identifier. A function rather than a string, because the
+ * table is loaded after this module is read. */
 const TABS: { id: Tab; label: () => string }[] = [
-  { id: "look", label: () => tr("settings.tab.look", "look") },
-  { id: "colours", label: () => tr("settings.tab.colours", "colours") },
+  { id: "skins", label: () => tr("settings.tab.skins", "skins & palette") },
+  { id: "terminal", label: () => tr("settings.tab.terminal", "terminal") },
+  { id: "editor", label: () => tr("settings.tab.editor", "editor") },
+  { id: "keys", label: () => tr("settings.tab.keys", "keys") },
+  { id: "accounts", label: () => tr("settings.tab.accounts", "accounts") },
+  { id: "layouts", label: () => tr("settings.tab.layouts", "layouts") },
   { id: "notify", label: () => tr("settings.tab.notify", "notify") },
   { id: "agents", label: () => tr("settings.tab.agents", "agents") },
   { id: "status", label: () => tr("settings.tab.status", "status") },
 ];
 
-// Everything adjustable about the look, plus what is actually running.
 // The font choices: the skin's own first, then the shipped monospace family,
 // then everything brought in.
 function fontOptions(fonts: UserFont[], defaultLabel: string) {
@@ -47,8 +51,17 @@ function fontOptions(fonts: UserFont[], defaultLabel: string) {
   ];
 }
 
-export default function Settings({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>("look");
+/* Every setting there is, in a window of its own.
+ *
+ * It was a column docked to the right of the work, which was right for
+ * watching a skin change — and wrong for everything else: it took a third of
+ * the window whether or not the tab open needed it, could not be moved off
+ * the panel somebody was comparing against, and every setting that was not
+ * about the look had to be found somewhere else. Now it is a window: opened
+ * where the column stood, dragged wherever it is not in the way, and holding
+ * the terminal, the editor, the keys, the accounts and the layouts as well. */
+export default function Settings({ onClose, layouts }: { onClose: () => void; layouts: LayoutControls }) {
+  const [tab, setTab] = useState<Tab>("skins");
   // "en", to match what happens with no setting at all. Showing "System" here
   // while an unset plxr in fact speaks English would be the picker telling one
   // story and the window another.
@@ -60,26 +73,20 @@ export default function Settings({ onClose }: { onClose: () => void }) {
       .then((p) => setLang((p.language as string) || "en"))
       .catch(() => undefined);
   }, []);
-  // The one place a raw input is unavoidable: a file picker has no other way in.
   const [state, setState] = useState<ThemeState>(DEFAULTS);
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
-  /* What the foot of the panel says about this build.
+  /* What the foot of the window says about this build.
    *
    * It used to say "plxr dev" and nothing else — a version with no statement
    * about it, which reads as if the update feature were missing. It is not: the
-   * daemon asks GitHub on every open. What it cannot do is offer an update to a
-   * build called "dev", because that one came from source and replacing it with
-   * a release would throw the source away. That is a decision worth saying out
-   * loud rather than leaving as silence. */
+   * service asks GitHub on every open. What it cannot do is offer an update to
+   * a build called "dev", because that one came from source and replacing it
+   * with a release would throw the source away. */
   function versionLine(): string {
     if (!version?.current) return "";
     const name = `plxr ${version.current}`;
     if (version.current === "dev") {
-      /* Not "updates off", which reads as a switch somebody threw. This build
-         came from the source tree, and replacing it with a release would throw
-         that tree's work away — so it declines, and says which release it would
-         otherwise have offered. */
       return `${name} — ${tr("settings.fromSource", "built from source, so it will not replace itself")}` +
         (version.latest ? ` (${tr("settings.released", "newest release")}: ${version.latest})` : "");
     }
@@ -112,8 +119,9 @@ export default function Settings({ onClose }: { onClose: () => void }) {
       })
       .catch(() => setFonts([]));
 
-  // A font file the person picked. Read as bytes and sent to the daemon, which
-  // stores it beside everything else plxr owns and serves it under /userfonts/.
+  // A font file the person picked. Read as bytes and sent to the service,
+  // which stores it beside everything else plxr owns and serves it under
+  // /userfonts/.
   async function importFont(file: File) {
     setNote("");
     try {
@@ -162,24 +170,8 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    /* Docked beside the window rather than laid over it.
-       Every control in here changes how the window looks, and a panel that
-       covers the window hides the one thing it is for: the change had to be
-       made, the panel closed, the result judged, the panel opened again. Now
-       both are on screen at once and a switch can be watched as it is thrown. */
-    <aside className="settingspanel">
+    <Window id="settings" heading={tr("settings.title", "settings")} onClose={onClose}>
       <div className="settingsbody">
-        <div className="settingshead">
-          <b className="cardTitle">{tr("settings.title", "settings")}</b>
-          <span className="spacer" />
-          {/* The way out, at the top where it is looked for. The gear closes
-              it too, and so does the button at the bottom — but a panel whose
-              only close sits below the fold is a panel with no close. */}
-          <Button bare className="settingsclose" title={tr("common.close", "Close")} onClick={onClose}>
-            ✕
-          </Button>
-        </div>
-
         <div className="tabs" role="tablist">
           {TABS.map(({ id, label }) => (
             <Button
@@ -187,6 +179,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
               key={id}
               role="tab"
               aria-selected={tab === id}
+              data-tab={id}
               className={`tab${tab === id ? " on" : ""}`}
               onClick={() => setTab(id)}
             >
@@ -195,69 +188,69 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        {tab === "look" ? (
-          <div className="tabbody">
-            <div className="field">
-              <span className="fieldName">{tr("settings.appearance", "appearance")}</span>
-              <span className="rowInline">
-                <Select
-                  value={state.skin}
-                  onChange={(skin: Skin) => change(fitPalette({ ...state, skin }))}
-                  options={[
-                    { value: "crt", label: "CRT" },
-                    { value: "win95", label: "Windows 95" },
-                    { value: "sketch", label: "Sketch" },
-                    { value: "pixel", label: "Pixel" },
-                  ]}
-                />
-                <Select
-                  value={state.palette}
-                  onChange={(palette: Palette) => change({ palette })}
-                  options={[
-                    // The two the skin brings itself, then whatever the daemon
-                    // serves for this skin — an imported theme lands here too.
-                    ...(state.skin === "crt"
-                      ? [
-                          { value: "green", label: tr("theme.green", "Green") },
-                          { value: "amber", label: tr("theme.amber", "Amber") },
-                        ]
-                      : []),
-                    ...themes
-                      .filter((t) => t.skin === state.skin && t.name !== "crt")
-                      .map((t) => ({ value: t.name, label: t.label })),
-                    { value: "custom", label: tr("theme.custom", "Own colour") },
-                  ]}
-                />
-              </span>
-            </div>
-            <div className="field">
-              <span className="fieldName">{tr("settings.language", "language")}</span>
-              <span className="rowInline">
-                <Select
-                  value={lang}
-                  onChange={(next: string) => {
-                    setLang(next);
-                    void api.setPrefs({ language: next });
-                    /* Reloaded rather than swapped in place. tr() reads a
-                       module-level table, so a component that has already
-                       rendered keeps the words it was given until something
-                       makes it render again — which, for a settings panel that
-                       is not being touched, is never. */
-                    void loadLanguage(chosenLanguage(next)).then(() => window.location.reload());
-                  }}
-                  options={[
-                    { value: "system", label: tr("settings.langSystem", "System") },
-                    { value: "en", label: "English" },
-                    { value: "de", label: "Deutsch" },
-                  ]}
-                />
-                <span className="notice">
-                  {tr("settings.langHint", "The window is reloaded so every view speaks it.")}
+        {tab === "skins" ? (
+          <>
+            <div className="tabbody">
+              <div className="field">
+                <span className="fieldName">{tr("settings.appearance", "appearance")}</span>
+                <span className="rowInline">
+                  <Select
+                    value={state.skin}
+                    onChange={(skin: Skin) => change(fitPalette({ ...state, skin }))}
+                    options={[
+                      { value: "crt", label: "CRT" },
+                      { value: "win95", label: "Windows 95" },
+                      { value: "sketch", label: "Sketch" },
+                      { value: "pixel", label: "Pixel" },
+                    ]}
+                  />
+                  <Select
+                    value={state.palette}
+                    onChange={(palette: Palette) => change({ palette })}
+                    options={[
+                      // The two the skin brings itself, then whatever the
+                      // service serves for this skin — an imported theme
+                      // lands here too.
+                      ...(state.skin === "crt"
+                        ? [
+                            { value: "green", label: tr("theme.green", "Green") },
+                            { value: "amber", label: tr("theme.amber", "Amber") },
+                          ]
+                        : []),
+                      ...themes
+                        .filter((t) => t.skin === state.skin && t.name !== "crt")
+                        .map((t) => ({ value: t.name, label: t.label })),
+                      { value: "custom", label: tr("theme.custom", "Own colour") },
+                    ]}
+                  />
                 </span>
-              </span>
-            </div>
-            {state.palette === "custom" ? (
-              <>
+              </div>
+              <div className="field">
+                <span className="fieldName">{tr("settings.language", "language")}</span>
+                <span className="rowInline">
+                  <Select
+                    value={lang}
+                    onChange={(next: string) => {
+                      setLang(next);
+                      void api.setPrefs({ language: next });
+                      /* Reloaded rather than swapped in place. tr() reads a
+                         module-level table, so a component that has already
+                         rendered keeps the words it was given until something
+                         makes it render again. */
+                      void loadLanguage(chosenLanguage(next)).then(() => window.location.reload());
+                    }}
+                    options={[
+                      { value: "system", label: tr("settings.langSystem", "System") },
+                      { value: "en", label: "English" },
+                      { value: "de", label: "Deutsch" },
+                    ]}
+                  />
+                  <span className="notice">
+                    {tr("settings.langHint", "The window is reloaded so every view speaks it.")}
+                  </span>
+                </span>
+              </div>
+              {state.palette === "custom" ? (
                 <div className="field">
                   <span className="fieldName">{tr("settings.phosphor", "phosphor")}</span>
                   <ColourPicker
@@ -271,78 +264,76 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                     {tr("settings.phosphorHint", "The picked colour is the text; every other role sits at a fixed share of its brightness. Down goes to black, left goes to grey.")}
                   </span>
                 </div>
-              </>
-            ) : null}
+              ) : null}
 
-            <div className="field">
-              <span className="fieldName">{tr("settings.themeFile", "theme file")}</span>
-              <span className="rowInline">
-                <span className="notice">
-                  {note || tr("settings.importHint", "A theme is one JSON file: a skin plus a palette.")}
+              <div className="field">
+                <span className="fieldName">{tr("settings.themeFile", "theme file")}</span>
+                <span className="rowInline">
+                  <span className="notice">
+                    {note || tr("settings.importHint", "A theme is one JSON file: a skin plus a palette.")}
+                  </span>
+                  <FilePick
+                    accept=".json,application/json"
+                    label={tr("settings.import", "IMPORT")}
+                    onPick={importTheme}
+                  />
+                  {themes.find((t) => t.name === state.palette) ? (
+                    <Button
+                      onClick={async () => {
+                        await api.themeDelete(state.palette).catch(() => undefined);
+                        change({ palette: state.skin === "crt" ? "green" : "custom" });
+                        await reloadThemes();
+                      }}
+                    >
+                      {tr("common.delete", "DELETE")}
+                    </Button>
+                  ) : null}
                 </span>
-                <FilePick
-                  accept=".json,application/json"
-                  label={tr("settings.import", "IMPORT")}
-                  onPick={importTheme}
-                />
-                {themes.find((t) => t.name === state.palette) ? (
-                  <Button
-                    onClick={async () => {
-                      await api.themeDelete(state.palette).catch(() => undefined);
-                      change({ palette: state.skin === "crt" ? "green" : "custom" });
-                      await reloadThemes();
-                    }}
-                  >
-                    {tr("common.delete", "DELETE")}
-                  </Button>
-                ) : null}
-              </span>
+              </div>
+
+              <div className="field">
+                <span className="fieldName">{tr("settings.fonts", "fonts")}</span>
+                <span className="rowInline">
+                  <Select
+                    value={state.uiFont}
+                    options={fontOptions(fonts, tr("settings.fontDefault", "skin default"))}
+                    onChange={(uiFont) => change({ uiFont })}
+                    tip={tr("settings.uiFontTip", "The font of the interface")}
+                  />
+                  <FilePick
+                    accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf"
+                    label={tr("settings.import", "IMPORT")}
+                    onPick={importFont}
+                  />
+                </span>
+                <span className="notice">
+                  {tr("settings.fontsHint", "Bring in a .woff2, .otf or .ttf and choose it for the interface or the terminal. Nothing is downloaded — the file you pick is served from this machine.")}
+                </span>
+              </div>
             </div>
 
-            <div className="field">
-              <span className="fieldName">{tr("settings.fonts", "fonts")}</span>
-              <span className="rowInline">
-                <Select
-                  value={state.uiFont}
-                  options={fontOptions(fonts, tr("settings.fontDefault", "skin default"))}
-                  onChange={(uiFont) => change({ uiFont })}
-                  title={tr("settings.uiFontTip", "The font of the interface")}
-                />
-                <Select
-                  value={state.termFont}
-                  options={fontOptions(fonts, tr("settings.fontDefault", "skin default"))}
-                  onChange={(termFont) => change({ termFont })}
-                  title={tr("settings.termFontTip", "The font of the terminal — pick a monospace one, or its columns will not line up")}
-                />
-                <FilePick
-                  accept=".woff2,.woff,.ttf,.otf,font/woff2,font/woff,font/ttf,font/otf"
-                  label={tr("settings.import", "IMPORT")}
-                  onPick={importFont}
-                />
-              </span>
-              <span className="notice">
-                {tr("settings.fontsHint", "Bring in a .woff2, .otf or .ttf and choose it for the interface or the terminal. Nothing is downloaded — the file you pick is served from this machine.")}
-              </span>
-            </div>
-
-          </div>
+            {/* The colours and the switches, unchanged, under the same tab:
+                a skin, its palette and its knobs are one decision. */}
+            <StyleEditor
+              state={state}
+              change={change}
+              reset={() => {
+                // Only the hand-picked colours go; the skin, the palette and
+                // the switches are choices of their own and stay where they are.
+                const next = { ...state, colours: {} };
+                setState(next);
+                apply(next);
+                save(next);
+              }}
+            />
+          </>
         ) : null}
 
-        {tab === "colours" ? (
-          <StyleEditor
-            state={state}
-            change={change}
-            reset={() => {
-              // Only the hand-picked colours go; the skin, the palette and the
-              // switches are choices of their own and stay where they are.
-              const next = { ...state, colours: {} };
-              setState(next);
-              apply(next);
-              save(next);
-            }}
-          />
-        ) : null}
-
+        {tab === "terminal" ? <TerminalSettings state={state} change={change} fonts={fonts} /> : null}
+        {tab === "editor" ? <EditorSettings /> : null}
+        {tab === "keys" ? <Keybindings /> : null}
+        {tab === "accounts" ? <Accounts /> : null}
+        {tab === "layouts" ? <LayoutSettings layouts={layouts} /> : null}
         {tab === "notify" ? <Notifications /> : null}
         {tab === "agents" ? <Agents /> : null}
         {tab === "status" ? <Status /> : null}
@@ -355,6 +346,6 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           </Button>
         </div>
       </div>
-    </aside>
+    </Window>
   );
 }

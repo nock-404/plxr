@@ -18,7 +18,7 @@ import { tr } from "@/lib/i18n";
  * the field completes it — nobody types a path out by hand.
  */
 export default function Ask({
-  title,
+  heading,
   detail,
   field,
   path = false,
@@ -28,7 +28,9 @@ export default function Ask({
   onConfirm,
   onCancel,
 }: {
-  title: string;
+  /* What the dialog asks, as its heading. Named so, and not "title", because a
+     title on an element is the system's own tooltip — see ui/Tooltip. */
+  heading: string;
   detail?: string;
   field?: string;
   path?: boolean;
@@ -62,7 +64,7 @@ export default function Ask({
   return (
     <div className="backdrop" onClick={onCancel}>
       <div className="card ask" onClick={(e) => e.stopPropagation()}>
-        <b className="cardTitle">{title}</b>
+        <b className="cardTitle">{heading}</b>
         {detail ? <p className="notice">{detail}</p> : null}
         {field ? (
           <label className="field">

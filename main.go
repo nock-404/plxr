@@ -279,6 +279,9 @@ func runDaemon() {
 	go c.PruneRecordings()
 	// Send what is lined up, as soon as each agent is ready for it.
 	go c.WatchQueues()
+	// Say one word when the five-hour spend goes past the ceiling — with or
+	// without a window open.
+	go c.WatchPace()
 
 	handler := daemon.CORS(daemon.Guard(info.Token, srv.Routes()))
 

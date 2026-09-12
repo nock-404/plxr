@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Select from "@/components/ui/Select";
 import Toggle from "@/components/ui/Toggle";
 import { api } from "@/lib/api";
@@ -95,13 +96,11 @@ export default function Notifications() {
                   ...sounds.map((s) => ({ value: s, label: s })),
                 ]}
               />
-              <Button
-                disabled={!settings.sound}
-                title={tr("notify.tryTip", "Hearing it is the only way to choose it")}
-                onClick={() => api.trySound(settings.sound).catch((e) => setNote(errText(e)))}
-              >
-                {tr("notify.try", "TRY IT")}
-              </Button>
+              <Tooltip text={tr("notify.tryTip", "Hearing it is the only way to choose it")}>
+                <Button disabled={!settings.sound} onClick={() => api.trySound(settings.sound).catch((e) => setNote(errText(e)))}>
+                  {tr("notify.try", "TRY IT")}
+                </Button>
+              </Tooltip>
             </span>
           </div>
         </>

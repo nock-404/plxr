@@ -2,8 +2,8 @@
 
 import { base, token } from "./token";
 import type {
-  Account, Agent, AgentProfile, ArchiveEntry, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
+  Account, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
+  NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
   UserFont,
 } from "./types";
 
@@ -148,6 +148,8 @@ export const api = {
     req<void>(`/api/ports/${pid}${hard ? "?hard=1" : ""}`, { method: "DELETE" }),
 
   usage: (days: number) => req<Usage>(`/api/usage?days=${days}`),
+  // The current pace: the five-hour spend, the hourly rate, who is spending.
+  tempo: () => req<Pace>("/api/tempo"),
   archive: () => req<ArchiveEntry[]>("/api/archive"),
   archiveResume: (id: string) =>
     req<Session>(`/api/archive/${encodeURIComponent(id)}/resume`, { method: "POST" }),
@@ -158,6 +160,10 @@ export const api = {
     req<FileEntry[]>(`/api/files/${encodeURIComponent(id)}?dir=${encodeURIComponent(dir)}`),
   readFile: (id: string, path: string) =>
     req<FileBody>(`/api/file/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
+  /* The same file as HEAD has it — what the editor's gutter measures the
+     buffer against. Empty and not `known` for a file HEAD never saw. */
+  baseFile: (id: string, path: string) =>
+    req<Baseline>(`/api/base/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
   createFile: (id: string, path: string, dir = false) =>
     req<FileEntry>(`/api/file/${encodeURIComponent(id)}`, {
       method: "POST",

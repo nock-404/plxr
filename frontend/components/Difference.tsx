@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { errText, tr, trN } from "@/lib/i18n";
+import { FILES_CHANGED } from "@/lib/useChanges";
 import type { GitDiff } from "@/lib/types";
 
 /* One file's difference, drawn from git's own unified diff.
@@ -16,6 +18,12 @@ import type { GitDiff } from "@/lib/types";
  * It sits in the wide area rather than in the column beside the list, because a
  * line of code is wider than a file name and wrapping every one of them makes a
  * hunk unreadable.
+ *
+ * It stays true while it is open: the folder's live signal — the changes
+ * feed fires FILES_CHANGED on the window whenever the folder's rev moved —
+ * asks git again, so a diff an agent is still writing to moves with the
+ * file. The text already on screen stays until the new one is in; a flash
+ * of "…" for every keystroke of an agent would make it unreadable.
  */
 /* git's own letters turned into words the stylesheet can be held to.
  *
@@ -35,18 +43,29 @@ export default function Difference({
   path,
   staged,
   onClose,
+  onEdit,
 }: {
   rootId: string;
   path: string;
   staged: boolean;
   onClose: () => void;
+  /* The file in the editor, at the line that was clicked. */
+  onEdit?: (path: string, line: number) => void;
 }) {
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [problem, setProblem] = useState("");
+  // Counts up whenever the folder is known to have moved — each new rev of
+  // the live feed, and a mark restored from the marks panel.
+  const [again, setAgain] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setAgain((n) => n + 1);
+    window.addEventListener(FILES_CHANGED, bump);
+    return () => window.removeEventListener(FILES_CHANGED, bump);
+  }, []);
 
   useEffect(() => {
     let dropped = false;
-    setDiff(null);
     setProblem("");
     api
       .diff(rootId, path, staged)
@@ -55,6 +74,12 @@ export default function Difference({
     return () => {
       dropped = true;
     };
+  }, [rootId, path, staged, again]);
+
+  // A different file is a blank slate; the same file moving keeps its text
+  // on screen until the new one is in.
+  useEffect(() => {
+    setDiff(null);
   }, [rootId, path, staged]);
 
   const name = path.split("/").pop() ?? path;
@@ -70,6 +95,11 @@ export default function Difference({
             : ""}
         </span>
         <span className="spacer" />
+        {onEdit ? (
+          <Tooltip text={tr("git.editTip", "Open this file in the editor")}>
+            <Button onClick={() => onEdit(path, 0)}>{tr("git.edit", "EDIT")}</Button>
+          </Tooltip>
+        ) : null}
         <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
       </div>
       <div className="viewerwrap diffwrap">
@@ -91,14 +121,32 @@ export default function Difference({
           diff.hunks.map((h, i) => (
             <div key={i} className="hunk">
               <span className="hunkhead">{h.header}</span>
-              {h.lines.map((l, j) => (
-                <span key={j} className="diffline" data-kind={kindOf(l.kind)}>
-                  <span className="diffno">{l.old || ""}</span>
-                  <span className="diffno">{l.new || ""}</span>
-                  <span className="diffmark">{l.kind === " " ? "" : l.kind}</span>
-                  <span className="difftext">{l.text}</span>
-                </span>
-              ))}
+              {h.lines.map((l, j) =>
+                /* A line that exists in the file now can be jumped to; a
+                   removed one has no line to land on and stays as text. */
+                onEdit && l.new ? (
+                  <Button
+                    bare
+                    key={j}
+                    className="diffline"
+                    data-kind={kindOf(l.kind)}
+                    onClick={() => onEdit(path, l.new)}
+                    aria-label={tr("git.lineTip", "Open the editor at line {n}", { n: l.new })}
+                  >
+                    <span className="diffno">{l.old || ""}</span>
+                    <span className="diffno">{l.new || ""}</span>
+                    <span className="diffmark">{l.kind === " " ? "" : l.kind}</span>
+                    <span className="difftext">{l.text}</span>
+                  </Button>
+                ) : (
+                  <span key={j} className="diffline" data-kind={kindOf(l.kind)}>
+                    <span className="diffno">{l.old || ""}</span>
+                    <span className="diffno">{l.new || ""}</span>
+                    <span className="diffmark">{l.kind === " " ? "" : l.kind}</span>
+                    <span className="difftext">{l.text}</span>
+                  </span>
+                ),
+              )}
             </div>
           ))
         )}

@@ -3,9 +3,11 @@
 import { ago } from "@/lib/format";
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { errText, tr, trN } from "@/lib/i18n";
 import Input from "@/components/ui/Input";
+import type { LiveChanges } from "@/lib/useChanges";
 import type { GitChange, GitEntry, GitWhere } from "@/lib/types";
 
 /* What has changed in the folder, and what the change is.
@@ -18,6 +20,12 @@ import type { GitChange, GitEntry, GitWhere } from "@/lib/types";
  * The difference is drawn from git's own unified diff. A merge view would be a
  * dependency with a stylesheet of its own, fighting four skins for the colours;
  * this way every colour comes from the palette like everything else.
+ *
+ * The list moves by itself when it is handed the live state (`live`): the
+ * service watches the folder and pushes each new state, so a file an agent
+ * writes shows up here without anyone pressing anything. AGAIN stays as the
+ * manual way — for a list without a live feed, or for the doubt that a
+ * press settles.
  */
 const WORD: Record<string, [string, string]> = {
   M: ["git.modified", "changed"],
@@ -39,6 +47,8 @@ export default function Changes({
   rootId,
   shown,
   onShow,
+  onEdit,
+  live,
 }: {
   rootId: string;
   shown: { path: string; staged: boolean } | null;
@@ -46,6 +56,11 @@ export default function Changes({
      wider than a file name, and wrapping every one of them makes a hunk
      unreadable. So this list only says which one to show. */
   onShow: (what: { path: string; staged: boolean } | null) => void;
+  /* The file itself, in an editor. Absent where there is no editor to open. */
+  onEdit?: (path: string) => void;
+  /* The folder's state as the service pushes it. Without it the list asks
+     once and on AGAIN, the way it always did. */
+  live?: LiveChanges;
 }) {
   const [list, setList] = useState<GitChange[] | null>(null);
   const [problem, setProblem] = useState("");
@@ -68,7 +83,33 @@ export default function Changes({
     api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
   }, [rootId]);
 
-  useEffect(load, [load]);
+  const isLive = live !== undefined;
+  const liveRev = live?.rev ?? "";
+  const liveHead = live?.head ?? "";
+
+  // Without a live feed the list is asked for once, here.
+  useEffect(() => {
+    if (!isLive) load();
+  }, [isLive, load]);
+
+  /* With one, every new state replaces the list. A state that arrived is
+     the truth about the folder, so it also replaces whatever a stage or an
+     AGAIN put here a moment before. Keyed on the rev alone: the same state
+     twice is nothing to redraw. */
+  useEffect(() => {
+    if (!live || !liveRev) return;
+    setList(live.changes);
+    setWhere(live.where);
+    setProblem(live.problem ? errText(live.problem) : "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRev]);
+
+  // The history is not in the feed — it only changes when HEAD moves, and
+  // the feed says when that is.
+  useEffect(() => {
+    if (!isLive) return;
+    api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
+  }, [isLive, liveHead, rootId]);
 
   async function stage(paths: string[], on: boolean) {
     setBusy(true);
@@ -111,41 +152,47 @@ export default function Changes({
       <div className="changegroup">
         <span className="uhead">
           {head} · {rows.length}
-          <Button
-            tiny
-            disabled={busy}
-            onClick={() => void stage(rows.map((r) => r.path), !areStaged)}
-            title={
+          <Tooltip
+            text={
               areStaged
                 ? tr("git.unstageAllTip", "Take all of these out of the next commit")
                 : tr("git.stageAllTip", "Put all of these into the next commit")
             }
           >
-            {areStaged ? tr("git.unstageAll", "ALL OUT") : tr("git.stageAll", "ALL IN")}
-          </Button>
+            <Button tiny disabled={busy} onClick={() => void stage(rows.map((r) => r.path), !areStaged)}>
+              {areStaged ? tr("git.unstageAll", "ALL OUT") : tr("git.stageAll", "ALL IN")}
+            </Button>
+          </Tooltip>
         </span>
         {rows.map((c) => (
           <div key={`${areStaged ? "s" : "w"}:${c.path}`} className="changerow">
-            <Button
-              bare
-              className={`changepath${shown?.path === c.path && shown.staged === areStaged ? " on" : ""}`}
-              onClick={() => show(c.path, areStaged)}
-              title={c.renamed ? tr("git.from", "was {path}", { path: c.renamed }) : c.path}
-            >
-              {c.path}
-            </Button>
-            <Button
-              tiny
-              disabled={busy}
-              onClick={() => void stage([c.path], !areStaged)}
-              title={
+            <Tooltip text={c.renamed ? tr("git.from", "was {path}", { path: c.renamed }) : c.path}>
+              <Button
+                bare
+                className={`changepath${shown?.path === c.path && shown.staged === areStaged ? " on" : ""}`}
+                onClick={() => show(c.path, areStaged)}
+              >
+                {c.path}
+              </Button>
+            </Tooltip>
+            {onEdit && (areStaged ? c.index : c.work) !== "D" ? (
+              <Tooltip text={tr("git.editTip", "Open this file in the editor")}>
+                <Button tiny onClick={() => onEdit(c.path)}>
+                  {tr("git.edit", "EDIT")}
+                </Button>
+              </Tooltip>
+            ) : null}
+            <Tooltip
+              text={
                 areStaged
                   ? tr("git.unstageTip", "Take it out of the next commit")
                   : tr("git.stageTip", "Put it into the next commit")
               }
             >
-              {areStaged ? tr("git.unstage", "OUT") : tr("git.stage", "IN")}
-            </Button>
+              <Button tiny disabled={busy} onClick={() => void stage([c.path], !areStaged)}>
+                {areStaged ? tr("git.unstage", "OUT") : tr("git.stage", "IN")}
+              </Button>
+            </Tooltip>
             <span className="changeword">{word(areStaged ? c.index : c.work)}</span>
             {c.binary ? (
               <span className="changecount">{tr("git.binary", "binary")}</span>
@@ -168,6 +215,11 @@ export default function Changes({
           <span className="hitSmall">
             {trN("git.files", list.length, "{n} file", "{n} files")}
           </span>
+        ) : null}
+        {live ? (
+          <Tooltip text={live.connected ? tr("git.liveTip", "Follows the folder as it changes") : tr("git.liveLostTip", "The live feed dropped; reconnecting")}>
+            <span className="hitSmall">{live.connected ? tr("git.live", "live") : tr("git.liveLost", "reconnecting…")}</span>
+          </Tooltip>
         ) : null}
       </div>
 

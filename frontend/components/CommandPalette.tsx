@@ -88,7 +88,10 @@ export default function CommandPalette({
               e.preventDefault();
               run(matches[active]);
             } else if (e.key === "Escape") {
+              // Esc closes the palette and nothing else: stopped here, so the
+              // shell's own Esc does not also fold whatever is under it.
               e.preventDefault();
+              e.stopPropagation();
               onClose();
             }
           }}

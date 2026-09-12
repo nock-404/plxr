@@ -116,6 +116,20 @@
   letter-spacing: 0.02em;
   font-size: 0.85em;
 }
+/* The spend readout, in pencil: the number in ink, the rest in the lighter
+   shade; hot is underlined in the blocked colour rather than shouted. */
+[data-skin="sketch"] .pace { color: var(--dim); }
+[data-skin="sketch"] .paceNum { color: var(--fg); }
+[data-skin="sketch"] .paceTrend { color: var(--accent); }
+[data-skin="sketch"] .paceActive { color: var(--dim); }
+[data-skin="sketch"] .pace.pace--hot,
+[data-skin="sketch"] .pace.pace--hot .paceNum,
+[data-skin="sketch"] .pace.pace--hot .paceTrend { color: var(--blocked); text-decoration: underline wavy; text-underline-offset: 0.2em; }
+[data-skin="sketch"] .pacenow { border-bottom: var(--hair) dashed var(--line); }
+[data-skin="sketch"] .pacenow.pace--hot .ubig { color: var(--blocked); }
+[data-skin="sketch"] .paceLimitLabel { color: var(--dim); text-transform: none; letter-spacing: 0.02em; font-size: 0.85em; }
+[data-skin="sketch"] .paceNote { color: var(--dim); font-size: 0.85em; }
+[data-skin="sketch"] .pacenow.pace--hot .paceNote { color: var(--blocked); }
 
 /* ---- rail ---- */
 [data-skin="sketch"] .rail {
@@ -276,6 +290,8 @@
   opacity: 1;
 }
 [data-skin="sketch"] .frow:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+/* A hit is underlined in pencil, not painted over. */
+[data-skin="sketch"] .findmark { background: transparent; color: var(--accent); text-decoration: underline wavy; }
 [data-skin="sketch"] .filesroot {
   color: var(--dim);
   font-family: var(--mono);
@@ -432,6 +448,10 @@
 [data-skin="sketch"] .styleNumber { color: var(--fg); font-family: var(--mono); font-size: .55em; }
 [data-skin="sketch"] .emptyNote { color: var(--dim); font-size: .8em; }
 [data-skin="sketch"] .emptyNote b { color: var(--accent); font-size: 1.15em; }
+[data-skin="sketch"] .endedNote { color: var(--dim); font-size: .8em; }
+[data-skin="sketch"] .endedTitle { color: var(--accent); font-size: 1.15em; letter-spacing: 0; text-transform: none; }
+[data-skin="sketch"] .endedMeta { color: var(--fg); font-family: var(--mono); }
+[data-skin="sketch"] .endedHint { color: var(--dim); }
 [data-skin="sketch"] .input {
   background: transparent; color: var(--fg); outline: none;
   border: var(--ink) solid var(--fg);
@@ -440,8 +460,22 @@
 [data-skin="sketch"] .input:focus { border-color: var(--accent); }
 [data-skin="sketch"] .pathList .selectRow { font-family: var(--mono); font-size: .55em; }
 
-/* Drawn, not built: the same ink line the rest of the page is drawn with. */
-[data-skin="sketch"] .settingspanel {
-  background: transparent;
-  border-left: var(--ink) solid var(--fg);
+/* Drawn, not built: the window and the tooltip in the same ink line, with the
+   hand-drawn corners the cards have. */
+[data-skin="sketch"] .window {
+  background: var(--surface);
+  border: var(--ink) solid var(--fg);
+  border-radius: 0.875rem 0.375rem 0.75rem 0.3rem / 0.3rem 0.75rem 0.375rem 0.875rem;
+  box-shadow: none;
 }
+[data-skin="sketch"] .windowHead { background: transparent; border-bottom: var(--ink) solid var(--fg); }
+[data-skin="sketch"] .windowTitle { color: var(--fg); letter-spacing: .04em; text-transform: none; }
+[data-skin="sketch"] .windowGrip { background: linear-gradient(135deg, transparent 50%, var(--fg) 50%); opacity: .5; }
+[data-skin="sketch"] .tooltip {
+  background: var(--surface);
+  border: var(--ink) solid var(--fg);
+  border-radius: 0.5rem 0.25rem 0.44rem 0.3rem / 0.3rem 0.44rem 0.25rem 0.5rem;
+  box-shadow: none;
+}
+[data-skin="sketch"] .menuHeader { color: var(--dim); letter-spacing: 0; text-transform: none; font-style: italic; }
+

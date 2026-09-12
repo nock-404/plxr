@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { Port } from "@/lib/types";
@@ -56,13 +57,11 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
               <span className="hitSmall">pid {p.pid}</span>
               <span className="hitAction">
                 {onPreview ? (
-                  <Button
-                    tiny
-                    title={tr("ports.viewTip", "Show what this port serves, in a panel")}
-                    onClick={() => onPreview(`http://localhost:${p.port}`, `:${p.port}`)}
-                  >
-                    {tr("ports.view", "VIEW")}
-                  </Button>
+                  <Tooltip text={tr("ports.viewTip", "Show what this port serves, in a panel")}>
+                    <Button tiny onClick={() => onPreview(`http://localhost:${p.port}`, `:${p.port}`)}>
+                      {tr("ports.view", "VIEW")}
+                    </Button>
+                  </Tooltip>
                 ) : null}
                 <Button tiny onClick={() => api.portKill(p.pid).then(load)}>
                   {tr("ports.kill", "KILL")}

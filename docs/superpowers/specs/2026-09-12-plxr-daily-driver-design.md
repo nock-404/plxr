@@ -271,3 +271,66 @@ terminal holding real content — captured as a screenshot I actually look at. c
 gates (attributes/gitcalls/german/classes/style/skinrules/translations) are run and must
 stay green, but they are necessary, never sufficient. Chrome-against-the-daemon is
 explicitly **not** proof for any compositing/skin/opacity claim.
+
+## Pillar 8 — Comms & Identities (NEXT cycle — only after Phases 0–7 are COMPLETELY done)
+
+Owner's words (12.09.2026), translated: "a real, full integration" — plxr becomes the
+**client** for Slack, Teams and mail; he stops opening those apps. Not a feed. Strictly
+sequenced after the current build is finished and shipped — not started before.
+
+**Scope, per platform (full):**
+- **Slack:** every workspace; channels, DMs, threads, full history; write, reply in
+  thread, reactions, @mentions; file upload/download; search; unread/mention badges;
+  presence/status; notifications delivered through plxr (native, with icon — see
+  OFFEN.md #11). Connector: Slack Web API + Socket Mode (no public URL needed).
+- **Teams:** 1:1 and group chats, channels, replies, reactions, mentions, attachments,
+  search, presence, notifications — via Microsoft Graph with delta polling. **Not**
+  calls/meetings (audio/video needs the Teams client — the one real API limit). Some
+  tenants require admin consent for chat scopes; that is his to grant, not code.
+- **Outlook:** the whole mailbox — folders, conversations, read/compose/reply/forward,
+  attachments, search, flags/rules — **plus calendar** (see, accept/decline invites).
+  Graph Mail + Calendar; same Azure app as Teams.
+- Any further platform (Discord, WhatsApp, Signal, Jira…) is one more connector into the
+  same model, not a new architecture.
+
+**Architecture:** one **comms core in the service** — per-platform connectors → ONE
+unified message model (account, channel/thread, message, attachment, state) → dockable
+panels on top (inbox, channel, thread, compose, calendar, digest), all beside the
+terminal. **Multi-account everywhere** (several Slack workspaces, several M365 accounts)
+through the same identities system as Claude/GitHub.
+
+**AI layer (real, not a score):** triage (priority/urgency, who wants what), thread
+summaries, reply drafts in his voice, action items → a task list in plxr, a daily
+"what needs you now" digest.
+- **No API key. He has none and will not get one.** The AI layer runs on his claude.ai
+  subscription through **Claude Code itself** (`claude -p`, print mode) using the
+  `CLAUDE_CONFIG_DIR` accounts plxr already manages. Counts against the 5h window, so it
+  is **batched and on demand** (digest, triage-the-unread on a button, a draft only when
+  he hits reply) — never real-time per message. The spend panel shows what the AI layer
+  consumes; the soft ceiling brakes it.
+- **HARD RULE — he picks the account.** In Settings › Accounts a fixed assignment:
+  "AI layer (triage/drafts) runs on: [account]", optionally split per task (triage on
+  X, drafts on Y). plxr NEVER distributes across accounts on its own, never picks a
+  different one by itself. Same principle everywhere: default account for new
+  sessions, account per session, account for the AI layer — always his choice,
+  visible, switchable.
+- **Optional tier:** the local LLM on his Mac mini M4 for bulk triage
+  (prioritise/rough-summarise) — free and private; Claude only where quality matters
+  (drafts). A switch: local / Claude / both.
+
+**Identities (part of this pillar, and the FIRST piece of it):**
+- **GitHub / gh accounts:** `gh` supports several accounts natively (`gh auth switch`).
+  plxr shows per session/workspace which GitHub account and which git identity
+  (user.name/email) is active and switches it — ends the mg-pr-vs-nock-404 wrong-push
+  class of mistake. Generalised: an Identities panel — Claude accounts (exist), GitHub,
+  git identity; npm/Docker later.
+- **The existing Claude account management does not work properly for him** (his
+  words, translated: "if at least the AI account management worked"). Before anything is built
+  on it: measure what exactly fails, make it actually work.
+
+**What he does once, when this is due (I lay it out step by step):** create + authorise
+a Slack app; an Azure app for Teams/Mail + OAuth sign-in; admin consent in the company
+tenant if required.
+
+**Order inside the pillar:** Identities (fix Claude accounts + GitHub) → Slack →
+Outlook + calendar → Teams → the AI layer over everything.

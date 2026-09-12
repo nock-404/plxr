@@ -61,6 +61,30 @@ of watching me push to git blind ("and I have zero status").
     from here: verify in the actually-rendered app, in the skin, over real
     content — a gate is only proof of what it looks for.
 
+11. **Notifications wear the wrong app.** (image 15) A plxr notification arrives with
+    no icon, and clicking it opens Script Editor with a file dialog. Measured:
+    notify_darwin.go has a native UserNotifications path (icon, click opens plxr) but
+    it is sent by the background service, whose native call fails (no app run loop /
+    no granted permission), so it falls back to osascript — and osascript
+    notifications belong to Script Editor. Fix: post notifications from the window
+    process (the real app, which can hold the permission and the run loop); the
+    service uses the fallback only when no window is open.
+
+12. **The Claude account management does not work properly for him.** (his words,
+    translated: "if at least the AI account management worked") What exactly fails is
+    not yet measured; measure it, make it actually work — it is the base the
+    identities work in pillar 8 stands on.
+
+## Pillar 8 — Comms & Identities (next cycle; ONLY after everything above is COMPLETELY done)
+
+His words: a real, full integration — plxr becomes the client for Slack, Teams and
+Outlook (mail + calendar), with an AI layer (triage, summaries, drafts in his voice,
+action items, daily digest) and full identity management (Claude accounts fixed,
+GitHub/gh accounts, git identity). No API key — the AI layer runs on his subscription
+through Claude Code (`claude -p`), batched and on demand; HE picks which account it
+runs on, plxr never distributes on its own. The full design is in
+docs/superpowers/specs/2026-09-12-plxr-daily-driver-design.md, "Pillar 8".
+
 ## Planned windows/panels I said I would build (not yet done)
 
 The window-manager is meant to fill up with panels — everywhere — each a small

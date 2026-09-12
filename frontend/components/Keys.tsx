@@ -1,33 +1,41 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
+import { ACTIONS, KEYMAP_CHANGED, bindingOf, caption } from "@/lib/keymap";
 
-// A shortcut nobody can find is none — so they are written down.
-const KEYS: { cap: string; key: string; fallback: string }[] = [
-  { cap: "⌘K", key: "keys.filter", fallback: "Jump to the path filter" },
-  { cap: "⌘N", key: "keys.new", fallback: "New session" },
-  { cap: "⌘1…5", key: "keys.views", fallback: "Overview, inbox, ports, usage, archive" },
-  { cap: "⌘F", key: "keys.find", fallback: "Find in the terminal" },
-  { cap: "F12", key: "keys.workbench", fallback: "Workbench — the console inside the window" },
-  { cap: "⇧F12", key: "keys.workshop", fallback: "Workshop — write CSS against the running window" },
-  { cap: "Esc", key: "keys.back", fallback: "Close the dialog, leave the session" },
-  { cap: "?", key: "keys.help", fallback: "This list" },
-];
-
+/* A shortcut nobody can find is none — so they are written down.
+ *
+ * Read from the keymap, not written here by hand: this list used to be its
+ * own copy and named ⌘1…5 for a handler that did not exist. Now the rows are
+ * the actions the handlers actually check, with whatever key each is bound to
+ * at the moment, and a key rebound in the settings shows here at once. */
 export default function Keys({ onClose }: { onClose: () => void }) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const again = () => bump((n) => n + 1);
+    window.addEventListener(KEYMAP_CHANGED, again);
+    return () => window.removeEventListener(KEYMAP_CHANGED, again);
+  }, []);
+
+  const rows: { cap: string; text: string }[] = [
+    ...ACTIONS.map((a) => ({ cap: caption(bindingOf(a.id)), text: tr(a.key, a.fallback) })),
+    { cap: "Esc", text: tr("keys.back", "Close the dialog, leave the session") },
+  ];
+
   return (
     <div className="backdrop" onClick={onClose}>
       <div className="card" onClick={(e) => e.stopPropagation()}>
         <b className="cardTitle">{tr("keys.title", "keyboard")}</b>
         <div className="ruleslist">
-          {KEYS.map((k) => (
-            <div key={k.cap} className="rrow">
+          {rows.map((k) => (
+            <div key={k.cap + k.text} className="rrow">
               <span className="keyCell">
                 <span className="keyCap">{k.cap}</span>
               </span>
               <span className="rmain">
-                <span className="rtitle">{tr(k.key, k.fallback)}</span>
+                <span className="rtitle">{k.text}</span>
               </span>
             </div>
           ))}

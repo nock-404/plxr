@@ -107,7 +107,7 @@ fi
 # turned this into a check that fails on a healthy system, which is the other
 # way for a gate to be worthless.
 ask=$(curl -s -H "X-Plxr-Token: $token" -H 'Content-Type: application/json' \
-	-d "{\"cwd\":\"$home\",\"cmd\":[\"/bin/sh\",\"-c\",\"printf 'PATHIS:%s\\\\n' \\\"\$PATH\\\"\"],\"name\":\"path\"}" \
+	-d "{\"cwd\":\"$home\",\"cmd\":[\"/bin/sh\",\"-c\",\"printf 'PATHIS:%s\\\\n' \\\"\$PATH\\\"; sleep 30\"],\"name\":\"path\"}" \
 	-X POST "http://127.0.0.1:$port/api/sessions")
 case "$ask" in
 *'"id"'*) ;;
@@ -117,6 +117,11 @@ case "$ask" in
 	;;
 esac
 
+# The probe holds the screen (sleep 30) because the session now drops into the
+# login shell when its command ends, and the shell's prompt and dotfile output
+# pushed the PATHIS line out of the 18-line preview before this read at 3 s —
+# a gate that flipped under load. A probe that stays put reads the same every
+# time.
 sleep 3
 handed=$(curl -s -H "X-Plxr-Token: $token" "http://127.0.0.1:$port/api/sessions" |
 	python3 -c "

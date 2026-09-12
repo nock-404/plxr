@@ -149,9 +149,9 @@ const skinOf = (run) => run(`return document.documentElement.getAttribute("data-
 const started = await skinOf(second);
 
 const changed = await first(`
-  const gear = [...document.querySelectorAll("button")]
-    .find(b => /settings/i.test(b.getAttribute("title") || b.getAttribute("aria-label") || ""))
-    || [...document.querySelectorAll(".bar button")].at(-3);
+  // The gear, by its glyph — not by index or by a title: buttons come and go
+  // in that row, and the hint on it is plxr's own tooltip, not an attribute.
+  const gear = [...document.querySelectorAll(".tools .btn")].find(b => /⚙/.test(b.textContent || ""));
   if (!gear) return null;
   gear.click();
   await new Promise(r => setTimeout(r, 900));

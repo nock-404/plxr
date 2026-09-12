@@ -66,7 +66,7 @@ for verb, path in re.findall(
 
 # --- what the window calls ---------------------------------------------------
 called, ts_files = {}, 0
-for name in ("api.ts", "useTiles.ts", "token.ts"):
+for name in ("api.ts", "useTiles.ts", "useChanges.ts", "token.ts"):
     p = os.path.join(HERE, "frontend", "lib", name)
     if not os.path.exists(p):
         continue

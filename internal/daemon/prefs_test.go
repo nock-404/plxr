@@ -56,3 +56,38 @@ func TestPrefsAreWrittenAtomically(t *testing.T) {
 		t.Error("the temporary file is still lying there")
 	}
 }
+
+// The ceiling rides the same blob as everything else and is read back as a
+// number of tokens — whether it was written as one, typed as text, or never
+// set at all.
+func TestTheCeilingRidesThePrefsBlob(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("PLXR_HOME", home)
+
+	if got := PaceLimit(); got != 0 {
+		t.Fatalf("nothing set, but a ceiling of %d came back", got)
+	}
+	if err := WritePrefs(map[string]any{"paceLimit": 1500000.0, "theme": map[string]any{"skin": "crt"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := PaceLimit(); got != 1500000 {
+		t.Fatalf("ceiling written as a number came back as %d", got)
+	}
+	// Clearing it removes the key and leaves the rest alone.
+	if err := WritePrefs(map[string]any{"paceLimit": nil}); err != nil {
+		t.Fatal(err)
+	}
+	if got := PaceLimit(); got != 0 {
+		t.Fatalf("ceiling cleared, but %d came back", got)
+	}
+	if _, ok := ReadPrefs()["theme"]; !ok {
+		t.Fatal("clearing the ceiling took the theme with it")
+	}
+
+	cases := map[any]int64{"250000": 250000, " 12 ": 12, "x": 0, -5.0: 0, 0.0: 0, true: 0}
+	for raw, want := range cases {
+		if got := paceLimitOf(raw); got != want {
+			t.Errorf("paceLimitOf(%v) = %d, want %d", raw, got, want)
+		}
+	}
+}

@@ -463,7 +463,9 @@ const bench = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
   console.error("plxr gate: a fault nobody was watching for");
   window.dispatchEvent(new ErrorEvent("error", { message: "plxr gate: thrown from nowhere", filename: "gate", lineno: 1 }));
-  window.dispatchEvent(new KeyboardEvent("keydown", { key: "F12", bubbles: true }));
+  // One press, one event — dispatched on document it bubbles to window, where
+  // the shell reads every shortcut off the keymap. Dispatched twice (as this
+  // once was, once per listener that used to exist) F12 toggles twice.
   document.dispatchEvent(new KeyboardEvent("keydown", { key: "F12", bubbles: true }));
   await wait(1200);
   const panel = document.querySelector('.workbench');
@@ -493,8 +495,9 @@ const settings = await run(`
   // The gear, by its glyph — not by index: buttons come and go in that row.
   [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || b.title || '')).click();
   await wait(500);
-  const opened = !!document.querySelector('.settingspanel');
-  // The point of docking it: the window it changes stays on screen beside it.
+  const opened = !!document.querySelector('body > .window');
+  // A window of its own over the work, not a column that squeezes it: the
+  // window it changes stays on screen at full width.
   const contentWidth = Math.round(document.querySelector('.content')?.getBoundingClientRect().width ?? -1);
   const windowStillThere = contentWidth > 100;
   const tabs = document.querySelectorAll('.tab').length;
@@ -511,53 +514,63 @@ const settings = await run(`
   const after = document.documentElement.getAttribute('data-skin');
   [...document.querySelectorAll('.btn')].find(b => b.textContent.trim() === 'DONE')?.click();
   await wait(400);
-  return { opened, windowStillThere, contentWidth, tabs, rows: rows.length, before, after, wanted, closed: !document.querySelector('.settingspanel') };
+  return { opened, windowStillThere, contentWidth, tabs, rows: rows.length, before, after, wanted, closed: !document.querySelector('body > .window') };
 `);
-claim("settings open", settings.opened);
-claim("settings have their tabs", settings.tabs >= 4, `${settings.tabs} tabs`);
-// Docked beside the window, not laid over it: every control in there changes
-// how the window looks, and a panel that covers it hides its own effect.
-claim("the window stays visible beside the settings", settings.windowStillThere,
-  `${settings.contentWidth}px left for the work`);
+claim("settings open as a window of their own", settings.opened);
+claim("settings have their tabs", settings.tabs >= 9, `${settings.tabs} tabs`);
+// A window over the work, not a column beside it: every control in there
+// changes how the window looks, and the work keeps its whole width under it.
+claim("the work keeps its width under the settings window", settings.windowStillThere,
+  `${settings.contentWidth}px for the work`);
 
-/* And its width can be changed.
-   A panel docked beside the work is a panel whose width is wrong for somebody,
-   so the handle is part of it working rather than a comfort. */
+/* And it can be resized and moved.
+   A window whose size or place is wrong for somebody is a window in the way,
+   so the grip and the title bar are part of it working rather than a comfort. */
 const sized = await run(`
-  // The block above closes the panel when it is done with it, so this opens it
-  // again rather than measuring a panel that is not on screen.
-  if (!document.querySelector('.settingspanel')) {
-    const gear = [...document.querySelectorAll('button')]
-      .find(b => /settings/i.test(b.getAttribute('title') || b.getAttribute('aria-label') || ''))
-      || [...document.querySelectorAll('.bar button')].at(-3);
+  // The block above closes the window when it is done with it, so this opens
+  // it again rather than measuring a window that is not on screen.
+  if (!document.querySelector('body > .window')) {
+    const gear = [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || ''));
     gear?.click();
     await new Promise(r => setTimeout(r, 900));
   }
-  const bar = document.querySelector('.splitter');
-  if (!bar) return { why: 'no handle beside the panel' };
-  const wide = () => Math.round(document.querySelector('.settingspanel').getBoundingClientRect().width);
-  const before = wide();
-  const b = bar.getBoundingClientRect();
-  const at = x => ({ bubbles: true, clientX: x, clientY: b.top + b.height / 2, buttons: 1, pointerId: 1 });
-  // Narrower first, so the test does not depend on there being room to grow —
-  // it failed once because the panel was already at its widest.
-  bar.dispatchEvent(new PointerEvent('pointerdown', at(b.left + 3)));
-  bar.dispatchEvent(new PointerEvent('pointermove', at(b.left + 160)));
-  await new Promise(r => setTimeout(r, 400));
-  const narrower = wide();
-  const b2 = bar.getBoundingClientRect();
-  bar.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: b2.left - 120, clientY: b2.top + b2.height / 2, buttons: 1, pointerId: 1 }));
-  await new Promise(r => setTimeout(r, 400));
-  const after = wide();
-  bar.dispatchEvent(new PointerEvent('pointermove', at(b.left - 6000)));
-  await new Promise(r => setTimeout(r, 400));
-  const shoved = wide();
-  bar.dispatchEvent(new PointerEvent('pointerup', at(b.left)));
-  return { before, narrower, after, shoved, window: Math.round(window.innerWidth) };
+  const win = () => document.querySelector('body > .window');
+  const grip = document.querySelector('.windowGrip');
+  const head = document.querySelector('.windowHead');
+  if (!grip || !head) return { why: 'no grip or title bar on the window' };
+  const box = () => { const r = win().getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
+  const before = box();
+  const g = grip.getBoundingClientRect();
+  const at = (x, y) => ({ bubbles: true, clientX: x, clientY: y, buttons: 1, pointerId: 1, button: 0 });
+  // Narrower first, so the test does not depend on there being room to grow.
+  grip.dispatchEvent(new PointerEvent('pointerdown', at(g.left + 4, g.top + 4)));
+  grip.dispatchEvent(new PointerEvent('pointermove', at(g.left - 116, g.top - 56)));
+  await new Promise(r => setTimeout(r, 300));
+  const narrower = box();
+  grip.dispatchEvent(new PointerEvent('pointermove', at(g.left + 44, g.top - 56)));
+  await new Promise(r => setTimeout(r, 300));
+  const after = box();
+  grip.dispatchEvent(new PointerEvent('pointerup', at(g.left + 44, g.top - 56)));
+  // Then moved by the title bar, leftwards and up.
+  const h = head.getBoundingClientRect();
+  head.dispatchEvent(new PointerEvent('pointerdown', at(h.left + h.width / 2, h.top + h.height / 2)));
+  head.dispatchEvent(new PointerEvent('pointermove', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
+  await new Promise(r => setTimeout(r, 300));
+  const moved = box();
+  head.dispatchEvent(new PointerEvent('pointerup', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
+  // And it cannot be pushed off the screen by its title bar.
+  head.dispatchEvent(new PointerEvent('pointerdown', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
+  head.dispatchEvent(new PointerEvent('pointermove', at(-9000, -9000)));
+  await new Promise(r => setTimeout(r, 300));
+  const shoved = box();
+  head.dispatchEvent(new PointerEvent('pointerup', at(-9000, -9000)));
+  return { before, narrower, after, moved, shoved };
 `);
-claim("the settings can be made narrower and wider", sized.narrower < sized.before && sized.after > sized.narrower,
-  sized.why ?? `${sized.before} → ${sized.narrower} → ${sized.after}px`);
-claim("and it stops before it eats the window", sized.shoved < sized.window * 0.9, `${sized.shoved} of ${sized.window}px`);
+claim("the settings window can be made narrower and wider by its grip", !sized.why && sized.narrower.w < sized.before.w && sized.after.w > sized.narrower.w,
+  sized.why ?? `${sized.before.w} → ${sized.narrower.w} → ${sized.after.w}px wide`);
+claim("and moved by its title bar", !sized.why && sized.moved.x === sized.after.x - 200 && sized.moved.y === sized.after.y - 30,
+  sized.why ?? `${sized.after.x},${sized.after.y} → ${sized.moved.x},${sized.moved.y}`);
+claim("and it stays on screen when dragged off it", !sized.why && sized.shoved.x >= 0 && sized.shoved.y >= 0, sized.why ?? `${sized.shoved.x},${sized.shoved.y}`);
 claim("the skin list opens outside the panel", settings.rows > 1, `${settings.rows} rows`);
 claim("a skin change takes effect", settings.after && settings.after !== settings.before,
   `${settings.before} → ${settings.after}`);
@@ -571,10 +584,8 @@ claim("settings close again", settings.closed);
  * the right answer the whole time. */
 const asking = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const gear = () => [...document.querySelectorAll('button')]
-    .find(b => /settings/i.test(b.getAttribute('title') || b.getAttribute('aria-label') || ''))
-    || [...document.querySelectorAll('.bar button')].at(-3);
-  const panel = () => document.querySelector('.settingspanel');
+  const gear = () => [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || ''));
+  const panel = () => document.querySelector('body > .window');
   const close = async () => {
     if (!panel()) return;
     [...panel().querySelectorAll('.btn.primary')].pop()?.click();
@@ -671,7 +682,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 
   const font = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙|settings/i.test(b.textContent || b.title || ''));
+    const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
     if (gear) gear.click();
     await w(1200);
     const declared = (document.getElementById('plxr-userfonts')?.textContent || '').includes('GateCaveat');
@@ -692,7 +703,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 }
 
 // ---- accounts can be managed from the settings ----------------------------
-/* The STATUS tab lists the Claude accounts with the actions to name one, make
+/* The ACCOUNTS tab lists the Claude accounts with the actions to name one, make
    it the default, remove it, and add one — sign in a fresh account, or take an
    existing directory. Read-only here: creating an account writes a real
    .claude directory in the user's home, which a check must not do. The
@@ -701,13 +712,13 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   const accts = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
     // Open the settings only if they are not already open — the gear toggles.
-    if (!document.querySelector('.settingspanel')) {
-      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙|settings/i.test(b.textContent || b.title || ''));
+    if (!document.querySelector('body > .window')) {
+      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
       if (gear) gear.click();
       await w(1000);
     }
-    const status = [...document.querySelectorAll('.tab')].find(b => /status/i.test(b.textContent));
-    if (status) status.click();
+    const accounts = [...document.querySelectorAll('.tab')].find(b => /accounts/i.test(b.textContent));
+    if (accounts) accounts.click();
     await w(1200);
     const rows = [...document.querySelectorAll('.accountRow')];
     const actions = rows[0] ? [...rows[0].querySelectorAll('button')].map(b => b.textContent.trim()) : [];
@@ -735,8 +746,8 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     const R = [...document.querySelectorAll('.railitem')];
     const c = re => { const it = R.find(e => re.test(e.textContent || '')); if (it) it.click(); };
     // Close the settings if they are covering the rail.
-    if (document.querySelector('.settingspanel')) {
-      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || b.title || ''));
+    if (document.querySelector('body > .window')) {
+      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
       if (gear) gear.click();
       await w(400);
     }
@@ -749,11 +760,18 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     const afterReset = [...document.querySelectorAll('.dv-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).filter(Boolean);
     return { many, afterReset };
   `);
-  const saved = await api("/api/prefs").then((p) => Boolean(p && p.dock)).catch(() => false);
+  const prefs = await api("/api/prefs").catch(() => ({}));
+  const saved = Boolean(prefs && prefs.dock);
   claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
   claim("the rail is always on screen as a panel", dock.many.includes("plxr"), dock.many.join(", "));
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
-  claim("a reset returns the dock to the default", dock.afterReset.includes("Overview") && dock.afterReset.length <= 2, dock.afterReset.join(", "));
+  /* A reset rebuilds the arrangement for the activity that was chosen last —
+     'focus' (rail and overview alone) unless somebody picked another from the
+     LAYOUTS menu, in which case that one's panels come back and Usage/Ports,
+     which belong to no activity but 'monitor', do not. */
+  const activity = typeof prefs.dockActivity === "string" ? prefs.dockActivity : "focus";
+  const bare = activity === "focus" ? dock.afterReset.length <= 2 : !dock.afterReset.includes("Ports");
+  claim(`a reset returns the dock to the ${activity} arrangement`, dock.afterReset.includes("Overview") && bare, dock.afterReset.join(", "));
 
   /* A port opens as a web preview panel — a dev server beside its terminal,
      which is the point of the whole dock. */

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { watchFrames, type Frames } from "@/lib/frames";
 import { tr } from "@/lib/i18n";
-import { load } from "@/lib/theme";
+import { THEME_CHANGED, load } from "@/lib/theme";
 
 /* A readout, so nobody has to take my word for how fast the window is.
  *
@@ -29,11 +29,13 @@ export default function Meter() {
   useEffect(() => watchFrames(setFrames), []);
 
   // The settings beside the numbers have to be the ones in force now, not the
-  // ones that were in force when this appeared.
+  // ones that were in force when this appeared. Subscribed to the constant,
+  // not a literal: this listened for "THEME_CHANGED" while the event is named
+  // "plxr:theme", so the readout never followed a change at all.
   useEffect(() => {
     const onTheme = () => setLook(load());
-    window.addEventListener("THEME_CHANGED", onTheme);
-    return () => window.removeEventListener("THEME_CHANGED", onTheme);
+    window.addEventListener(THEME_CHANGED, onTheme);
+    return () => window.removeEventListener(THEME_CHANGED, onTheme);
   }, []);
 
   const slow = frames.fps > 0 && frames.fps < 50;

@@ -4,67 +4,30 @@ import { useCallback, useEffect, useState } from "react";
 import Remote from "@/components/Remote";
 import Button from "@/components/ui/Button";
 import Toggle from "@/components/ui/Toggle";
-import Ask from "@/components/ui/Ask";
 import { api } from "@/lib/api";
 import { errText, tr } from "@/lib/i18n";
-import type { Account, HookState, VersionInfo } from "@/lib/types";
+import type { HookState, VersionInfo } from "@/lib/types";
 
 // What is actually running, and whether the hook that makes status detection
-// reliable is in place. Without it every session reads "unknown".
+// reliable is in place. Without it every session reads "unknown". The
+// accounts have a tab of their own now — see Accounts.
 export default function Status() {
   const [hook, setHook] = useState<HookState | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [version, setVersion] = useState<VersionInfo | null>(null);
   const [busy, setBusy] = useState(false);
-  const [asking, setAsking] = useState<
-    { kind: "add" } | { kind: "rename" | "remove"; account: Account } | null
-  >(null);
   const [problem, setProblem] = useState("");
-  const [signingIn, setSigningIn] = useState(false);
   const [meter, setMeter] = useState(false);
 
   useEffect(() => {
     void api.prefs().then((p) => setMeter(Boolean(p.meter))).catch(() => undefined);
+    // The header menu throws the same switch; the tab follows it.
+    const onMeter = (e: Event) => setMeter(Boolean((e as CustomEvent).detail));
+    window.addEventListener("METER_CHANGED", onMeter);
+    return () => window.removeEventListener("METER_CHANGED", onMeter);
   }, []);
-
-  // Every change hands back the whole list, so there is nothing to reload and
-  // no moment where the screen and the daemon disagree.
-  async function act(what: () => Promise<Account[]>) {
-    setProblem("");
-    try {
-      setAccounts(await what());
-    } catch (e) {
-      setProblem(errText(e));
-    }
-  }
-
-  // Option b: a fresh account, and a session started in it so its first claude
-  // run asks you to sign in. The directory is empty, which is exactly what
-  // makes claude prompt for a login.
-  async function signInNew() {
-    setProblem("");
-    setSigningIn(true);
-    try {
-      const { account, accounts: list } = await api.accountCreate("");
-      setAccounts(list);
-      await api
-        .create("", ["claude"], tr("accounts.loginName", "sign in: {name}", { name: account.name }), account.name)
-        .catch(() => undefined);
-      setProblem(
-        tr("accounts.added", "{name} added — a session was started in it. Close settings to sign in there.", {
-          name: account.name,
-        }),
-      );
-    } catch (e) {
-      setProblem(errText(e));
-    } finally {
-      setSigningIn(false);
-    }
-  }
 
   const load = useCallback(() => {
     api.hook().then(setHook).catch(() => setHook(null));
-    api.accounts().then((a) => setAccounts(a ?? [])).catch(() => setAccounts([]));
     api.version().then(setVersion).catch(() => setVersion(null));
   }, []);
 
@@ -122,6 +85,7 @@ export default function Status() {
             </Button>
           ) : null}
         </span>
+        {problem ? <span className="notice warn">{problem}</span> : null}
       </div>
 
       <Remote />
@@ -144,123 +108,6 @@ export default function Status() {
           </span>
         </span>
       </div>
-
-      <div className="field">
-        <span className="fieldName">{tr("settings.accounts", "accounts")}</span>
-        <div className="splitList">
-          {accounts.map((a) => (
-            <div key={a.name} className="accountRow">
-              {/* The name keeps its width and the path is the one that gives
-                  way. Sharing the space evenly squeezed "account 1" down to
-                  "acc…" while the directory beside it had room to spare. */}
-              <span className="accountName">
-                {a.label || tr("accounts.numbered", `account ${a.number}`, { n: a.number })}
-              </span>
-              <span className="accountCount">
-                {a.sessions} {tr("accounts.sessions", "sessions")}
-              </span>
-              <span className="accountDir" title={a.dir}>{a.short || a.dir}</span>
-              <span className="accountActions">
-              {a.default ? (
-                <span className="accountDefault">{tr("accounts.isDefault", "default")}</span>
-              ) : (
-                <Button
-                  tiny
-                  data-do="default-account"
-                  title={tr("accounts.makeDefaultTip", "New sessions start under this account unless another is chosen.")}
-                  onClick={() => void act(() => api.accountSetDefault(a.name))}
-                >
-                  {tr("accounts.makeDefault", "MAKE DEFAULT")}
-                </Button>
-              )}
-              <Button
-                tiny
-                data-do="rename-account"
-                title={tr("accounts.renameTip", "Call it something else. What sessions were recorded under does not change.")}
-                onClick={() => setAsking({ kind: "rename", account: a })}
-              >
-                {tr("files.rename", "RENAME")}
-              </Button>
-              <Button
-                tiny
-                data-do="remove-account"
-                disabled={accounts.length < 2}
-                title={
-                  accounts.length < 2
-                    ? tr("accounts.lastOne", "The only account left")
-                    : tr("accounts.removeTip", "Take it out of this list. The directory and everything in it stays.")
-                }
-                onClick={() => setAsking({ kind: "remove", account: a })}
-              >
-                {tr("common.remove", "REMOVE")}
-              </Button>
-              </span>
-            </div>
-          ))}
-        </div>
-        <span className="rowInline">
-          <Button data-do="signin-account" busy={signingIn} onClick={signInNew}>
-            {tr("accounts.signIn", "+ SIGN IN NEW")}
-          </Button>
-          <Button data-do="add-account" onClick={() => setAsking({ kind: "add" })}>
-            {tr("accounts.add", "+ EXISTING")}
-          </Button>
-          <span className="notice">
-            {tr(
-              "accounts.addHint2",
-              "Sign in new makes a fresh account and starts a session in it to log in. Existing takes a config directory you already have.",
-            )}
-          </span>
-        </span>
-        {problem ? <span className="notice warn">{problem}</span> : null}
-      </div>
-
-      {asking?.kind === "add" ? (
-        <Ask
-          title={tr("accounts.add", "+ ACCOUNT")}
-          detail={tr("accounts.addWhere", "Where its configuration lives — ~/.claude4, for instance.")}
-          field={tr("accounts.dir", "directory")}
-          path
-          confirmLabel={tr("common.create", "CREATE")}
-          onCancel={() => setAsking(null)}
-          onConfirm={(dir) => {
-            setAsking(null);
-            if (dir.trim()) void act(() => api.accountAdd(dir.trim(), ""));
-          }}
-        />
-      ) : null}
-
-      {asking?.kind === "rename" ? (
-        <Ask
-          title={tr("files.rename", "RENAME")}
-          detail={asking.account.dir}
-          field={tr("accounts.label", "name")}
-          value={asking.account.label || ""}
-          confirmLabel={tr("files.rename", "RENAME")}
-          onCancel={() => setAsking(null)}
-          onConfirm={(label) => {
-            const which = asking.account;
-            setAsking(null);
-            void act(() => api.accountRename(which.name, label));
-          }}
-        />
-      ) : null}
-
-      {asking?.kind === "remove" ? (
-        <Ask
-          title={tr("accounts.removeHead", "take it out of the list?")}
-          detail={`${asking.account.dir} — ${tr("accounts.removeKeeps", "the directory stays, with everything in it")}`}
-          confirmLabel={tr("common.remove", "REMOVE")}
-          danger
-          onCancel={() => setAsking(null)}
-          onConfirm={() => {
-            const which = asking.account;
-            setAsking(null);
-            void act(() => api.accountRemove(which.name));
-          }}
-        />
-      ) : null}
-
     </div>
   );
 }

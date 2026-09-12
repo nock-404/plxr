@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 
 /* Choosing a file from the machine.
  *
@@ -13,20 +14,21 @@ import Button from "@/components/ui/Button";
 export default function FilePick({
   accept,
   label,
-  title,
+  tip,
   onPick,
 }: {
   accept?: string;
   label: string;
-  title?: string;
+  /* A hint shown on hover — through the one tooltip, never a native title. */
+  tip?: string;
   onPick: (file: File) => void;
 }) {
   const field = useRef<HTMLInputElement>(null);
   return (
     <>
-      <Button title={title} onClick={() => field.current?.click()}>
-        {label}
-      </Button>
+      <Tooltip text={tip}>
+        <Button onClick={() => field.current?.click()}>{label}</Button>
+      </Tooltip>
       <input
         ref={field}
         type="file"

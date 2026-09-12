@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import TopStrip from "@/components/ui/TopStrip";
 import { shortNumber as short } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
-import type { Usage as UsageData, UsageBucket, Waiting } from "@/lib/types";
+import { setPaceLimit } from "@/lib/prefs";
+import { usePace } from "@/lib/usePace";
+import type { Pace, Usage as UsageData, UsageBucket, Waiting } from "@/lib/types";
 
 function Block({ head, rows }: { head: string; rows: UsageBucket[] }) {
   const max = Math.max(1, ...rows.map((r) => r.output + r.input));
@@ -25,6 +28,90 @@ function Block({ head, rows }: { head: string; rows: UsageBucket[] }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function trendWord(t: Pace["trend"]): string {
+  if (t === "rising") return tr("pace.rising", "rising");
+  if (t === "falling") return tr("pace.falling", "falling");
+  return tr("pace.flat", "flat");
+}
+
+/* Right now: the same numbers the status row shows, with room to read them,
+   and the one knob that goes with them — the ceiling.
+
+   The ceiling is the user's own target. plxr reads the transcripts and can
+   count what was spent; it cannot see the plan's real window or how much of
+   it is left. So the note beside the field says exactly that, and crossing
+   the line does exactly two things: the readout turns hot, and the service
+   sends one notification. Nothing is stopped. */
+function RightNow() {
+  const { pace, limit, hot } = usePace();
+  // What is being typed, held apart from what is set: the field commits on
+  // blur or Enter, and a ceiling moved in another window lands here only
+  // while nobody is typing.
+  const [draft, setDraft] = useState<string>(limit ? String(limit) : "");
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    if (!typing) setDraft(limit ? String(limit) : "");
+  }, [limit, typing]);
+
+  // Committed from the field itself, not from the draft: a keystroke and the
+  // blur that follows it can land before the draft has been rendered back.
+  const commit = (value: string) => {
+    setTyping(false);
+    const n = setPaceLimit(Number(value));
+    setDraft(n ? String(n) : "");
+  };
+
+  return (
+    <div className={`pacenow ${hot ? "pace--hot" : ""}`.trim()}>
+      <span className="uhead">{tr("pace.now", "right now")}</span>
+      {pace ? (
+        <div className="usum">
+          <span className="ubox">
+            <b className="ubig">{short(pace.window5h)}</b>
+            <span>{tr("pace.window5h", "last five hours")}</span>
+          </span>
+          <span className="ubox">
+            <b className="ubig">{short(pace.perHour)}</b>
+            <span>{tr("pace.perHour", "per hour")}</span>
+          </span>
+          <span className="ubox">
+            <b className="ubig">{pace.active}</b>
+            <span>{tr("pace.activeSessions", "sessions spending")}</span>
+          </span>
+          <span className="ubox">
+            <b className="ubig">{trendWord(pace.trend)}</b>
+            <span>{tr("pace.trend", "against the hour before")}</span>
+          </span>
+        </div>
+      ) : (
+        <span className="paceNote">{tr("pace.measuring", "measuring …")}</span>
+      )}
+      <div className="paceLimit">
+        <span className="paceLimitLabel">{tr("pace.limitLabel", "your five-hour ceiling")}</span>
+        <Input
+          className="short"
+          type="number"
+          min={0}
+          step={100000}
+          placeholder={tr("pace.limitNone", "none")}
+          value={draft}
+          onFocus={() => setTyping(true)}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.currentTarget.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+        />
+        <span className="paceNote">
+          {hot
+            ? tr("pace.over", "Past your ceiling — a colour and one notification, nothing is stopped.")
+            : tr("pace.limitNote", "Tokens in five hours. Your own target, not the plan's real cap — plxr cannot see the plan window. Crossing it colours the readout and sends one notification; nothing is stopped.")}
+        </span>
+      </div>
     </div>
   );
 }
@@ -64,6 +151,7 @@ export default function Usage() {
         </div>
       </TopStrip>
       <div className="listbody">
+        <RightNow />
         {!data ? (
           <div className="emptyNote">
             <b>{tr("usage.emptyHead", "nothing recorded")}</b>

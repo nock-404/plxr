@@ -1,89 +1,156 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Editor from "@/components/ui/Editor";
-import Ask from "@/components/ui/Ask";
 import { api } from "@/lib/api";
 import { tr, errText } from "@/lib/i18n";
-import type { FileBody } from "@/lib/types";
+import { FILES_CHANGED } from "@/lib/useChanges";
+import type { Baseline, FileBody } from "@/lib/types";
 
-// Read and edit a file from the session's own machine. Saving is explicit — with
-// the key everybody already uses for it — and the unsaved marker says so before
-// anyone closes it.
+/* Read and edit one file from the machine the session or folder is on.
+ *
+ * It fills whatever box it is put in — a dock panel beside the terminal — and
+ * nothing here is positioned: it used to be an overlay that lay across the
+ * terminal, so opening a file hid the very thing the file was being read next
+ * to. Saving is explicit, with the key everybody already uses for it, and the
+ * unsaved marker says so before anyone closes it.
+ *
+ * One file for the life of the component: the path is in the panel's id, so a
+ * second file is a second panel with its own editor and its own undo history,
+ * and no buffer is ever switched out from under unsaved edits.
+ *
+ * The file on disk can move under an open editor — an agent in the same tree
+ * is exactly the case. That is noticed through the one live-git signal, and
+ * what happens then depends on whether there is anything to lose: a buffer
+ * with no edits takes the new text; one with edits is told, and offered the
+ * choice, and never overwritten.
+ */
 export default function Viewer({
-  sessionId,
+  rootId,
   path,
   line,
+  jump = 0,
   onClose,
+  onDirty,
 }: {
-  sessionId: string;
+  /* A session or a folder — the service reads which from the id. */
+  rootId: string;
   path: string;
   /* Where to land, when the file was reached from a search hit. */
   line?: number;
+  /* Changes when the same line is asked for again, so the cursor moves again. */
+  jump?: number;
   onClose: () => void;
+  /* Told whenever the buffer gains or loses unsaved edits, so whatever holds
+     this editor — its tab — can refuse to close over them. */
+  onDirty?: (dirty: boolean) => void;
 }) {
-  /* The file this viewer actually has open, which is not always the one the
-   * parent last asked for. Clicking another file in the tree changes `path`,
-   * and if the open one has unsaved edits, switching straight to the new file
-   * threw them away without a word. So the load follows `shown`, not `path`,
-   * and a change of `path` while there are unsaved edits asks first. */
-  const [shown, setShown] = useState(path);
   const [body, setBody] = useState<FileBody | null>(null);
   const [text, setText] = useState("");
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
-  // The file waiting behind an unsaved one, while the question stands.
-  const [pending, setPending] = useState<string | null>(null);
-
-  // The parent asked for a different file.
+  /* The file as HEAD has it — what the gutter measures the buffer against.
+     Undefined until asked; null when there is nothing to measure. */
+  const [baseline, setBaseline] = useState<string | null | undefined>(undefined);
+  /* A newer file on disk than the buffer was read from, held here rather
+     than put into the editor, because the buffer has edits in it. */
+  const [onDisk, setOnDisk] = useState<FileBody | null>(null);
+  /* CLOSE was pressed on a buffer with edits: the bar now asks, and nothing
+     closes until DISCARD is chosen. Cleared the moment the edits are saved. */
+  const [confirmClose, setConfirmClose] = useState(false);
   useEffect(() => {
-    if (path === shown) return;
-    if (dirty) {
-      setPending(path);
-    } else {
-      setShown(path);
-    }
-  }, [path, shown, dirty]);
+    onDirty?.(dirty);
+    if (!dirty) setConfirmClose(false);
+  }, [dirty, onDirty]);
+  // What the handlers below need to know without being rebuilt for it.
+  const latest = useRef({ body, dirty });
+  latest.current = { body, dirty };
+
+  const readBaseline = useCallback(() => {
+    api
+      .baseFile(rootId, path)
+      .then((b: Baseline) => setBaseline(b.binary || b.truncated ? null : b.text))
+      .catch(() => setBaseline(null));
+  }, [rootId, path]);
 
   useEffect(() => {
     setError("");
+    setOnDisk(null);
+    setBaseline(undefined);
     api
-      .readFile(sessionId, shown)
+      .readFile(rootId, path)
       .then((b) => {
         setBody(b);
         setText(b.text);
         setDirty(false);
+        if (b.binary || b.truncated) setBaseline(null);
+        else readBaseline();
       })
       .catch((e) => {
-        // Clear what was there: leaving the previous file's text on screen
-        // under the new name reads as "this is that file", which it is not.
         setBody(null);
         setText("");
         setDirty(false);
         setError(errText(e));
       });
-  }, [sessionId, shown]);
+  }, [rootId, path, readBaseline]);
+
+  /* The folder moved. Whether this file did is asked of the service — the
+     timestamp it hands back is the same one the save guard is measured
+     against — and only then does anything happen here. */
+  useEffect(() => {
+    const look = () => {
+      const { body: was, dirty: edited } = latest.current;
+      if (!was) return;
+      api
+        .readFile(rootId, path)
+        .then((fresh) => {
+          if (fresh.mod === was.mod) return;
+          if (edited) {
+            setOnDisk(fresh);
+          } else {
+            setBody(fresh);
+            setText(fresh.text);
+            setOnDisk(null);
+          }
+        })
+        .catch(() => undefined);
+      readBaseline();
+    };
+    window.addEventListener(FILES_CHANGED, look);
+    return () => window.removeEventListener(FILES_CHANGED, look);
+  }, [rootId, path, readBaseline]);
+
+  // Take the file as it is on disk, letting the edits go — asked for, never done.
+  function reload() {
+    if (!onDisk) return;
+    setBody(onDisk);
+    setText(onDisk.text);
+    setDirty(false);
+    setOnDisk(null);
+  }
 
   async function save() {
     setError("");
     try {
-      /* The timestamp this window last read goes with it: the daemon refuses
+      /* The timestamp this window last read goes with it: the service refuses
          the write when the file has changed on disk since — an agent working
          in the same tree is exactly the case this is for. The answer carries
          the new timestamp, so a second save is measured against the right one. */
-      const fresh = await api.writeFile(sessionId, shown, text, body?.mod ?? 0);
+      const fresh = await api.writeFile(rootId, path, text, body?.mod ?? 0);
       setBody(fresh);
       setDirty(false);
+      setOnDisk(null);
     } catch (e) {
       setError(errText(e));
     }
   }
 
-  const name = shown.split("/").pop() ?? shown;
+  const name = path.split("/").pop() ?? path;
 
   return (
-    <div className="overlay viewer">
+    <div className="editorBody">
       <div className="overlayBar">
         <span className="overlayName">{name}</span>
         <span className="meta">
@@ -97,10 +164,31 @@ export default function Viewer({
               : "")}
         </span>
         <span className="spacer" />
+        {onDisk ? (
+          <>
+            <span className="notice warn">{tr("viewer.changedOnDisk", "changed on disk")}</span>
+            <Tooltip text={tr("viewer.reloadTip", "Take the file as it is on disk; the edits here are lost")}>
+              <Button onClick={reload}>{tr("viewer.reload", "RELOAD")}</Button>
+            </Tooltip>
+            <Tooltip text={tr("viewer.keepTip", "Keep what is in the editor; saving will refuse until it is reloaded")}>
+              <Button onClick={() => setOnDisk(null)}>{tr("viewer.keep", "KEEP MINE")}</Button>
+            </Tooltip>
+          </>
+        ) : null}
         {dirty ? <span className="dirty">{tr("viewer.dirty", "unsaved")}</span> : null}
         {dirty && !body?.truncated ? <Button onClick={save}>{tr("common.save", "SAVE")}</Button> : null}
         <span className="notice">{tr("viewer.keys", "⌘S save · ⌘F find")}</span>
-        <Button onClick={onClose}>{tr("common.back", "BACK")}</Button>
+        {confirmClose ? (
+          <>
+            <span className="notice warn">{tr("viewer.closeUnsaved", "unsaved edits — close anyway?")}</span>
+            <Button danger onClick={onClose}>
+              {tr("viewer.discard", "DISCARD")}
+            </Button>
+            <Button onClick={() => setConfirmClose(false)}>{tr("common.cancel", "CANCEL")}</Button>
+          </>
+        ) : (
+          <Button onClick={() => (dirty ? setConfirmClose(true) : onClose())}>{tr("common.close", "CLOSE")}</Button>
+        )}
       </div>
       <div className="viewerwrap">
         {body?.binary ? (
@@ -114,15 +202,17 @@ export default function Viewer({
                Keyed on the basename, two files called index.ts anywhere in the
                tree shared one editor, and with it one undo history: an undo in
                the second could reach back into edits made in the first. */
-            key={shown}
+            key={path}
             value={text}
             filename={name}
             goToLine={line}
-            /* Only as much of a big file is loaded as the daemon will hand out.
+            jump={jump}
+            baseline={baseline}
+            /* Only as much of a big file is loaded as the service will hand out.
                Editing what was loaded and saving it would write the first half
                over the whole — so a file that arrived cut off can be read here
-               and not changed. The daemon refuses such a write as well; this is
-               so nobody types a page into it first. */
+               and not changed. The service refuses such a write as well; this
+               is so nobody types a page into it first. */
             readOnly={body?.truncated}
             /* Unsaved means different, not touched.
                Putting the loaded text into the editor is a change as far as
@@ -136,25 +226,6 @@ export default function Viewer({
           />
         )}
       </div>
-
-      {pending ? (
-        <Ask
-          title={tr("viewer.unsavedHead", "Unsaved changes")}
-          detail={tr(
-            "viewer.unsavedSwitch",
-            "{name} has changes you have not saved. Leave it and lose them?",
-            { name },
-          )}
-          confirmLabel={tr("viewer.discard", "Discard and switch")}
-          danger
-          onConfirm={() => {
-            setDirty(false);
-            setShown(pending);
-            setPending(null);
-          }}
-          onCancel={() => setPending(null)}
-        />
-      ) : null}
     </div>
   );
 }

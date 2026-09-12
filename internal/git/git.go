@@ -406,6 +406,33 @@ func tracked(dir, path string) bool {
 	return err == nil && len(out) > 0
 }
 
+// AtHead is the file as the last commit has it — the baseline an editor
+// gutter measures the buffer against.
+//
+// The path is relative to dir, not to the top of the repository: "HEAD:./x"
+// is how git is told that, and it is what makes this work from a folder that
+// is not the top. A path HEAD does not know — untracked, freshly renamed, a
+// submodule — is not a fault here: the caller gets nothing and treats the
+// whole buffer as new, which is what it is as far as HEAD is concerned.
+func AtHead(dir, path string) ([]byte, bool) {
+	out, err := Raw(dir, "show", "HEAD:./"+filepath.ToSlash(path))
+	if err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
+// Head is the commit HEAD points at, or empty in a repository with none yet.
+// It is the one thing that says "HEAD moved" — a branch name does not change
+// when a commit lands on it.
+func Head(dir string) string {
+	out, err := Run(dir, "rev-parse", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return out
+}
+
 func parse(text string) ([]Hunk, bool) {
 	hunks := []Hunk{}
 	var here *Hunk

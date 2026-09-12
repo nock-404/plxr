@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
+import TreePick from "@/components/ui/TreePick";
 import { api } from "@/lib/api";
 import { errText, tr } from "@/lib/i18n";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
+import { announceFilesChanged } from "@/lib/useChanges";
 import type { FileEntry } from "@/lib/types";
 
 /* The tree beside the terminal.
@@ -28,6 +31,7 @@ import type { FileEntry } from "@/lib/types";
 type Pending =
   | { kind: "newFile" | "newFolder"; dir: string }
   | { kind: "rename"; entry: FileEntry }
+  | { kind: "move"; entry: FileEntry }
   | { kind: "delete"; entry: FileEntry }
   | null;
 
@@ -187,6 +191,20 @@ export default function Files({
     [list, sessionId],
   );
 
+  /* After something moved: every folder that has been listed is listed
+     again, not only the one the change was made in. A move has two ends, a
+     rename can cross folders, and a folder listed earlier and folded away
+     would otherwise show the file where it no longer is the next time it is
+     opened. Then the rest of the window is told, the way the live feed tells
+     it — so an open diff, an editor on the file and the changes list refresh
+     off the same event the tree does. */
+  const reloadAll = useCallback(async () => {
+    const dirs = Object.keys(open);
+    await Promise.all((dirs.length ? dirs : [""]).map((d) => list(d)));
+    setGit(await api.gitStatus(sessionId).catch(() => ({})));
+    announceFilesChanged({ rootId: sessionId, rev: "", head: "" });
+  }, [open, list, sessionId]);
+
   useEffect(() => {
     void reload("");
   }, [reload]);
@@ -301,13 +319,31 @@ export default function Files({
 
   const selected = visible.find((v) => v.entry.path === here)?.entry ?? null;
   const dirOfSelection = selected ? (selected.dir ? selected.path : parentOf(selected.path)) : "";
-  const relative = (path: string) => (path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path);
+  /* The path relative to the root, which is what every file operation takes.
+     The entry's own `rel` is the truth — the service worked it out against
+     the resolved root, so it holds through a symlinked folder (/tmp on a Mac
+     is /private/tmp), where slicing the root off the absolute path does not.
+     Slicing is kept for the root itself and for a directory key that is not an
+     entry. */
+  const relOf = (path: string) => {
+    if (path === "" || path === root) return "";
+    for (const rows of Object.values(open)) {
+      const hit = rows.find((r) => r.path === path);
+      if (hit) return hit.rel;
+    }
+    return path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path;
+  };
 
   const ctx = useContextMenu();
   // The right-click menu for one row — the same actions the toolbar offers, at
   // the pointer, and always about the row clicked (not whatever was selected).
   function rowMenu(entry: FileEntry): MenuItem[] {
-    const dir = entry.dir ? entry.path : entry.path.slice(0, entry.path.lastIndexOf("/")) || root;
+    /* The folder the row lives in, as the tree keys it: the entry itself for
+       a folder, the parent's key for a file — "" for the root. It used to be
+       cut out of the path, which for a top-level file gave the resolved root
+       path; that is no key in the tree, so a file made from the context menu
+       was written to disk and never appeared. */
+    const dir = entry.dir ? entry.path : parentOf(entry.path);
     return [
       {
         label: entry.dir ? tr("files.menuOpenFolder", "Open") : tr("files.menuOpen", "Open"),
@@ -318,6 +354,7 @@ export default function Files({
       { label: tr("files.newFolder", "+ FOLDER"), onClick: () => setPending({ kind: "newFolder", dir }) },
       { separator: true },
       { label: tr("files.rename", "RENAME"), onClick: () => setPending({ kind: "rename", entry }) },
+      { label: tr("files.move", "MOVE"), onClick: () => setPending({ kind: "move", entry }) },
       {
         label: tr("common.delete", "DELETE"),
         danger: true,
@@ -330,33 +367,48 @@ export default function Files({
       },
       {
         label: tr("files.reveal", "SHOW"),
-        onClick: () => void run(() => api.revealFile(sessionId, entry.path), dir),
+        onClick: () => void reveal(entry.path),
       },
     ];
   }
 
-  async function run(what: () => Promise<unknown>, refresh: string) {
+  // A change to the tree: do it, then read everything again and say so.
+  async function run(what: () => Promise<unknown>) {
     setError("");
     try {
       await what();
-      await reload(refresh);
+      await reloadAll();
     } catch (e) {
       setError(errText(e));
     }
+  }
+
+  // Showing a file changes nothing, so nothing is read again for it.
+  async function reveal(path: string) {
+    setError("");
+    try {
+      await api.revealFile(sessionId, path);
+    } catch (e) {
+      setError(errText(e));
+    }
+  }
+
+  // The folder a moved entry lands in is a rename to a path in that folder.
+  function move(entry: FileEntry, dir: string) {
+    const to = dir ? `${dir}/${entry.name}` : entry.name;
+    if (to === entry.rel) return;
+    void run(() => api.renameFile(sessionId, entry.rel, to));
   }
 
   return (
     <aside className="files">
       <div className="filesbar">
         <span className="filesroot">{root}</span>
-        <Button
-          tiny
-          on={noise}
-          title={tr("files.noiseTip", "Show hidden and ignored files")}
-          onClick={() => setNoise((n) => !n)}
-        >
-          ·*
-        </Button>
+        <Tooltip text={tr("files.noiseTip", "Show hidden and ignored files")}>
+          <Button tiny on={noise} onClick={() => setNoise((n) => !n)}>
+            ·*
+          </Button>
+        </Tooltip>
       </div>
 
       <div className="filesbar">
@@ -368,38 +420,53 @@ export default function Files({
       </div>
 
       <div className="filesbar">
-        <Button tiny title={tr("files.newFileTip", "New file in the selected folder")} data-do="new-file" onClick={() => setPending({ kind: "newFile", dir: dirOfSelection })}>
-          {tr("files.newFile", "+ FILE")}
-        </Button>
-        <Button tiny title={tr("files.newFolderTip", "New folder in the selected folder")} data-do="new-folder" onClick={() => setPending({ kind: "newFolder", dir: dirOfSelection })}>
-          {tr("files.newFolder", "+ FOLDER")}
-        </Button>
+        <Tooltip text={tr("files.newFileTip", "New file in the selected folder")}>
+          <Button tiny data-do="new-file" onClick={() => setPending({ kind: "newFile", dir: dirOfSelection })}>
+            {tr("files.newFile", "+ FILE")}
+          </Button>
+        </Tooltip>
+        <Tooltip text={tr("files.newFolderTip", "New folder in the selected folder")}>
+          <Button tiny data-do="new-folder" onClick={() => setPending({ kind: "newFolder", dir: dirOfSelection })}>
+            {tr("files.newFolder", "+ FOLDER")}
+          </Button>
+        </Tooltip>
         <span className="spacer" />
-        <Button tiny disabled={!selected} title={tr("files.renameTip", "Rename the selected entry")} data-do="rename" onClick={() => selected && setPending({ kind: "rename", entry: selected })}>
-          {tr("files.rename", "RENAME")}
-        </Button>
-        <Button tiny disabled={!selected} title={tr("files.deleteTip", "Delete the selected entry for good")} data-do="delete" onClick={() => selected && setPending({ kind: "delete", entry: selected })}>
-          {tr("common.delete", "DELETE")}
-        </Button>
+        <Tooltip text={tr("files.renameTip", "Rename the selected entry")}>
+          <Button tiny disabled={!selected} data-do="rename" onClick={() => selected && setPending({ kind: "rename", entry: selected })}>
+            {tr("files.rename", "RENAME")}
+          </Button>
+        </Tooltip>
+        <Tooltip text={tr("files.moveTip", "Move the selected entry into another folder")}>
+          <Button tiny disabled={!selected} data-do="move" onClick={() => selected && setPending({ kind: "move", entry: selected })}>
+            {tr("files.move", "MOVE")}
+          </Button>
+        </Tooltip>
+        <Tooltip text={tr("files.deleteTip", "Delete the selected entry for good")}>
+          <Button tiny disabled={!selected} data-do="delete" onClick={() => selected && setPending({ kind: "delete", entry: selected })}>
+            {tr("common.delete", "DELETE")}
+          </Button>
+        </Tooltip>
       </div>
 
       <div className="filesbar">
-        <Button
-          tiny
-          disabled={!selected}
-          title={tr("files.revealTip", "Show it where this system shows files")}
-          onClick={() => selected && void run(() => api.revealFile(sessionId, selected.path), dirOfSelection)}
-        >
-          {tr("files.reveal", "SHOW")}
-        </Button>
-        <Button
-          tiny
-          disabled={!selected}
-          title={tr("files.copyTip", "Copy the full path")}
-          onClick={() => selected && void navigator.clipboard?.writeText(selected.path).catch(() => undefined)}
-        >
-          {tr("files.copy", "COPY PATH")}
-        </Button>
+        <Tooltip text={tr("files.revealTip", "Show it where this system shows files")}>
+          <Button
+            tiny
+            disabled={!selected}
+            onClick={() => selected && void reveal(selected.path)}
+          >
+            {tr("files.reveal", "SHOW")}
+          </Button>
+        </Tooltip>
+        <Tooltip text={tr("files.copyTip", "Copy the full path")}>
+          <Button
+            tiny
+            disabled={!selected}
+            onClick={() => selected && void navigator.clipboard?.writeText(selected.path).catch(() => undefined)}
+          >
+            {tr("files.copy", "COPY PATH")}
+          </Button>
+        </Tooltip>
       </div>
 
       {error ? <div className="notice warn">{error}</div> : null}
@@ -429,53 +496,72 @@ export default function Files({
 
       {pending?.kind === "newFile" || pending?.kind === "newFolder" ? (
         <Ask
-          title={pending.kind === "newFile" ? tr("files.newFile", "+ FILE") : tr("files.newFolder", "+ FOLDER")}
-          detail={pending.dir ? relative(pending.dir) || root : root}
+          heading={pending.kind === "newFile" ? tr("files.newFile", "+ FILE") : tr("files.newFolder", "+ FOLDER")}
+          detail={relOf(pending.dir) || root}
           field={tr("files.name", "name")}
           confirmLabel={tr("common.create", "CREATE")}
           onCancel={() => setPending(null)}
           onConfirm={(name) => {
-            const dir = pending.dir ? relative(pending.dir) : "";
-            const path = dir ? `${dir}/${name}` : name;
+            const dir = relOf(pending.dir);
+            const path = dir ? `${dir}/${name.trim()}` : name.trim();
             setPending(null);
-            if (name.trim()) void run(() => api.createFile(sessionId, path, pending.kind === "newFolder"), pending.dir);
+            if (name.trim()) void run(() => api.createFile(sessionId, path, pending.kind === "newFolder"));
           }}
         />
       ) : null}
 
       {pending?.kind === "rename" ? (
         <Ask
-          title={tr("files.rename", "RENAME")}
-          detail={relative(pending.entry.path)}
+          heading={tr("files.rename", "RENAME")}
+          detail={pending.entry.rel}
           field={tr("files.name", "name")}
           value={pending.entry.name}
           confirmLabel={tr("files.rename", "RENAME")}
           onCancel={() => setPending(null)}
           onConfirm={(name) => {
-            const from = relative(pending.entry.path);
+            const from = pending.entry.rel;
             const dir = from.includes("/") ? from.slice(0, from.lastIndexOf("/")) : "";
             setPending(null);
-            if (name.trim() && name !== pending.entry.name) {
-              void run(() => api.renameFile(sessionId, from, dir ? `${dir}/${name}` : name), parentOf(pending.entry.path));
+            /* A name with a slash in it is a move as well as a rename —
+               "inner/notes.md" from the root lands in inner/. The service
+               makes the folders on the way. */
+            const to = name.trim();
+            if (to && to !== pending.entry.name) {
+              void run(() => api.renameFile(sessionId, from, dir ? `${dir}/${to}` : to));
             }
+          }}
+        />
+      ) : null}
+
+      {pending?.kind === "move" ? (
+        <TreePick
+          rootId={sessionId}
+          root={root}
+          start={pending.entry.rel.includes("/") ? pending.entry.rel.slice(0, pending.entry.rel.lastIndexOf("/")) : ""}
+          exclude={pending.entry.dir ? pending.entry.rel : ""}
+          onCancel={() => setPending(null)}
+          onChoose={(dir) => {
+            const entry = pending.entry;
+            setPending(null);
+            move(entry, dir);
           }}
         />
       ) : null}
 
       {pending?.kind === "delete" ? (
         <Ask
-          title={tr("files.deleteHead", "delete for good?")}
+          heading={tr("files.deleteHead", "delete for good?")}
           detail={
-            relative(pending.entry.path) +
+            pending.entry.rel +
             (pending.entry.dir ? ` — ${tr("files.deleteFolder", "everything inside it goes too")}` : "")
           }
           confirmLabel={tr("common.delete", "DELETE")}
           danger
           onCancel={() => setPending(null)}
           onConfirm={() => {
-            const parent = parentOf(pending.entry.path);
+            const entry = pending.entry;
             setPending(null);
-            void run(() => api.removeFile(sessionId, relative(pending.entry.path)), parent);
+            void run(() => api.removeFile(sessionId, entry.rel));
           }}
         />
       ) : null}

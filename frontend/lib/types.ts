@@ -77,6 +77,16 @@ export interface Usage {
   byModel?: UsageBucket[];
 }
 
+/* How fast the allowance is going right now — internal/usage/usage.go Pace,
+   field for field. window5h and perHour are tokens, active is the number of
+   sessions that spent something in the last hour. */
+export interface Pace {
+  window5h: number;
+  perHour: number;
+  active: number;
+  trend: "rising" | "falling" | "flat";
+}
+
 export interface ArchiveEntry {
   id: string;
   account: string;
@@ -336,6 +346,30 @@ export interface GitDiff {
   binary: boolean;
   /* Said plainly rather than as an empty list, which reads as a failure. */
   empty: boolean;
+}
+
+/* One state of a folder, as /ws/changes pushes it — only when it differs from
+   the last. `rev` names the state; equal revs are the same state. `head` is the
+   commit HEAD sits on, which is the one thing that says "a commit landed" when
+   the list looks the same before and after. `problem` is a code when the folder
+   could not be followed this time. */
+export interface ChangesFrame {
+  changes: GitChange[];
+  where: GitWhere;
+  head: string;
+  rev: string;
+  problem?: string;
+}
+
+/* One file as HEAD has it, for the editor's gutter. `known` false means HEAD
+   has no such file — untracked, freshly renamed, a submodule — and the whole
+   buffer counts as added. */
+export interface Baseline {
+  path: string;
+  text: string;
+  known: boolean;
+  binary: boolean;
+  truncated: boolean;
 }
 
 /* One commit, as the history list shows it. */

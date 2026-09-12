@@ -73,12 +73,26 @@
   }
 }
 [data-skin="crt"] .bar { border-bottom: var(--hair) solid var(--dim); }
+/* The spend readout on the tube: the number carries the phosphor, the hot
+   state glows in the blocked colour instead of the foreground. */
+[data-skin="crt"] .paceNum { color: var(--fg); }
+[data-skin="crt"] .paceTrend { color: var(--accent); }
+[data-skin="crt"] .paceActive { color: var(--dim); }
+[data-skin="crt"] .pace.pace--hot,
+[data-skin="crt"] .pace.pace--hot .paceNum,
+[data-skin="crt"] .pace.pace--hot .paceTrend { color: var(--blocked); text-shadow: 0 0 var(--glow) color-mix(in srgb, var(--blocked) 55%, transparent); }
+[data-skin="crt"] .pacenow { border-bottom: var(--hair) solid var(--dim); }
+[data-skin="crt"] .pacenow.pace--hot .ubig { color: var(--blocked); }
+[data-skin="crt"] .paceLimitLabel { color: var(--dead); }
+[data-skin="crt"] .paceNote { color: var(--dim); }
 [data-skin="crt"] .rail { border-right: var(--hair) solid var(--dim); }
 [data-skin="crt"] .tile { border: var(--hair) solid var(--dim); transition: border-color .12s,transform .12s; }
 
 [data-skin="crt"] .listbar { border-bottom: var(--hair) solid var(--dim); }
 [data-skin="crt"] .sessbar { border-bottom: var(--hair) solid var(--dim); }
 [data-skin="crt"] .files { border-right: var(--hair) solid var(--dim); }
+/* A search hit glows the way the phosphor does. */
+[data-skin="crt"] .findmark { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); }
 [data-skin="crt"] .card { border: var(--hair) solid var(--accent); }
 [data-skin="crt"] ::-webkit-scrollbar-track { border-left: var(--hair) solid var(--line); background: 0 0; }
 [data-skin="crt"] ::-webkit-scrollbar-thumb {
@@ -100,4 +114,14 @@
 }
 [data-skin="crt"] .railitem[data-unattended="yes"] .rdot { color: var(--blocked); }
 
-[data-skin="crt"] .settingspanel { border-left: var(--hair) solid var(--dim); }
+/* The floating window and the tooltip wear the tube's own line and glow. */
+[data-skin="crt"] .window { border-color: var(--accent); box-shadow: 0 1rem 3rem var(--shadow), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-skin="crt"] .windowHead { border-bottom-color: var(--dim); }
+[data-skin="crt"] .tooltip { border-color: var(--accent); text-shadow: 0 0 .3em color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-skin="crt"] .menuHeader { color: var(--dim); letter-spacing: .2em; }
+
+/* The ended note sits inside the terminal's frame and glows like its text. */
+[data-skin="crt"] .endedNote { color: var(--dim); text-shadow: 0 0 .35em color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-skin="crt"] .endedTitle { color: var(--accent); letter-spacing: .22em; text-transform: uppercase; }
+[data-skin="crt"] .endedMeta { color: var(--term-fg); }
+[data-skin="crt"] .endedHint { color: var(--dim); }

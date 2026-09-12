@@ -31,6 +31,12 @@ func Default() []string {
 // missing. go-pty passes Args through unchanged, which is why this goes through
 // the argument rather than through exec.Cmd.
 func unixShell() []string {
+	return []string{unixShellPath(), "-l"}
+}
+
+// unixShellPath resolves the login shell binary, falling back through the ways
+// $SHELL can be missing (services, desktop launch) to the shells that exist.
+func unixShellPath() string {
 	sh := os.Getenv("SHELL")
 	if sh == "" {
 		// $SHELL is missing in services and when started through the desktop
@@ -49,7 +55,71 @@ func unixShell() []string {
 	if sh == "" {
 		sh = "/bin/sh"
 	}
-	return []string{sh, "-l"}
+	return sh
+}
+
+// WrapInShell runs a CLI inside a login shell so the session behaves like a real
+// terminal: the CLI (claude/codex/aider) is a child of the shell, and when it
+// exits — /exit, Ctrl+D, Ctrl+C out of it, or a crash — the shell is still there
+// and you land back at a live prompt in the same directory, instead of the PTY
+// dying into a "this session is not running" panel.
+//
+// On Unix the mechanism is `exec`: `$SHELL -l -c '<cli>; exec $SHELL -l'` runs
+// the CLI, and on its exit `exec` replaces the SAME process with an interactive
+// login shell on the same pty — so drop-to-shell needs no respawn engine and no
+// timing on stdin, and the pty host stays single-shot. On Windows there is no
+// exec; -NoExit (PowerShell) and /k (cmd) keep the shell open after the CLI ends,
+// which is the same effect by the platform's own means.
+//
+// An empty cli means a plain shell session — that is Default(), not a wrap.
+func WrapInShell(cli []string) []string {
+	if len(cli) == 0 {
+		return Default()
+	}
+	if runtime.GOOS == "windows" {
+		return windowsWrap(cli)
+	}
+	sh := unixShellPath()
+	// The wrapper is the foreground process-group leader on the pty, so a ^C
+	// from the terminal reaches it too — and an untrapped SIGINT kills it before
+	// `exec` ever runs, taking the session with it. Ignoring INT in the wrapper
+	// lets the signal do its job on the CLI alone; the CLI ends, the exec fires,
+	// and you are at a shell. Measured: without the trap ^C left nothing on the
+	// tty; with it the shell survives and answers.
+	inner := "trap : INT; " + Quote(cli) + "; exec " + quoteArg(sh) + " -l"
+	return []string{sh, "-l", "-c", inner}
+}
+
+// windowsWrap runs the CLI and then keeps the shell open, the Windows way.
+func windowsWrap(cli []string) []string {
+	base := windowsShell()
+	cmd := strings.Join(cli, " ")
+	name := strings.ToLower(Name(base))
+	if name == "pwsh" || name == "powershell" {
+		return []string{base[0], "-NoLogo", "-NoExit", "-Command", cmd}
+	}
+	return []string{base[0], "/k", cmd}
+}
+
+// quoteArg wraps a single argument so a POSIX shell reads it verbatim: single
+// quotes take everything literally, and the only character that cannot appear
+// inside them — a single quote — is closed, escaped and reopened: the quote
+// ends the literal, a backslash-quote stands for the character, a quote opens
+// the literal again.
+func quoteArg(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// Quote turns an argv into one shell-safe command string. It is what lets an
+// arbitrary CLI argument — a path with spaces, a resume id, a value carrying a
+// quote, $ or ; — pass through the `-c '<here>'` wrapper without breaking the
+// launch or running anything it should not.
+func Quote(argv []string) string {
+	q := make([]string, len(argv))
+	for i, a := range argv {
+		q[i] = quoteArg(a)
+	}
+	return strings.Join(q, " ")
 }
 
 // windowsShell picks the best shell available.

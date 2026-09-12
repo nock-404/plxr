@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Tooltip from "@/components/ui/Tooltip";
 
 // A custom listbox — never the native <select>.
 //
@@ -15,13 +16,14 @@ export default function Select<T extends string>({
   value,
   options,
   onChange,
-  title,
+  tip,
   disabled = false,
 }: {
   value: T;
   options: Option<T>[];
   onChange: (value: T) => void;
-  title?: string;
+  /* A hint shown on hover — through the one tooltip, never a native title. */
+  tip?: string;
   /* For the moment a choice is being carried out. Without it a second click
      lands while the first is still travelling, and two of whatever it starts
      are on their way. */
@@ -82,19 +84,20 @@ export default function Select<T extends string>({
       ref={anchor}
       data-open={open ? "" : undefined}
       data-disabled={disabled ? "yes" : undefined}
-      title={title}
     >
-      <button
-        type="button"
-        className="selectButton"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <span>{current?.label ?? ""}</span>
-        <i className="selectArrow" aria-hidden="true">▾</i>
-      </button>
+      <Tooltip text={tip}>
+        <button
+          type="button"
+          className="selectButton"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span>{current?.label ?? ""}</span>
+          <i className="selectArrow" aria-hidden="true">▾</i>
+        </button>
+      </Tooltip>
 
       {open && typeof document !== "undefined"
         ? createPortal(

@@ -99,6 +99,14 @@
   border-bottom: var(--hair) solid var(--line);
   font-size: .74em;
 }
+/* The spend readout: the number in the foreground, the trend in the accent,
+   the count as quiet as the rest of the row. Past the user's own ceiling the
+   whole readout turns to the blocked colour — a colour, never a brake. */
+.pace { color: var(--dim); }
+.paceNum { color: var(--fg); }
+.paceTrend { color: var(--accent); }
+.paceActive { color: var(--dim); }
+.pace.pace--hot, .pace.pace--hot .paceNum, .pace.pace--hot .paceTrend { color: var(--blocked); }
 .boot { color: var(--dim); }
 .railitem { color: var(--dim); border-left: .125rem solid #0000; }
 .railitem:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 6%, transparent); }
@@ -231,6 +239,18 @@
 .ufill { background: var(--accent); opacity: .55; }
 .uval { color: var(--dim); font-size: .8em; }
 .usum { border-bottom: var(--hair) solid var(--dim); }
+/* The right-now band draws its own line; the summary inside it must not. */
+.pacenow { border-bottom: var(--hair) solid var(--dim); }
+.pacenow .usum { border-bottom: 0; }
+.pacenow.pace--hot .ubig { color: var(--blocked); }
+.paceLimitLabel {
+  color: var(--dead);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.paceNote { color: var(--dim); font-size: .8em; }
+.pacenow.pace--hot .paceNote { color: var(--blocked); }
 .ubox b { color: var(--accent); font-weight: 400; }
 .ubox span {
   color: var(--dead);
@@ -327,6 +347,10 @@
   -webkit-backdrop-filter: blur(.35rem);
   backdrop-filter: blur(.35rem);
 }
+/* The close on an editor's tab: a glyph the skin draws, so the tab's text stays
+   its bare title. */
+.editorTabClose::after { content: "✕"; }
+
 /* A dialog is content you read over the window, so it is opaque — not glass.
    Each skin used to paint .card with the solidity-mixed glass, which at a low
    slider setting let the terminal show straight through the dialog. The skins no
@@ -487,6 +511,10 @@
 .styleNumber { color: var(--fg); font-size: .8em; }
 .emptyNote { color: var(--dim); font-size: .88em; }
 .emptyNote b { color: var(--accent); font-weight: normal; letter-spacing: .18em; text-transform: uppercase; font-size: .82em; }
+.endedNote { color: var(--dim); font-size: .88em; }
+.endedTitle { color: var(--accent); font-weight: normal; letter-spacing: .18em; text-transform: uppercase; font-size: .82em; }
+.endedMeta { color: var(--fg); }
+.endedHint { color: var(--dim); }
 .pathList .selectRow { font-size: .82em; }
 
 /* The colour square. Its two gradients are not decoration but the model itself:
@@ -516,8 +544,30 @@
    the emptiness reads as a place rather than as a gap. */
 .emptybox { background: var(--panel); border: var(--hair) solid var(--line); }
 
-/* The docked settings, marked off from the window it is changing. */
-.settingspanel { border-left: var(--hair) solid var(--line); background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* The floating window. On the opaque surface like every popover — it is read
+   over a terminal — with the title bar set off from the body. */
+.window { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 1rem 3rem var(--shadow); }
+.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--panel); }
+.windowTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
+.windowClose { color: var(--dim); }
+.windowClose:hover { color: var(--accent); }
+.windowGrip { background: linear-gradient(135deg, transparent 50%, var(--line) 50%); }
+.windowGrip:hover { background: linear-gradient(135deg, transparent 50%, var(--accent) 50%); }
+
+/* The tooltip: the same opaque surface as the menu, in the quiet text size. */
+.tooltip { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); color: var(--fg); font-size: .8em; text-transform: none; letter-spacing: 0; }
+
+/* A clipboard refusal in the pane, on the opaque surface so it can be read. */
+.ptermNote { background: var(--surface); border: var(--hair) solid var(--blocked); }
+
+/* One shortcut row waiting for its key wears the accent on the key cell. */
+.keyRow[data-waiting="yes"] .keyCap { color: var(--accent); border-color: var(--accent); }
+/* One saved arrangement per line; the one in use is named in the accent. */
+.presetRow { border-bottom: var(--hair) solid var(--line); }
+.presetRow:last-child { border-bottom: 0; }
+.presetName { color: var(--fg); }
+.presetRow[data-current="yes"] .presetName { color: var(--accent); }
+.presetCurrent { color: var(--accent); font-size: .78em; letter-spacing: .08em; text-transform: uppercase; }
 
 /* The colour of the glass.
    It was never set, so it fell back to the text colour — and mixing the text
@@ -556,7 +606,8 @@
      so terminal text can never bleed through a popover. --shadow is the drop
      under those floating surfaces; defined here (a dark default for the dark
      skins) so it is never the anonymous black fallback the surfaces used to
-     fall back to, and overridden per skin where the ground is light. */
+     fall back to. Deliberately one value for every skin: a drop shadow is dark
+     on a light ground as much as on a dark one. */
   --surface: var(--panel);
   --shadow: rgba(0, 0, 0, 0.5);
 }
@@ -649,11 +700,9 @@
 .filter[data-on="yes"] .prompt { color: var(--accent); }
 .filterclear { color: var(--dim); }
 .filterclear:hover { color: var(--accent); }
-/* The ↵ that takes a typed folder: not dim — it is the one thing to do next. */
-.settingsclose { color: var(--dim); }
 /* The overflow menu sits on the same surface as the panels do. */
 .obarMenu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); }
-.settingsclose:hover { color: var(--accent); }
+/* The ↵ that takes a typed folder: not dim — it is the one thing to do next. */
 .filtergo { color: var(--accent); }
 .filtergo:hover { color: var(--fg); }
 .hiding { color: var(--accent); }
@@ -686,6 +735,9 @@
 .findline:hover { background: var(--panel); }
 .findno { color: var(--dead); }
 .findtext { color: var(--fg); }
+/* The matched stretch of a line — a mark, so it is one the browser would
+   paint yellow on its own; it takes the skin's accent instead. */
+.findmark { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--fg); }
 
 /* What has changed. The path is what you act on, the word and the counts are
    the reading. */
@@ -704,6 +756,8 @@
 .diffline[data-kind="add"] { background: color-mix(in srgb, var(--working) 14%, transparent); }
 .diffline[data-kind="del"] { background: color-mix(in srgb, var(--blocked) 14%, transparent); }
 .diffline[data-kind="note"] { color: var(--dead); }
+/* A line that can be jumped to says so under the pointer. */
+button.diffline:hover .difftext { text-decoration: underline; text-decoration-color: var(--accent); }
 .diffno { color: var(--dead); }
 .diffmark { color: var(--dim); }
 
@@ -784,6 +838,8 @@
 .menuItem.danger { color: var(--warn, #e66); }
 .menuItem:disabled { color: var(--dim); cursor: default; }
 .menuHint { color: var(--dim); }
+.menuCheck { color: var(--accent); }
+.menuHeader { color: var(--dim); }
 .menuSep { border-top: var(--hair) solid var(--line); }
 
 /* The palette on the panel surface, the picked row in the accent. */

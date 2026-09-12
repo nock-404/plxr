@@ -28,6 +28,43 @@ const CAPPED: Record<string, [string, string]> = {
   ignore: ["find.cappedIgnore", "the project's ignore rules were not applied — git did not answer"],
 };
 
+/* The matched stretches of a line, lit.
+ *
+ * The service counts in bytes — the offsets are into UTF-8 — and the window
+ * counts in characters. For an ASCII line they agree; for "été" they do not,
+ * and a highlight one byte to the right of the word is a highlight on the
+ * wrong letters. So the bytes are walked once, character by character. */
+function lit(text: string, ranges: [number, number][]): React.ReactNode[] {
+  if (!ranges.length) return [text];
+  const encoder = new TextEncoder();
+  // The character index at which each byte offset starts.
+  const charAt: number[] = [];
+  let bytes = 0;
+  for (const [i, ch] of [...text].entries()) {
+    const n = encoder.encode(ch).length;
+    for (let b = 0; b < n; b++) charAt[bytes + b] = i;
+    bytes += n;
+  }
+  charAt[bytes] = [...text].length;
+  const chars = [...text];
+  const out: React.ReactNode[] = [];
+  let at = 0;
+  for (const [from, to] of ranges) {
+    const a = charAt[from] ?? chars.length;
+    const b = charAt[to] ?? chars.length;
+    if (a < at || b <= a) continue;
+    if (a > at) out.push(chars.slice(at, a).join(""));
+    out.push(
+      <mark key={from} className="findmark">
+        {chars.slice(a, b).join("")}
+      </mark>,
+    );
+    at = b;
+  }
+  if (at < chars.length) out.push(chars.slice(at).join(""));
+  return out;
+}
+
 export default function FileSearch({
   rootId,
   onOpen,
@@ -71,13 +108,14 @@ export default function FileSearch({
         <span className="rowInline">
           <Input
             value={text}
+            data-do="find-what"
             placeholder={tr("find.what", "What to look for")}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void run();
             }}
           />
-          <Button onClick={() => void run()} disabled={busy || !text.trim()}>
+          <Button data-do="find-go" onClick={() => void run()} disabled={busy || !text.trim()}>
             {busy ? tr("common.working", "…") : tr("find.go", "FIND")}
           </Button>
         </span>
@@ -127,18 +165,19 @@ export default function FileSearch({
             <span className="notice">{tr("find.nothing", "Nothing in this folder contains that.")}</span>
           ) : null}
           {[...byFile.entries()].map(([path, hits]) => (
-            <div key={path} className="findfile">
+            <div key={path} className="findfile" data-path={path}>
               <span className="findpath">{path}</span>
               {hits.map((h) => (
                 <Button
                   bare
                   key={`${h.line}`}
                   className="findline"
+                  data-line={h.line}
                   onClick={() => onOpen(h.path, h.line)}
-                  title={tr("find.openAt", "Open at line {n}", { n: h.line })}
+                  aria-label={tr("find.openAt", "Open at line {n}", { n: h.line })}
                 >
                   <span className="findno">{h.line}</span>
-                  <span className="findtext">{h.text}</span>
+                  <span className="findtext">{lit(h.text, h.ranges)}</span>
                 </Button>
               ))}
             </div>

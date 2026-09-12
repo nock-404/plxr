@@ -5,6 +5,7 @@ import { Terminal as Xterm } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Slider from "@/components/ui/Slider";
 import { api } from "@/lib/api";
 import { tr, errText } from "@/lib/i18n";
@@ -107,9 +108,11 @@ export default function Player({ id, onClose }: { id: string; onClose: () => voi
       </div>
       <div className="playterm" ref={host} />
       <div className="playbar">
-        <Button tiny onClick={() => showFrom(0)} title={tr("player.startTip", "Back to the beginning")}>
-          ⏮
-        </Button>
+        <Tooltip text={tr("player.startTip", "Back to the beginning")}>
+          <Button tiny onClick={() => showFrom(0)}>
+            ⏮
+          </Button>
+        </Tooltip>
         <Slider
           value={at}
           min={0}

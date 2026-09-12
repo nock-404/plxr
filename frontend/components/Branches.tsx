@@ -4,6 +4,7 @@ import { ago } from "@/lib/format";
 import { useCallback, useEffect, useState } from "react";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { errCode, errText, tr, trN } from "@/lib/i18n";
 import type { GitBranch } from "@/lib/types";
@@ -98,26 +99,23 @@ export default function Branches({ rootId }: { rootId: string }) {
               <Button tiny disabled={busy} onClick={() => void go(b.name)}>
                 {tr("branch.switch", "GO")}
               </Button>
-              <Button
-                tiny
-                disabled={busy}
-                onClick={() => setAsking({ kind: "drop", name: b.name })}
-                title={tr("branch.dropTip", "Remove it. Never one that holds commits nowhere else.")}
-              >
-                {tr("branch.drop", "DROP")}
-              </Button>
+              <Tooltip text={tr("branch.dropTip", "Remove it. Never one that holds commits nowhere else.")}>
+                <Button tiny disabled={busy} onClick={() => setAsking({ kind: "drop", name: b.name })}>
+                  {tr("branch.drop", "DROP")}
+                </Button>
+              </Tooltip>
             </>
           )}
-          <span className="branchsubject" title={b.subject}>
-            {b.subject}
-          </span>
+          <Tooltip text={b.subject}>
+            <span className="branchsubject">{b.subject}</span>
+          </Tooltip>
           <span className="logwhen">{ago(b.when)}</span>
         </div>
       ))}
 
       {asking?.kind === "new" ? (
         <Ask
-          title={tr("branch.new", "+ BRANCH")}
+          heading={tr("branch.new", "+ BRANCH")}
           detail={tr("branch.newFrom", "It starts where you are standing now.")}
           field={tr("branch.name", "name")}
           confirmLabel={tr("common.create", "CREATE")}
@@ -131,7 +129,7 @@ export default function Branches({ rootId }: { rootId: string }) {
 
       {asking?.kind === "drop" ? (
         <Ask
-          title={tr("branch.dropHead", "remove this branch?")}
+          heading={tr("branch.dropHead", "remove this branch?")}
           detail={asking.name}
           confirmLabel={tr("branch.drop", "DROP")}
           danger
@@ -146,7 +144,7 @@ export default function Branches({ rootId }: { rootId: string }) {
 
       {asking?.kind === "insist" ? (
         <Ask
-          title={tr("branch.busyHead", "switch anyway?")}
+          heading={tr("branch.busyHead", "switch anyway?")}
           detail={problem}
           confirmLabel={tr("branch.anyway", "SWITCH ANYWAY")}
           danger

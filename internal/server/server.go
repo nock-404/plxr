@@ -757,6 +757,7 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, s.c.Suggestions(r.URL.Query().Get("q")))
 	})
 	mux.HandleFunc("GET /api/file/{id}", s.readFile)
+	mux.HandleFunc("GET /api/base/{id}", s.baseFile)
 	mux.HandleFunc("PUT /api/file/{id}", s.writeFile)
 	mux.HandleFunc("POST /api/file/{id}", s.createFile)
 	mux.HandleFunc("PATCH /api/file/{id}", s.renameFile)
@@ -773,6 +774,7 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /ws/tiles", s.wsTiles)
 	mux.HandleFunc("GET /ws/session/{id}", s.wsSession)
+	mux.HandleFunc("GET /ws/changes/{id}", s.wsChanges)
 	// Skins of your own, from disk. Must sit before the file server, otherwise
 	// the embedded tree answers first and a skin of your own would be invisible.
 	mux.Handle("GET /skins/", theme.SkinHandler(http.FileServer(http.FS(s.web))))
@@ -1024,6 +1026,20 @@ func (s *Server) readFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
+// baseFile answers with the file as HEAD has it, for the editor's gutter.
+func (s *Server) baseFile(w http.ResponseWriter, r *http.Request) {
+	out, err := s.c.BaseFile(r.PathValue("id"), r.URL.Query().Get("path"))
+	if err != nil {
+		code := http.StatusBadRequest
+		if forbidden(err) {
+			code = http.StatusForbidden
+		}
+		http.Error(w, err.Error(), code)
+		return
+	}
+	writeJSON(w, out)
+}
+
 type fileReq struct {
 	Path string `json:"path"`
 	To   string `json:"to"`
@@ -1075,6 +1091,7 @@ func (s *Server) wsTiles(w http.ResponseWriter, r *http.Request) {
 	defer c.Close()
 
 	pathFilter := r.URL.Query().Get("path")
+	keepAlive(c)
 	go func() {
 		for {
 			if _, _, err := c.ReadMessage(); err != nil {
@@ -1086,11 +1103,99 @@ func (s *Server) wsTiles(w http.ResponseWriter, r *http.Request) {
 
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
+	ping := time.NewTicker(pingEvery)
+	defer ping.Stop()
 	for {
 		if err := c.WriteJSON(s.c.Snapshot(pathFilter)); err != nil {
 			return
 		}
-		<-tick.C
+		select {
+		case <-tick.C:
+		case <-ping.C:
+			if err := c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+				return
+			}
+		}
+	}
+}
+
+/* A socket has to prove it is still there.
+ *
+ * A window that goes away without closing — the tab navigated, the laptop
+ * asleep, a link that dropped — leaves the socket ESTABLISHED on this side, and
+ * a read on it never fails. wsTiles at least writes every second and would trip
+ * over a dead peer eventually; wsChanges writes nothing on a quiet folder, so
+ * it never noticed, and the git poll loop it holds open ran on for ever.
+ * Measured: git forked every two seconds, minutes after the page was gone.
+ *
+ * So every socket is pinged, and a peer that does not answer within the
+ * deadline is read as gone: the read deadline expires, ReadMessage fails, and
+ * the loop that was watching for exactly that ends the subscription. */
+const (
+	pingEvery = 20 * time.Second
+	pongWait  = 60 * time.Second
+	writeWait = 10 * time.Second
+)
+
+func keepAlive(c *websocket.Conn) {
+	_ = c.SetReadDeadline(time.Now().Add(pongWait))
+	c.SetPongHandler(func(string) error {
+		return c.SetReadDeadline(time.Now().Add(pongWait))
+	})
+}
+
+/* wsChanges pushes the git state of one folder, only when it changed.
+ *
+ * Beside wsTiles, and shaped like it: the same upgrader, a read loop to
+ * notice the window going away. What differs is the pace — nothing is sent
+ * on a tick where nothing moved, and the loop that does the looking is
+ * shared with every other window on the same folder (core.SubscribeChanges).
+ *
+ * A folder that cannot be followed — the id is unknown, there is no
+ * repository — is said as one frame after the upgrade and then the socket
+ * is closed. Refusing the upgrade instead reads to the window as a link that
+ * dropped, and it would reconnect every second for as long as the panel is
+ * open. A frame with a code in it is something the panel can show. */
+func (s *Server) wsChanges(w http.ResponseWriter, r *http.Request) {
+	c, err := s.up.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	sub, err := s.c.SubscribeChanges(r.PathValue("id"))
+	if err != nil {
+		c.WriteJSON(core.ProblemFrame(err))
+		return
+	}
+	defer sub.Close()
+
+	keepAlive(c)
+	gone := make(chan struct{})
+	go func() {
+		defer close(gone)
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
+	ping := time.NewTicker(pingEvery)
+	defer ping.Stop()
+	for {
+		select {
+		case f := <-sub.Frames():
+			if err := c.WriteJSON(f); err != nil {
+				return
+			}
+		case <-ping.C:
+			if err := c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+				return
+			}
+		case <-gone:
+			return
+		}
 	}
 }
 
@@ -1144,12 +1249,14 @@ func (s *Server) wsSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	if v.Stream(func(b []byte) error {
+	/* When the stream ends the socket simply closes. Nothing is written into the
+	   terminal about it: the window knows from the tiles whether the session
+	   ended or the link merely dropped, and shows the right thing — a restart
+	   panel or a reconnect — itself. A line of text printed here would be one
+	   more thing on the screen the shell has to scroll past when it comes back. */
+	_ = v.Stream(func(b []byte) error {
 		return c.WriteMessage(websocket.BinaryMessage, b)
-	}) != nil {
-		return
-	}
-	c.WriteMessage(websocket.TextMessage, []byte("\r\n[plxr] process ended.\r\n"))
+	})
 }
 
 // writeJSON answers with v as JSON — and never with a bare null.

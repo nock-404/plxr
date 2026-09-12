@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
 import { api } from "@/lib/api";
 import { errText, tr } from "@/lib/i18n";
@@ -73,13 +74,11 @@ export default function Queue({ tile }: { tile: Tile }) {
             <li key={`${item.added}-${i}`} className="queuerow">
               <span className="queuenum">{i + 1}</span>
               <span className="queuetext">{item.text}</span>
-              <Button
-                tiny
-                title={tr("queue.dropTip", "Take this one back out")}
-                onClick={() => api.queueDrop(tile.id, i).then(load).catch((e) => setError(errText(e)))}
-              >
-                ✕
-              </Button>
+              <Tooltip text={tr("queue.dropTip", "Take this one back out")}>
+                <Button tiny onClick={() => api.queueDrop(tile.id, i).then(load).catch((e) => setError(errText(e)))}>
+                  ✕
+                </Button>
+              </Tooltip>
             </li>
           ))}
         </ol>

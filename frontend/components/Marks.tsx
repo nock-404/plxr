@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { tr, errText } from "@/lib/i18n";
 import type { Mark, MarkChange } from "@/lib/types";
@@ -98,18 +99,17 @@ export default function Marks({ sessionId, onClose }: { sessionId: string; onClo
                       <span key={c.path} className="markfile">
                         <span className="markstate" data-state={c.status}>{c.status}</span>
                         <span className="markpath">{c.path}</span>
-                        <Button
-                          tiny
-                          disabled={c.status === "A"}
-                          title={
+                        <Tooltip
+                          text={
                             c.status === "A"
                               ? tr("marks.wasAdded", "Made since the mark — there is nothing to put back.")
                               : tr("marks.restoreOne", "Put this one file back")
                           }
-                          onClick={() => void restore(m.tree, c.path)}
                         >
-                          {tr("marks.restore", "RESTORE")}
-                        </Button>
+                          <Button tiny disabled={c.status === "A"} onClick={() => void restore(m.tree, c.path)}>
+                            {tr("marks.restore", "RESTORE")}
+                          </Button>
+                        </Tooltip>
                       </span>
                     ))
                   )}

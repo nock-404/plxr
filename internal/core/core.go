@@ -7,6 +7,7 @@
 package core
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -17,9 +18,11 @@ import (
 	"os"
 	"path/filepath"
 	"plxr/internal/shell"
+	"slices"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"plxr/internal/accounts"
 	"plxr/internal/agent"
@@ -133,6 +136,18 @@ type Core struct {
 	hosts map[string]*ptyhost.Host
 	// last reported status per session, to spot the edges
 	lastStatus map[string]session.Status
+	// sessions with a restart in flight — a second RESTART for the same id
+	// (two buttons, two windows) is refused rather than started, because each
+	// unguarded call started its own login shell and all but the last leaked.
+	restarting map[string]bool
+	// whether the five-hour spend was over the ceiling at the last look, so
+	// the crossing is said once — see checkPace
+	paceOver bool
+
+	// The folders being followed for changes, one loop each, keyed by the
+	// resolved path — see gitwatch.go.
+	watchMu sync.Mutex
+	watches map[string]*gitWatch
 }
 
 func New(reg *session.Registry, themes, agents, skins fs.FS) *Core {
@@ -140,6 +155,7 @@ func New(reg *session.Registry, themes, agents, skins fs.FS) *Core {
 		reg: reg, themes: themes, agents: agents, skins: skins,
 		hosts:      map[string]*ptyhost.Host{},
 		lastStatus: map[string]session.Status{},
+		watches:    map[string]*gitWatch{},
 	}
 }
 
@@ -163,9 +179,18 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 	if fi, err := os.Stat(cwd); err != nil || !fi.IsDir() {
 		return nil, uierr.With("err.dir.missing", cwd)
 	}
+	/* What the session IS and what the PTY RUNS are two different things.
+	 *
+	 * sess.Cmd stays the logical intent — ["claude"] — because that is what the
+	 * agent profiles match on, what the tile is labelled with and what a resume
+	 * starts again. The process at the root of the PTY is the login shell, with
+	 * the CLI as its child: when the CLI ends, the shell takes over the same pty
+	 * and the person lands at a prompt in the same directory instead of a dead
+	 * panel. An empty cmd is a plain terminal, and then the two are the same. */
 	if len(cmd) == 0 {
 		cmd = shell.Default()
 	}
+	root := rootFor(cmd)
 
 	all := c.Accounts()
 	acc, ok := accounts.ByName(all, account)
@@ -175,7 +200,7 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 		acc = accounts.Default(all)
 	}
 	id := newID()
-	h, err := ptyhost.Start(id, cwd, cmd, acc.Env())
+	h, err := ptyhost.Start(id, cwd, root, acc.Env())
 	if err != nil {
 		return nil, err
 	}
@@ -195,24 +220,52 @@ func (c *Core) Create(cwd string, cmd []string, name, account string) (*session.
 	c.hosts[id] = h
 	c.mu.Unlock()
 
-	go func() {
-		<-h.Done
-		c.reg.Update(id, func(x *session.Session) {
-			x.Alive = false
-			x.Status = session.StatusDead
-			x.ExitCode = h.Exit()
-			x.Activity = ""
-			x.EndedAt = time.Now().UnixMilli()
-		})
-		// Whatever was still lined up has nowhere to go now. Keeping it would
-		// mean sending it into the next session that happens to reuse the id.
-		queue.Clear(id)
-	}()
+	go c.watchEnd(id, h)
 	return sess, nil
 }
 
-// deadLinger is how long an ended session stays visible.
-const deadLinger = 90 * time.Second
+// rootFor is the argv the PTY actually runs for a session's logical command:
+// the login shell itself when that is all that was asked for, otherwise the
+// login shell running the CLI and then taking its place.
+func rootFor(logical []string) []string {
+	if slices.Equal(logical, shell.Default()) {
+		return logical
+	}
+	return shell.WrapInShell(logical)
+}
+
+// watchEnd marks the session ended once its PTY root — the shell — is gone.
+//
+// Only if that host is still the one the session runs on. A restart in place
+// puts a fresh host under the same id, and the old one may still be finishing
+// (a shell ignores SIGTERM for a grace period); its late "ended" must not land
+// on the session that has just been started again.
+func (c *Core) watchEnd(id string, h *ptyhost.Host) {
+	<-h.Done
+	c.mu.RLock()
+	now := c.hosts[id]
+	c.mu.RUnlock()
+	if now != nil && now != h {
+		return // restarted in place: the new host reports for this id now
+	}
+	c.reg.Update(id, func(x *session.Session) {
+		x.Alive = false
+		x.Status = session.StatusDead
+		x.ExitCode = h.Exit()
+		x.Activity = ""
+		x.EndedAt = time.Now().UnixMilli()
+	})
+	// Whatever was still lined up has nowhere to go now. Keeping it would
+	// mean sending it into the next session that happens to reuse the id.
+	queue.Clear(id)
+}
+
+// deadLinger is how long an ended session stays visible — and restartable in
+// place, with its recording, marks and conversation id. Ninety seconds meant a
+// session that died while somebody was away for two minutes could only be
+// closed, never picked up again; the tile has CLEAR for whoever wants it gone
+// sooner.
+const deadLinger = 6 * time.Hour
 
 // PruneRecordings throws away what is too old or too much.
 //
@@ -467,35 +520,114 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	return c.Create(e.Cwd, []string{"claude", "--resume", e.ID}, name, target)
 }
 
-// ResumeOrphaned restarts an orphaned session.
+// ResumeOrphaned restarts an ended or orphaned session — in place, under the
+// same id.
 //
 // The process is gone, but with Claude Code the conversation is in the
-// transcript — with --resume it carries on where the crash happened.
+// transcript — with --resume it carries on where the crash happened. The id is
+// kept on purpose: the panel, the recording, the timeline and the marks are all
+// keyed by it, so a restart is a continuation of the same session rather than a
+// new tile that has to be found and a dead one that has to be cleared away.
 func (c *Core) ResumeOrphaned(sessionID string) (*session.Session, error) {
 	s, ok := c.reg.Get(sessionID)
 	if !ok {
 		return nil, uierr.New("err.session.unknown")
 	}
-	cwd, account, cmd, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
-
-	/* Started first, and only then is the old entry cleared.
-	 *
-	 * The other way round the orphan was gone before Create could refuse — and
-	 * it refuses whenever the folder is not there, which for work on a volume
-	 * that is not mounted is exactly when somebody presses resume. The tile
-	 * vanished on the next poll and the id needed to pick the conversation up
-	 * again went with it: the one thing an orphan exists to keep.
-	 */
-	start := cmd
-	if claudeID != "" {
-		start = []string{"claude", "--resume", claudeID}
+	shell.AdoptLoginPath()
+	cwd, account, logical, claudeID := s.Cwd, s.Account, s.Cmd, s.ClaudeSessionID
+	if cwd == "" {
+		return nil, uierr.New("err.session.noCwd")
 	}
-	fresh, err := c.Create(cwd, start, s.Name, account)
+	if fi, err := os.Stat(cwd); err != nil || !fi.IsDir() {
+		// Refused before anything is touched: the orphan stays, with the id
+		// that lets the conversation be picked up once the folder is back.
+		return nil, uierr.With("err.cwd.gone", cwd)
+	}
+	if claudeID != "" {
+		logical = []string{"claude", "--resume", claudeID}
+	}
+
+	/* One restart at a time per session.
+	 *
+	 * Measured: four simultaneous resumes each started a login shell and the
+	 * registry kept one — the other three ran on as children of the service,
+	 * invisible, holding ptys, appending to the same recording. The check
+	 * below and the start are not atomic on their own, so the whole sequence
+	 * is claimed first and a concurrent caller is told the session is busy. */
+	c.mu.Lock()
+	if c.restarting == nil {
+		c.restarting = map[string]bool{}
+	}
+	if c.restarting[sessionID] {
+		c.mu.Unlock()
+		return nil, uierr.New("err.session.stillRunning")
+	}
+	c.restarting[sessionID] = true
+	c.mu.Unlock()
+	defer func() {
+		c.mu.Lock()
+		delete(c.restarting, sessionID)
+		c.mu.Unlock()
+	}()
+
+	/* The old host, if there still is one, has to be finished with.
+	 *
+	 * Still alive means the session is running and there is nothing to
+	 * restart. Ended but not yet done means it is closing its recording this
+	 * very moment — and the new host reads that file's size to carry the
+	 * timeline on, so it waits for the close rather than racing it. */
+	old := c.Host(sessionID)
+	if old != nil {
+		if old.Alive() {
+			return nil, uierr.New("err.session.stillRunning")
+		}
+		<-old.Done
+	}
+
+	all := c.Accounts()
+	acc, ok := accounts.ByName(all, account)
+	if !ok {
+		acc = accounts.Default(all)
+	}
+	h, err := ptyhost.Start(sessionID, cwd, rootFor(logical), acc.Env())
 	if err != nil {
+		// Start failed: the entry is left exactly as it was, orphan or ended.
 		return nil, err
 	}
-	c.cleanup(sessionID)
-	return fresh, nil
+
+	c.mu.Lock()
+	// Belt and braces under the flag above: should a live host still sit here
+	// that is not the one just started, it is ended rather than dropped on the
+	// floor to run on unseen.
+	if prev := c.hosts[sessionID]; prev != nil && prev != h && prev.Alive() {
+		prev.Kill()
+	}
+	c.hosts[sessionID] = h
+	c.mu.Unlock()
+	var out session.Session
+	c.reg.Update(sessionID, func(x *session.Session) {
+		x.Alive = true
+		x.Orphaned = false
+		x.PID, x.TTY = h.PID, h.TTY
+		x.StartedAt = time.Now().UnixMilli()
+		x.EndedAt = 0
+		x.ExitCode = 0
+		x.Status = session.StatusUnknown
+		x.Activity = ""
+		x.Account = acc.Name
+		out = *x
+	})
+	if out.ID == "" {
+		// Swept out of the registry between the lookup and here — an ended
+		// session past its linger. Nothing to attach the new host to.
+		c.mu.Lock()
+		delete(c.hosts, sessionID)
+		c.mu.Unlock()
+		h.Kill()
+		return nil, uierr.New("err.session.unknown")
+	}
+	go c.watchEnd(sessionID, h)
+	return &out, nil
 }
 
 // SwitchAccount moves a running session over to another account: end the
@@ -1134,6 +1266,64 @@ func (c *Core) Difference(id, path string, staged bool) (git.Diff, error) {
 	return out, nil
 }
 
+// Baseline is one file as HEAD has it — what an editor's gutter measures the
+// buffer against.
+type Baseline struct {
+	Path string `json:"path"`
+	Text string `json:"text"`
+	// Known says HEAD has the file at all. An untracked file, a freshly
+	// renamed one or a submodule has no baseline, and the whole buffer counts
+	// as added — said plainly rather than as an error, because an editor
+	// opening a new file is not something that went wrong.
+	Known bool `json:"known"`
+	// Binary: there is a baseline, and it is not text. The gutter stays off.
+	Binary bool `json:"binary"`
+	// Truncated: cut at the same size the editor reads, so a gutter on a file
+	// that arrived cut off is never measured against a longer baseline.
+	Truncated bool `json:"truncated"`
+}
+
+// BaseFile reads the baseline of a file. The path is held to the same leash as
+// a read — inside the folder, no walking out through a link — and then handed
+// to git relative to that folder.
+func (c *Core) BaseFile(id, path string) (*Baseline, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return nil, err
+	}
+	real, err := files.Resolve(root, path)
+	if err != nil {
+		return nil, err
+	}
+	out := &Baseline{Path: real}
+	if !git.IsRepo(root) {
+		return out, nil
+	}
+	realRoot := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		realRoot = r
+	}
+	rel, err := filepath.Rel(realRoot, real)
+	if err != nil {
+		return out, nil
+	}
+	raw, ok := git.AtHead(root, rel)
+	if !ok {
+		return out, nil
+	}
+	out.Known = true
+	if len(raw) > files.MaxRead {
+		raw = raw[:files.MaxRead]
+		out.Truncated = true
+	}
+	if bytes.IndexByte(raw, 0) >= 0 || !utf8.Valid(raw) {
+		out.Binary = true
+		return out, nil
+	}
+	out.Text = string(raw)
+	return out, nil
+}
+
 // Find searches the files of a folder or a session's directory.
 func (c *Core) Find(id string, q find.Query) (find.Report, error) {
 	root, err := c.root(id)
@@ -1197,9 +1387,21 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 	agents := agent.Load(c.agents)
 	states := fleet.Read(fleet.Dir())
 
+	/* Matched by terminal, not by process.
+	 *
+	 * The CLI is a child of the login shell now, so its pid is never the
+	 * session's pid. What the two do share is the pty: the hook records the
+	 * tty Claude Code sits on, and the session knows the pty it was opened on.
+	 * Newest entry per tty wins. The pid stays as a fallback for a session with
+	 * no tty of its own. */
+	byTTY := map[string]fleet.State{}
 	byPID := map[int]fleet.State{}
 	for _, st := range states {
-		// Keep only the most recent entry per PID.
+		if st.TTY != "" {
+			if old, ok := byTTY[st.TTY]; !ok || st.UpdatedAt > old.UpdatedAt {
+				byTTY[st.TTY] = st
+			}
+		}
 		if old, ok := byPID[st.PID]; !ok || st.UpdatedAt > old.UpdatedAt {
 			byPID[st.PID] = st
 		}
@@ -1224,7 +1426,7 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		prof := agents.Match(sess.Cmd)
 		sess.Agent, sess.AgentLabel = prof.Name, prof.Label
 
-		st, matched := byPID[sess.PID]
+		st, matched := fleetStateFor(sess, byTTY, byPID)
 		useFleet := matched && sess.Alive && prof.Source == "fleet"
 
 		// Render once, use twice — preview and status detection.
@@ -1292,6 +1494,32 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		c.checkEdge(sess)
 	}
 	return out
+}
+
+// fleetStateFor picks the hook's report for a session, by tty first and by pid
+// only for a session that has no tty.
+//
+// A pty number is recycled: /dev/ttys003 belongs to whichever process opened it
+// last. The report of an earlier occupant — a Claude that ran on this pty
+// before the session, or before the session was restarted in place — is older
+// than the session's start, and that is how it is told apart and ignored.
+// Otherwise a freshly started session would inherit the state, title and
+// Claude id of a conversation that is not its own.
+func fleetStateFor(sess session.Session, byTTY map[string]fleet.State, byPID map[int]fleet.State) (fleet.State, bool) {
+	var st fleet.State
+	var ok bool
+	if sess.TTY != "" {
+		st, ok = byTTY[sess.TTY]
+	} else {
+		st, ok = byPID[sess.PID]
+	}
+	if !ok {
+		return fleet.State{}, false
+	}
+	if st.UpdatedAt < sess.StartedAt {
+		return fleet.State{}, false
+	}
+	return st, true
 }
 
 // checkEdge fires a notification when a session becomes newly blocked.
@@ -1386,6 +1614,80 @@ func (c *Core) WatchQueues() {
 	for range time.Tick(time.Second) {
 		c.drainQueues()
 	}
+}
+
+/*
+---- The ceiling ----
+
+	The five-hour spend is on the status row of every open window; this is the
+	part that works with no window open. A ceiling somebody set for themselves
+	(prefs.paceLimit) is held against the current pace on every tick, and the
+	moment the spend goes over it, one notification is sent. One: the same
+	transition-only discipline as checkEdge, otherwise every tick above the
+	line would say it again. Falling back under and going over again is a new
+	crossing and is said again.
+
+	Nothing is halted. The ceiling is the user's own target — plxr cannot see
+	the real plan window, so it has no business stopping anything on its
+	account. It colours the readout and says one word.
+*/
+
+// paceEvery is how often the pace is measured for the ceiling. The window
+// polls it at the same order of magnitude, and each look reads the tail of
+// every transcript that moved in the last five hours.
+const paceEvery = 10 * time.Second
+
+// WatchPace watches the five-hour spend against the ceiling for as long as
+// the daemon runs.
+func (c *Core) WatchPace() {
+	for range time.Tick(paceEvery) {
+		c.checkPace()
+	}
+}
+
+func (c *Core) checkPace() {
+	limit := daemon.PaceLimit()
+	var window int64
+	if limit > 0 {
+		window = c.Pace().Window5h
+	}
+	if !c.paceCrossed(window, limit) {
+		return
+	}
+	log.Printf("pace: the five-hour spend (%s tokens) is past your ceiling (%s)", compact(window), compact(limit))
+	settings := notify.Read()
+	if !settings.On {
+		return
+	}
+	notify.Send("plxr",
+		"Spend in the last five hours is past your ceiling: "+compact(window)+" of "+compact(limit)+" tokens",
+		settings.Sound)
+}
+
+// paceCrossed remembers which side of the ceiling the spend is on and reports
+// true exactly once per crossing upwards. No ceiling means nothing to cross,
+// and clears the memory so that a ceiling set later starts fresh.
+func (c *Core) paceCrossed(window, limit int64) bool {
+	over := limit > 0 && window > limit
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	was := c.paceOver
+	c.paceOver = over
+	return over && !was
+}
+
+// compact writes a token count the way the window does — 1.2M, 850.0k — so
+// the notification and the readout say the same thing.
+func compact(n int64) string {
+	switch {
+	case n >= 1e9:
+		return fmt.Sprintf("%.1fB", float64(n)/1e9)
+	case n >= 1e6:
+		return fmt.Sprintf("%.1fM", float64(n)/1e6)
+	case n >= 1e3:
+		return fmt.Sprintf("%.1fk", float64(n)/1e3)
+	}
+	return fmt.Sprint(n)
 }
 
 // ---- Workbench: skins of your own ----

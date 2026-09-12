@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import Slider from "@/components/ui/Slider";
 import Select from "@/components/ui/Select";
 import Swatch from "@/components/ui/Swatch";
@@ -60,7 +61,7 @@ export default function StyleEditor({
           <Toggle
             on={state.seethrough}
             onChange={(seethrough) => change({ seethrough })}
-            title={tr("style.seethroughTip", "Frosted glass: what is behind the window shows through, blurred")}
+            tip={tr("style.seethroughTip", "Frosted glass: what is behind the window shows through, blurred")}
           >
             {tr("style.seethrough", "see-through window")}
           </Toggle>
@@ -76,7 +77,7 @@ export default function StyleEditor({
           <Toggle
             on={state.flickerOn}
             onChange={(flickerOn) => change({ flickerOn })}
-            title={tr("style.flickerWhy", "The tube's own unsteadiness. Off by default: on a dark screen it reads as a strobe, not as a tube.")}
+            tip={tr("style.flickerWhy", "The tube's own unsteadiness. Off by default: on a dark screen it reads as a strobe, not as a tube.")}
           >
             {tr("style.flicker", "flicker")}
           </Toggle>
@@ -196,9 +197,9 @@ export default function StyleEditor({
           <span className="notice">
             {tr("settings.themeHint", "Changes take effect at once. Reset puts the theme's own colours back.")}
           </span>
-          <Button onClick={reset} title={tr("settings.resetTip", "Back to the colours of the theme — your changes are lost")}>
-            {tr("settings.reset", "RESET")}
-          </Button>
+          <Tooltip text={tr("settings.resetTip", "Back to the colours of the theme — your changes are lost")}>
+            <Button onClick={reset}>{tr("settings.reset", "RESET")}</Button>
+          </Tooltip>
         </span>
       </div>
     </div>

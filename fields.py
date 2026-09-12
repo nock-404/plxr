@@ -23,6 +23,7 @@ PAIRS = {
     "Account": ("internal/accounts/accounts.go", None),
     "FileEntry": ("internal/files/files.go", None),
     "AgentProfile": ("internal/agent/agent.go", None),
+    "Pace": ("internal/usage/usage.go", None),
 }
 
 
