@@ -248,7 +248,9 @@ body {
    line the wrap happens to fall on, which is what it did. */
 .emptyagents { display: flex; flex-wrap: wrap; gap: 0.3125rem 0.875rem; list-style: none; margin: 0; padding: 0; }
 
-.emptyNote { padding: 1.75rem 1.25rem; max-width: 29rem; line-height: 1.55; }
+/* An empty-state note is a whole panel body (a stopped session, a folder with no
+   git), so it fills its panel — otherwise it left a blank band below the text. */
+.emptyNote { padding: 1.75rem 1.25rem; max-width: 29rem; line-height: 1.55; height: 100%; box-sizing: border-box; }
 .emptyNote b { display: block; margin-bottom: 0.375rem; }
 /* Room inside the box, so no skin's border can reach the text.
    It had none: with a hairline around it that passed, and with Windows 95's
@@ -318,7 +320,10 @@ body {
 
 /* ---------- session ---------- */
 
-.session { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* Dockview's panel content host is a plain height:100% block, not a flex parent,
+   so flex:1 had nothing to grow against and the session collapsed to content
+   height — the empty band under the terminal. Fill the panel outright. */
+.session { height: 100%; min-height: 0; display: flex; flex-direction: column; }
 /* The row gives way instead of running off its own end.
    With the settings docked open it is some 280px narrower, and nine buttons do
    not fit: on nowrap with visible overflow they simply carried on past the
@@ -339,7 +344,7 @@ body {
 .obarItems > span { flex: 0 0 auto; display: inline-flex; }
 .obarMoreWrap { position: relative; flex: 0 0 auto; }
 .obarMore { flex: 0 0 auto; }
-.obarMenu { position: absolute; top: 100%; right: 0; z-index: 40; margin-top: 0.25rem;
+.obarMenu { position: absolute; top: 100%; right: 0; z-index: 60; margin-top: 0.25rem;
   display: flex; flex-direction: column; align-items: stretch; gap: 0.25rem; padding: 0.375rem; min-width: 9rem; }
 .obarMenuItem { display: flex; }
 .obarMenuItem > * { flex: 1; }
@@ -654,7 +659,7 @@ body {
 .hue-knob { position: absolute; top: 50%; width: 0.75rem; height: 1.5rem; transform: translate(-50%, -50%); pointer-events: none; }
 
 /* ---------- find in terminal ---------- */
-.find { position: absolute; top: 0.75rem; right: 1.25rem; z-index: 6; display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; }
+.find { position: absolute; top: 0.75rem; right: 1.25rem; z-index: 60; display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.6rem; }
 .find input { width: 14rem; font: inherit; color: inherit; }
 
 /* ---------- playback ---------- */

@@ -37,7 +37,6 @@
 
 /* ---- tiles: measuring-instrument brackets ----------------------------- */
 [data-skin="crt"] .tile,
-[data-skin="crt"] .card,
 
 /* ---- lists ------------------------------------------------------------ */
 [data-skin="crt"] .listbar,
@@ -45,7 +44,11 @@
 /* ---- session ---------------------------------------------------------- */
 [data-skin="crt"] .sessbar,
 [data-skin="crt"] .files {
-  background-color: color-mix(in srgb, var(--panel-glass) var(--panelSolid), transparent);
+  /* --panel-glass already mixes --panel with --panelSolid; consuming it here
+     verbatim (not mixed a second time) keeps the solidity slider 1:1. It used to
+     be double-mixed, so at a 43% slider the frame sat near 18% and terminal text
+     bled through the chrome. */
+  background-color: var(--panel-glass);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }

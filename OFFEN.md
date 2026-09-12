@@ -6,6 +6,95 @@ there is no archive.
 
 Checked against the running build on 31.08.2026, not from memory; added to on 11.09.2026.
 
+## From the live session on 12.09.2026 — everything he hit (his words, translated)
+
+He ran 0.74.0 (installed and running — verified), watched it in the real crt
+skin, and reported one thing after another. None of it was caught by the gates,
+because they run headless and never opened a menu over a terminal or ended a
+session and looked. This is the whole list, captured so he has a status instead
+of watching me push to git blind ("and I have zero status").
+
+1. **Popovers are see-through over content.** ("what the hell is this?", images
+   6 + 7) The overflow menu and the hover tooltip let the terminal text behind
+   them bleed through, so nothing in them is readable. Cause found: the crt skin
+   turns surfaces into glass (`--panel-glass` + a backdrop blur), and at his low
+   solidity setting it double-mixed to ~18% opaque. Fine over the desktop, wrong
+   over app content. Every floating surface — context menu, overflow menu,
+   tooltip, account dropdown, palette, select, dialog — must be opaque, not glass.
+
+2. **The terminal does not fill its height.** ("why doesn't the terminal have
+   full height?", image 4) A dead session panel leaves a large empty area below
+   the terminal instead of the terminal reaching the bottom.
+
+3. **The path is cut off.** ("why is the path cut off?") The folder path in the
+   session bar is truncated with no way to see or copy the full path.
+
+4. **A stopped session cannot be resumed.** ("why can't I resume there?") It
+   shows "[plxr] this session is not running" and offers no way to start it again
+   — only, at best, to close it.
+
+5. **Ctrl+C / the command ending does not leave a shell.** ("when I end a session
+   with Ctrl+C, why don't I just get a shell back?") When the CLI in a session
+   exits, the session dies. A terminal replacement must drop back to a live shell
+   in the same folder, the way a real terminal does.
+
+6. **There is no real, visible menu.** ("why is there no proper menu anywhere?")
+   Only the hidden palette and the settings button exist. He wants a proper,
+   visible menu with all the settings, reachable without knowing a shortcut.
+
+7. **There is no context menu where he right-clicks.** ("why is there no context
+   menu anywhere?") The context menus I added are not reaching the places he
+   actually right-clicks.
+
+8. **The rail opens everything into the same panel.** ("why does everything in
+   the left menu open in the same panel?") Every view from the left rail replaces
+   the content of one panel instead of behaving like a real window manager.
+
+9. **He has no status.** ("and here you are working, pushing to git all nicely,
+   and I have zero status") While I work and push releases, the app gives him no
+   overview of what is happening or what is tracked — above all no live view of
+   the code changes / git diff, which is the whole point of a VS Code replacement.
+
+10. **The process failed him.** ("what are you even doing?") I reported work as
+    done from headless screenshots and green gates without ever looking at the
+    real skinned window over a terminal, or the real session lifecycle. The rule
+    from here: verify in the actually-rendered app, in the skin, over real
+    content — a gate is only proof of what it looks for.
+
+## Planned windows/panels I said I would build (not yet done)
+
+The window-manager is meant to fill up with panels — everywhere — each a small
+window you dock beside the terminal. Shipped so far: Preview (web page beside the
+terminal), Changes (git source control). Still owed, and part of the windows he
+wants added:
+
+A. **A real settings window** — everything configurable in one visible place:
+   terminal (font, size, scrollback, cursor), editor (CodeMirror keymap, wrap,
+   tabs), keybindings, skins/palette, accounts, layout presets. This is also
+   answer to complaint 6 (no real, visible menu).
+
+B. **Live usage / cost meter panel** — spend and context over time as its own
+   window, not a number hidden in a strip. He asked for this explicitly: usage
+   gets interesting with the window manager too — think up what else can live in
+   windows like that.
+
+C. **Notes / scratchpad panel** — a place to keep notes beside the work.
+
+D. **Session grid panel** — all sessions at a glance as live tiles in one
+   window, openable/arrangeable like the rest.
+
+E. **Layout presets** — named default layouts you can reset to; otherwise the
+   arrangement you set is kept. (Reset-to-default exists; named presets do not.)
+
+F. **More panel ideas to design out** — a terminal-only panel (plain shell, no
+   CLI), a diff/review panel across a whole branch, a ports/preview pairing,
+   an inbox that groups sessions needing an answer. To be brainstormed with him,
+   not guessed.
+
+Deferred long-term (named so they are not forgotten, not scheduled): hunk-level
+staging, an LSP for the editor, a Windows code-signing certificate, and the
+~20 remaining audit findings.
+
 ## Waiting for you — three decisions, two minutes
 
 **1. Night shift: should plxr answer for you?**

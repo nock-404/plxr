@@ -53,6 +53,11 @@
   box-shadow: inset var(--hair) var(--hair) 0 var(--panel), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh);
   border-radius: 0;
 }
+/* Dialogs and dropdowns are read over the window — opaque, never the solidity
+   glass, so terminal text cannot bleed through them at a low solidity. The bevel
+   above stays; only the see-through background is overridden. */
+[data-skin="win95"] .card,
+[data-skin="win95"] .selectList { background: var(--surface); }
 /* Bevel facing in: sunken. Anything that takes input, and the tile's body. */
 [data-skin="win95"] .filter input,
 [data-skin="win95"] .listbar input,

@@ -47,6 +47,10 @@
   background: var(--panel-glass);
   box-shadow: none;
 }
+/* Dialogs and dropdowns are read over the window — opaque, never the solidity
+   glass, so terminal text cannot bleed through them at a low solidity. */
+[data-skin="sketch"] .card,
+[data-skin="sketch"] .selectList { background: var(--surface); }
 [data-skin="sketch"] .tile::after,
 [data-skin="sketch"] .btn::after,
 [data-skin="sketch"] .card::after {
