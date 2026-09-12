@@ -3,8 +3,7 @@
 import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
-  UserFont, GitReview, GitStash,
+  NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -245,10 +244,19 @@ export const api = {
   waiting: (days: number) => req<Waiting>(`/api/waiting?days=${days}`),
   hook: () => req<HookState>("/api/hook"),
 
-  notify: () => req<{ settings: NotifySettings; sounds: string[] }>("/api/notify"),
+  notify: () => req<NotifyInfo>("/api/notify"),
   setNotify: (s: NotifySettings) => req<void>("/api/notify", { method: "PUT", body: JSON.stringify(s) }),
+  /* Shows the test notification and says where it went: through the plxr
+     window, which posts it with the icon, or from the service itself when no
+     window is open. */
   trySound: (sound: string) =>
-    req<void>(`/api/notify/try?sound=${encodeURIComponent(sound)}`, { method: "POST" }),
+    req<{ via: NotifyVia }>(`/api/notify/try?sound=${encodeURIComponent(sound)}`, { method: "POST" }),
+  /* Asks the plxr window to put the system's question about notifications.
+     A page cannot ask it; the window can, and reports the answer back. */
+  notifyAuthorize: () => req<{ asked: boolean }>("/api/notify/authorize", { method: "POST" }),
+  /* Opens System Settings on the notifications page, where a refused
+     permission is switched back on. */
+  openNotifySettings: () => req<void>("/api/notify/system-settings", { method: "POST" }),
   /* Two calls, because they are two things. One route with ?an=1 meaning "on"
      read as "off" whenever the flag was left out — which it always was. */
   hookInstall: () => req<HookState>("/api/hook", { method: "POST" }),

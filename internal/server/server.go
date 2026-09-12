@@ -434,7 +434,13 @@ func (s *Server) Routes() *http.ServeMux {
 	// What to be told about, and with which sound. Read by the daemon, because
 	// it is the daemon that notices — a window that is closed cannot.
 	mux.HandleFunc("GET /api/notify", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]any{"settings": notify.Read(), "sounds": notify.Sounds()})
+		writeJSON(w, map[string]any{
+			"settings": notify.Read(), "sounds": notify.Sounds(),
+			// How the system permission stands, as the window reported it,
+			// and how many windows are listening — so the settings can say
+			// where a notification will come from.
+			"permission": notify.Service.Permission(), "windows": notify.Service.Windows(),
+		})
 	})
 	mux.HandleFunc("PUT /api/notify", func(w http.ResponseWriter, r *http.Request) {
 		var in notify.Settings
@@ -448,9 +454,24 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	// Hearing it is the only way to choose it.
+	// Hearing it is the only way to choose it. Answers with where it went:
+	// a window that is open shows it, otherwise the service does.
 	mux.HandleFunc("POST /api/notify/try", func(w http.ResponseWriter, r *http.Request) {
-		notify.Send("plxr", "This is what it sounds like", r.URL.Query().Get("sound"))
+		writeJSON(w, map[string]string{"via": string(notify.Service.Try(r.URL.Query().Get("sound")))})
+	})
+	// The page cannot ask the system for the permission: it is a page. The
+	// window can, and this asks it to — the answer comes back the way the
+	// permission always does, and the settings show it.
+	mux.HandleFunc("POST /api/notify/authorize", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]bool{"asked": notify.Service.Authorize()})
+	})
+	// Where a refused permission is switched back on. A system URL, which a
+	// page is not allowed to follow; the service runs it.
+	mux.HandleFunc("POST /api/notify/system-settings", func(w http.ResponseWriter, r *http.Request) {
+		if err := notify.OpenSystemSettings(); err != nil {
+			http.Error(w, uierr.With("err.notify.settingsNotOpened", err.Error()).Error(), http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -855,6 +876,9 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("GET /ws/tiles", s.wsTiles)
 	mux.HandleFunc("GET /ws/session/{id}", s.wsSession)
 	mux.HandleFunc("GET /ws/changes/{id}", s.wsChanges)
+	// The window process, not the page: it subscribes here and shows what
+	// the service wants said, from the one process the system lets post.
+	mux.HandleFunc("GET /ws/notify", s.wsNotify)
 	// Skins of your own, from disk. Must sit before the file server, otherwise
 	// the embedded tree answers first and a skin of your own would be invisible.
 	mux.Handle("GET /skins/", theme.SkinHandler(http.FileServer(http.FS(s.web))))
@@ -1222,7 +1246,7 @@ func (s *Server) wsTiles(w http.ResponseWriter, r *http.Request) {
  * So every socket is pinged, and a peer that does not answer within the
  * deadline is read as gone: the read deadline expires, ReadMessage fails, and
  * the loop that was watching for exactly that ends the subscription. */
-const (
+var (
 	pingEvery = 20 * time.Second
 	pongWait  = 60 * time.Second
 	writeWait = 10 * time.Second
@@ -1278,6 +1302,61 @@ func (s *Server) wsChanges(w http.ResponseWriter, r *http.Request) {
 		select {
 		case f := <-sub.Frames():
 			if err := c.WriteJSON(f); err != nil {
+				return
+			}
+		case <-ping.C:
+			if err := c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+				return
+			}
+		case <-gone:
+			return
+		}
+	}
+}
+
+/* wsNotify hands the window what to show.
+ *
+ * The page does not open this one — the window process does, from Go, and
+ * shows each frame natively from there: it is the bundled, foreground
+ * application the system will take a notification from, with the icon and a
+ * click that leads back. See notify/route.go for what was measured on the
+ * service's side.
+ *
+ * Shaped like wsChanges: keep-alive by ping, a read loop that notices the
+ * window going, and on that the subscription ends — after which the service
+ * shows things itself again. What comes up the socket is the window's word
+ * on the system permission, so the settings can show it. */
+func (s *Server) wsNotify(w http.ResponseWriter, r *http.Request) {
+	c, err := s.up.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	sub := notify.Service.Subscribe()
+	defer sub.Close()
+
+	keepAlive(c)
+	gone := make(chan struct{})
+	go func() {
+		defer close(gone)
+		for {
+			_, data, err := c.ReadMessage()
+			if err != nil {
+				return
+			}
+			if p := notify.ReadPermission(data); p != "" {
+				sub.SetPermission(p)
+			}
+		}
+	}()
+
+	ping := time.NewTicker(pingEvery)
+	defer ping.Stop()
+	for {
+		select {
+		case m := <-sub.Frames():
+			if err := c.WriteJSON(m); err != nil {
 				return
 			}
 		case <-ping.C:

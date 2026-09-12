@@ -265,6 +265,29 @@ export interface NotifySettings {
   when: NotifyWhen;
 }
 
+/* How the system permission stands, as the plxr window reported it to the
+   service. "unknown" until a window has said. */
+export type NotifyPermission = "unknown" | "granted" | "denied" | "notAsked";
+
+/* Who showed a notification: the plxr window, or the service with no window
+   open. */
+export type NotifyVia = "window" | "local";
+
+/* A click on a notification, as the plxr window writes it into the settings
+   under focusSession: which session, and a number that changes per click. */
+export interface FocusRequest {
+  id: string;
+  seq: number;
+}
+
+export interface NotifyInfo {
+  settings: NotifySettings;
+  sounds: string[];
+  permission: NotifyPermission;
+  /* How many plxr windows are listening to show notifications. */
+  windows: number;
+}
+
 /* One file that differs from a mark. */
 export interface MarkChange {
   status: string;

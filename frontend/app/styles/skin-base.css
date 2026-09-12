@@ -107,6 +107,9 @@
 .paceTrend { color: var(--accent); }
 .paceActive { color: var(--dim); }
 .pace.pace--hot, .pace.pace--hot .paceNum, .pace.pace--hot .paceTrend { color: var(--blocked); }
+/* Do not disturb on the status row: the blocked colour, because notifications
+   that are switched off must not look like notifications that broke. */
+.dnd { color: var(--blocked); }
 .boot { color: var(--dim); }
 .railitem { color: var(--dim); border-left: .125rem solid #0000; }
 .railitem:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 6%, transparent); }

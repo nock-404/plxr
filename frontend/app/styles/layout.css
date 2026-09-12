@@ -196,6 +196,7 @@ body {
    one line that never wraps; the glyph gets a fixed slot so a change of
    direction does not shift the number. */
 .pace { display: inline-flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; white-space: nowrap; }
+.dnd { flex: 0 0 auto; white-space: nowrap; }
 .paceTrend { display: inline-block; width: 1em; text-align: center; }
 
 /* ---------- body: rail left, content right ---------- */

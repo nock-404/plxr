@@ -89,6 +89,9 @@ step "errors read back" node --experimental-strip-types frontend/lib/i18n.test.m
 # The editor gutter's arithmetic: which lines differ from HEAD. A gutter that
 # marks the wrong line says "this changed" about a line that did not.
 step "gutter diff" node --experimental-strip-types frontend/components/ui/editor/lineDiff.test.mjs
+# The page's half of a click on a notification: a new seq in the settings
+# opens the session, the same seq seen again — a reload — does not.
+step "click to focus" node --experimental-strip-types frontend/lib/focus.test.mjs
 
 printf '  %-22s ' "typescript"
 if out=$(cd frontend && npx tsc --noEmit 2>&1); then echo "ok"; else echo "FAILED"; echo "$out" | head -20; fail=1; fi
@@ -201,6 +204,12 @@ step "dock tabs" node tabs.mjs
 # everybody, attaching lost whatever was written in that same moment, and the
 # window that resized last dictated the width for both.
 step "two windows" node together.mjs
+
+# A click on a notification, end to end on the page's side: the same PUT the
+# plxr window makes, and the session's panel in front within two seconds.
+# The first version pushed an event into the page with ExecJS, which never
+# runs in a page that loads the service's address, and nothing looked.
+step "click opens session" node focus.mjs
 
 # --- started the way people start it -----------------------------------------
 # Everything above starts plxr from this shell, with a full environment. The

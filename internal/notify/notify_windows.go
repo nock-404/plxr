@@ -3,6 +3,7 @@
 package notify
 
 import (
+	"errors"
 	"os/exec"
 	"plxr/internal/sys"
 	"strings"
@@ -34,6 +35,10 @@ func sounds() []string {
 		"Looping.Alarm", "Looping.Alarm2", "Looping.Call", "Looping.Call2",
 	}
 }
+
+// OpenSystemSettings is a macOS matter: there the permission lives in one
+// panel of the system's; here there is none to open.
+func OpenSystemSettings() error { return errors.New("no notification settings to open on this system") }
 
 // The sound to start with here.
 func defaultSound() string { return "Default" }
