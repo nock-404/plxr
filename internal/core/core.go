@@ -1563,7 +1563,28 @@ func (c *Core) checkEdge(sess session.Session) {
 		// no activity line of its own.
 		body = "waiting for your answer"
 	}
-	notify.Send(sess.Label(), body, settings.Sound)
+	// Through the hub: a window that is open shows it with the icon, and a
+	// click leads back to this session; with none open the service shows it.
+	notify.Post(notify.Message{
+		Title: sess.Label(), Body: body, Sound: settings.Sound,
+		SessionID: sess.ID, Kind: notifyKind(state),
+	})
+}
+
+// notifyKind names the occasion the way the settings do — the four switches
+// in Settings > Notifications, one word each.
+func notifyKind(state string) string {
+	switch state {
+	case "permission":
+		return "needsYou"
+	case "waiting":
+		return "waiting"
+	case "dead":
+		return "ended"
+	case "orphaned":
+		return "crashed"
+	}
+	return state
 }
 
 /*
@@ -1659,9 +1680,12 @@ func (c *Core) checkPace() {
 	if !settings.On {
 		return
 	}
-	notify.Send("plxr",
-		"Spend in the last five hours is past your ceiling: "+compact(window)+" of "+compact(limit)+" tokens",
-		settings.Sound)
+	notify.Post(notify.Message{
+		Title: "plxr",
+		Body:  "Spend in the last five hours is past your ceiling: " + compact(window) + " of " + compact(limit) + " tokens",
+		Sound: settings.Sound,
+		Kind:  "pace",
+	})
 }
 
 // paceCrossed remembers which side of the ceiling the spend is on and reports

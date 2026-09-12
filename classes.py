@@ -72,6 +72,9 @@ LAYOUT_ONLY = {
     "preview", "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.
     "changesPanel",
+    # Dockview's own host element for a panel: the height rule that makes a
+    # panel root fill it is arrangement, and the class is not ours to colour.
+    "dv-react-part",
     # Find in files as a dock panel: the same, arrangement only.
     "searchPanel",
     # A diff in its own dock panel: the positioned box its overlay fills.

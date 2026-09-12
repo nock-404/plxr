@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -34,6 +35,7 @@ import (
 	"plxr/internal/core"
 	"plxr/internal/daemon"
 	"plxr/internal/hook"
+	"plxr/internal/notify"
 	"plxr/internal/queue"
 	"plxr/internal/server"
 	"plxr/internal/session"
@@ -470,10 +472,50 @@ func runWindow(info daemon.Info) {
 	go followBackdrop(win)
 	go keepDaemon(win)
 	win.Show()
+	go followNotifications(win)
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+/* The window shows the notifications.
+ *
+ * The daemon notices — a session stuck, the spend over the line — and it used
+ * to do the showing too. Measured, the system will not take one from it: it is
+ * started detached, never launched as an application, has no run loop, and its
+ * request for permission is never answered. Unbundled it fell back to a script
+ * whose notifications belong to Script Editor. This process is the real
+ * application — bundled, foreground, launched by the system — so it holds the
+ * permission, subscribes to the daemon's /ws/notify, and posts each one itself:
+ * with the icon, and with a click that comes back here.
+ *
+ * A click brings the window forward and tells the page which session it was
+ * about. The page still talks only to the daemon; this is the one thing pushed
+ * into it from Go, as an event it can listen for.
+ */
+func followNotifications(win *application.WebviewWindow) {
+	if !notify.WindowCapable() {
+		log.Println("notifications: not bundled, the daemon shows them itself")
+		return
+	}
+	notify.WindowInstall(func(sessionID string) {
+		win.Show()
+		win.Focus()
+		if sessionID == "" {
+			return
+		}
+		id, _ := json.Marshal(sessionID)
+		win.ExecJS("window.dispatchEvent(new CustomEvent('plxr:focus-session', { detail: " + string(id) + " }))")
+	})
+	notify.WindowAuthorize()
+	notify.FollowService(func() (notify.Endpoint, bool) {
+		info, err := daemon.Read()
+		if err != nil || info.Port == 0 {
+			return notify.Endpoint{}, false
+		}
+		return notify.Endpoint{URL: info.URL(), Token: info.Token}, true
+	}, notify.WindowPost, notify.WindowPermission, notify.PermissionChanged())
 }
 
 // migrateRecordings moves the scrollback written by earlier versions, which

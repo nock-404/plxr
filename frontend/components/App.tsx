@@ -113,6 +113,10 @@ export default function App() {
   // The readout is off unless somebody asked for it: a frame loop that is
   // always running is a measuring instrument that changes what it measures.
   const [meter, setMeter] = useState(false);
+  /* Do not disturb, from the shared settings: the service says nothing while
+     it is on, and the status row says so, because silence that is not shown
+     looks like notifications that broke. */
+  const [dnd, setDnd] = useState(false);
   const [keys, setKeys] = useState(false);
   const [templates, setTemplates] = useState(false);
   const [bench, setBench] = useState(false);
@@ -151,6 +155,7 @@ export default function App() {
       .prefs()
       .then((p) => {
         setMeter(Boolean(p.meter));
+        setDnd(Boolean(p.dnd));
         setPresets(readPresets(p));
         // The terminal's, the editor's and the keyboard's own settings.
         adoptPrefs(p);
@@ -212,6 +217,7 @@ export default function App() {
               setPresets(readPresets(prefs));
               adoptPrefs(prefs);
               setMeter(Boolean((prefs as { meter?: unknown }).meter));
+              setDnd(Boolean((prefs as { dnd?: unknown }).dnd));
               if (prefs.theme) {
                 const state = fitPalette({ ...load(), ...prefs.theme });
                 adopt(state);
@@ -539,6 +545,24 @@ export default function App() {
     setFocus({ kind: "session", id, name: t ? titleOf(t) : id });
   }
 
+  /* A click on a notification.
+   *
+   * The plxr window posts the notifications from its own process, and when
+   * one is clicked it brings itself forward and dispatches this event with
+   * the session the notification was about. The page still talks only to the
+   * service; this is the one thing pushed into it from the window. Read
+   * through a ref so the listener, registered once, sees the current tiles. */
+  const openRef = useRef(openSession);
+  openRef.current = openSession;
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const id = (e as CustomEvent).detail;
+      if (typeof id === "string" && id) openRef.current(id);
+    };
+    window.addEventListener("plxr:focus-session", onFocus);
+    return () => window.removeEventListener("plxr:focus-session", onFocus);
+  }, []);
+
   return (
     <div className="app">
       <header className="bar">
@@ -652,6 +676,7 @@ export default function App() {
           ) : null}
         </span>
         <span className="spacer" />
+        {dnd ? <span className="dnd">{tr("notify.dndOn", "do not disturb")}</span> : null}
         {/* The spend, always in view — between the counts and the clock. */}
         <Pace />
         <span>{now}</span>

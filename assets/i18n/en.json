@@ -1016,5 +1016,18 @@
   "workbench.title": "Workbench",
   "workshop.live": "applies as you type",
   "workshop.placeholder": ".tile { border-style: dashed; }",
-  "workshop.title": "Workshop"
+  "workshop.title": "Workshop",
+  "notify.dnd": "do not disturb",
+  "notify.dndTip": "Nothing is said while this is on. The status row shows it.",
+  "notify.dndOn": "do not disturb",
+  "notify.permission": "system permission",
+  "notify.permNoWindow": "no plxr window open — the service shows plain notifications, without the icon",
+  "notify.permGranted": "granted — the plxr window shows them, with the icon",
+  "notify.permDenied": "refused — allow plxr under System Settings › Notifications; until then nothing is shown",
+  "notify.permNotAsked": "not asked yet — the window asks the system when it opens",
+  "notify.permUnknown": "the plxr window has not reported yet",
+  "notify.test": "TEST",
+  "notify.testTip": "Shows one now and says who showed it",
+  "notify.viaWindow": "posted by the plxr window",
+  "notify.viaLocal": "no window open — plain notification from the service"
 }
