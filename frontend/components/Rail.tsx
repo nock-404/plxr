@@ -11,7 +11,7 @@ import type { Tile } from "@/lib/types";
 
 // The rail always stays, even inside a session — otherwise looking into one
 // loses sight of the rest of the herd.
-export type View = "overview" | "inbox" | "folders" | "changes" | "search" | "ports" | "usage" | "archive" | "session";
+export type View = "overview" | "inbox" | "folders" | "changes" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
 
 const HOME: { view: View; glyph: string; key: string; fallback: string }[] = [
   { view: "overview", glyph: "⊞", key: "rail.overview", fallback: "Overview" },
@@ -22,6 +22,7 @@ const HOME: { view: View; glyph: string; key: string; fallback: string }[] = [
   { view: "ports", glyph: "⇄", key: "rail.ports", fallback: "Ports" },
   { view: "usage", glyph: "▤", key: "rail.usage", fallback: "Usage" },
   { view: "archive", glyph: "⌸", key: "rail.archive", fallback: "Archive" },
+  { view: "notes", glyph: "✎", key: "rail.notes", fallback: "Notes" },
 ];
 
 // The chord that reaches a view, read off the keymap's own order — never a
@@ -40,6 +41,7 @@ export default function Rail({
   onViewFresh,
   onResetLayout,
   onOpen,
+  onNewShell,
 }: {
   view: View;
   tiles: Tile[];
@@ -51,6 +53,9 @@ export default function Rail({
   onViewFresh?: (v: View) => void;
   onResetLayout?: () => void;
   onOpen: (id: string) => void;
+  /* A plain shell in the focused session's folder, as a new session panel —
+     the one action on the rail that is not a view. */
+  onNewShell?: () => void;
 }) {
   const ctx = useContextMenu();
   /* The same actions the overview tile offers under the right button, here
@@ -99,6 +104,7 @@ export default function Rail({
     usage: undefined,
     archive: counts.archive || undefined,
     session: undefined,
+    notes: undefined,
   };
 
   return (
@@ -116,6 +122,14 @@ export default function Rail({
           {meta[h.view] ? <span className="rmeta">{meta[h.view]}</span> : null}
         </Button>
       ))}
+      {onNewShell ? (
+        <Tooltip text={tr("rail.newShellTip", "A plain shell in the folder of the session you are working in, beside it")}>
+          <Button bare className="railitem railhome" data-do="new-shell" onClick={onNewShell}>
+            <span className="rdot">+</span>
+            <span className="rname">{tr("rail.newShell", "New shell")}</span>
+          </Button>
+        </Tooltip>
+      ) : null}
 
       {[...groups].map(([group, list]) => (
         <div key={group}>

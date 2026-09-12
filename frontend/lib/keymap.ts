@@ -35,7 +35,9 @@ export type Action =
   | "panelPrev"
   | "panelNext"
   | "groupPrev"
-  | "groupNext";
+  | "groupNext"
+  | "view9"
+  | "newShell";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -53,6 +55,8 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "view6", chord: "Mod+6", key: "keys.view6", fallback: "Usage" },
   { id: "view7", chord: "Mod+7", key: "keys.view7", fallback: "Archive" },
   { id: "view8", chord: "Mod+8", key: "keys.view8", fallback: "Search" },
+  { id: "view9", chord: "Mod+9", key: "keys.view9", fallback: "Notes" },
+  { id: "newShell", chord: "Mod+Shift+N", key: "keys.newShell", fallback: "New shell in the folder of the session you are working in" },
   { id: "workbench", chord: "F12", key: "keys.workbench", fallback: "Workbench — the console inside the window" },
   { id: "workshop", chord: "Shift+F12", key: "keys.workshop", fallback: "Workshop — write CSS against the running window" },
   { id: "help", chord: "?", key: "keys.help", fallback: "This list" },
@@ -65,9 +69,9 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "groupNext", chord: "Mod+Option+ArrowDown", key: "keys.groupNext", fallback: "Next group" },
 ];
 
-// The rail views, in the order ⌘1…8 reaches them. Search came last, so the
-// seven keys people already know keep their views.
-export const VIEW_ORDER = ["overview", "inbox", "folders", "changes", "ports", "usage", "archive", "search"] as const;
+// The rail views, in the order ⌘1…9 reaches them. Search came last, so the
+// seven keys people already know keep their views; the notes came after that.
+export const VIEW_ORDER = ["overview", "inbox", "folders", "changes", "ports", "usage", "archive", "search", "notes"] as const;
 
 const shipped: Record<string, string> = Object.fromEntries(ACTIONS.map((a) => [a.id, a.chord]));
 

@@ -24,6 +24,7 @@ import Ports from "@/components/views/Ports";
 import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
+import Notes from "@/components/views/Notes";
 import Rail, { type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
 import ChangesPanel from "@/components/ChangesPanel";
@@ -38,6 +39,7 @@ import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
+import { setDense } from "@/lib/prefsEvents";
 import type { Tile } from "@/lib/types";
 
 /* The window as dockable panels.
@@ -125,6 +127,10 @@ type DockData = {
   requestClose: (panel: IDockviewPanel) => Promise<CloseResult>;
   /* Several at once, one guard after the other; a cancel stops the run. */
   closeMany: (panels: IDockviewPanel[]) => void;
+  /* A plain shell in the focused session's folder, opened beside it as a
+     session panel of its own — the path field's folder when no session has
+     been focused yet, the home directory when there is no folder either. */
+  newShell: () => void;
 };
 
 /* What a guarded close came to: the panel is gone, it stayed because its
@@ -170,6 +176,9 @@ function UsagePanel() {
 function ArchivePanel() {
   const d = useDock();
   return <Archive onOpen={d.openSession} />;
+}
+function NotesPanel() {
+  return <Notes />;
 }
 function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
   const d = useDock();
@@ -414,6 +423,7 @@ function RailPanel() {
       onViewFresh={(v) => d.openPanelFresh(v)}
       onResetLayout={d.shell?.resetLayout}
       onOpen={d.openSession}
+      onNewShell={d.newShell}
     />
   );
 }
@@ -433,6 +443,7 @@ const components = {
   usage: UsagePanel,
   archive: ArchivePanel,
   session: SessionPanel,
+  notes: NotesPanel,
 };
 
 export const VIEW_TITLES: Record<string, string> = {
@@ -444,6 +455,7 @@ export const VIEW_TITLES: Record<string, string> = {
   archive: "Archive",
   changes: "Changes",
   search: "Search",
+  notes: "Notes",
 };
 
 /* The dockview major this build lays panels out with. A saved arrangement is
@@ -480,7 +492,12 @@ export type LayoutRequest =
   | { type: "reset" }
   | { type: "apply"; arg: object }
   | { type: "save"; arg: string }
-  | { type: "activity"; arg: Activity };
+  | { type: "activity"; arg: Activity }
+  /* Not arrangements, but asked the same way — from the MENU and the keys,
+     which live in the shell while what they need (the focused session, the
+     overview panel) lives in the dock. */
+  | { type: "newShell" }
+  | { type: "grid" };
 export type LayoutAction = LayoutRequest & { seq: number };
 
 /* Every tab is the PanelTab. "editorTab" stays as a name because a layout
@@ -520,6 +537,7 @@ export default function Dock({
   | "isDirty"
   | "requestClose"
   | "closeMany"
+  | "newShell"
 > & {
   focus: Focus;
   layoutAction: LayoutAction | null;
@@ -699,16 +717,40 @@ export default function Dock({
     openOrFocus(dv, `files:${rootId}`, "files", title, { rootId, root }, "companion");
   }, []);
 
+  /* New shell here.
+   *
+   * The folder is the focused session's — read at call time through a ref,
+   * the way openEditor reads its roots, so the callback stays stable. A
+   * session the service no longer knows falls through to the path field's
+   * folder, and an empty folder lets the service pick the home directory. An
+   * empty command is a plain login shell. The panel opens on the stage beside
+   * the session it was asked from, titled the way the service names it. */
+  const lastSessionRef = useRef(lastActiveSessionId);
+  lastSessionRef.current = lastActiveSessionId;
+  const newShell = useCallback(() => {
+    const { tiles: ts, here: h } = rootDirRef.current;
+    const focused = ts.find((t) => t.id === lastSessionRef.current);
+    const cwd = focused?.cwd || h || "";
+    void api
+      .create(cwd, [], "", "")
+      .then((s) => {
+        const dv = apiRef.current;
+        if (!dv) return;
+        openOrFocus(dv, `session:${s.id}`, "session", s.name || s.cwd.split("/").pop() || s.id, { id: s.id }, "session");
+      })
+      .catch(() => undefined);
+  }, []);
+
   const data = useMemo<DockData>(
     () => ({
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
-      requestClose, closeMany,
+      requestClose, closeMany, newShell,
     }),
     [
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
-      requestClose, closeMany,
+      requestClose, closeMany, newShell,
     ],
   );
 
@@ -769,6 +811,15 @@ export default function Dock({
         break;
       case "save":
         onLayoutSaved(layoutAction.arg, dv.toJSON());
+        break;
+      case "newShell":
+        newShell();
+        break;
+      case "grid":
+        // The overview, packed tight: the density is announced first, so the
+        // panel comes up dense rather than switching after it has drawn.
+        setDense(true);
+        openPanel("overview");
         break;
     }
     // onLayoutSaved is the shell's; only a new action is a reason to act.

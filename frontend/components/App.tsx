@@ -34,6 +34,7 @@ import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
 import { adoptPrefs } from "@/lib/prefs";
+import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
 
@@ -49,8 +50,9 @@ const VIEW_LABELS: { view: (typeof VIEW_ORDER)[number]; key: string; fallback: s
   { view: "usage", key: "rail.usage", fallback: "Usage" },
   { view: "archive", key: "rail.archive", fallback: "Archive" },
   { view: "search", key: "rail.search", fallback: "Search" },
+  { view: "notes", key: "rail.notes", fallback: "Notes" },
 ];
-const VIEW_ACTIONS: Action[] = ["view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8"];
+const VIEW_ACTIONS: Action[] = ["view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8", "view9"];
 
 // What each activity is called in the menu and the palette.
 function activityLabel(a: Activity): string {
@@ -212,6 +214,9 @@ export default function App() {
               setPresets(readPresets(prefs));
               adoptPrefs(prefs);
               setMeter(Boolean((prefs as { meter?: unknown }).meter));
+              // The panels that keep a key of their own in the blob — the
+              // notes, the overview's density — follow the same revision.
+              announcePrefs(prefs as Record<string, unknown>);
               if (prefs.theme) {
                 const state = fitPalette({ ...load(), ...prefs.theme });
                 adopt(state);
@@ -276,6 +281,7 @@ export default function App() {
       if (fire("workbench", () => setBench((b) => !b))) return;
       if (fire("workshop", () => setShop((v) => !v))) return;
       if (fire("newSession", () => setCreating(true))) return;
+      if (fire("newShell", () => direct({ type: "newShell" }))) return;
       if (fire("settings", () => setSettings((v) => !v))) return;
       for (let i = 0; i < VIEW_ACTIONS.length; i++) {
         const view = VIEW_ORDER[i];
@@ -286,6 +292,10 @@ export default function App() {
     // anywhere reaches it, and the checks that dispatch to window reach it too.
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // `direct` is declared further down and never changes (useCallback, no
+    // deps); it is read when a key is pressed, long after the render that
+    // declared it. Listing it here would read it before its declaration.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys, templates, creating]);
 
   useEffect(() => {
@@ -438,6 +448,8 @@ export default function App() {
       { separator: true },
       { header: true, label: tr("menu.actions", "Actions") },
       { label: tr("palette.newSession", "New session"), hint: caption(bindingOf("newSession")), onClick: () => setCreating(true) },
+      { label: tr("palette.newShell", "New shell here"), hint: caption(bindingOf("newShell")), onClick: () => direct({ type: "newShell" }) },
+      { label: tr("palette.sessionGrid", "Session grid"), onClick: () => direct({ type: "grid" }) },
       { label: tr("palette.templates", "Templates"), onClick: () => setTemplates(true) },
       { label: tr("palette.settings", "Settings"), hint: caption(bindingOf("settings")), onClick: () => setSettings(true) },
       {
@@ -498,6 +510,8 @@ export default function App() {
     }
     return [
       { id: "cmd:new", group: tr("palette.action", "Action"), label: tr("palette.newSession", "New session"), run: () => setCreating(true) },
+      { id: "cmd:newshell", group: tr("palette.action", "Action"), label: tr("palette.newShell", "New shell here"), hint: caption(bindingOf("newShell")), run: () => direct({ type: "newShell" }) },
+      { id: "cmd:grid", group: tr("palette.action", "Action"), label: tr("palette.sessionGrid", "Session grid"), run: () => direct({ type: "grid" }) },
       { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: () => setSettings(true) },
       { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
       { id: "cmd:reset", group: tr("palette.action", "Action"), label: tr("palette.resetLayout", "Reset the panel layout"), run: () => direct({ type: "reset" }) },

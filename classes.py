@@ -107,6 +107,10 @@ LAYOUT_ONLY = {
     # Every panel's tab (title + guarded close + menu): arrangement only, it
     # wears the tab's colours.
     "panelTab", "panelTabName", "panelTabClose",
+    # The windows he asked for: the notes panel's column, the inbox's group
+    # and heading rows (the .uhead and .meta inside carry the colour), and
+    # the overview's column above its grid — arrangement only.
+    "notesPanel", "inboxGroup", "inboxHead", "inboxSub", "inboxProject", "overviewPanel",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a
