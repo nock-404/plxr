@@ -101,14 +101,37 @@ export function useChanges(id: string | null): LiveChanges {
       };
       ws.onclose = () => {
         setState((s) => ({ ...s, connected: false }));
-        if (!closed) timer.current = window.setTimeout(open, retryAfter(lastProblem, attempt++));
+        if (!closed && !away) timer.current = window.setTimeout(open, retryAfter(lastProblem, attempt++));
       };
       ws.onerror = () => ws?.close();
     }
     open();
 
+    /* A page that is navigated away from is not always torn down: the
+       browser may keep it, frozen, to bring it back on a step back — and a
+       frozen page's socket stays open, answered at the network layer, so the
+       service kept polling a folder nobody was looking at for as long as the
+       page was kept. Measured: git ran for a minute after the window was
+       gone. So the socket is closed on the way out and opened again on the
+       way back in. */
+    let away = false;
+    const onHide = () => {
+      away = true;
+      if (timer.current) window.clearTimeout(timer.current);
+      ws?.close();
+    };
+    const onShow = () => {
+      if (!away || closed) return;
+      away = false;
+      open();
+    };
+    window.addEventListener("pagehide", onHide);
+    window.addEventListener("pageshow", onShow);
+
     return () => {
       closed = true;
+      window.removeEventListener("pagehide", onHide);
+      window.removeEventListener("pageshow", onShow);
       if (timer.current) window.clearTimeout(timer.current);
       ws?.close();
     };

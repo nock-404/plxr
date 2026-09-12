@@ -427,9 +427,6 @@ body {
 .ptermbox { height: 100%; }
 .pterm .xterm { height: 100%; }
 .pterm .xterm-viewport { background: transparent !important; }
-/* The session has ended: the terminal's frame stays, and the note inside fills
-   it — the whole pane, not a band at the top of a blank one. */
-.pterm.paneEnded { display: flex; align-items: center; justify-content: center; }
 .endedNote {
   display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
   max-width: 29rem; padding: 1.25rem; text-align: center; line-height: 1.55;
@@ -614,7 +611,12 @@ button.diffline { cursor: pointer; }
 .foldersbody { flex: 1; min-height: 0; display: flex; position: relative; }
 .foldersbody .filetree { flex: 0 0 var(--files-w); }
 .foldersbody .viewer { left: var(--files-w); }
-.folderTabs { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-width: 0; flex: 1 1 auto; gap: 0.25rem; scrollbar-width: thin; }
+/* The folder tabs share the row: when four names do not fit, each gives up
+   width rather than scrolling out of sight — a tab cut short still says
+   which folder it is, and its tooltip carries the whole path. A tab never
+   shrinks past a few characters, which is where a name stops being one. */
+.folderTabs { display: flex; flex-wrap: nowrap; overflow: hidden; min-width: 0; flex: 1 1 auto; gap: 0.25rem; }
+.folderTabs .folderTab { flex: 0 1 auto; min-width: 2.5rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 /* The bar above the columns, in two rows: which folders on top, where this one
    stands and what to look at below. On one row, four folders and five buttons
    wrapped into each other and the whole thing became unreadable. */
@@ -816,11 +818,6 @@ button.diffline { cursor: pointer; }
    overlays: each is a column that fills its panel, and nothing in it is
    positioned, so the terminal beside it stays exactly where it was. */
 .editorPanel, .filesPanel { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
-/* An editor's tab: the title and its own close, laid out like dockview's default
-   tab — arrangement only, the colours are the tab's. */
-.editorTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 0.5rem; white-space: nowrap; }
-.editorTabName { overflow: hidden; text-overflow: ellipsis; }
-.editorTabClose { padding: 0 0.125rem; line-height: 1; }
 .editorBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */

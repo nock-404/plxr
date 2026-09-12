@@ -542,7 +542,7 @@ const applied = await tab.run(`${HELPERS}
   const afterApply = [...document.querySelectorAll('.plxrDock .dv-tab')].map(t => t.textContent.trim());
   return { afterReset, afterApply, ms: got.ms };
 `);
-claim("Reset clears the arrangement and APPLY brings the saved one back", !applied.afterReset.includes("Usage") && applied.afterApply.includes("Usage") && applied.afterApply.includes("shell"),
+claim("Reset clears the arrangement and APPLY brings the saved one back", !applied.afterReset.includes("Usage") && applied.afterApply.includes("Usage") && applied.afterApply.some((t) => /^shell\b/.test(t)),
   `reset → ${applied.afterReset.join(", ")} · apply → ${applied.afterApply.join(", ")} after ${applied.ms} ms`);
 
 // ---- Esc closes the topmost thing only ----------------------------------------------

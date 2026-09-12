@@ -88,9 +88,6 @@ LAYOUT_ONLY = {
     # The editor and the file tree in dock panels of their own, and the
     # editor's own column: boxes that fill a panel, arrangement only.
     "editorPanel", "filesPanel", "editorBody",
-    # The editor's own tab (title + guarded close): arrangement only, it wears
-    # the tab's colours.
-    "editorTab", "editorTabName", "editorTabClose",
     # The context menu label cell: arrangement; the item and hint carry colour.
     "menuLabel",
     # The command palette: the scrolling list and the label cell are arrangement.
@@ -106,10 +103,6 @@ LAYOUT_ONLY = {
     # belong to .pterm around it, and this one carries nothing at all — which
     # is the whole point of it, not an oversight.
     "ptermbox",
-    # The terminal frame while its session has ended: centres the note inside
-    # it and nothing else. The frame's border is .pterm's, the note's colour is
-    # .endedNote's — both dressed in every skin.
-    "paneEnded",
     # Every panel's tab (title + guarded close + menu): arrangement only, it
     # wears the tab's colours.
     "panelTab", "panelTabName", "panelTabClose",

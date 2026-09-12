@@ -188,6 +188,11 @@ step "files and search" node manage.mjs
 # its own.
 step "surfaces reachable" node surfaces.mjs
 
+# Every panel's tab: the six-entry menu, the close that asks while a session
+# is running or an editor is dirty, float and dock, the lane crossing, and
+# the keys between panels and groups — against the same service as above.
+step "dock tabs" node tabs.mjs
+
 # Two windows on ONE session — the kitchen screen and the machine the session
 # runs on. Nothing is synchronised there: one terminal, one process, two
 # windows looking at it. Everything about that only breaks with two attached,
