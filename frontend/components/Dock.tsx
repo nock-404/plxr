@@ -40,6 +40,7 @@ import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
 import { setDense } from "@/lib/prefsEvents";
+import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
 
 /* The window as dockable panels.
@@ -194,7 +195,7 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           props.api.close();
           d.onReplaced(nextId);
         }}
-        onOpenFile={(path) => d.openEditor(tile.id, path)}
+        onOpenFile={(path, line) => d.openEditor(tile.id, path, line)}
         /* The changes panel follows the session focused last, and the click
            that asks for it lands in this panel — so it is this session's
            folder the panel comes up on. */
@@ -337,6 +338,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
   const isRail = id === "rail";
   const title = props.api.title ?? id;
   const here = () => dv.getPanel(id);
+  const bell = useBellMark(id, props.api);
 
   /* Built when the menu is asked for, not when the tab renders: whether the
      panel is floating or alone in its group is read at that moment. */
@@ -364,6 +366,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
   return (
     <div
       className="panelTab"
+      data-bell={bell ? "yes" : "no"}
       onContextMenu={(e) => ctx(items())(e)}
       onAuxClick={(e) => {
         if (e.button !== 1 || isRail) return;
@@ -373,6 +376,9 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       }}
     >
       <span className="panelTabName">{title}</span>
+      {/* The mark itself stays out of the title text: nothing that reads tab
+          titles finds a dot appended to it. */}
+      <span className="sessionTabBell" aria-hidden="true" />
       {/* The glyph is drawn by the skin (::after), not written here: a tab's
           text is its title, and everything that reads tab titles — the gates,
           the layout's own bookkeeping — must not find a ✕ appended to it. The
@@ -393,6 +399,36 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       )}
     </div>
   );
+}
+
+/* The bell mark on a session's tab: set when the terminal rang its bell
+   while the panel was not in front.
+ *
+ * A BEL is a program asking for attention — a build that finished, a prompt
+ * that came up — and in a panel behind three others it rang into the void.
+ * The bell library keeps which sessions have rung and have not been looked at
+ * since; the tab reads it here, and the mark goes when the panel comes to the
+ * front. A panel that is not a session never rings. */
+function useBellMark(panelId: string, api: IDockviewPanelHeaderProps["api"]): boolean {
+  const id = panelId.startsWith("session:") ? panelId.slice("session:".length) : "";
+  const [marked, setMarked] = useState(() => (id ? hasBell(id) : false));
+  useEffect(() => {
+    if (!id) return;
+    // A panel already in front has been looked at: its flash is enough.
+    const follow = () => {
+      if (api.isActive) clearBell(id);
+      setMarked(hasBell(id));
+    };
+    window.addEventListener(BELL_CHANGED, follow);
+    const active = api.onDidActiveChange((e) => {
+      if (e.isActive) clearBell(id);
+    });
+    return () => {
+      window.removeEventListener(BELL_CHANGED, follow);
+      active.dispose();
+    };
+  }, [id, api]);
+  return marked;
 }
 
 /* The file tree of one root, as a panel. A row opens its file as an editor
@@ -500,10 +536,11 @@ export type LayoutRequest =
   | { type: "grid" };
 export type LayoutAction = LayoutRequest & { seq: number };
 
-/* Every tab is the PanelTab. "editorTab" stays as a name because a layout
-   saved before every panel had the guarded tab carries it per editor panel,
-   and a name dockview cannot resolve would drop the panel on restore. */
-const tabComponents = { editorTab: PanelTab };
+/* Every tab is the PanelTab. "editorTab" and "sessionTab" stay as names
+   because a layout saved before every panel had the guarded tab carries them
+   per panel, and a name dockview cannot resolve would drop the panel on
+   restore. */
+const tabComponents = { editorTab: PanelTab, sessionTab: PanelTab };
 
 export default function Dock({
   tiles,

@@ -125,3 +125,47 @@
 [data-skin="crt"] .endedTitle { color: var(--accent); letter-spacing: .22em; text-transform: uppercase; }
 [data-skin="crt"] .endedMeta { color: var(--term-fg); }
 [data-skin="crt"] .endedHint { color: var(--dim); }
+
+/* ---- terminal: phosphor palette, ended overlay, bell ------------------- */
+/* Everything a program colours is still light on the same tube: greens with
+   a tint for red, blue and the rest, so `ls` stays readable and stays glass. */
+[data-skin="crt"] {
+  --term-black: #0a2416;
+  --term-red: #e05a3a;
+  --term-green: #37ff86;
+  --term-yellow: #d8ff5c;
+  --term-blue: #3ad1ff;
+  --term-magenta: #b58cff;
+  --term-cyan: #5cffe0;
+  --term-white: #bfffd6;
+  --term-brightBlack: #2f6b4a;
+  --term-brightRed: #ff7b5a;
+  --term-brightGreen: #7dffb0;
+  --term-brightYellow: #f0ff8a;
+  --term-brightBlue: #7fe3ff;
+  --term-brightMagenta: #d4b4ff;
+  --term-brightCyan: #9dfff0;
+  --term-brightWhite: #eaffef;
+}
+/* The amber tube: the same idea in the other phosphor. */
+[data-skin="crt"][data-theme="amber"] {
+  --term-black: #1c1408;
+  --term-red: #ff6b3d;
+  --term-green: #d9c25a;
+  --term-yellow: #ffcf5c;
+  --term-blue: #ffa54a;
+  --term-magenta: #ff9a7a;
+  --term-cyan: #ffd98a;
+  --term-white: #ffe0a8;
+  --term-brightBlack: #6b5121;
+  --term-brightRed: #ff8a66;
+  --term-brightGreen: #efe08a;
+  --term-brightYellow: #ffe08a;
+  --term-brightBlue: #ffc27a;
+  --term-brightMagenta: #ffb59a;
+  --term-brightCyan: #ffeab0;
+  --term-brightWhite: #fff3d6;
+}
+[data-skin="crt"] .endedOverlay { background: color-mix(in srgb, var(--bg) 70%, transparent); -webkit-backdrop-filter: blur(.06rem); backdrop-filter: blur(.06rem); }
+[data-skin="crt"] .pane[data-bell="yes"] .pterm { border-color: var(--accent); box-shadow: 0 0 var(--glow) var(--accent), 0 0 0 .2rem color-mix(in srgb, var(--accent) 35%, transparent); }
+[data-skin="crt"] .sessionTabBell { background: var(--accent); box-shadow: 0 0 .35rem var(--accent); }

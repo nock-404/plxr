@@ -14,6 +14,17 @@
  * Option is ⌥ (the PC keyboard's third modifier), the key is a capital
  * letter, a digit, an F-key or the character itself for punctuation. "?" needs Shift to type, so for punctuation Shift is not part
  * of the chord — the character already says it.
+ *
+ * Mod is one key, not two. It used to be "⌘ or Ctrl" on every platform, which
+ * read as generosity and was theft: on a Mac, Ctrl+K is readline's kill-line,
+ * Ctrl+F its forward-char, Ctrl+N the next history line — and every one of
+ * them opened something in the window instead. So on a Mac only ⌘ is Mod and
+ * Ctrl is written out as Ctrl; elsewhere Ctrl is Mod and the ⊞ key is Meta.
+ *
+ * And a terminal keeps its keys. Whatever the table says, a Ctrl chord or an
+ * F-key pressed while the terminal has the keyboard belongs to the program
+ * running in it — a shell, an editor, a TUI — not to the window around it.
+ * The ⌘ chords still reach the window from there: a shell has no use for ⌘.
  */
 export type Action =
   | "palette"
@@ -113,7 +124,9 @@ export function chordOf(e: KeyboardEvent | { key: string; metaKey: boolean; ctrl
   const key = e.key;
   if (!key || MODIFIERS.has(key)) return null;
   const parts: string[] = [];
-  if (e.metaKey || e.ctrlKey) parts.push("Mod");
+  const mac = isMac();
+  if (mac ? e.metaKey : e.ctrlKey) parts.push("Mod");
+  if (mac ? e.ctrlKey : e.metaKey) parts.push(mac ? "Ctrl" : "Meta"); // german-ok: the modifier's own name
   let name: string;
   if (key.length === 1) {
     if (/[a-z]/i.test(key)) {
@@ -138,8 +151,23 @@ export function chordOf(e: KeyboardEvent | { key: string; metaKey: boolean; ctrl
   return parts.join("+");
 }
 
+/* fromTerminal: the key was pressed with the terminal holding the keyboard —
+   xterm reads through a hidden textarea of its own, and that is its name. */
+export function fromTerminal(e: { target: EventTarget | null }): boolean {
+  const el = e.target as HTMLElement | null;
+  return Boolean(el?.classList?.contains("xterm-helper-textarea"));
+}
+
+/* keptByTerminal: the terminal answers this key itself — a Ctrl chord (on a
+   Mac: Ctrl, not ⌘; elsewhere Ctrl is Mod, and the shell still wins) or an
+   F-key — so no action may fire on it, however it is bound. */
+export function keptByTerminal(e: KeyboardEvent): boolean {
+  return fromTerminal(e) && (e.ctrlKey || /^F\d{1,2}$/.test(e.key));
+}
+
 // matches says whether this keydown is the action's chord as bound now.
 export function matches(e: KeyboardEvent, action: Action): boolean {
+  if (keptByTerminal(e)) return false;
   const chord = chordOf(e);
   return chord !== null && chord === bindingOf(action);
 }
@@ -151,7 +179,7 @@ export function hasModifier(chord: string): boolean {
   return /(^|\+)(Mod|Option)\+/.test(chord) || /^F\d{1,2}$/.test(chord.split("+").pop() ?? "");
 }
 
-const isMac = () => typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
+export const isMac = () => typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
 
 // The arrow keys arrive under their DOM names; the list prints them as arrows.
 const ARROWS: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
@@ -164,7 +192,7 @@ export function caption(chord: string): string {
   const raw = parts.pop() ?? "";
   const key = ARROWS[raw] ?? raw;
   if (isMac()) {
-    const glyphs = parts.map((p) => (p === "Mod" ? "⌘" : p === "Shift" ? "⇧" : p === "Option" ? "⌥" : p)).join("");
+    const glyphs = parts.map((p) => (p === "Mod" ? "⌘" : p === "Shift" ? "⇧" : p === "Option" ? "⌥" : p === "Ctrl" ? "⌃" : p)).join(""); // german-ok: the modifier's own name
     return `${glyphs}${key}`;
   }
   return [...parts.map((p) => (p === "Mod" ? "Ctrl" : p === "Option" ? "Alt" : p)), key].join("+"); // german-ok: the key's name on a PC keyboard

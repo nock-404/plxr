@@ -855,3 +855,12 @@ button.diffline { cursor: pointer; }
 /* Dense — the session grid: more columns, shorter tiles, less air. */
 .grid[data-dense="yes"] { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.5rem; padding: 0.5rem; }
 .grid[data-dense="yes"] .tile { height: 8.5rem; }
+/* ---- terminal: the ended overlay, the bell, the session tab ------------ */
+/* The note over an ended session lies on the terminal's last screen, inside
+   the same frame: the frame is the box it fills. */
+.pterm { position: relative; }
+.endedOverlay { position: absolute; inset: 0; z-index: 3; display: flex; align-items: center; justify-content: center; overflow: auto; }
+/* The bell mark beside a session tab's title, shown while its bell has rung
+   and the panel has not been looked at since. The tab is the PanelTab. */
+.sessionTabBell { flex: 0 0 auto; width: 0.5rem; height: 0.5rem; }
+.panelTab[data-bell="no"] .sessionTabBell { display: none; }

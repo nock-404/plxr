@@ -855,3 +855,33 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
    The close on every panel's tab: a glyph the skin draws, so the tab's text
    stays its bare title. */
 .panelTabClose::after { content: "✕"; }
+/* ---- terminal: the ANSI palette, the ended overlay, the bell ----------- */
+/* The sixteen colours a program may ask for by number. These are the VGA
+   set, the fallback; every skin sets its own below its other tokens, and the
+   terminal reads whichever is in force. */
+:root {
+  --term-black: #000000;
+  --term-red: #aa0000;
+  --term-green: #00aa00;
+  --term-yellow: #aa5500;
+  --term-blue: #0000aa;
+  --term-magenta: #aa00aa;
+  --term-cyan: #00aaaa;
+  --term-white: #aaaaaa;
+  --term-brightBlack: #555555;
+  --term-brightRed: #ff5555;
+  --term-brightGreen: #55ff55;
+  --term-brightYellow: #ffff55;
+  --term-brightBlue: #5555ff;
+  --term-brightMagenta: #ff55ff;
+  --term-brightCyan: #55ffff;
+  --term-brightWhite: #ffffff;
+}
+/* The note over an ended session: the last screen shows through it, dimmed,
+   so a stack trace can still be read under the word "ended". */
+.endedOverlay { background: color-mix(in srgb, var(--bg) 72%, transparent); }
+.pterm[data-ended="yes"] .xterm { opacity: .55; }
+/* The bell: the frame lights up in the waiting colour for a moment. */
+.pane[data-bell="yes"] .pterm { border-color: var(--waiting); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--waiting) 45%, transparent); }
+/* The mark on a session's tab while its bell has not been looked at. */
+.sessionTabBell { background: var(--waiting); border-radius: 50%; }

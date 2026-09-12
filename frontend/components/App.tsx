@@ -32,7 +32,7 @@ import { clock } from "@/lib/format";
 import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
-import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
+import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
 import { adoptPrefs } from "@/lib/prefs";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
@@ -261,6 +261,9 @@ export default function App() {
          the settings window with it. The palette and a dialog answer their
          own Esc; a dialog on screen is left to it. */
       if (e.key === "Escape") {
+        // Esc in the terminal is the terminal's — vi, less and every TUI
+        // read it — and never closes a window sitting somewhere else.
+        if (fromTerminal(e)) return;
         if (keys) setKeys(false);
         else if (templates) setTemplates(false);
         else if (creating) setCreating(false);
