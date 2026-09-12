@@ -293,7 +293,9 @@ export default function Session({
           left={
             <>
               <span className="sesstitle" onContextMenu={ctx(titleMenu)}>{titleOf(tile)}</span>
-              <span className="meta">{shortPath(tile.cwd)}</span>
+              <Tooltip text={tile.cwd}>
+                <span className="meta">{shortPath(tile.cwd)}</span>
+              </Tooltip>
             </>
           }
           items={barItems}

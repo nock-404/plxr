@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import OverflowBar from "@/components/ui/OverflowBar";
 import Input from "@/components/ui/Input";
 import TreePick from "@/components/ui/TreePick";
 import { api } from "@/lib/api";
@@ -403,7 +404,9 @@ export default function Files({
   return (
     <aside className="files">
       <div className="filesbar">
-        <span className="filesroot">{root}</span>
+        <Tooltip text={root}>
+          <span className="filesroot">{root}</span>
+        </Tooltip>
         <Tooltip text={tr("files.noiseTip", "Show hidden and ignored files")}>
           <Button tiny on={noise} onClick={() => setNoise((n) => !n)}>
             ·*
@@ -419,55 +422,64 @@ export default function Files({
         />
       </div>
 
-      <div className="filesbar">
-        <Tooltip text={tr("files.newFileTip", "New file in the selected folder")}>
-          <Button tiny data-do="new-file" onClick={() => setPending({ kind: "newFile", dir: dirOfSelection })}>
-            {tr("files.newFile", "+ FILE")}
-          </Button>
-        </Tooltip>
-        <Tooltip text={tr("files.newFolderTip", "New folder in the selected folder")}>
-          <Button tiny data-do="new-folder" onClick={() => setPending({ kind: "newFolder", dir: dirOfSelection })}>
-            {tr("files.newFolder", "+ FOLDER")}
-          </Button>
-        </Tooltip>
-        <span className="spacer" />
-        <Tooltip text={tr("files.renameTip", "Rename the selected entry")}>
-          <Button tiny disabled={!selected} data-do="rename" onClick={() => selected && setPending({ kind: "rename", entry: selected })}>
-            {tr("files.rename", "RENAME")}
-          </Button>
-        </Tooltip>
-        <Tooltip text={tr("files.moveTip", "Move the selected entry into another folder")}>
-          <Button tiny disabled={!selected} data-do="move" onClick={() => selected && setPending({ kind: "move", entry: selected })}>
-            {tr("files.move", "MOVE")}
-          </Button>
-        </Tooltip>
-        <Tooltip text={tr("files.deleteTip", "Delete the selected entry for good")}>
-          <Button tiny disabled={!selected} data-do="delete" onClick={() => selected && setPending({ kind: "delete", entry: selected })}>
-            {tr("common.delete", "DELETE")}
-          </Button>
-        </Tooltip>
-      </div>
-
-      <div className="filesbar">
-        <Tooltip text={tr("files.revealTip", "Show it where this system shows files")}>
-          <Button
-            tiny
-            disabled={!selected}
-            onClick={() => selected && void reveal(selected.path)}
-          >
-            {tr("files.reveal", "SHOW")}
-          </Button>
-        </Tooltip>
-        <Tooltip text={tr("files.copyTip", "Copy the full path")}>
-          <Button
-            tiny
-            disabled={!selected}
-            onClick={() => selected && void navigator.clipboard?.writeText(selected.path).catch(() => undefined)}
-          >
-            {tr("files.copy", "COPY PATH")}
-          </Button>
-        </Tooltip>
-      </div>
+      {/* One line at any width: what does not fit moves under the ⋯, the way
+          the session bar does — two rows of buttons used to wrap into three
+          in a narrow tree column. */}
+      <OverflowBar
+        className="filesbar"
+        moreTitle={tr("common.more", "More")}
+        items={[
+          { key: "new-file", node: (
+            <Tooltip text={tr("files.newFileTip", "New file in the selected folder")}>
+              <Button tiny data-do="new-file" onClick={() => setPending({ kind: "newFile", dir: dirOfSelection })}>
+                {tr("files.newFile", "+ FILE")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "new-folder", node: (
+            <Tooltip text={tr("files.newFolderTip", "New folder in the selected folder")}>
+              <Button tiny data-do="new-folder" onClick={() => setPending({ kind: "newFolder", dir: dirOfSelection })}>
+                {tr("files.newFolder", "+ FOLDER")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "rename", node: (
+            <Tooltip text={tr("files.renameTip", "Rename the selected entry")}>
+              <Button tiny disabled={!selected} data-do="rename" onClick={() => selected && setPending({ kind: "rename", entry: selected })}>
+                {tr("files.rename", "RENAME")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "move", node: (
+            <Tooltip text={tr("files.moveTip", "Move the selected entry into another folder")}>
+              <Button tiny disabled={!selected} data-do="move" onClick={() => selected && setPending({ kind: "move", entry: selected })}>
+                {tr("files.move", "MOVE")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "delete", node: (
+            <Tooltip text={tr("files.deleteTip", "Delete the selected entry for good")}>
+              <Button tiny disabled={!selected} data-do="delete" onClick={() => selected && setPending({ kind: "delete", entry: selected })}>
+                {tr("common.delete", "DELETE")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "reveal", node: (
+            <Tooltip text={tr("files.revealTip", "Show it where this system shows files")}>
+              <Button tiny disabled={!selected} onClick={() => selected && void reveal(selected.path)}>
+                {tr("files.reveal", "SHOW")}
+              </Button>
+            </Tooltip>
+          ) },
+          { key: "copy", node: (
+            <Tooltip text={tr("files.copyTip", "Copy the full path")}>
+              <Button tiny disabled={!selected} onClick={() => selected && void navigator.clipboard?.writeText(selected.path).catch(() => undefined)}>
+                {tr("files.copy", "COPY PATH")}
+              </Button>
+            </Tooltip>
+          ) },
+        ]}
+      />
 
       {error ? <div className="notice warn">{error}</div> : null}
 

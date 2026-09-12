@@ -396,7 +396,7 @@ body {
    deletes — was cut off by the edge of the panel: present, reachable by
    keyboard, and invisible. A row of controls in a panel whose width somebody
    else decides has to be allowed to fall onto a second line. */
-.filesbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; flex: 0 0 auto; padding: 0.3rem 0.5rem; }
+.filesbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.375rem; flex: 0 0 auto; padding: 0.3rem 0.5rem; }
 .filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
 .fgit { flex: 0 0 auto; width: 1rem; text-align: center; }
 .filesbar .input { flex: 1; min-width: 0; }
@@ -614,7 +614,7 @@ button.diffline { cursor: pointer; }
 .foldersbody { flex: 1; min-height: 0; display: flex; position: relative; }
 .foldersbody .filetree { flex: 0 0 var(--files-w); }
 .foldersbody .viewer { left: var(--files-w); }
-.folderTabs { display: flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+.folderTabs { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; min-width: 0; flex: 1 1 auto; gap: 0.25rem; scrollbar-width: thin; }
 /* The bar above the columns, in two rows: which folders on top, where this one
    stands and what to look at below. On one row, four folders and five buttons
    wrapped into each other and the whole thing became unreadable. */
@@ -750,6 +750,14 @@ button.diffline { cursor: pointer; }
 
 /* The dock fills the content area, and its own panels lay themselves out. */
 .plxrDock { width: 100%; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }
+/* Every panel fills its host. Dockview renders a panel into a plain
+   height:100% block (.dv-react-part), not a flex parent — so a root that
+   grew with flex:1 collapsed to its content and left the panel half empty:
+   first the session, then the folders, then whatever came next. This is the
+   rule for the class of them: the one element a panel renders at its root
+   takes the whole host. (:only-child so a root that is a fragment of several
+   blocks is left alone.) */
+.plxrDock .dv-react-part > :only-child { height: 100%; min-height: 0; box-sizing: border-box; }
 
 /* The web preview: a toolbar and an iframe that fills the rest of the panel. */
 .preview { display: flex; flex-direction: column; height: 100%; min-height: 0; }
