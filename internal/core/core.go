@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"plxr/internal/shell"
 	"slices"
@@ -255,9 +256,55 @@ func (c *Core) watchEnd(id string, h *ptyhost.Host) {
 		x.Activity = ""
 		x.EndedAt = time.Now().UnixMilli()
 	})
+	// The live status too: List hands that out over the stored one, and it
+	// still said "working" about a session that had just ended.
+	c.reg.SetLive(id, session.StatusDead)
 	// Whatever was still lined up has nowhere to go now. Keeping it would
 	// mean sending it into the next session that happens to reuse the id.
 	queue.Clear(id)
+	// And whatever the hook reported about this terminal is history: the pty
+	// number is free now, and the next session to open it must not inherit
+	// a status, a title or a conversation id from this one.
+	evictFleet(h.TTY, time.Now().UnixMilli())
+}
+
+/* evictFleet drops the hook's reports on a terminal whose session has ended.
+ *
+ * The fleet state is keyed by Claude session id, one file each, and the file
+ * is removed by the hook's own SessionEnd — when that event comes. A Claude
+ * that was terminated with its shell, or that crashed, sends none, and the
+ * file stayed: a report saying "waiting" on a tty that nothing is waiting on.
+ * fleetStateFor already ignores reports older than a session's start, but
+ * the tile of the ended session kept reading it, and a report written in the
+ * same millisecond a recycled pty opened would have passed that gate. Gone
+ * is gone.
+ *
+ * Only reports up to now: a report written after this moment is by whoever
+ * opened the pty next, and that one is theirs. */
+func evictFleet(tty string, before int64) {
+	if tty == "" {
+		return
+	}
+	n := 0
+	for _, dir := range fleet.Dirs() {
+		paths, _ := filepath.Glob(filepath.Join(dir, "*.json"))
+		for _, p := range paths {
+			b, err := os.ReadFile(p)
+			if err != nil {
+				continue
+			}
+			var st fleet.State
+			if json.Unmarshal(b, &st) != nil || st.TTY != tty || st.UpdatedAt > before {
+				continue
+			}
+			if os.Remove(p) == nil {
+				n++
+			}
+		}
+	}
+	if n > 0 {
+		log.Printf("terminal %s: %d stale hook reports evicted at the session's end", tty, n)
+	}
 }
 
 // deadLinger is how long an ended session stays visible — and restartable in
@@ -954,9 +1001,17 @@ func (c *Core) endSessions() {
 	for _, h := range hosts {
 		h.Kill()
 	}
-	if len(hosts) > 0 {
-		// Kill() asks politely first and follows up after the grace period.
-		time.Sleep(ptyhost.KillGrace + 500*time.Millisecond)
+	/* Kill asks politely first, hangs up after the grace and only then does
+	   not negotiate — and the sweep for strays runs after that. So the wait
+	   is for every session's end, up to the whole escalation, not a fixed
+	   pause that ended before the last step was even sent. */
+	deadline := time.After(2*ptyhost.KillGrace + time.Second)
+	for _, h := range hosts {
+		select {
+		case <-h.Done:
+		case <-deadline:
+			return
+		}
 	}
 }
 
@@ -1792,8 +1847,85 @@ func (c *Core) MarkRestore(sessionID, tree, path string) (int, error) {
 
 // ---- Agent profiles ----
 
-// AgentList names every profile and where it comes from.
-func (c *Core) AgentList() []agent.Listed { return agent.Load(c.agents).List() }
+// AgentEntry is a profile as the new-session dialog shows it: the profile,
+// and whether its CLI can actually be started on this machine.
+type AgentEntry struct {
+	agent.Listed
+	// Found says the command the profile is named after is on the PATH the
+	// sessions get. A CLI that is not is offered greyed out with "not found"
+	// rather than started into a shell that says "command not found" — the
+	// same sentence, but before the click instead of after it.
+	Found bool `json:"found"`
+}
+
+// AgentList names every profile and where it comes from, and whether its CLI
+// is installed. The generic profile has no command and counts as found.
+func (c *Core) AgentList() []AgentEntry {
+	shell.AdoptLoginPath()
+	all := agent.Load(c.agents).List()
+	out := make([]AgentEntry, 0, len(all))
+	for _, a := range all {
+		found := len(a.Match) == 0
+		if !found {
+			_, err := exec.LookPath(a.Name)
+			found = err == nil
+		}
+		out = append(out, AgentEntry{Listed: a, Found: found})
+	}
+	return out
+}
+
+// RecentFolders lists the folders sessions were last started in, newest
+// first, at most n, and only those that still exist: the registry knows the
+// recent ones, the archive the ones from before plxr was last restarted.
+func (c *Core) RecentFolders(n int) []string {
+	type at struct {
+		dir  string
+		when int64
+	}
+	seen := map[string]int64{}
+	note := func(dir string, when int64) {
+		if dir == "" {
+			return
+		}
+		dir = strings.TrimRight(dir, "/")
+		if dir == "" {
+			dir = "/"
+		}
+		if old, ok := seen[dir]; !ok || when > old {
+			seen[dir] = when
+		}
+	}
+	for _, s := range c.reg.List() {
+		note(s.Cwd, s.StartedAt)
+	}
+	for _, e := range c.Archive("") {
+		note(e.Cwd, e.Mod)
+	}
+	all := make([]at, 0, len(seen))
+	for dir, when := range seen {
+		all = append(all, at{dir, when})
+	}
+	slices.SortFunc(all, func(a, b at) int {
+		if a.when != b.when {
+			if a.when > b.when {
+				return -1
+			}
+			return 1
+		}
+		return strings.Compare(a.dir, b.dir)
+	})
+	out := []string{}
+	for _, a := range all {
+		if len(out) >= n {
+			break
+		}
+		if fi, err := os.Stat(a.dir); err == nil && fi.IsDir() {
+			out = append(out, a.dir)
+		}
+	}
+	return out
+}
 
 // AgentRead hands out the JSON of a profile. A built-in one comes out of the
 // binary, so a new one can start from it rather than from an empty page.

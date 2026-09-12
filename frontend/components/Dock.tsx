@@ -34,6 +34,8 @@ import Button from "@/components/ui/Button";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import type { Tile } from "@/lib/types";
+import { tabTitle } from "@/lib/state";
+import { errText } from "@/lib/i18n";
 
 /* The window as dockable panels.
  *
@@ -163,19 +165,49 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
    * still on their way this waits, and only once they are in and the session
    * is genuinely not among them does it offer to close — the session ended, or
    * the service was restarted and this id is from before. */
+  return <GonePanel id={id} onClose={() => props.api.close()} />;
+}
+
+/* The note for a session the service does not list.
+ *
+ * It offers the way back before the way out: RESTART asks the service to
+ * start the id again — it still knows an ended session for hours, and an
+ * orphaned one until somebody clears it — and when even that is gone, the
+ * archive has the conversation, which is the other path to the same place. */
+function GonePanel({ id, onClose }: { id: string; onClose: () => void }) {
+  const d = useDock();
+  const [restarting, setRestarting] = useState(false);
+  const [restartError, setRestartError] = useState("");
+  if (!d.connected) {
+    return (
+      <div className="emptyNote">
+        <b>{tr("dock.sessionLoading", "opening…")}</b>
+      </div>
+    );
+  }
   return (
     <div className="emptyNote">
-      {!d.connected ? (
-        <b>{tr("dock.sessionLoading", "opening…")}</b>
-      ) : (
-        <>
-          <b>{tr("dock.sessionGone", "this session is not running")}</b>
-          {tr("dock.sessionGoneHint", "It ended, or plxr was restarted since. Close this panel.")}
-          <span className="rowInline">
-            <Button onClick={() => props.api.close()}>{tr("common.close", "CLOSE")}</Button>
-          </span>
-        </>
-      )}
+      <b>{tr("dock.sessionGone", "this session is not running")}</b>
+      {tr("dock.sessionGoneRestart", "It ended, or plxr was restarted since. RESTART brings it back under the same id when plxr still knows it; otherwise the archive has the conversation.")}
+      <span className="rowInline">
+        <Button
+          primary
+          busy={restarting}
+          onClick={() => {
+            setRestarting(true);
+            setRestartError("");
+            api
+              .resume(id)
+              .catch((e) => setRestartError(errText(e)))
+              .finally(() => setRestarting(false));
+          }}
+        >
+          {tr("session.restart", "RESTART")}
+        </Button>
+        <Button onClick={() => d.openPanel("archive")}>{tr("rail.archive", "Archive")}</Button>
+        <Button onClick={onClose}>{tr("common.close", "CLOSE")}</Button>
+      </span>
+      {restartError ? <span className="notice warn">{restartError}</span> : null}
     </div>
   );
 }
@@ -594,6 +626,21 @@ export default function Dock({
     // onLayoutSaved is the shell's; only a new action is a reason to act.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layoutAction]);
+
+  /* The state on the tab. A session panel's tab is named when it opens and
+     never heard from the tiles again; it said "plxr3" while the agent inside
+     was waiting for an answer. Kept current here, from every snapshot, so the
+     tab strip reads like the rail does. */
+  useEffect(() => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    for (const t of tiles) {
+      const panel = dv.getPanel(`session:${t.id}`);
+      if (!panel) continue;
+      const title = tabTitle(t);
+      if (panel.title !== title) panel.api.setTitle(title);
+    }
+  }, [tiles]);
 
   // Open or focus whatever the rail asked for.
   useEffect(() => {

@@ -15,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"plxr/internal/shell"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -76,6 +77,15 @@ type Host struct {
 	// instance the job object through which the whole process group ends.
 	platform any
 
+	// killing says the escalation in Kill is under way; a second TERMINATE —
+	// two buttons, two windows — joins it rather than starting another.
+	killing bool
+	// mark is what this run's processes carry in their environment, see
+	// SessionMark. It is the id plus the start, so a restart under the same
+	// id — while the old run's escalation is still sweeping — can never be
+	// mistaken for a stray of the old one.
+	mark string
+
 	Done chan struct{}
 }
 
@@ -100,6 +110,12 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	c.Dir = cwd
 	c.Env = append(cleanEnv(), shell.Environment(Version)...)
 	c.Env = append(c.Env, "PLXR=1")
+	// The mark by which everything this session starts is found again when
+	// it is terminated — see strays. A `setsid` child leaves the process
+	// group and the pty; the environment it inherited is what still says
+	// where it came from.
+	mark := id + "." + strconv.FormatInt(time.Now().UnixNano(), 36)
+	c.Env = append(c.Env, SessionMark+"="+mark)
 	c.Env = append(c.Env, env...)
 
 	// Set the size BEFORE starting: otherwise ConPTY settles on 80x25 and the
@@ -114,6 +130,7 @@ func Start(id, cwd string, argv []string, env []string) (*Host, error) {
 	h := &Host{
 		ID:   id,
 		TTY:  p.Name(),
+		mark: mark,
 		pty:  p,
 		cmd:  c,
 		subs: map[*Viewer]struct{}{},
@@ -183,7 +200,14 @@ var notInherited = []string{
 	"CLAUDE_SESSION_ID",
 	"CLAUDE_CONFIG_DIR", // deliberately set per session, not inherited
 	"PLXR",
+	SessionMark,
 }
+
+// SessionMark is the environment variable every process of a session carries:
+// its value is the session id and the start of this run. It is how a process
+// that has left the group — `setsid`, a double fork, a job the shell put in a
+// group of its own — is still found and ended with the session.
+const SessionMark = "PLXR_SESSION"
 
 func cleanEnv() []string {
 	all := os.Environ()
@@ -240,7 +264,19 @@ func (h *Host) pump() {
 				select {
 				case v.c <- chunk:
 				default:
-					v.fellBehindLocked()
+					/* Full. A bounded wait first: the reader is often only a
+					   beat behind — the browser painting a big frame — and a
+					   few milliseconds of backpressure on the terminal costs
+					   nothing, while a resend of the whole screen is a flash
+					   the person sees. The wait is bounded because the lock is
+					   held here and every other viewer waits with it. */
+					t := time.NewTimer(slowWait)
+					select {
+					case v.c <- chunk:
+					case <-t.C:
+						v.fellBehindLocked(len(chunk))
+					}
+					t.Stop()
 				}
 			}
 			h.mu.Unlock()
@@ -368,6 +404,11 @@ type Viewer struct {
 	c      chan []byte
 	wake   chan struct{}
 	behind bool // guarded by h.mu: output was dropped, the screen must be redone
+	// dropped counts the bytes this viewer never got, and warned says the log
+	// has been told — once, since a window that is slow stays slow and a line
+	// per chunk would be the only thing left in the log.
+	dropped int64
+	warned  bool
 
 	h          *Host
 	rows, cols uint16 // 0 while this viewer has not said how big it is
@@ -458,8 +499,28 @@ func (v *Viewer) writeCatchUp(write func([]byte) error) error {
 	if len(snap) == 0 {
 		return nil
 	}
-	return write(snap)
+	/* The screen is redone, not appended to.
+	 *
+	 * The ring holds the last two megabytes, and most of that is already on
+	 * the viewer's screen — it dropped one chunk, not two megabytes. Sent as
+	 * a plain chunk the whole scrollback appeared a second time below what
+	 * was there. So the catch-up begins with a terminal reset (RIS), which
+	 * every terminal and xterm.js handle as "clear everything", and the ring
+	 * then rebuilds the screen from a blank one — the same picture a fresh
+	 * attach draws. */
+	out := make([]byte, 0, len(resync)+len(snap))
+	out = append(out, resync...)
+	out = append(out, snap...)
+	return write(out)
 }
+
+// resync is what a catch-up starts with: a full terminal reset, so the ring
+// that follows lands on a blank screen rather than under the old one.
+const resync = "\x1bc"
+
+// slowWait is how long the terminal is held back for one viewer whose queue is
+// full before that viewer is dropped and marked for a catch-up.
+const slowWait = 15 * time.Millisecond
 
 // fellBehindLocked notes that this viewer missed output.
 //
@@ -472,8 +533,13 @@ func (v *Viewer) writeCatchUp(write func([]byte) error) error {
 //
 // So the chunk is dropped and the viewer is marked. It is served the whole
 // screen again as soon as it has worked through what it already has.
-func (v *Viewer) fellBehindLocked() {
+func (v *Viewer) fellBehindLocked(n int) {
 	v.behind = true
+	v.dropped += int64(n)
+	if !v.warned {
+		v.warned = true
+		log.Printf("session %s: a viewer cannot keep up — %d bytes dropped after a %v wait; it is served the screen afresh when it catches up (said once per viewer)", v.h.ID, n, slowWait)
+	}
 	select {
 	case v.wake <- struct{}{}:
 	default:
@@ -537,33 +603,127 @@ func (h *Host) Size() (rows, cols uint16) {
 // Write sends input — keystrokes — into the terminal.
 func (h *Host) Write(p []byte) (int, error) { return h.pty.Write(p) }
 
-// Kill terminates the process. On Unix the whole group, so child processes
-// started by the session do not carry on orphaned.
+// Kill ends the session — everything it started, not only its root.
 //
-// Politely first, then firmly: an interactive login shell — and Claude Code
-// itself — ignores SIGTERM, because otherwise any slip in a terminal would end
-// it. Without following up, "terminate" would stay without effect and the user
-// would get a 204 back while the session keeps running. Hence
-// SIGKILL after a grace period.
+// In three steps, each to the whole process group and to every stray that has
+// left it: SIGTERM, after the grace SIGHUP, after another grace SIGKILL. The
+// steps are what the programs expect: an interactive shell and Claude Code
+// itself ignore SIGTERM, because otherwise any slip in a terminal would end
+// them, but a shell takes SIGHUP as "the terminal is gone" and passes it on
+// to its jobs — and SIGKILL cannot be ignored by anything.
+//
+// Strays are why the group is not enough. A job the shell put in a group of
+// its own, `setsid sleep 300`, a program that double-forked: none of them is in
+// the root's group, and the pty they still hold open kept the session "alive"
+// with nobody in it. They are found by the mark in their environment (see
+// SessionMark) and signalled with each step, and the session does not count as
+// ended until the last of them is gone.
+//
+// Returns once the first step is sent — a scan of the process table and a
+// signal, some tens of milliseconds; the escalation runs on its own. Done
+// closes when the pty is finished, which is after the last holder of it has
+// gone.
 func (h *Host) Kill() {
 	if h.cmd.Process == nil {
 		return
 	}
-	killProcess(h.cmd.Process, h.platform)
-
+	h.mu.Lock()
+	again := h.killing
+	h.killing = true
+	h.mu.Unlock()
+	if again {
+		return
+	}
+	// The first step before this returns — TERMINATE has been sent when the
+	// request is answered — and the rest on its own.
+	h.signalAll(0)
 	go func() {
-		deadline := time.Now().Add(KillGrace)
-		for time.Now().Before(deadline) {
-			if !h.Alive() {
+		for step := 1; step <= 2; step++ {
+			if h.settled(KillGrace) {
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
+			h.signalAll(step)
 		}
-		if h.Alive() {
-			killProcessHard(h.cmd.Process, h.platform)
+		if !h.settled(KillGrace) {
+			log.Printf("session %s: still running after SIGKILL — %d strays left", h.ID, len(h.strays()))
 		}
 	}()
 }
+
+/* strays lists the processes of this run that the group signal does not reach.
+ *
+ * Three ways to belong: the mark in the environment (every child inherits it,
+ * and it is unique to this run); the session's terminal as controlling
+ * terminal (a job the shell put in a group of its own); and descent from the
+ * root (a child whose parent is still alive). The mark alone would do on
+ * Linux, where /proc shows every own process's environment; on macOS the
+ * kernel withholds the environment of its own binaries — `sleep` among them —
+ * and the other two fill that in.
+ *
+ * The terminal and the descent are only trusted while the root is alive —
+ * before the scan and after it. Once the pty is closed its name is free for
+ * the next terminal on the machine, and the next one is often this very
+ * session started again in place, on the same number: a scan that began
+ * while the old run was alive and ended after its pty had closed found the
+ * new run's shell "on our tty" and sent it the next step. Measured, in the
+ * tests, as a flood cut short. The mark carries no such risk: it is nobody
+ * else's. */
+func (h *Host) strays() []int {
+	alive := h.Alive()
+	q := strayQuery{mark: h.mark}
+	if alive {
+		q.tty, q.root = h.TTY, h.PID
+	}
+	sure, loose := findStrays(q)
+	if alive && !h.Alive() {
+		loose = nil
+	}
+	return append(sure, loose...)
+}
+
+type strayQuery struct {
+	mark string
+	tty  string // empty: do not go by the terminal
+	root int    // 0: do not go by descent
+}
+
+// signalAll sends one step of the escalation to the group and to the strays.
+//
+// The strays are listed BEFORE the group is signalled. A parent that goes on
+// the signal takes the parent-child links with it — its children are handed
+// to init in the same instant — and the pty closes with the root; listed
+// after, a stray that had been plain to see a moment earlier was an orphan
+// with no trace of where it came from. Measured: a `sleep` that ignored
+// SIGTERM survived the hangup step every time.
+func (h *Host) signalAll(step int) {
+	strays := h.strays()
+	killStep(h.cmd.Process, h.platform, step)
+	for _, pid := range strays {
+		if pid == h.PID {
+			continue
+		}
+		killStrayStep(pid, step)
+	}
+}
+
+// settled waits up to d for the session to be over: root gone, no strays.
+func (h *Host) settled(d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for {
+		if !h.Alive() && len(h.strays()) == 0 {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// Strays lists the processes of this session that are outside its process
+// group — for the tests, and for whoever wants to know what a terminate is up
+// against.
+func (h *Host) Strays() []int { return h.strays() }
 
 /*
 Freeze suspends the session, Resume lets it go again.
