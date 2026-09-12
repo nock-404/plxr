@@ -825,3 +825,10 @@ button.diffline { cursor: pointer; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */
 .filesPanel .files { flex: 1; width: 100%; min-height: 0; }
+
+/* ---- dock tabs (scope: tabs) ----
+   Every panel's tab: the title and its own close, laid out like dockview's
+   default tab — arrangement only, the colours are the tab's. */
+.panelTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 0.5rem; white-space: nowrap; }
+.panelTabName { overflow: hidden; text-overflow: ellipsis; }
+.panelTabClose { padding: 0 0.125rem; line-height: 1; }

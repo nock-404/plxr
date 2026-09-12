@@ -101,6 +101,12 @@ LAYOUT_ONLY = {
     # it and nothing else. The frame's border is .pterm's, the note's colour is
     # .endedNote's — both dressed in every skin.
     "paneEnded",
+    # Every panel's tab (title + guarded close + menu): arrangement only, it
+    # wears the tab's colours.
+    "panelTab", "panelTabName", "panelTabClose",
+    # Dockview's own host block for a panel: layout.css only makes the one
+    # child it holds fill it. Another project's class, dressed by nobody.
+    "dv-react-part",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

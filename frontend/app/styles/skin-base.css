@@ -850,3 +850,8 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .paletteGroup { color: var(--dim); }
 .paletteHint { color: var(--dim); }
 .paletteEmpty { color: var(--dim); }
+
+/* ---- dock tabs (scope: tabs) ----
+   The close on every panel's tab: a glyph the skin draws, so the tab's text
+   stays its bare title. */
+.panelTabClose::after { content: "✕"; }

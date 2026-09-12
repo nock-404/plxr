@@ -30,7 +30,12 @@ export type Action =
   | "view5"
   | "view6"
   | "view7"
-  | "view8";
+  | "view8"
+  | "closePanel"
+  | "panelPrev"
+  | "panelNext"
+  | "groupPrev"
+  | "groupNext";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -51,6 +56,13 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "workbench", chord: "F12", key: "keys.workbench", fallback: "Workbench — the console inside the window" },
   { id: "workshop", chord: "Shift+F12", key: "keys.workshop", fallback: "Workshop — write CSS against the running window" },
   { id: "help", chord: "?", key: "keys.help", fallback: "This list" },
+  // The dock: close the active panel through its guard, and walk the panels
+  // of a group and the groups of the window without the mouse.
+  { id: "closePanel", chord: "Mod+W", key: "keys.closePanel", fallback: "Close the active panel" },
+  { id: "panelPrev", chord: "Mod+Option+ArrowLeft", key: "keys.panelPrev", fallback: "Previous panel in the group" },
+  { id: "panelNext", chord: "Mod+Option+ArrowRight", key: "keys.panelNext", fallback: "Next panel in the group" },
+  { id: "groupPrev", chord: "Mod+Option+ArrowUp", key: "keys.groupPrev", fallback: "Previous group" },
+  { id: "groupNext", chord: "Mod+Option+ArrowDown", key: "keys.groupNext", fallback: "Next group" },
 ];
 
 // The rail views, in the order ⌘1…8 reaches them. Search came last, so the
@@ -137,12 +149,16 @@ export function hasModifier(chord: string): boolean {
 
 const isMac = () => typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");
 
+// The arrow keys arrive under their DOM names; the list prints them as arrows.
+const ARROWS: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
+
 /* caption prints a chord the way the platform writes it: ⌘⇧K on a Mac,
    Ctrl+Shift+K elsewhere. */
 export function caption(chord: string): string {
   if (!chord) return "—";
   const parts = chord.split("+");
-  const key = parts.pop() ?? "";
+  const raw = parts.pop() ?? "";
+  const key = ARROWS[raw] ?? raw;
   if (isMac()) {
     const glyphs = parts.map((p) => (p === "Mod" ? "⌘" : p === "Shift" ? "⇧" : p === "Option" ? "⌥" : p)).join("");
     return `${glyphs}${key}`;
