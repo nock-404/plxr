@@ -4,7 +4,7 @@ import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
   NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace,
-  UserFont,
+  UserFont, GitReview, GitStash,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -100,11 +100,30 @@ export const api = {
   position: (id: string) => req<GitWhere>(`/api/position/${encodeURIComponent(id)}`),
 
   changes: (id: string) => req<GitChange[]>(`/api/changes/${encodeURIComponent(id)}`),
-  diff: (id: string, path: string, staged: boolean) =>
+  /* With a base the diff is a range: the working tree against the merge-base
+     of that ref, staged or not — what a branch review reads. */
+  diff: (id: string, path: string, staged: boolean, base = "") =>
     req<GitDiff>(`/api/diff/${encodeURIComponent(id)}`, {
       method: "POST",
-      body: JSON.stringify({ path, staged }),
+      body: JSON.stringify({ path, staged, base }),
     }),
+  review: (id: string, base = "") =>
+    req<GitReview>(`/api/review/${encodeURIComponent(id)}?base=${encodeURIComponent(base)}`),
+  /* Throws the working-tree changes of these paths away: a tracked file goes
+     back to the index's version, an untracked one is removed. Answers with the
+     list as it stands afterwards, the way stage does. */
+  discard: (id: string, paths: string[]) =>
+    req<GitChange[]>(`/api/git/${encodeURIComponent(id)}/discard`, {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    }),
+  stashPush: (id: string, message: string) =>
+    req<GitStash[]>(`/api/git/${encodeURIComponent(id)}/stash`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  stashPop: (id: string) => req<GitStash[]>(`/api/git/${encodeURIComponent(id)}/unstash`, { method: "POST" }),
+  stashes: (id: string) => req<GitStash[]>(`/api/git/${encodeURIComponent(id)}/stashes`),
 
   find: (id: string, q: FindQuery) =>
     req<FindReport>(`/api/find/${encodeURIComponent(id)}`, {

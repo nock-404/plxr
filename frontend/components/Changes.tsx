@@ -2,6 +2,7 @@
 
 import { ago } from "@/lib/format";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
@@ -9,8 +10,8 @@ import { api } from "@/lib/api";
 import { copyText } from "@/lib/browser";
 import { errText, tr, trN } from "@/lib/i18n";
 import Input from "@/components/ui/Input";
-import type { LiveChanges } from "@/lib/useChanges";
-import type { GitChange, GitEntry, GitWhere } from "@/lib/types";
+import { announceFilesChanged, type LiveChanges } from "@/lib/useChanges";
+import type { GitChange, GitEntry, GitStash, GitWhere } from "@/lib/types";
 
 /* What has changed in the folder, and what the change is.
  *
@@ -77,6 +78,12 @@ export default function Changes({
   const [note, setNote] = useState("");
   // The commit message field, so the menu's "Commit…" can put the cursor in it.
   const messageField = useRef<HTMLInputElement>(null);
+  // What is put aside; null until asked, so UNSTASH is not offered blind.
+  const [stashes, setStashes] = useState<GitStash[] | null>(null);
+  /* A question before something that cannot be taken back: throwing changes
+     away, or a message for the stash. */
+  const [asking, setAsking] = useState<{ kind: "discard"; paths: string[]; name: string; group: boolean } | { kind: "stash" } | null>(null);
+  const ctx = useContextMenu();
 
   const load = useCallback(() => {
     setProblem("");
@@ -89,6 +96,7 @@ export default function Changes({
       });
     api.position(rootId).then(setWhere).catch(() => setWhere(null));
     api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
+    api.stashes(rootId).then(setStashes).catch(() => setStashes(null));
   }, [rootId]);
 
   const isLive = live !== undefined;
@@ -119,6 +127,13 @@ export default function Changes({
     api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
   }, [isLive, liveHead, rootId]);
 
+  // The stashes are not in the feed either; a stash or a pop moves the rev,
+  // so they are asked for again with every new state.
+  useEffect(() => {
+    if (!isLive || !liveRev) return;
+    api.stashes(rootId).then(setStashes).catch(() => setStashes(null));
+  }, [isLive, liveRev, rootId]);
+
   async function stage(paths: string[], on: boolean) {
     setBusy(true);
     setProblem("");
@@ -146,18 +161,59 @@ export default function Changes({
     setBusy(false);
   }
 
-  function show(path: string, staged: boolean) {
-    const same = shown?.path === path && shown.staged === staged;
-    onShow(same ? null : { path, staged });
+  /* Throwing working-tree changes away. The service answers with the list as
+     it stands afterwards, the way a stage does, and the rest of the window —
+     an open editor, the tree — is told the folder moved. */
+  async function discard(paths: string[]) {
+    setBusy(true);
+    setProblem("");
+    setNote("");
+    try {
+      setList(await api.discard(rootId, paths));
+      setNote(trN("git.discarded", paths.length, "{n} change thrown away", "{n} changes thrown away"));
+      announceFilesChanged({ rootId, rev: "", head: liveHead });
+    } catch (e) {
+      setProblem(errText(e));
+    }
+    setBusy(false);
   }
 
-  const staged = (list ?? []).filter((c) => c.index !== " " && c.index !== "?" && c.index !== "");
+  async function stash(message: string) {
+    setBusy(true);
+    setProblem("");
+    setNote("");
+    try {
+      setStashes(await api.stashPush(rootId, message));
+      setNote(tr("git.stashed", "put aside"));
+      load();
+      announceFilesChanged({ rootId, rev: "", head: liveHead });
+    } catch (e) {
+      setProblem(errText(e));
+    }
+    setBusy(false);
+  }
 
-  const ctx = useContextMenu();
+  async function unstash() {
+    setBusy(true);
+    setProblem("");
+    setNote("");
+    try {
+      setStashes(await api.stashPop(rootId));
+      setNote(tr("git.unstashed", "taken back into the tree"));
+      load();
+      announceFilesChanged({ rootId, rev: "", head: liveHead });
+    } catch (e) {
+      setProblem(errText(e));
+    }
+    setBusy(false);
+  }
+
   /* One file under the right button: what its row's buttons do, at the
-     pointer, and the two things the row has no room for — its path to the
-     clipboard, and the file where the system shows files. Nothing here throws
-     a change away: there is no service call for that, so no row offers it. */
+     pointer, the two things the row has no room for — its path to the
+     clipboard, and the file where the system shows files — and the one thing
+     the buttons do not: throwing the change away. That last one only for the
+     working-tree groups: a staged change is taken OUT first, the way git
+     keeps the two apart. */
   const rowMenu = (c: GitChange, areStaged: boolean): MenuItem[] => [
     { label: tr("git.menuDiff", "Show diff"), onClick: () => show(c.path, areStaged) },
     ...(onEdit && (areStaged ? c.index : c.work) !== "D"
@@ -169,7 +225,19 @@ export default function Changes({
     { separator: true },
     { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(c.path) },
     { label: tr("files.reveal", "SHOW"), onClick: () => void api.revealFile(rootId, c.path).catch((e) => setProblem(errText(e))) },
+    ...(areStaged
+      ? []
+      : [
+          { separator: true as const },
+          {
+            label: tr("git.discard", "Discard changes"),
+            danger: true,
+            disabled: busy,
+            onClick: () => setAsking({ kind: "discard", paths: [c.path], name: c.path, group: false }),
+          },
+        ]),
   ];
+
   /* The list's own menu, on the space between the groups: read the folder
      again, go to the commit message, or open the folder's tree beside it. */
   const listMenu = (): MenuItem[] => [
@@ -184,13 +252,40 @@ export default function Changes({
     },
     ...(onOpenFiles ? [{ separator: true as const }, { label: tr("git.menuFiles", "Open in Files"), onClick: onOpenFiles }] : []),
   ];
+
+  const groupMenu = (rows: GitChange[], areStaged: boolean, head: string): MenuItem[] => {
+    const items: MenuItem[] = [
+      {
+        label: areStaged ? tr("git.unstageAllTip", "Take all of these out of the next commit") : tr("git.stageAllTip", "Put all of these into the next commit"),
+        disabled: busy,
+        onClick: () => void stage(rows.map((r) => r.path), !areStaged),
+      },
+    ];
+    if (!areStaged) {
+      items.push({ separator: true });
+      items.push({
+        label: tr("git.discardAll", "Discard all in this group"),
+        danger: true,
+        disabled: busy,
+        onClick: () => setAsking({ kind: "discard", paths: rows.map((r) => r.path), name: head, group: true }),
+      });
+    }
+    return items;
+  };
+
+  function show(path: string, staged: boolean) {
+    const same = shown?.path === path && shown.staged === staged;
+    onShow(same ? null : { path, staged });
+  }
+
+  const staged = (list ?? []).filter((c) => c.index !== " " && c.index !== "?" && c.index !== "");
   const unstaged = (list ?? []).filter((c) => c.work !== " " && c.work !== "?" && c.work !== "");
   const untracked = (list ?? []).filter((c) => c.index === "?" && c.work === "?");
 
   const group = (head: string, rows: GitChange[], areStaged: boolean) =>
     rows.length === 0 ? null : (
       <div className="changegroup">
-        <span className="uhead">
+        <span className="uhead" onContextMenu={ctx(groupMenu(rows, areStaged, head))}>
           {head} · {rows.length}
           <Tooltip
             text={
@@ -251,6 +346,17 @@ export default function Changes({
     <div className="changes" onContextMenu={ctx(listMenu())}>
       <div className="rowInline">
         <Button onClick={load}>{tr("git.again", "AGAIN")}</Button>
+        <Tooltip text={tr("git.stashTip", "Put every change aside under a message and leave the tree clean")}>
+          <Button disabled={busy || !list || list.length === 0} onClick={() => setAsking({ kind: "stash" })}>
+            {tr("git.stash", "STASH…")}
+          </Button>
+        </Tooltip>
+        <Tooltip text={tr("git.unstashTip", "Take the newest stash back into the tree")}>
+          <Button disabled={busy || !stashes || stashes.length === 0} onClick={() => void unstash()}>
+            {tr("git.unstash", "UNSTASH")}
+            {stashes && stashes.length ? ` ${stashes.length}` : ""}
+          </Button>
+        </Tooltip>
         {list ? (
           <span className="hitSmall">
             {trN("git.files", list.length, "{n} file", "{n} files")}
@@ -308,6 +414,39 @@ export default function Changes({
       ) : null}
 
       {note ? <span className="notice">{note}</span> : null}
+
+      {asking?.kind === "discard" ? (
+        <Ask
+          heading={tr("git.discardHead", "throw these changes away?")}
+          detail={
+            asking.group
+              ? trN("git.discardAllDetail", asking.paths.length, "{n} file under {name} goes back to the way it was. This cannot be undone.", "{n} files under {name} go back to the way they were. This cannot be undone.").replaceAll("{name}", asking.name)
+              : tr("git.discardDetail", "{name} goes back to the way it was. This cannot be undone.", { name: asking.name })
+          }
+          confirmLabel={tr("git.discardConfirm", "DISCARD")}
+          danger
+          onCancel={() => setAsking(null)}
+          onConfirm={() => {
+            const paths = asking.paths;
+            setAsking(null);
+            void discard(paths);
+          }}
+        />
+      ) : null}
+
+      {asking?.kind === "stash" ? (
+        <Ask
+          heading={tr("git.stashHead", "put the changes aside?")}
+          detail={tr("git.stashDetail", "Everything changed, staged and new is put aside and the tree is left clean. UNSTASH brings it back.")}
+          field={tr("git.stashMessage", "message")}
+          confirmLabel={tr("git.stashConfirm", "STASH")}
+          onCancel={() => setAsking(null)}
+          onConfirm={(message) => {
+            setAsking(null);
+            void stash(message.trim());
+          }}
+        />
+      ) : null}
 
       {history.length ? (
         <div className="changegroup">

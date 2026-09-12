@@ -350,6 +350,8 @@ export interface GitDiff {
   binary: boolean;
   /* Said plainly rather than as an empty list, which reads as a failure. */
   empty: boolean;
+  /* The commit the working tree was measured against, for a range diff. */
+  since?: string;
 }
 
 /* One state of a folder, as /ws/changes pushes it — only when it differs from
@@ -402,6 +404,38 @@ export interface GitBranch {
   upstream?: string;
   ahead: number;
   behind: number;
+  subject: string;
+  when: number; // milliseconds; the window words the age itself
+}
+
+/* One file a branch touched, from its merge-base to the working tree —
+   committed, staged and untracked in one, because a review reads the branch,
+   not the index. `status` is git's letter; "?" is a file git never saw. */
+export interface GitReviewFile {
+  path: string;
+  status: string;
+  renamed?: string;
+  added: number;
+  removed: number;
+  binary: boolean;
+}
+
+/* Everything a branch changed against a base. `merge_base` is the commit every
+   diff is measured from; `bases` are the refs worth offering instead. */
+export interface GitReview {
+  base: string;
+  merge_base: string;
+  branch: string;
+  files: GitReviewFile[];
+  added: number;
+  removed: number;
+  bases: string[];
+  stashes: GitStash[];
+}
+
+/* One stash, as git lists it. `ref` is git's own name (stash@{0}). */
+export interface GitStash {
+  ref: string;
   subject: string;
   when: number; // milliseconds; the window words the age itself
 }

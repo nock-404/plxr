@@ -28,6 +28,7 @@ import Notes from "@/components/views/Notes";
 import Rail, { type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
 import ChangesPanel from "@/components/ChangesPanel";
+import ReviewPanel from "@/components/ReviewPanel";
 import SearchPanel from "@/components/SearchPanel";
 import Difference from "@/components/Difference";
 import Files from "@/components/Files";
@@ -68,10 +69,13 @@ export type EditorTarget = { id: string; line: number; nonce: number } | null;
 
 /* Which file's difference is on screen, and from which folder: two folders
    can hold a file of the same name, so the folder is part of the identity —
-   of the panel's id as well (diff:<root>:<s|u>:<path>). */
-export type ShownDiff = { rootId: string; path: string; staged: boolean } | null;
+   of the panel's id as well (diff:<root>:<s|u>:<path>). A range diff from the
+   review panel carries its base, and is a panel of its own beside the
+   staged/unstaged ones (diff:<root>:r:<base>:<path>). */
+export type ShownDiff = { rootId: string; path: string; staged: boolean; base?: string } | null;
 
-const diffId = (rootId: string, path: string, staged: boolean) => `diff:${rootId}:${staged ? "s" : "u"}:${path}`;
+const diffId = (rootId: string, path: string, staged: boolean, base = "") =>
+  base ? `diff:${rootId}:r:${base}:${path}` : `diff:${rootId}:${staged ? "s" : "u"}:${path}`;
 
 /* What the shell can be asked for from inside a panel's own menu — the board's
    empty space, the rail's views. The same verbs the header MENU has, so a
@@ -105,8 +109,8 @@ type DockData = {
   shownDiff: ShownDiff;
   openSession: (id: string) => void;
   openPreview: (url: string, title: string) => void;
-  openDiff: (rootId: string, path: string, staged: boolean, title: string) => void;
-  onDiffClosed: (rootId: string, path: string, staged: boolean) => void;
+  openDiff: (rootId: string, path: string, staged: boolean, title: string, base?: string) => void;
+  onDiffClosed: (rootId: string, path: string, staged: boolean, base?: string) => void;
   openPanel: (view: string) => void;
   /* The same view in a group of its own beside the active one — moved there
      when it is already open, made there when it is not. */
@@ -290,6 +294,27 @@ function ChangesDockPanel() {
   );
 }
 
+/* The review panel follows the session the changes panel follows, with the
+   same tolerance for a session the service does not know yet or any more.
+   A file opens as a range diff — the working tree against the branch's
+   merge-base — beside the terminal. */
+function ReviewDockPanel() {
+  const d = useDock();
+  const id = d.lastActiveSessionId;
+  const followed = id ? d.tiles.find((t) => t.id === id) : undefined;
+  const gone = Boolean(id) && d.connected && !followed;
+  return (
+    <ReviewPanel
+      here={d.here}
+      sessionId={gone ? undefined : id || undefined}
+      label={followed ? followed.name || followed.cwd : gone ? undefined : id || undefined}
+      shown={d.shownDiff}
+      onDiff={d.openDiff}
+      onEdit={(rootId, path) => d.openEditor(rootId, path)}
+    />
+  );
+}
+
 /* The one search panel follows the same session the changes panel does, with
    the same tolerance for a session the service does not know yet or any
    more. A hit opens the editor at its line, beside the terminal. */
@@ -308,7 +333,7 @@ function SearchDockPanel() {
   );
 }
 
-function DiffPanel(props: IDockviewPanelProps<{ rootId: string; path: string; staged: boolean }>) {
+function DiffPanel(props: IDockviewPanelProps<{ rootId: string; path: string; staged: boolean; base?: string }>) {
   const d = useDock();
   const p = props.params;
   // Difference is an overlay (position: absolute; inset: 0). On its own it fills
@@ -320,8 +345,9 @@ function DiffPanel(props: IDockviewPanelProps<{ rootId: string; path: string; st
         rootId={p.rootId}
         path={p.path}
         staged={p.staged}
+        base={p.base}
         onClose={() => {
-          d.onDiffClosed(p.rootId, p.path, p.staged);
+          d.onDiffClosed(p.rootId, p.path, p.staged, p.base);
           props.api.close();
         }}
         onEdit={(path, line) => d.openEditor(p.rootId, path, line || undefined)}
@@ -501,6 +527,7 @@ const components = {
   overview: OverviewPanel,
   preview: PreviewPanel,
   changes: ChangesDockPanel,
+  review: ReviewDockPanel,
   search: SearchDockPanel,
   diff: DiffPanel,
   editor: EditorPanel,
@@ -524,6 +551,7 @@ export const VIEW_TITLES: Record<string, string> = {
   changes: "Changes",
   search: "Search",
   notes: "Notes",
+  review: "Review",
 };
 
 /* The dockview major this build lays panels out with. A saved arrangement is
@@ -634,17 +662,17 @@ export default function Dock({
     openOrFocus(dv, `preview:${url}`, "preview", title, { url }, "companion");
   }, []);
 
-  const openDiff = useCallback((rootId: string, path: string, staged: boolean, title: string) => {
+  const openDiff = useCallback((rootId: string, path: string, staged: boolean, title: string, base = "") => {
     const dv = apiRef.current;
     if (!dv) return;
-    openOrFocus(dv, diffId(rootId, path, staged), "diff", title, { rootId, path, staged }, "companion");
-    setShownDiff({ rootId, path, staged });
+    openOrFocus(dv, diffId(rootId, path, staged, base), "diff", title, { rootId, path, staged, base }, "companion");
+    setShownDiff({ rootId, path, staged, base });
   }, []);
 
   // Only the diff that is lit goes dark — a stale close must not unlight a
   // newer one.
-  const onDiffClosed = useCallback((rootId: string, path: string, staged: boolean) => {
-    setShownDiff((s) => (s && s.rootId === rootId && s.path === path && s.staged === staged ? null : s));
+  const onDiffClosed = useCallback((rootId: string, path: string, staged: boolean, base = "") => {
+    setShownDiff((s) => (s && s.rootId === rootId && s.path === path && s.staged === staged && (s.base ?? "") === base ? null : s));
   }, []);
 
   const openPanel = useCallback((view: string) => {
@@ -932,7 +960,7 @@ export default function Dock({
     // A diff closed from its tab never passes through Difference's BACK, so
     // the lit row is put out here, for every way a panel can go.
     event.api.onDidRemovePanel((p) => {
-      if (p.id.startsWith("diff:")) setShownDiff((s) => (s && diffId(s.rootId, s.path, s.staged) === p.id ? null : s));
+      if (p.id.startsWith("diff:")) setShownDiff((s) => (s && diffId(s.rootId, s.path, s.staged, s.base) === p.id ? null : s));
     });
     // Bring back the arrangement from last time; if there is none, or it does
     // not load, arrange for the chosen activity so the window is never blank.

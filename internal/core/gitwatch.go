@@ -98,6 +98,9 @@ type gitWatch struct {
 	subs map[*ChangesSub]struct{}
 	last ChangesFrame
 	stop chan struct{}
+	// poke wakes the loop before its next tick: a discard or a stash that
+	// plxr itself just did should show at once, not a pace later.
+	poke chan struct{}
 	// polls counts the ticks this loop has run — what a test reads to prove
 	// two subscribers did not become two loops.
 	polls int
@@ -128,7 +131,7 @@ func (c *Core) SubscribeChanges(id string) (*ChangesSub, error) {
 	defer c.watchMu.Unlock()
 	w, ok := c.watches[key]
 	if !ok {
-		w = &gitWatch{root: root, owner: c, subs: map[*ChangesSub]struct{}{}, stop: make(chan struct{})}
+		w = &gitWatch{root: root, owner: c, subs: map[*ChangesSub]struct{}{}, stop: make(chan struct{}), poke: make(chan struct{}, 1)}
 		c.watches[key] = w
 		go w.run()
 	}
@@ -219,8 +222,28 @@ func (w *gitWatch) run() {
 		select {
 		case <-w.stop:
 			return
+		case <-w.poke:
 		case <-time.After(pace):
 		}
+	}
+}
+
+// pokeWatch asks the watcher of this folder, if there is one, to read again
+// now. A folder nobody follows has no watcher and nothing to wake.
+func (c *Core) pokeWatch(root string) {
+	key := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		key = r
+	}
+	c.watchMu.Lock()
+	w, ok := c.watches[key]
+	c.watchMu.Unlock()
+	if !ok {
+		return
+	}
+	select {
+	case w.poke <- struct{}{}:
+	default: // one wake is already pending
 	}
 }
 
