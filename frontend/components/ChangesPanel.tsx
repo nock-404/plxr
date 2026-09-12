@@ -32,6 +32,7 @@ export default function ChangesPanel({
   shown,
   onDiff,
   onEdit,
+  onOpenFiles,
 }: {
   here: string;
   /* The session to follow; empty until one has been active in this layout. */
@@ -42,6 +43,8 @@ export default function ChangesPanel({
   shown: { rootId: string; path: string; staged: boolean } | null;
   onDiff: (rootId: string, path: string, staged: boolean, title: string) => void;
   onEdit: (rootId: string, path: string) => void;
+  /* The followed folder's tree as a panel of its own, from the list's menu. */
+  onOpenFiles?: (rootId: string) => void;
 }) {
   /* The id followed, a beat behind the signal. Clicking through three
      sessions in a second would otherwise open and drop three feeds; the one
@@ -115,6 +118,7 @@ export default function ChangesPanel({
           if (want) onDiff(rootId, want.path, want.staged, want.path.split("/").pop() ?? want.path);
         }}
         onEdit={(path) => onEdit(rootId, path)}
+        onOpenFiles={onOpenFiles ? () => onOpenFiles(rootId) : undefined}
       />
     </div>
   );

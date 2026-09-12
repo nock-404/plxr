@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
+import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
-import { tr } from "@/lib/i18n";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
+import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/browser";
 import type { ArchiveEntry, SearchHit } from "@/lib/types";
 
 type Mode = "titles" | "conversations" | "terminals";
@@ -24,6 +27,9 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
   const [mode, setMode] = useState<Mode>("titles");
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  // The transcript the menu's Delete is asking about; nothing goes until YES.
+  const [doomed, setDoomed] = useState<ArchiveEntry | null>(null);
+  const [problem, setProblem] = useState("");
 
   useEffect(() => {
     api.archive().then((r) => setRows(r ?? [])).catch(() => setRows([]));
@@ -58,6 +64,25 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
   }, [rows, q]);
 
   const searching = mode !== "titles" && hits !== null;
+
+  const resume = (id: string) => api.archiveResume(id).then((s) => onOpen(s.id)).catch((e) => setProblem(errText(e)));
+
+  const ctx = useContextMenu();
+  /* A transcript under the right button: pick it up again, take its id or
+     its folder along, or throw it away — the one thing here that asks first. */
+  const rowMenu = (r: ArchiveEntry): MenuItem[] => [
+    { label: tr("archive.menuResume", "Resume"), onClick: () => void resume(r.id) },
+    { label: tr("archive.menuCopyId", "Copy id"), onClick: () => copyText(r.id) },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(r.cwd) },
+    { separator: true },
+    { label: tr("archive.menuDelete", "Delete transcript"), danger: true, onClick: () => setDoomed(r) },
+  ];
+  // A search hit knows its session and no more; the row it came from is the
+  // one to delete, and that row is in the list behind the search.
+  const hitMenu = (h: SearchHit): MenuItem[] => [
+    { label: tr("archive.menuResume", "Resume"), onClick: () => void resume(h.sessionId) },
+    { label: tr("archive.menuCopyId", "Copy id"), onClick: () => copyText(h.sessionId) },
+  ];
 
   return (
     <section className="list">
@@ -105,7 +130,13 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
             </Button>
           </Tooltip>
           <span className="meta">
-            {busy ? tr("common.working", "searching…") : searching ? `${hits!.length}` : `${shown.length} / ${rows?.length ?? 0}`}
+            {problem
+              ? problem
+              : busy
+                ? tr("common.working", "searching…")
+                : searching
+                  ? `${hits!.length}`
+                  : `${shown.length} / ${rows?.length ?? 0}`}
           </span>
         </div>
       </TopStrip>
@@ -119,7 +150,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
             </div>
           ) : (
             hits!.map((h, i) => (
-              <div key={`${h.sessionId}-${i}`} className="row tall">
+              <div key={`${h.sessionId}-${i}`} className="row tall" onContextMenu={ctx(hitMenu(h))}>
                 <span className="hitDate">{day(h.mod)}</span>
                 <span className="hitMain">
                   <span className="hitTitle">{h.title || h.project}</span>
@@ -127,10 +158,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
                 </span>
                 <span className="hitSmall">{h.role}</span>
                 <span className="hitAction">
-                  <Button
-                    tiny
-                    onClick={() => api.archiveResume(h.sessionId).then((s) => onOpen(s.id)).catch(() => undefined)}
-                  >
+                  <Button tiny onClick={() => void resume(h.sessionId)}>
                     {tr("archive.resume", "RESUME")}
                   </Button>
                 </span>
@@ -144,7 +172,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
         ) : (
           shown.map((r) => (
-            <div key={r.id} className="row">
+            <div key={r.id} className="row" onContextMenu={ctx(rowMenu(r))}>
               <span className="hitDate">{day(r.mod)}</span>
               <span className="hitMain">
                 <span className="hitTitle">{r.title || r.project}</span>
@@ -152,10 +180,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
               </span>
               <span className="hitSmall">{r.model}</span>
               <span className="hitAction">
-                <Button
-                  tiny
-                  onClick={() => api.archiveResume(r.id).then((s) => onOpen(s.id)).catch(() => undefined)}
-                >
+                <Button tiny onClick={() => void resume(r.id)}>
                   {tr("archive.resume", "RESUME")}
                 </Button>
               </span>
@@ -163,6 +188,27 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
           ))
         )}
       </div>
+
+      {doomed ? (
+        <Ask
+          heading={tr("archive.deleteAsk", "Delete transcript?")}
+          detail={tr("archive.deleteDetail", "{title} is removed from disk. A session that is still running keeps its own copy until it ends.", {
+            title: doomed.title || doomed.project,
+          })}
+          confirmLabel={tr("common.delete", "DELETE")}
+          danger
+          onCancel={() => setDoomed(null)}
+          onConfirm={() => {
+            const gone = doomed;
+            setDoomed(null);
+            setProblem("");
+            api
+              .archiveDelete(gone.id, gone.account)
+              .then(() => setRows((all) => (all ?? []).filter((r) => r.id !== gone.id)))
+              .catch((e) => setProblem(`${tr("archive.deleteFailed", "Delete failed")}: ${errText(e)}`));
+          }}
+        />
+      ) : null}
     </section>
   );
 }

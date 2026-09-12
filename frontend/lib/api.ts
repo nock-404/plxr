@@ -153,6 +153,11 @@ export const api = {
   archive: () => req<ArchiveEntry[]>("/api/archive"),
   archiveResume: (id: string) =>
     req<Session>(`/api/archive/${encodeURIComponent(id)}/resume`, { method: "POST" }),
+  /* The transcript itself, gone for good. The route has been served since the
+     archive existed; the window never called it, so a transcript could only be
+     removed from a terminal. */
+  archiveDelete: (id: string, account = "") =>
+    req<void>(`/api/archive/${encodeURIComponent(id)}${account ? `?account=${encodeURIComponent(account)}` : ""}`, { method: "DELETE" }),
 
   version: () => req<VersionInfo>("/api/version"),
 

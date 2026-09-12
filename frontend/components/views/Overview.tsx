@@ -2,17 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Tile from "@/components/Tile";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
+import { bindingOf, caption } from "@/lib/keymap";
 import type { Agent, Tile as TileData } from "@/lib/types";
 
 // The herd. Empty it explains itself rather than showing a blank field.
 export default function Overview({
   tiles,
   onOpen,
+  onNew,
+  onNewShell,
+  onTemplates,
 }: {
   tiles: TileData[];
   onOpen: (id: string) => void;
+  /* What the board itself can start, offered under the right button on the
+     space between the tiles and on the empty board. Absent where the board
+     is shown without the shell behind it. */
+  onNew?: () => void;
+  onNewShell?: () => void;
+  onTemplates?: () => void;
 }) {
   /* The CLIs this daemon actually knows, asked rather than typed out.
    *
@@ -30,9 +41,17 @@ export default function Overview({
       .catch(() => setAgents([]));
   }, []);
 
+  const ctx = useContextMenu();
+  // The board's own menu: what can be started from here. Tiles have their own.
+  const boardMenu: MenuItem[] = [
+    ...(onNew ? [{ label: tr("palette.newSession", "New session"), hint: caption(bindingOf("newSession")), onClick: onNew }] : []),
+    ...(onNewShell ? [{ label: tr("overview.menuNewShell", "New shell"), onClick: onNewShell }] : []),
+    ...(onTemplates ? [{ label: tr("palette.templates", "Templates"), onClick: onTemplates }] : []),
+  ];
+
   if (tiles.length === 0) {
     return (
-      <div className="empty">
+      <div className="empty" onContextMenu={ctx(boardMenu)}>
         <div className="emptybox">
           <p className="emptyhead">{tr("empty.noSessions", "no sessions")}</p>
           <p>
@@ -51,7 +70,7 @@ export default function Overview({
     );
   }
   return (
-    <section className="grid">
+    <section className="grid" onContextMenu={ctx(boardMenu)}>
       {tiles.map((t) => (
         <Tile
           key={t.id}

@@ -1,11 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { EditorView } from "@codemirror/view";
+import { openSearchPanel } from "@codemirror/search";
+import { selectAll } from "@codemirror/commands";
+import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import Editor from "@/components/ui/Editor";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/browser";
 import { tr, errText } from "@/lib/i18n";
+import { bindingOf, caption } from "@/lib/keymap";
 import { FILES_CHANGED } from "@/lib/useChanges";
 import type { Baseline, FileBody } from "@/lib/types";
 
@@ -149,8 +156,92 @@ export default function Viewer({
 
   const name = path.split("/").pop() ?? path;
 
+  /* The editor under the right button.
+   *
+   * The live CodeMirror view is found from its own element rather than
+   * threaded out of ui/Editor: the editor stays a closed box, and the menu
+   * reads the selection at the moment of the click — whether Cut and Copy
+   * have anything to act on is decided then, not at render. */
+  const host = useRef<HTMLDivElement>(null);
+  const [askLine, setAskLine] = useState(false);
+  const ctx = useContextMenu();
+  const view = (): EditorView | null => {
+    const el = host.current?.querySelector<HTMLElement>(".cm-editor");
+    return el ? EditorView.findFromDOM(el) : null;
+  };
+  const editorMenu = (): MenuItem[] => {
+    const v = view();
+    const sel = v?.state.selection.main;
+    const hasSelection = Boolean(sel && !sel.empty);
+    const selected = () => (v && sel ? v.state.sliceDoc(sel.from, sel.to) : "");
+    const locked = Boolean(body?.truncated);
+    return [
+      {
+        label: tr("editor.cut", "Cut"),
+        hint: caption("Mod+X"),
+        disabled: !hasSelection || locked,
+        onClick: () => {
+          if (!v) return;
+          copyText(selected());
+          v.dispatch(v.state.replaceSelection(""));
+          v.focus();
+        },
+      },
+      { label: tr("term.copy", "Copy"), hint: caption("Mod+C"), disabled: !hasSelection, onClick: () => copyText(selected()) },
+      {
+        label: tr("term.paste", "Paste"),
+        hint: caption("Mod+V"),
+        disabled: !v || locked,
+        onClick: () => {
+          void navigator.clipboard?.readText()
+            .then((text) => {
+              const now = view();
+              if (!now || !text) return;
+              now.dispatch(now.state.replaceSelection(text));
+              now.focus();
+            })
+            .catch(() => undefined);
+        },
+      },
+      {
+        label: tr("term.selectAll", "Select all"),
+        hint: caption("Mod+A"),
+        disabled: !v,
+        onClick: () => {
+          if (!v) return;
+          selectAll(v);
+          v.focus();
+        },
+      },
+      { separator: true },
+      {
+        label: tr("term.find", "Find…"),
+        hint: caption(bindingOf("find")),
+        disabled: !v,
+        onClick: () => {
+          if (!v) return;
+          v.focus();
+          openSearchPanel(v);
+        },
+      },
+      { label: tr("editor.goToLine", "Go to line…"), disabled: !v, onClick: () => setAskLine(true) },
+      { separator: true },
+      { label: tr("common.save", "SAVE"), hint: caption("Mod+S"), disabled: !dirty || locked, onClick: () => void save() },
+      { label: tr("common.close", "CLOSE"), onClick: () => (dirty ? setConfirmClose(true) : onClose()) },
+    ];
+  };
+  // The line asked for, put under the cursor and into view.
+  const goToLine = (answer: string) => {
+    const v = view();
+    const n = parseInt(answer.trim(), 10);
+    if (!v || !Number.isFinite(n) || n < 1) return;
+    const at = v.state.doc.line(Math.min(n, v.state.doc.lines));
+    v.dispatch({ selection: { anchor: at.from }, effects: EditorView.scrollIntoView(at.from, { y: "center" }) });
+    v.focus();
+  };
+
   return (
-    <div className="editorBody">
+    <div className="editorBody" ref={host} onContextMenu={(e) => ctx(editorMenu())(e)}>
       <div className="overlayBar">
         <span className="overlayName">{name}</span>
         <span className="meta">
@@ -226,6 +317,20 @@ export default function Viewer({
           />
         )}
       </div>
+
+      {askLine ? (
+        <Ask
+          heading={tr("editor.goToLine", "Go to line…")}
+          detail={body ? tr("editor.goToLineDetail", "1 to {n}", { n: body.lines }) : undefined}
+          field={tr("editor.line", "line")}
+          confirmLabel={tr("editor.go", "GO")}
+          onCancel={() => setAskLine(false)}
+          onConfirm={(answer) => {
+            setAskLine(false);
+            goToLine(answer);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -63,6 +63,16 @@ export type ShownDiff = { rootId: string; path: string; staged: boolean } | null
 
 const diffId = (rootId: string, path: string, staged: boolean) => `diff:${rootId}:${staged ? "s" : "u"}:${path}`;
 
+/* What the shell can be asked for from inside a panel's own menu — the board's
+   empty space, the rail's views. The same verbs the header MENU has, so a
+   right-click on nothing in particular is not a dead end. */
+export type ShellActions = {
+  newSession: () => void;
+  newShell: () => void;
+  templates: () => void;
+  resetLayout: () => void;
+};
+
 type DockData = {
   tiles: Tile[];
   shown: Tile[];
@@ -88,6 +98,11 @@ type DockData = {
   openDiff: (rootId: string, path: string, staged: boolean, title: string) => void;
   onDiffClosed: (rootId: string, path: string, staged: boolean) => void;
   openPanel: (view: string) => void;
+  /* The same view in a group of its own beside the active one — moved there
+     when it is already open, made there when it is not. */
+  openPanelFresh: (view: string) => void;
+  /* The shell's own verbs, for the menus on the board and the rail. */
+  shell?: ShellActions;
   /* An editor for one file, as a panel beside the session — one panel per
      path, so every file keeps its own undo history. `path` is the path the
      tree reports for the file, which is what the file API reads. */
@@ -112,7 +127,15 @@ const useDock = () => {
 // The panels, each reading the live data from the context.
 function OverviewPanel() {
   const d = useDock();
-  return <Overview tiles={d.shown} onOpen={d.openSession} />;
+  return (
+    <Overview
+      tiles={d.shown}
+      onOpen={d.openSession}
+      onNew={d.shell?.newSession}
+      onNewShell={d.shell?.newShell}
+      onTemplates={d.shell?.templates}
+    />
+  );
 }
 function InboxPanel() {
   const d = useDock();
@@ -205,6 +228,7 @@ function ChangesDockPanel() {
       shown={d.shownDiff}
       onDiff={d.openDiff}
       onEdit={(rootId, path) => d.openEditor(rootId, path)}
+      onOpenFiles={(rootId) => d.openFiles(rootId, followed?.cwd ?? d.here, followed ? followed.name || followed.cwd : d.here)}
     />
   );
 }
@@ -331,6 +355,8 @@ function RailPanel() {
       openId={activeSession}
       counts={d.counts}
       onView={(v) => d.openPanel(v)}
+      onViewFresh={(v) => d.openPanelFresh(v)}
+      onResetLayout={d.shell?.resetLayout}
       onOpen={d.openSession}
     />
   );
@@ -412,6 +438,7 @@ export default function Dock({
   counts,
   openSession,
   onReplaced,
+  shell,
   focus,
   layoutAction,
   onLayoutSaved,
@@ -424,6 +451,7 @@ export default function Dock({
   | "openDiff"
   | "onDiffClosed"
   | "openPanel"
+  | "openPanelFresh"
   | "openEditor"
   | "openFiles"
   | "activeId"
@@ -478,6 +506,12 @@ export default function Dock({
     openOrFocus(dv, view, view, VIEW_TITLES[view] ?? view, {}, "view");
   }, []);
 
+  const openPanelFresh = useCallback((view: string) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    openFresh(dv, view, view, VIEW_TITLES[view] ?? view, {});
+  }, []);
+
   /* One file, one panel — whichever way it was reached.
    *
    * The tree hands over the file's resolved absolute path, a changes row and
@@ -524,11 +558,11 @@ export default function Dock({
   const data = useMemo<DockData>(
     () => ({
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openPanel, openEditor, openFiles, setDirty, isDirty, onReplaced,
+      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
     }),
     [
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openPanel, openEditor, openFiles, setDirty, isDirty, onReplaced,
+      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
     ],
   );
 
@@ -889,4 +923,31 @@ function openOrFocus(
   const tab = component === "editor" ? { tabComponent: "editorTab" } : {};
   dv.addPanel({ id, component, title, params, ...tab, ...sized(dv, place(dv, laneOf(role, id))) });
   return true;
+}
+
+/* openFresh puts the panel in a group of its own, right of the group that is
+ * active — the way to see a view beside the one it would otherwise tab into.
+ * A panel already on screen moves there; one that is not is made there. The
+ * rail's group is never the reference: a fresh group right of the rail would
+ * push the whole stage aside, so then the stage stands in for it. */
+function openFresh(dv: DockviewApi, id: string, component: string, title: string, params: object): void {
+  const active = dv.activeGroup;
+  const beside =
+    active && !active.panels.some((p) => p.id === "rail")
+      ? active
+      : (groupOf(dv, "stage") ?? groupOf(dv, "aside") ?? groupOf(dv, "desk"));
+  const existing = dv.getPanel(id);
+  if (existing) {
+    // Alone in its group already: there is nothing fresher to move it to.
+    if (existing.group.panels.length === 1) {
+      existing.api.setActive();
+      return;
+    }
+    const from = beside && beside !== existing.group ? beside : existing.group;
+    existing.api.moveTo({ group: from, position: "right" });
+    existing.api.setActive();
+    return;
+  }
+  const position: AddPanelPositionOptions = beside ? { referenceGroup: beside, direction: "right" } : { direction: "right" };
+  dv.addPanel({ id, component, title, params, ...sized(dv, position) });
 }

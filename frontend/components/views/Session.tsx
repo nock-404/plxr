@@ -320,6 +320,9 @@ export default function Session({
             orphaned={Boolean(tile.orphaned)}
             exitCode={tile.exit_code}
             onRestart={restart}
+            cwd={tile.cwd}
+            onSplit={others.length || split ? () => setSplit((v) => (v ? null : (others[0]?.id ?? null))) : undefined}
+            splitOn={Boolean(split)}
           />
           {split ? (
             <Terminal
@@ -337,6 +340,9 @@ export default function Session({
               orphaned={Boolean(others.find((o) => o.id === split)?.orphaned)}
               exitCode={others.find((o) => o.id === split)?.exit_code ?? 0}
               onRestart={() => api.resume(split)}
+              cwd={others.find((o) => o.id === split)?.cwd}
+              onSplit={() => setSplit(null)}
+              splitOn
             />
           ) : null}
         </div>

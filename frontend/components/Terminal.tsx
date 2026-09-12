@@ -9,6 +9,7 @@ import "@xterm/xterm/css/xterm.css";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
+import { copyText } from "@/lib/browser";
 import { errText, tr } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { terminalPrefs } from "@/lib/prefs";
@@ -50,6 +51,9 @@ export default function Terminal({
   orphaned = false,
   exitCode = 0,
   onRestart,
+  cwd,
+  onSplit,
+  splitOn = false,
 }: {
   id: string;
   label: string;
@@ -67,6 +71,13 @@ export default function Terminal({
   exitCode?: number;
   /* Starts the session again, in place. Only offered while it has ended. */
   onRestart?: () => Promise<unknown>;
+  /* The session's folder, for the menu's copy — the terminal itself does not
+     know where it is. */
+  cwd?: string;
+  /* Puts a second session alongside, or takes it away again; `splitOn` says
+     which way it stands. */
+  onSplit?: () => void;
+  splitOn?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   // Held so a theme change can reach the canvas, which CSS never touches.
@@ -347,8 +358,24 @@ export default function Terminal({
       { separator: true },
       { label: tr("term.clear", "Clear"), onClick: () => term.clear() },
       ...(onFind ? [{ label: tr("term.find", "Find…"), hint: caption(bindingOf("find")), onClick: onFind }] : []),
+      // The panel around the terminal: split it, take its folder along, close it.
+      ...paneItems(),
     ];
   };
+
+  /* What the panel offers whether or not a terminal is running in it — the
+     tail of the live menu, and with Restart in front the whole menu of a
+     panel whose session has ended. */
+  const paneItems = (): MenuItem[] => [
+    ...(onSplit || cwd || onClose ? [{ separator: true as const }] : []),
+    ...(onSplit ? [{ label: tr("term.menuSplit", "Split"), checked: Boolean(splitOn), onClick: onSplit }] : []),
+    ...(cwd ? [{ label: tr("files.copy", "COPY PATH"), onClick: () => copyText(cwd) }] : []),
+    ...(onClose ? [{ label: tr("term.menuClose", "Close panel"), onClick: onClose }] : []),
+  ];
+  const endedMenu = (): MenuItem[] => [
+    ...(onRestart ? [{ label: tr("term.menuRestart", "Restart"), disabled: restarting, onClick: restart }] : []),
+    ...paneItems(),
+  ];
 
   return (
     <div className="pane" data-active={active ? "yes" : "no"} onPointerDown={onFocus}>
@@ -372,7 +399,7 @@ export default function Terminal({
         /* The process is gone. The panel says so in the terminal's own frame,
            fills it, and offers the one thing that helps: starting again, in
            this same place, under the same id. */
-        <div className="pterm paneEnded">
+        <div className="pterm paneEnded" onContextMenu={ctx(endedMenu())}>
           <div className="endedNote">
             <b className="endedTitle">{tr("session.endedTitle", "this session has ended")}</b>
             <span className="endedMeta">

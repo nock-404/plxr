@@ -4,7 +4,9 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Toggle from "@/components/ui/Toggle";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/browser";
 import { errText, tr, trN } from "@/lib/i18n";
 import type { FindReport } from "@/lib/types";
 
@@ -94,6 +96,24 @@ export default function FileSearch({
     setBusy(false);
   }
 
+  const ctx = useContextMenu();
+  /* A hit under the right button: the editor at that line, the path to the
+     clipboard, the file where the system shows files. The file's own line
+     above its hits offers the same, without a line to land on. */
+  const reveal = (path: string) => void api.revealFile(rootId, path).catch((e) => setProblem(errText(e)));
+  const hitMenu = (path: string, line: number): MenuItem[] => [
+    { label: tr("find.openAt", "Open at line {n}", { n: line }), onClick: () => onOpen(path, line) },
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(path) },
+    { label: tr("files.reveal", "SHOW"), onClick: () => reveal(path) },
+  ];
+  const fileMenu = (path: string, first: number): MenuItem[] => [
+    { label: tr("files.menuOpen", "Open"), onClick: () => onOpen(path, first) },
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(path) },
+    { label: tr("files.reveal", "SHOW"), onClick: () => reveal(path) },
+  ];
+
   // Grouped by file, because that is how somebody reads a result: which files,
   // then where in them.
   const byFile = new Map<string, FindReport["hits"]>();
@@ -166,7 +186,7 @@ export default function FileSearch({
           ) : null}
           {[...byFile.entries()].map(([path, hits]) => (
             <div key={path} className="findfile" data-path={path}>
-              <span className="findpath">{path}</span>
+              <span className="findpath" onContextMenu={ctx(fileMenu(path, hits[0]?.line ?? 1))}>{path}</span>
               {hits.map((h) => (
                 <Button
                   bare
@@ -174,6 +194,7 @@ export default function FileSearch({
                   className="findline"
                   data-line={h.line}
                   onClick={() => onOpen(h.path, h.line)}
+                  onContextMenu={ctx(hitMenu(h.path, h.line))}
                   aria-label={tr("find.openAt", "Open at line {n}", { n: h.line })}
                 >
                   <span className="findno">{h.line}</span>

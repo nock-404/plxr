@@ -1,10 +1,12 @@
 "use client";
 
 import { ago } from "@/lib/format";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/browser";
 import { errText, tr, trN } from "@/lib/i18n";
 import Input from "@/components/ui/Input";
 import type { LiveChanges } from "@/lib/useChanges";
@@ -49,6 +51,7 @@ export default function Changes({
   onShow,
   onEdit,
   live,
+  onOpenFiles,
 }: {
   rootId: string;
   shown: { path: string; staged: boolean } | null;
@@ -61,6 +64,9 @@ export default function Changes({
   /* The folder's state as the service pushes it. Without it the list asks
      once and on AGAIN, the way it always did. */
   live?: LiveChanges;
+  /* The folder's tree, as a panel — offered in the list's own menu where a
+     dock is there to hold it. */
+  onOpenFiles?: () => void;
 }) {
   const [list, setList] = useState<GitChange[] | null>(null);
   const [problem, setProblem] = useState("");
@@ -69,6 +75,8 @@ export default function Changes({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  // The commit message field, so the menu's "Commit…" can put the cursor in it.
+  const messageField = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     setProblem("");
@@ -144,6 +152,38 @@ export default function Changes({
   }
 
   const staged = (list ?? []).filter((c) => c.index !== " " && c.index !== "?" && c.index !== "");
+
+  const ctx = useContextMenu();
+  /* One file under the right button: what its row's buttons do, at the
+     pointer, and the two things the row has no room for — its path to the
+     clipboard, and the file where the system shows files. Nothing here throws
+     a change away: there is no service call for that, so no row offers it. */
+  const rowMenu = (c: GitChange, areStaged: boolean): MenuItem[] => [
+    { label: tr("git.menuDiff", "Show diff"), onClick: () => show(c.path, areStaged) },
+    ...(onEdit && (areStaged ? c.index : c.work) !== "D"
+      ? [{ label: tr("git.menuEdit", "Edit"), onClick: () => onEdit(c.path) }]
+      : []),
+    areStaged
+      ? { label: tr("git.menuUnstage", "Unstage"), disabled: busy, onClick: () => void stage([c.path], false) }
+      : { label: tr("git.menuStage", "Stage"), disabled: busy, onClick: () => void stage([c.path], true) },
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(c.path) },
+    { label: tr("files.reveal", "SHOW"), onClick: () => void api.revealFile(rootId, c.path).catch((e) => setProblem(errText(e))) },
+  ];
+  /* The list's own menu, on the space between the groups: read the folder
+     again, go to the commit message, or open the folder's tree beside it. */
+  const listMenu = (): MenuItem[] => [
+    { label: tr("git.menuRefresh", "Refresh"), onClick: load },
+    {
+      label: tr("git.menuCommit", "Commit…"),
+      disabled: staged.length === 0,
+      onClick: () => {
+        messageField.current?.focus();
+        messageField.current?.select();
+      },
+    },
+    ...(onOpenFiles ? [{ separator: true as const }, { label: tr("git.menuFiles", "Open in Files"), onClick: onOpenFiles }] : []),
+  ];
   const unstaged = (list ?? []).filter((c) => c.work !== " " && c.work !== "?" && c.work !== "");
   const untracked = (list ?? []).filter((c) => c.index === "?" && c.work === "?");
 
@@ -165,7 +205,7 @@ export default function Changes({
           </Tooltip>
         </span>
         {rows.map((c) => (
-          <div key={`${areStaged ? "s" : "w"}:${c.path}`} className="changerow">
+          <div key={`${areStaged ? "s" : "w"}:${c.path}`} className="changerow" onContextMenu={ctx(rowMenu(c, areStaged))}>
             <Tooltip text={c.renamed ? tr("git.from", "was {path}", { path: c.renamed }) : c.path}>
               <Button
                 bare
@@ -208,7 +248,7 @@ export default function Changes({
     );
 
   return (
-    <div className="changes">
+    <div className="changes" onContextMenu={ctx(listMenu())}>
       <div className="rowInline">
         <Button onClick={load}>{tr("git.again", "AGAIN")}</Button>
         {list ? (
@@ -248,6 +288,7 @@ export default function Changes({
         <div className="field">
           <span className="fieldName">{tr("git.message", "commit message")}</span>
           <Input
+            ref={messageField}
             value={message}
             placeholder={tr("git.messagePlaceholder", "What changed, and why")}
             onChange={(e) => setMessage(e.target.value)}

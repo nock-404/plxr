@@ -56,6 +56,9 @@ LAYOUT_ONLY = {
     # the title bar and the grip carry the dressing. A short numeric field is
     # the plain field with a width. The shortcut row's buttons are a flex row.
     "windowBody", "short", "keyActions",
+    # Dockview's own wrapper around a panel: the layout layer gives it a height
+    # and nothing else, and no skin has anything to say about it.
+    "dv-react-part",
     # The overflow bar: arrangement only. The left slot and the item cells
     # place their contents, the trigger is a Button that dresses itself, and
     # the measuring copy is never seen. The menu surface IS dressed (skins can

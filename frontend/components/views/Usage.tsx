@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import TopStrip from "@/components/ui/TopStrip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { shortNumber as short } from "@/lib/format";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -46,7 +48,7 @@ function trendWord(t: Pace["trend"]): string {
    it is left. So the note beside the field says exactly that, and crossing
    the line does exactly two things: the readout turns hot, and the service
    sends one notification. Nothing is stopped. */
-function RightNow() {
+function RightNow({ field }: { field: RefObject<HTMLInputElement | null> }) {
   const { pace, limit, hot } = usePace();
   // What is being typed, held apart from what is set: the field commits on
   // blur or Enter, and a ceiling moved in another window lands here only
@@ -93,6 +95,7 @@ function RightNow() {
       <div className="paceLimit">
         <span className="paceLimitLabel">{tr("pace.limitLabel", "your five-hour ceiling")}</span>
         <Input
+          ref={field}
           className="short"
           type="number"
           min={0}
@@ -121,17 +124,37 @@ export default function Usage() {
   const [days, setDays] = useState<"7" | "30" | "0">("30");
   const [data, setData] = useState<UsageData | null>(null);
   const [wait, setWait] = useState<Waiting | null>(null);
+  // Counts up on the menu's Reload, so the same window is asked for again.
+  const [again, setAgain] = useState(0);
+  const { limit } = usePace();
+  // The ceiling field, so the menu's "Set ceiling…" can put the cursor in it.
+  const ceiling = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.usage(Number(days)).then(setData).catch(() => setData(null));
     api.waiting(Number(days) || 3650).then(setWait).catch(() => setWait(null));
-  }, [days]);
+  }, [days, again]);
+
+  const ctx = useContextMenu();
+  // The view under the right button: the figures again, and the one knob.
+  const viewMenu = (): MenuItem[] => [
+    { label: tr("usage.menuReload", "Reload"), onClick: () => setAgain((n) => n + 1) },
+    { separator: true },
+    {
+      label: tr("usage.menuSetCeiling", "Set ceiling…"),
+      onClick: () => {
+        ceiling.current?.focus();
+        ceiling.current?.select();
+      },
+    },
+    { label: tr("usage.menuClearCeiling", "Clear ceiling"), disabled: !limit, onClick: () => void setPaceLimit(0) },
+  ];
 
   // A single wait is capped, so one forgotten window does not swamp the day.
   const minutes = (ms: number) => Math.round(ms / 60000);
 
   return (
-    <section className="list">
+    <section className="list" onContextMenu={ctx(viewMenu())}>
       <TopStrip>
         <div className="listbar">
           <span className="prompt">{tr("usage.prompt", "usage>")}</span>
@@ -151,7 +174,7 @@ export default function Usage() {
         </div>
       </TopStrip>
       <div className="listbody">
-        <RightNow />
+        <RightNow field={ceiling} />
         {!data ? (
           <div className="emptyNote">
             <b>{tr("usage.emptyHead", "nothing recorded")}</b>

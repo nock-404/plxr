@@ -4,8 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { copyText, openInBrowser } from "@/lib/browser";
 import type { Port } from "@/lib/types";
 
 // Which process holds which port, and a way to end it.
@@ -32,6 +34,27 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
     return () => window.clearInterval(t);
   }, [load]);
 
+  const ctx = useContextMenu();
+  /* What a port offers under the right button: see it, in a panel or in the
+     browser; take its address or its pid along; end the process behind it —
+     politely, or, when that did nothing, for certain. */
+  const rowMenu = (p: Port): MenuItem[] => {
+    const url = `http://localhost:${p.port}`;
+    return [
+      ...(onPreview ? [{ label: tr("ports.menuPreview", "Preview beside"), onClick: () => onPreview(url, `:${p.port}`) }] : []),
+      { label: tr("ports.menuBrowser", "Open in browser"), onClick: () => openInBrowser(url) },
+      { label: tr("ports.menuCopyUrl", "Copy URL"), onClick: () => copyText(url) },
+      { label: tr("ports.menuCopyPid", "Copy PID"), onClick: () => copyText(String(p.pid)) },
+      { separator: true },
+      { label: tr("ports.menuStop", "Stop"), onClick: () => void api.portKill(p.pid).then(load).catch((e) => setError(errText(e))) },
+      {
+        label: tr("ports.menuForceStop", "Force stop"),
+        danger: true,
+        onClick: () => void api.portKill(p.pid, true).then(load).catch((e) => setError(errText(e))),
+      },
+    ];
+  };
+
   return (
     <section className="list">
       <TopStrip>
@@ -50,7 +73,7 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
           </div>
         ) : (
           ports.map((p) => (
-            <div key={`${p.pid}-${p.port}`} className="row">
+            <div key={`${p.pid}-${p.port}`} className="row" onContextMenu={ctx(rowMenu(p))}>
               <span className="hitDate">{p.port}</span>
               <span className="hitTitle">{p.command}</span>
               <span className="hitProject">{p.addr}</span>

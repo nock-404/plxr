@@ -17,7 +17,7 @@ import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
-import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset } from "@/components/Dock";
+import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
 import { titleOf } from "@/lib/state";
@@ -531,6 +531,23 @@ export default function App() {
     }),
     [presets, currentPreset, direct, applyPreset],
   );
+  /* What the board's and the rail's own menus can ask of the shell: the same
+     verbs the header MENU has. A new shell starts in the folder the path field
+     points at — the home folder when it points nowhere — and lands where a new
+     session lands; if the service refuses, the start dialog says why. */
+  const shell = useMemo<ShellActions>(
+    () => ({
+      newSession: () => setCreating(true),
+      newShell: () =>
+        void api
+          .create(here, [])
+          .then((s) => setFocus({ kind: "session", id: s.id, name: s.name || s.id }))
+          .catch(() => setCreating(true)),
+      templates: () => setTemplates(true),
+      resetLayout: () => direct({ type: "reset" }),
+    }),
+    [here, direct],
+  );
   // Opening a session from outside the dock — a new one just created — asks the
   // dock to bring it up; inside the dock the rail and the tiles call the dock
   // directly.
@@ -677,6 +694,7 @@ export default function App() {
             counts={{ inbox: needsAnswer, ports, archive }}
             openSession={openSession}
             onReplaced={openSession}
+            shell={shell}
             focus={focus}
             layoutAction={layoutAction}
             onLayoutSaved={savePreset}

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
+import { copyText } from "@/lib/browser";
 import { errText, tr, trN } from "@/lib/i18n";
 import { FILES_CHANGED } from "@/lib/useChanges";
 import type { GitDiff } from "@/lib/types";
@@ -84,8 +86,26 @@ export default function Difference({
 
   const name = path.split("/").pop() ?? path;
 
+  const ctx = useContextMenu();
+  /* A line under the right button: the editor at that line, or the line's
+     text to the clipboard. A removed line has no line to land on, so it only
+     offers its text. */
+  const lineMenu = (l: GitDiff["hunks"][number]["lines"][number]): MenuItem[] => [
+    ...(onEdit && l.new
+      ? [{ label: tr("git.menuEditLine", "Edit at this line"), onClick: () => onEdit(path, l.new) }]
+      : []),
+    { label: tr("git.menuCopyLine", "Copy line"), onClick: () => copyText(l.text) },
+  ];
+  // The panel itself: ask git again, open the file, take the path along.
+  const panelMenu = (): MenuItem[] => [
+    { label: tr("git.menuRefresh", "Refresh"), onClick: () => setAgain((n) => n + 1) },
+    ...(onEdit ? [{ label: tr("git.menuOpenFile", "Open file"), onClick: () => onEdit(path, 0) }] : []),
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => copyText(path) },
+  ];
+
   return (
-    <div className="overlay viewer">
+    <div className="overlay viewer" onContextMenu={ctx(panelMenu())}>
       <div className="overlayBar">
         <span className="overlayName">{name}</span>
         <span className="meta">
@@ -131,6 +151,7 @@ export default function Difference({
                     className="diffline"
                     data-kind={kindOf(l.kind)}
                     onClick={() => onEdit(path, l.new)}
+                    onContextMenu={ctx(lineMenu(l))}
                     aria-label={tr("git.lineTip", "Open the editor at line {n}", { n: l.new })}
                   >
                     <span className="diffno">{l.old || ""}</span>
@@ -139,7 +160,7 @@ export default function Difference({
                     <span className="difftext">{l.text}</span>
                   </Button>
                 ) : (
-                  <span key={j} className="diffline" data-kind={kindOf(l.kind)}>
+                  <span key={j} className="diffline" data-kind={kindOf(l.kind)} onContextMenu={ctx(lineMenu(l))}>
                     <span className="diffno">{l.old || ""}</span>
                     <span className="diffno">{l.new || ""}</span>
                     <span className="diffmark">{l.kind === " " ? "" : l.kind}</span>

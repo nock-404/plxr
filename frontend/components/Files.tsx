@@ -373,6 +373,19 @@ export default function Files({
     ];
   }
 
+  /* The tree's own menu — on the root row at the top and on the space under
+     the last row, where no row is: what the toolbar does for the root, at the
+     pointer. A row stops the event, so a row's click never reaches this. */
+  const rootMenu = (): MenuItem[] => [
+    { label: tr("files.newFile", "+ FILE"), onClick: () => setPending({ kind: "newFile", dir: "" }) },
+    { label: tr("files.newFolder", "+ FOLDER"), onClick: () => setPending({ kind: "newFolder", dir: "" }) },
+    { separator: true },
+    { label: tr("files.menuRefresh", "Refresh"), onClick: () => void reloadAll() },
+    { separator: true },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(root).catch(() => undefined) },
+    { label: tr("files.reveal", "SHOW"), onClick: () => void reveal("") },
+  ];
+
   // A change to the tree: do it, then read everything again and say so.
   async function run(what: () => Promise<unknown>) {
     setError("");
@@ -403,7 +416,7 @@ export default function Files({
 
   return (
     <aside className="files">
-      <div className="filesbar">
+      <div className="filesbar" onContextMenu={ctx(rootMenu())}>
         <Tooltip text={root}>
           <span className="filesroot">{root}</span>
         </Tooltip>
@@ -483,7 +496,7 @@ export default function Files({
 
       {error ? <div className="notice warn">{error}</div> : null}
 
-      <div className="filetree" ref={tree} tabIndex={0} onKeyDown={onKey}>
+      <div className="filetree" ref={tree} tabIndex={0} onKeyDown={onKey} onContextMenu={ctx(rootMenu())}>
         {visible.map(({ entry, depth }) => {
           const mark = MARKS[git[entry.rel] ?? ""] ?? "";
           return (

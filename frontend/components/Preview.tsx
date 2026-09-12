@@ -6,7 +6,9 @@ import Tooltip from "@/components/ui/Tooltip";
 import Input from "@/components/ui/Input";
 import LinkButton from "@/components/ui/LinkButton";
 import TopStrip from "@/components/ui/TopStrip";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
+import { copyText, openInBrowser } from "@/lib/browser";
 
 /* A web page in a panel — the dev server a session is running, beside its
  * terminal. Point it at a port and it shows what that port serves.
@@ -21,6 +23,7 @@ export default function Preview({ url }: { url: string }) {
   const [live, setLive] = useState(url);
   const [nonce, setNonce] = useState(0);
   const frame = useRef<HTMLIFrameElement | null>(null);
+  const field = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setAddress(url);
@@ -34,12 +37,30 @@ export default function Preview({ url }: { url: string }) {
     setNonce((n) => n + 1);
   }
 
+  const ctx = useContextMenu();
+  /* The panel's own menu, on its bar and its empty state. The framed page is
+     another document: a right-click inside it is that page's, not plxr's. */
+  const panelMenu: MenuItem[] = [
+    { label: tr("preview.reload", "Reload"), disabled: !live, onClick: () => setNonce((n) => n + 1) },
+    { label: tr("preview.menuBrowser", "Open in browser"), disabled: !live, onClick: () => openInBrowser(live) },
+    { label: tr("preview.menuCopyUrl", "Copy URL"), disabled: !live, onClick: () => copyText(live) },
+    { separator: true },
+    {
+      label: tr("preview.menuEditUrl", "Edit URL"),
+      onClick: () => {
+        field.current?.focus();
+        field.current?.select();
+      },
+    },
+  ];
+
   return (
-    <div className="preview">
+    <div className="preview" onContextMenu={ctx(panelMenu)}>
       <TopStrip>
         <div className="previewbar">
           <span className="prompt">{tr("preview.prompt", "url>")}</span>
           <Input
+            ref={field}
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             onKeyDown={(e) => {
