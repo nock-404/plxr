@@ -25,6 +25,7 @@ export default function Ask({
   value = "",
   confirmLabel,
   danger = false,
+  third,
   onConfirm,
   onCancel,
 }: {
@@ -37,6 +38,10 @@ export default function Ask({
   value?: string;
   confirmLabel: string;
   danger?: boolean;
+  /* A third way out, beside yes and no — "terminate" next to "keep running".
+     The question is closed either way; which of the two was chosen is the
+     caller's to hear. */
+  third?: { label: string; danger?: boolean; onClick: () => void };
   onConfirm: (answer: string) => void;
   onCancel: () => void;
 }) {
@@ -88,6 +93,11 @@ export default function Ask({
         <div className="cardButtons">
           <span className="spacer" />
           <Button onClick={onCancel}>{tr("common.cancel", "CANCEL")}</Button>
+          {third ? (
+            <Button danger={third.danger} onClick={third.onClick}>
+              {third.label}
+            </Button>
+          ) : null}
           <Button primary danger={danger} onClick={answer}>
             {confirmLabel}
           </Button>

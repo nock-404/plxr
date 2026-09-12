@@ -829,3 +829,9 @@ button.diffline { cursor: pointer; }
 /* ---- context menus: the changes list fills its dock panel, so the space
    under the last group belongs to the list and its menu, not to nothing. ---- */
 .changesPanel .changes { flex: 1 1 auto; width: 100%; min-height: 0; }
+/* ---- dock tabs (scope: tabs) ----
+   Every panel's tab: the title and its own close, laid out like dockview's
+   default tab — arrangement only, the colours are the tab's. */
+.panelTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 0.5rem; white-space: nowrap; }
+.panelTabName { overflow: hidden; text-overflow: ellipsis; }
+.panelTabClose { padding: 0 0.125rem; line-height: 1; }

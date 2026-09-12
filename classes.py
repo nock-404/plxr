@@ -104,6 +104,9 @@ LAYOUT_ONLY = {
     # it and nothing else. The frame's border is .pterm's, the note's colour is
     # .endedNote's — both dressed in every skin.
     "paneEnded",
+    # Every panel's tab (title + guarded close + menu): arrangement only, it
+    # wears the tab's colours.
+    "panelTab", "panelTabName", "panelTabClose",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

@@ -7,8 +7,10 @@ import {
   type DockviewApi,
   type DockviewGroupPanel,
   type DockviewReadyEvent,
+  type IDockviewPanel,
   type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
+  type Position,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
 
@@ -31,8 +33,11 @@ import Files from "@/components/Files";
 import Viewer from "@/components/Viewer";
 import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
+import Ask from "@/components/ui/Ask";
+import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
 import type { Tile } from "@/lib/types";
 
 /* The window as dockable panels.
@@ -115,7 +120,17 @@ type DockData = {
   setDirty: (panelId: string, dirty: boolean) => void;
   isDirty: (panelId: string) => boolean;
   onReplaced: (id: string) => void;
+  /* The one way a panel is closed by hand — the tab's ✕, its menu, ⌘W: the
+     guard asks first when something would be lost, and says what came of it. */
+  requestClose: (panel: IDockviewPanel) => Promise<CloseResult>;
+  /* Several at once, one guard after the other; a cancel stops the run. */
+  closeMany: (panels: IDockviewPanel[]) => void;
 };
+
+/* What a guarded close came to: the panel is gone, it stayed because its
+   guard took over (a dirty editor comes to the front instead), or the user
+   said no. */
+export type CloseResult = "closed" | "kept" | "cancelled";
 
 const Ctx = createContext<DockData | null>(null);
 const useDock = () => {
@@ -296,36 +311,77 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
   );
 }
 
-/* The tab of an editor panel: its close refuses to drop unsaved edits.
+/* The tab of every panel: its title, a close that asks first, and a menu.
  *
  * Dockview's own tab closes the panel outright and offers no way to be asked
- * first, so an editor with edits in it was gone on a click, edits and all. This
- * tab asks the dock whether the panel is dirty; if it is, the click brings the
- * panel to the front instead — where the editor's own CLOSE says what is at
- * stake and offers SAVE, DISCARD or CANCEL. A clean panel closes as before. */
-function EditorTab(props: IDockviewPanelHeaderProps) {
+ * first, so an editor with edits in it was gone on a click, edits and all, and
+ * a terminal with a process in it the same. This tab hands the close to the
+ * dock's guard, which asks when something would be lost. Right-click opens the
+ * window's own menu with what a tab can do: close, close the others, close the
+ * group, float or dock, cross to the other lane, copy the title. The middle
+ * button closes, the way tabs close everywhere else. */
+function PanelTab(props: IDockviewPanelHeaderProps) {
   const d = useDock();
+  const ctx = useContextMenu();
+  const dv = props.containerApi;
+  const id = props.api.id;
+  const isRail = id === "rail";
+  const title = props.api.title ?? id;
+  const here = () => dv.getPanel(id);
+
+  /* Built when the menu is asked for, not when the tab renders: whether the
+     panel is floating or alone in its group is read at that moment. */
+  const items = (): MenuItem[] => {
+    const p = here();
+    if (!p) return [];
+    const floating = p.api.location.type === "floating";
+    const others = p.group.panels.filter((o) => o.id !== id);
+    const shape: MenuItem = floating
+      ? { label: tr("tab.dock", "Dock"), onClick: () => dockPanel(dv, p) }
+      : { label: tr("tab.float", "Float"), onClick: () => floatPanel(dv, p) };
+    if (isRail) return [shape];
+    return [
+      { label: tr("tab.close", "Close"), onClick: () => void d.requestClose(p), hint: caption(bindingOf("closePanel")) },
+      { label: tr("tab.closeOthers", "Close others in group"), onClick: () => d.closeMany(others), disabled: others.length === 0 },
+      { label: tr("tab.closeGroup", "Close group"), onClick: () => d.closeMany([...p.group.panels]) },
+      { separator: true },
+      shape,
+      { label: tr("tab.toOtherLane", "Move to the other lane"), onClick: () => crossLane(dv, p), disabled: floating },
+      { separator: true },
+      { label: tr("tab.copyTitle", "Copy title"), onClick: () => void navigator.clipboard?.writeText(title).catch(() => undefined) },
+    ];
+  };
+
   return (
-    <div className="editorTab">
-      <span className="editorTabName">{props.api.title}</span>
+    <div
+      className="panelTab"
+      onContextMenu={(e) => ctx(items())(e)}
+      onAuxClick={(e) => {
+        if (e.button !== 1 || isRail) return;
+        e.preventDefault();
+        const p = here();
+        if (p) void d.requestClose(p);
+      }}
+    >
+      <span className="panelTabName">{title}</span>
       {/* The glyph is drawn by the skin (::after), not written here: a tab's
           text is its title, and everything that reads tab titles — the gates,
-          the layout's own bookkeeping — must not find a ✕ appended to it. */}
-      <Button
-        bare
-        className="editorTabClose"
-        aria-label={tr("common.close", "CLOSE")}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (d.isDirty(props.api.id)) {
-            props.api.setActive();
-            return;
-          }
-          props.api.close();
-        }}
-      >
-        {""}
-      </Button>
+          the layout's own bookkeeping — must not find a ✕ appended to it. The
+          rail is the way to everything else and has no close at all. */}
+      {isRail ? null : (
+        <Button
+          bare
+          className="panelTabClose"
+          aria-label={tr("common.close", "CLOSE")}
+          onClick={(e) => {
+            e.stopPropagation();
+            const p = here();
+            if (p) void d.requestClose(p);
+          }}
+        >
+          {""}
+        </Button>
+      )}
     </div>
   );
 }
@@ -427,8 +483,10 @@ export type LayoutRequest =
   | { type: "activity"; arg: Activity };
 export type LayoutAction = LayoutRequest & { seq: number };
 
-// The tabs that are not dockview's default: the editor's, whose close is guarded.
-const tabComponents = { editorTab: EditorTab };
+/* Every tab is the PanelTab. "editorTab" stays as a name because a layout
+   saved before every panel had the guarded tab carries it per editor panel,
+   and a name dockview cannot resolve would drop the panel on restore. */
+const tabComponents = { editorTab: PanelTab };
 
 export default function Dock({
   tiles,
@@ -460,6 +518,8 @@ export default function Dock({
   | "shownDiff"
   | "setDirty"
   | "isDirty"
+  | "requestClose"
+  | "closeMany"
 > & {
   focus: Focus;
   layoutAction: LayoutAction | null;
@@ -534,6 +594,90 @@ export default function Dock({
   }, []);
   const isDirty = useCallback((panelId: string) => dirtyRef.current.get(panelId) === true, []);
 
+  /* The close guard.
+   *
+   * A session panel whose process is alive is asked about: keep it running
+   * and close only the panel (it stays in the rail), terminate it, or leave
+   * everything as it is. An editor with unsaved edits is not asked here — it
+   * comes to the front, where its own CLOSE says what is at stake and offers
+   * SAVE, DISCARD or CANCEL. The rail never closes. Anything else just goes.
+   * One question at a time: the dialog holds the answer's resolver. */
+  const [closeAsk, setCloseAsk] = useState<{ name: string; answer: (r: "keep" | "kill" | "cancel") => void } | null>(null);
+  const requestClose = useCallback((panel: IDockviewPanel): Promise<CloseResult> => {
+    const id = panel.id;
+    if (id === "rail") return Promise.resolve("kept");
+    if (id.startsWith("editor:") && dirtyRef.current.get(id) === true) {
+      panel.api.setActive();
+      return Promise.resolve("kept");
+    }
+    if (id.startsWith("session:")) {
+      const sid = id.slice("session:".length);
+      const tile = rootDirRef.current.tiles.find((t) => t.id === sid);
+      if (tile?.alive) {
+        panel.api.setActive();
+        return new Promise<CloseResult>((resolve) => {
+          setCloseAsk({
+            name: tile.name || tile.cwd || sid,
+            answer: (r) => {
+              setCloseAsk(null);
+              if (r === "cancel") return resolve("cancelled");
+              if (r === "kill") void api.kill(sid).catch(() => undefined);
+              panel.api.close();
+              resolve("closed");
+            },
+          });
+        });
+      }
+    }
+    panel.api.close();
+    return Promise.resolve("closed");
+  }, []);
+  const closeMany = useCallback(
+    (panels: IDockviewPanel[]) => {
+      void (async () => {
+        for (const p of panels) {
+          if ((await requestClose(p)) === "cancelled") break;
+        }
+      })();
+    },
+    [requestClose],
+  );
+
+  /* The dock's own keys, read against the keymap the way the shell reads its
+     own: ⌘W closes the active panel through the guard, ⌥⌘←/→ walk the panels
+     of the active group, ⌥⌘↑/↓ walk the groups. A field being typed in keeps
+     its keys, and a dialog on screen has the keyboard to itself. */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const dv = apiRef.current;
+      if (!dv) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.tagName === "INPUT") return;
+      if (document.querySelector(".backdrop, .paletteScrim")) return;
+      const editing = target?.tagName === "TEXTAREA" || Boolean(target?.isContentEditable);
+      const fire = (action: Action, run: () => void) => {
+        if (!matches(e, action)) return false;
+        if (editing && !hasModifier(bindingOf(action))) return false;
+        e.preventDefault();
+        run();
+        return true;
+      };
+      if (
+        fire("closePanel", () => {
+          const p = dv.activePanel;
+          if (p) void requestClose(p);
+        })
+      )
+        return;
+      if (fire("panelPrev", () => stepPanel(dv, -1))) return;
+      if (fire("panelNext", () => stepPanel(dv, 1))) return;
+      if (fire("groupPrev", () => stepGroup(dv, -1))) return;
+      if (fire("groupNext", () => stepGroup(dv, 1))) return;
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [requestClose]);
+
   const openEditor = useCallback((rootId: string, rawPath: string, line?: number, title?: string) => {
     const dv = apiRef.current;
     if (!dv) return;
@@ -559,10 +703,12 @@ export default function Dock({
     () => ({
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
+      requestClose, closeMany,
     }),
     [
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
+      requestClose, closeMany,
     ],
   );
 
@@ -691,9 +837,25 @@ export default function Dock({
   return (
     <Ctx.Provider value={data}>
       <InlineStrip.Provider value={true}>
-        <DockviewReact className="plxrDock" components={components} tabComponents={tabComponents} onReady={onReady} />
+        <DockviewReact
+          className="plxrDock"
+          components={components}
+          tabComponents={tabComponents}
+          defaultTabComponent={PanelTab}
+          onReady={onReady}
+        />
       </InlineStrip.Provider>
       {paletteOpen ? <CommandPalette commands={commands} onClose={onClosePalette} /> : null}
+      {closeAsk ? (
+        <Ask
+          heading={tr("dock.closeLiveHead", "This session is still running")}
+          detail={tr("dock.closeLiveDetail", "{name} keeps running if only the panel is closed — it stays in the rail. Or terminate it now.", { name: closeAsk.name })}
+          confirmLabel={tr("dock.keepRunning", "KEEP RUNNING")}
+          third={{ label: tr("session.kill", "TERMINATE"), danger: true, onClick: () => closeAsk.answer("kill") }}
+          onCancel={() => closeAsk.answer("cancel")}
+          onConfirm={() => closeAsk.answer("keep")}
+        />
+      ) : null}
     </Ctx.Provider>
   );
 }
@@ -832,8 +994,11 @@ function laneOf(role: Role, id: string): Lane {
 // qualifies, else the first that does. A group that holds a stage panel is
 // never an aside or a desk, whatever else was tabbed into it — the user put
 // something over a terminal on purpose, and the lanes must not grow into it.
-function groupOf(dv: DockviewApi, lane: Lane): DockviewGroupPanel | undefined {
+function groupOf(dv: DockviewApi, lane: Lane, except?: { id: string }): DockviewGroupPanel | undefined {
   const holds = (g: DockviewGroupPanel) => {
+    // A floating group is a window of its own, not a lane: nothing tabs into
+    // it by placement, and a panel docking back never lands in one.
+    if (g.id === except?.id || g.api.location.type !== "grid") return false;
     if (lane === "stage") return g.panels.some((p) => isStagePanel(p.id));
     if (g.panels.some((p) => isStagePanel(p.id))) return false;
     return lane === "aside" ? g.panels.some((p) => isAsidePanel(p.id)) : g.panels.some((p) => isDocument(p.id));
@@ -852,10 +1017,10 @@ function groupOf(dv: DockviewApi, lane: Lane): DockviewGroupPanel | undefined {
  * the lane before it when there is none yet. Nothing ever tabs over the
  * terminal because it happened to be the active group, and a file never
  * tabs over the tree it was picked from. */
-function place(dv: DockviewApi, lane: Lane): AddPanelPositionOptions {
-  const stage = groupOf(dv, "stage");
-  const aside = groupOf(dv, "aside");
-  const desk = groupOf(dv, "desk");
+function place(dv: DockviewApi, lane: Lane, except?: { id: string }): AddPanelPositionOptions {
+  const stage = groupOf(dv, "stage", except);
+  const aside = groupOf(dv, "aside", except);
+  const desk = groupOf(dv, "desk", except);
   if (lane === "stage") {
     if (stage) return { referenceGroup: stage };
     if (aside) return { referenceGroup: aside, direction: "left" };
@@ -919,9 +1084,7 @@ function openOrFocus(
     existing.api.setActive();
     return false;
   }
-  // An editor gets its own tab, whose close will not drop unsaved edits.
-  const tab = component === "editor" ? { tabComponent: "editorTab" } : {};
-  dv.addPanel({ id, component, title, params, ...tab, ...sized(dv, place(dv, laneOf(role, id))) });
+  dv.addPanel({ id, component, title, params, ...sized(dv, place(dv, laneOf(role, id))) });
   return true;
 }
 
@@ -950,4 +1113,120 @@ function openFresh(dv: DockviewApi, id: string, component: string, title: string
   }
   const position: AddPanelPositionOptions = beside ? { referenceGroup: beside, direction: "right" } : { direction: "right" };
   dv.addPanel({ id, component, title, params, ...sized(dv, position) });
+}
+
+/* ---------- moving panels: float, dock, the other lane ---------- */
+
+// roleOf reads a panel's role back off its id, for a panel that is already
+// there and is being moved rather than made.
+function roleOf(id: string): Role {
+  if (id.startsWith("session:")) return "session";
+  if (id in VIEW_TITLES) return "view";
+  return "companion";
+}
+
+/* floatPanel lifts a panel out of the grid into a floating group of its own —
+   a window inside the window, dragged and resized by its title bar. Sized to
+   a readable share of the dock and centred; dockview measures in pixels, so
+   the rem it is declared in is converted here, the way the rail's width is. */
+function floatPanel(dv: DockviewApi, panel: IDockviewPanel) {
+  const width = Math.min(Math.round(dv.width * 0.6), Math.round(remToPx("44rem")));
+  const height = Math.min(Math.round(dv.height * 0.6), Math.round(remToPx("30rem")));
+  dv.addFloatingGroup(panel, {
+    width,
+    height,
+    x: Math.max(0, Math.round((dv.width - width) / 2)),
+    y: Math.max(0, Math.round((dv.height - height) / 2)),
+  });
+}
+
+// dockPanel puts a floating panel back into the grid, where its role says.
+function dockPanel(dv: DockviewApi, panel: IDockviewPanel) {
+  moveInto(dv, panel, place(dv, laneOf(roleOf(panel.id), panel.id), panel.group));
+}
+
+/* crossLane moves a panel between the stage and the aside.
+ *
+ * Which lane a panel is in is read off the group it sits in, not its id: a
+ * group holding a terminal is the stage, whatever else was tabbed into it. So
+ * a usage panel tabbed over a terminal crosses to the aside, and the same
+ * panel in the aside crosses onto the stage beside the terminal. The panel's
+ * own group is left out of the search, so it never "moves" onto itself. */
+function crossLane(dv: DockviewApi, panel: IDockviewPanel) {
+  const onStage = panel.group.panels.some((p) => isStagePanel(p.id));
+  moveInto(dv, panel, place(dv, onStage ? "aside" : "stage", panel.group));
+}
+
+// toPosition writes a placement direction the way moveTo reads it.
+function toPosition(direction: AddPanelPositionOptions["direction"]): Position | undefined {
+  const d = direction as string | undefined;
+  if (!d || d === "within") return undefined;
+  if (d === "above") return "top";
+  if (d === "below") return "bottom";
+  return d === "left" ? "left" : "right";
+}
+
+/* moveInto carries a panel to where place() said a new one would go. With no
+   group to refer to — the panel's own is the only one — it splits off its
+   own group instead; alone in a grid group it already is a lane of its own,
+   and there is nothing to do. */
+function moveInto(dv: DockviewApi, panel: IDockviewPanel, pos: AddPanelPositionOptions) {
+  const refId =
+    "referenceGroup" in pos
+      ? typeof pos.referenceGroup === "string"
+        ? pos.referenceGroup
+        : pos.referenceGroup.id
+      : "referencePanel" in pos
+        ? typeof pos.referencePanel === "string"
+          ? dv.getPanel(pos.referencePanel)?.group.id
+          : pos.referencePanel.group.id
+        : undefined;
+  const ref = refId ? dv.groups.find((g) => g.id === refId) : undefined;
+  const position = toPosition(pos.direction);
+  if (ref) {
+    panel.api.moveTo({ group: ref, position });
+    return;
+  }
+  const own = dv.groups.find((g) => g.id === panel.group.id);
+  if (own && panel.group.panels.length > 1) {
+    panel.api.moveTo({ group: own, position: position ?? "right" });
+    return;
+  }
+  // Alone in a floating group, with nothing in the grid to refer to: beside
+  // whatever is there, the rail only when it is all there is.
+  const grid = dv.groups.filter((g) => g.id !== panel.group.id && g.api.location.type === "grid");
+  const beside = grid.find((g) => !g.panels.some((p) => p.id === "rail")) ?? grid[0];
+  if (beside) panel.api.moveTo({ group: beside, position: position ?? "right" });
+}
+
+/* ---------- the keyboard between panels ---------- */
+
+// stepPanel makes the previous or next panel of the active group active,
+// wrapping at either end.
+function stepPanel(dv: DockviewApi, by: -1 | 1) {
+  const g = dv.activeGroup;
+  if (!g) return;
+  const list = g.panels;
+  if (list.length < 2) return;
+  const i = g.activePanel ? list.indexOf(g.activePanel) : -1;
+  list[(i + by + list.length) % list.length]?.api.setActive();
+}
+
+/* stepGroup makes the previous or next group active, in reading order — left
+   to right, then top to bottom, as the groups sit on screen rather than in the
+   order they were made. The rail is the launcher, not a place to work, and is
+   skipped; floating groups take their turn where they sit. */
+function stepGroup(dv: DockviewApi, by: -1 | 1) {
+  const ordered = dv.groups
+    .filter((g) => !g.panels.every((p) => p.id === "rail"))
+    .map((g) => ({ g, r: g.element.getBoundingClientRect() }))
+    .sort((a, b) => a.r.left - b.r.left || a.r.top - b.r.top)
+    .map((x) => x.g);
+  if (ordered.length < 2) return;
+  const cur = dv.activeGroup;
+  const i = cur ? ordered.indexOf(cur) : -1;
+  const next = ordered[(i + by + ordered.length) % ordered.length];
+  if (!next) return;
+  if (next.activePanel) next.activePanel.api.setActive();
+  else next.api.setActive();
 }
