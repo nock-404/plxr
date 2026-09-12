@@ -85,6 +85,475 @@ through Claude Code (`claude -p`), batched and on demand; HE picks which account
 runs on, plxr never distributes on its own. The full design is in
 docs/superpowers/specs/2026-09-12-plxr-daily-driver-design.md, "Pillar 8".
 
+## The real list — derived from what a finished daily driver needs, not from his examples
+
+Produced 12.09.2026 by a read-only audit of the tree that shipped as 0.76.0: ten areas, each held to the bar of VS Code / GitLens / iTerm-Warp, every requirement checked against the code. His examples (1–56 in chat) are a subset and are marked where they map. **394 open items — 265 must / 107 should / 22 nice; 136 missing, 258 partial.**
+
+Counts as the auditor put them: 395 open items after cross-area dedupe (from 530 audit findings; 27 done). must: 202 partial + 63 missing = 265 · should: 52 partial + 56 missing = 108 · nice: 5 partial + 17 missing = 22. Sizes: ~150 S, ~205 M, ~40 L. Owner's examples map onto 32 of the 395 items (marked ownerExample); the remaining 363 he never named.
+
+**Verdict:** The tree is a working shell around the right architecture — daemon-owned PTYs, Dockview panels, CodeMirror with a live git gutter, a coalesced watcher, opaque-surface tokens, atomic prefs, a real Settings window — but it is roughly a quarter of "finished": 27 of 557 derived requirements are done, 265 must-items are open, and the gaps cluster at the structural layer (no command registry, no key dispatch, no focus layer, no close guards, no custom tabs, no real-window verification) rather than at the edges, which is exactly why fixing his examples one at a time never converges. Terminal and layout are the closest (most items are partial polish on working code); editor, files and status are half-built; source control, accounts/identities, notifications and first-run are viewers or absent. Two things are live-dangerous today (⌘R/⌘W through Wails' default menu; silent discard of unsaved edits) and one process gap makes every other claim unprovable (no WKWebView capture path). Realistic order: the ~15 structural musts first (registry, dispatch, focus, guards, tabs, native suppression, real-window gate), then terminal/editor musts, then git — that is months of work, not the "remaining audit findings" OFFEN.md describes.
+
+**The ten most consequential gaps:**
+1. C16: Wails default menu is live — ⌘R reloads the page over every terminal and ⌘W closes the window; native context menu on tabs/editor/dialogs.
+2. E03/T07: no close guard anywhere — dirty editors and running sessions are discarded on tab ×, ⌘W, preset, reset, quit.
+3. C07+C10+C24: no command registry, no dispatch layer, no focus management — the structural reason every fix stays an example.
+4. T02+ST03: Ctrl+C on a CLI without a SIGINT trap still kills the session, and a dropped-to shell still reads 'Claude waiting'.
+5. ST20: notifications still posted by the daemon via osascript → no icon, click opens Script Editor, no permission state, no DND.
+6. T11: ctrlKey mapped to Mod steals Ctrl+K/F/N/1-8 from readline/TUIs; ⌘F fires once per open session.
+7. T09: a viewer that falls behind gets the whole 2 MB ring appended — duplicated terminal output.
+8. G06–G28: no hunk staging, discard, stash, push/pull/fetch, merge/rebase, conflicts, blame, log actions — git is a viewer.
+9. T23+E02+F33: no clickable file:line links, no ⌘P quick open, no recent files — navigation is a tree crawl.
+10. P20+P01: nothing verified in the real WKWebView window; docs/verify does not exist, so every 'partial' is unproven on screen.
+
+### terminal (47 open · already there: 4 done (restart-in-place, orphan return, mouse reporting, freeze/resume))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| T01 | Login-shell env parity (LC_*, PATH order, fish) | partial | LC_ALL unset, fish untested, PATH is a merged union | must | M | chat: fish PATH |
+| T02 | Ctrl+C on CLI drops to shell | partial | SIGINT to pgrp kills wrapper; only SIGTERM tested | must | M | #5 no shell after Ctrl+C |
+| T03 | Ended state: last lines, time, CLOSE, RESTART everywhere, persists | partial | xterm unmounted, no ended time, purged after 90 s loses RESTART, rail has none | must | M | #4 cannot resume; chat: RESTART lost after 90 s |
+| T04 | New shell here (rail, menu, shortcut, focused cwd) | partial | Only the dialog; never seeds focused session cwd | must | M |  |
+| T05 | New-session dialog: recents, missing CLI disabled, unattended flag | partial | No recents, no LookPath, no skip-permissions toggle | must | M |  |
+| T06 | Terminate escalates TERM/HUP/KILL, no orphans, panel shows ended | partial | No SIGHUP, setsid children escape, TERMINATE closes panel | must | M |  |
+| T07 | Closing panel/window with running process asks keep/terminate | missing | No prompt on ⌘W, tab close, window close | must | M |  |
+| T08 | Reconnect as panel state, buffered keys, wake listener, WebGL re-create | partial | Text line in scrollback, keys dropped, no visibility/wake hook, WebGL never rebuilt | must | M |  |
+| T09 | Slow viewer resync without duplication | partial | 2 MB ring appended as plain chunk after fall-behind | must | M |  |
+| T11 | App chords never steal terminal keys; Option-as-Meta | partial | ctrlKey=Mod steals Ctrl+K/F/N/1-8, F12 stolen, ⌘F fires per mounted session, Esc closes settings | must | S |  |
+| T12 | Terminal fits pane exactly in every skin (measured) | partial | No last-row gate; sketch/pixel borders unaccounted | must | M |  |
+| T13 | Resize throttled, no fit while hidden, send only on change | partial | SIGWINCH per ResizeObserver tick | must | S |  |
+| T14 | Scrollback restore from recording; clear-screen/reset commands | partial | Restore from byte ring; one Clear only, not in palette | must | M |  |
+| T15 | Terminal find: incremental, regex/case/word, n of m, highlight, focus return | partial | Enter-only search, no toggles/count/decorations | must | M |  |
+| T16 | Selection options (word separators, option-click) | partial | xterm defaults only, unverified in WKWebView | must | S |  |
+| T17 | Clipboard: copy-on-select, HTML copy, paste fallback/confirm/chunking, verified in WKWebView | partial | No native fallback, no multi-line confirm, Blink-only proof (editor too) | must | M |  |
+| T18 | Terminal context menu: split, rename, copy path, restart, close | partial | Five entries only | must | S |  |
+| T19 | Unicode-11 widths, Nerd/powerline fallback fonts | partial | No unicode11 addon, no fallback family | must | S |  |
+| T20 | Emulation verified (vttest-style, real TUI) | partial | No verification exists | must | M |  |
+| T23 | ⌘-click URLs and file:line:col → editor | missing | No link provider at all | must | M |  |
+| T26 | Font weight, line height, letter spacing settings | partial | Family/size only, lineHeight hard-coded | must | S |  |
+| T29 | Per-skin 16-colour ANSI palette, bold-as-bright, min contrast | partial | Skins set bg/fg only; xterm VGA defaults everywhere | must | M |  |
+| T30 | Cursor inactive style, contrast per skin | partial | cursorInactiveStyle unset, no contrast gate | must | S |  |
+| T31 | Backpressure to PTY, latency/stall measurement | partial | Drops + full resend; nothing measured | must | M |  |
+| T32 | Hidden tabs stop rendering; bounded memory; soak test | partial | Every tabbed-away xterm renders and streams; no measurement | must | M |  |
+| T34 | Player: play/pause, time scrub, speed, marks, search | partial | Byte-offset slider and ⏮ only | must | L |  |
+| T36 | Status on dock tab/session bar/dock badge; stale eviction | partial | Rail/tile only; no eviction on host exit | must | M |  |
+| T37 | Inbox option buttons; clickable earlier answers; handled mark | partial | Free-text only, suggestions are plain text | must | M |  |
+| T38 | Queue edit/reorder, pending count on tile/rail/tab, survives end | partial | Add/drop only; cleared on session end; count nowhere | must | M |  |
+| T39 | Hazard mark on the session panel itself | partial | Tile/rail only | must | S |  |
+| T40 | Live cwd (OSC 7/process) shown full with tooltip + copy; followers use it | partial | cwd static, cut to 34 chars, no tooltip/click | must | M | #3 path cut off |
+| T42 | Spawn failures actionable in panel (missing CLI, cwd gone, PTY, recording dir) | partial | No fix actions; missing binary unexplained; recording failure silent | must | M |  |
+| T43 | Live age / idle-for on tile, rail, inbox, ended | missing | `since` never rendered | must | S |  |
+| T44 | Settings › Terminal exposes every option | partial | Missing bell, Option-Meta, copy-on-select, paste warn, ligatures, renderer, shell/args, env, min contrast, confirm-on-close | must | M |  |
+| T10 | Smallest-viewer sizing shown in pane | partial | No 'sized by another viewer' hint | should | S |  |
+| T21 | OSC 8 links, OSC 0/2 title, OSC 52 opt-in | missing | Nothing wired | should | M |  |
+| T22 | Shell integration OSC 133 (prompt jump, exit badge, last output) | missing | Nothing exists | should | L |  |
+| T24 | BEL → flash/sound + tab badge | missing | No onBell | should | S |  |
+| T25 | Unread/activity indicator on tab, rail, tile | missing | No unread tracking | should | M |  |
+| T27 | Ligatures with toggle | missing | No addon, no setting | should | S |  |
+| T28 | Per-pane zoom ⌘+/−/0 | missing | Global slider only | should | M |  |
+| T33 | Prompt ≤1 s after START | partial | AdoptLoginPath up to 20 s, `-l` shell cost per session | should | M |  |
+| T35 | Recording cap surfaced; recordings archive with size/delete/export | missing | Cap only logged; no list | should | M |  |
+| T41 | Titles from OSC/process; inline rename persisted; tab follows | partial | Folder name only, no rename, tab title frozen | should | M |  |
+| T45 | Screen-reader mode, high contrast, labelled terminal actions | missing | One aria-label; no toggle | should | S |  |
+| T46 | Copy whole scrollback / save text | missing | No serialize | nice | S |  |
+| T47 | Inline images (iTerm2/Sixel) | missing | No addon | nice | S |  |
+
+### editor (46 open · already there: 2 done (bracket matching, prefs sync))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| E01 | One editor per resolved absolute file across session/workspace roots | missing | Id is rootId:path; relative vs absolute spellings double-buffer | must | S | chat: duplicate editor identity |
+| E02 | Quick open ⌘P (fuzzy files, :NN, recency, lazy index, 100k files) | missing | No file index, no ⌘P, palette lists commands only | must | M |  |
+| E03 | Dirty close guard on every route (tab ×, ⌘W, group, rebuild, preset, quit, reload) | missing | Only 'open another file' asks; all others discard silently | must | M | chat: unsaved-close regression |
+| E04 | Restore cursor/scroll; gone-file state with CLOSE | partial | Nothing persisted; gone file renders empty editable body | must | M |  |
+| E05 | Save: clean no-op, tmp never orphaned, fsync | partial | Clean ⌘S writes; tmp left on WriteFile error; no fsync | must | S | chat: .plxr-tmp |
+| E06 | 409 conflict offers Compare/Reload/Overwrite | partial | Sentence in bar, no actions | must | M |  |
+| E07 | Save errors translated, Save As ⌘⇧S via plxr picker | partial | Raw OS strings truncated; no Save As | must | M |  |
+| E11 | Changed-on-disk: detection independent of Changes panel, diff option, deleted-on-disk state, cursor/folds kept | partial | Signal only while Changes panel subscribed; whole-doc replace; deletion swallowed | must | M |  |
+| E12 | Rename/move retargets open editor (title, id, save path) | missing | Editor becomes dead buffer under old name | must | M |  |
+| E13 | Undo history survives Dockview move/popout | partial | Unproven; remount destroys view | must | S |  |
+| E14 | Multi-cursor (⌥-click, ⌘D, ⌘⇧L, column select) | missing | allowMultipleSelections not enabled | must | S |  |
+| E15 | Line ops with VS Code keys, listed in keybindings | partial | Join/shrink/⌘L absent; none listed | must | S |  |
+| E16 | ⌘/ and ⌥⇧A comments, fallback syntax for undetected files | partial | Block key differs; no fallback | must | S |  |
+| E17 | Auto-close brackets/quotes, surround, toggles | partial | closeBrackets unused; no settings | must | S |  |
+| E18 | Tabs vs spaces, indent size detection, switchable | partial | tabSize only; no detection/insertSpaces | must | M |  |
+| E19 | CRLF/LF detected and preserved; mixed reported | missing | CRLF silently normalised on save | must | M |  |
+| E23 | Edit files ≥8 MB with degradation; stated hard cap | missing | 512 KiB read-only cap; silent gutter cutoff | must | M |  |
+| E26 | Go-to-line ⌃G/⌘L on --surface popover | partial | CM raw panel on ⌥G, untranslated | must | S |  |
+| E27 | Find/replace panel: skinned, i18n, n of m, ⌥⌘F, count, no double-fire with terminal find | partial | CM native controls, English literals, no count, ⌘F opens both finds | must | M |  |
+| E28 | Search hit opens at column with match selected | partial | Line only, nothing selected | must | S |  |
+| E30 | Status row: line:col, selection, indent, EOL, encoding, language (clickable) | missing | No status row | must | M |  |
+| E31 | Header shows full path with tooltip, copy rel/abs, reveal | missing | Basename only | must | S |  |
+| E32 | Same-basename tabs disambiguated; title follows rename; sessions get short id | missing | Gate enshrines two identical 'same.txt' tabs | must | S |  |
+| E34 | Editor fills group at all sizes (measured) | partial | No gate; unverified in WKWebView | must | S |  |
+| E37 | Git gutter: hunk popover, revert/stage, next/prev, editor→diff; non-repo shows no marks | partial | Marks inert; file outside git shows every line added | must | M |  |
+| E39 | Language by shebang/dotfile; manual override | partial | Extension match only | must | S |  |
+| E40 | ≥5 distinct syntax classes per skin | partial | Effectively three colours | must | S |  |
+| E42 | Typed plugin contract (save cancel, diagnostics/completion/hover slots) proven by stub test | partial | Three empty compartments, unused save hook, no test | must | M |  |
+| E44 | Read errors translated with retry; EISDIR opens tree | partial | Raw OS strings, no retry, empty editable body | must | S |  |
+| E08 | ⌘N untitled buffer | missing | No concept | should | M |  |
+| E09 | Save All ⌥⌘S with per-file report | missing | Absent | should | S |  |
+| E10 | Revert file / compare with saved | missing | Absent | should | S |  |
+| E20 | BOM preserved; non-UTF-8 read-only with reopen-with-encoding | missing | Latin-1 declared binary; no readout | should | M |  |
+| E21 | Trim whitespace / final newline on save (off by default) | missing | Save hook dead code | should | S |  |
+| E22 | Render whitespace, indent guides | missing | Absent | should | S |  |
+| E24 | Image preview; binary shows type/size/reveal/open-with | partial | 'not text' dead end | should | M |  |
+| E25 | Long-line guard; per-file wrap toggle | partial | Global wrap only; unmeasured | should | S |  |
+| E29 | Folds preserved across reload/restore | partial | Lost on every reload | should | S |  |
+| E33 | Split editor ⌘\ sharing doc/history | missing | Absent | should | M |  |
+| E35 | Editor keymap listed/rebindable; vim option | partial | Keybindings tab ignores editor; no vim | should | M |  |
+| E36 | Relative line numbers, click/⇧-click selects lines | partial | Absent | should | S |  |
+| E41 | Editor font/size separate from terminal; ⌘=/⌘- zoom | partial | Borrows --term-font; no zoom | should | S |  |
+| E43 | Word completion ⌃Space | missing | autocomplete installed, unused | should | S |  |
+| E45 | Offline: ⌘S queued with visible state | missing | Single fetch | should | M |  |
+| E46 | Performance budgets measured (open/keystroke/tab switch), 20k-line notice | partial | Nothing timed; silent gutter skip | should | M |  |
+| E38 | Minimap / scrollbar markers decision | missing | Undecided | nice | S |  |
+
+### git (48 open · already there: 6 done (follows focus, rename unstage, subfolder commit scope, diff ids, external change reflection, coalesced watcher core))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| G01 | Merge-conflict group; collapsible groups with badges | partial | UU file listed twice; no collapse | must | M |  |
+| G02 | One watcher per resolved repo; no side pollers; quiet at idle | partial | Files.tsx 4 s poll per tree, Folders self-fetch, per-folder loops, never idles while panel open | must | M | chat: flaky git-quiet claim |
+| G03 | Row: dir dimmed/basename, status letter, rename old→new, abs tooltip | partial | Word instead of letter; rename loses new path | must | S |  |
+| G04 | Stage/unstage via context menu, keyboard, optimistic | partial | Row buttons only, busy-locked | must | S |  |
+| G05 | Stage/unstage all (repo); multi-select rows | partial | Per-group only, no selection model | must | S |  |
+| G06 | Hunk-level stage/unstage/revert | missing | Absent | must | L | chat: hunk staging |
+| G07 | Discard/restore with named confirmation | missing | Absent | must | M |  |
+| G08 | Three diff modes, switchable in header | partial | No working-vs-HEAD; mode fixed in id | must | S |  |
+| G09 | Side-by-side/inline, syntax + word-level highlight | partial | Inline plain text only | must | L |  |
+| G10 | Diff edge cases: binary sizes, submodule, symlink, size limit, whitespace toggle | partial | None handled specially | must | M |  |
+| G11 | Arrow-key row navigation updating diff; scroll kept | partial | No key handler | must | S |  |
+| G12 | Tree decorations: ancestors inherit, renamed/ignored states, same tick | partial | No propagation, own poll | must | M |  |
+| G13 | .gitignore awareness in tree/search, 'Add to .gitignore' | partial | Hard-coded noise list; no check-ignore | must | M |  |
+| G14 | Commit box: multi-line, ruler, ⌘Enter, stage-all-and-commit | partial | Single-line Input hidden when nothing staged | must | M |  |
+| G15 | Commit failures with copyable stderr, live hook output | partial | Hook stderr dropped; no copy | must | S |  |
+| G16 | Amend with prefilled message, pushed check | missing | Backend flag only | must | S |  |
+| G18 | Blame (inline + gutter, ignore-revs) | missing | Absent | must | L |  |
+| G19 | Log panel: paged, search, refs, graph, author | partial | Fixed 8 rows inside Changes | must | L |  |
+| G20 | Commit actions: files, diff, copy hash, checkout, cherry-pick, revert, reset | missing | Rows inert | must | L |  |
+| G22 | Branch indicator: no-upstream state, clickable, in status row | partial | Not clickable, no strip item | must | S |  |
+| G23 | Branch picker: remotes, fuzzy, create-from-ref, rename, track, live, reachable from Changes/palette | partial | Local only, manual refresh, Folders tab only | must | L |  |
+| G24 | Dirty checkout: show paths, offer stash-and-switch | partial | Fixed sentence, no stash | must | M |  |
+| G25 | Merge/rebase with abort/continue incl. terminal-started | missing | Absent | must | L |  |
+| G26 | Conflict tooling: ours/theirs/both, three-way, auto-resolve mark | missing | Absent | must | L |  |
+| G27 | Stash create/list/apply/pop/drop/show, partial | missing | Absent | must | M |  |
+| G28 | Fetch/pull/push/set-upstream/force-with-lease with progress+cancel | missing | Absent; ahead/behind goes stale | must | L |  |
+| G30 | Auth prompts (passphrase/2FA) surfaced; git identity shown | missing | git runs without stdin — prompts hang to timeout | must | L |  |
+| G33 | Worktrees listed; branch-elsewhere marked | partial | Only git's refusal mapped | must | M |  |
+| G34 | Multi-repo picker; 'Initialize repository' | partial | Neither exists | must | M |  |
+| G35 | Symlink entry rendered as link change | partial | Plain typechange word | must | S |  |
+| G36 | Large repos: progressive render, virtualised rows, cancel, grandchild kill | partial | Opens every untracked file per tick; unvirtualised | must | M |  |
+| G37 | Idle backoff when window unfocused; refresh on focus | partial | No visibility handling | must | S |  |
+| G38 | Every git action a palette/menu command with VS Code keys | partial | Only 'open panel' | must | M |  |
+| G39 | Keyboard navigation in Changes panel | missing | Absent | must | M |  |
+| G40 | Progress+cancel, per-repo serialisation, index.lock explained | partial | Busy flag only | must | M |  |
+| G41 | Distinct states: unborn, bare, git missing, permission, corrupt — with action | partial | Collapse into raw err.git.failed | must | M |  |
+| G47 | No truncation without tooltip/copy; hook stderr kept | partial | logsubject ellipsised without tooltip | must | S |  |
+| G48 | Changes/diff/gutter/log dressed per skin, narrow-width rows | partial | skin-base only; no narrow rule; no real-window proof | must | M |  |
+| G17 | Message history, conventional-commit completion, trailers, template | missing | Absent | should | M |  |
+| G21 | Per-file history following renames | missing | Absent | should | M |  |
+| G29 | Auto-fetch with backoff and last-fetch time | missing | Absent | should | S |  |
+| G31 | Tags list/create/delete/push; log decorations | missing | Absent | should | M |  |
+| G32 | Submodules as one entry with sub-state | missing | Plain M row | should | M |  |
+| G42 | Changes panel state survives relayout (message, collapsed, diff mode) | partial | Component state only | should | S |  |
+| G43 | Branch-wide review against base | missing | Absent | should | L |  |
+| G44 | Compare any two refs | missing | Absent | nice | M |  |
+| G45 | Copy hash/rel path/hunk/permalink | partial | Tree COPY PATH only | nice | S |  |
+| G46 | Line history, file at revision | missing | Absent | nice | M |  |
+
+### files (41 open · already there: 1 done (path containment))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| F01 | Tree panel: expansion/hidden/filter persisted, restore guard, in presets, one implementation | partial | State lost on relaunch; errors after service restart; two tree impls | must | M |  |
+| F02 | Tree follows focused session or pins; root tooltip + copy | partial | Always pinned; root truncated without tooltip | must | M |  |
+| F03 | Loading row; unreadable folder error inline | partial | Top banner, no loading state | must | S |  |
+| F04 | Empty states: no root, empty folder, root gone + Reload | partial | Nothing rendered for empty dir | must | S |  |
+| F06 | Natural-order sort | partial | Lexical | must | S |  |
+| F07 | Home/End/PageUp/Down, type-ahead, Space preview | partial | Arrows/Enter only | must | S |  |
+| F08 | Explorer keys F2/Delete/⌘C/V/D/N, rebindable | missing | None exist | must | M |  |
+| F11 | Inline create at depth, collision keeps input | partial | Modal dialog; name lost on collision | must | M |  |
+| F12 | Inline rename with basename selected, case-only rename, illegal names refused | partial | Modal; case-only refused; no validation | must | M |  |
+| F13 | Delete to Trash with count, permanent alternative | partial | RemoveAll only | must | M |  |
+| F14 | Drag-and-drop move/copy with highlights and overwrite/skip | partial | No DnD; collision is flat refusal | must | M |  |
+| F16 | Copy relative path; clipboard refusal visible | partial | Absolute only; failure swallowed | must | S |  |
+| F19 | Reveal active file; auto-reveal option | missing | Tree unaware of editors | must | S |  |
+| F20 | Tree relists on external change, keeps state; two windows converge | missing | Only git marks refresh; agent-created files invisible | must | M |  |
+| F21 | Filter prunes folders, hit count, Esc, bounded I/O | partial | Lists whole tree per keystroke | must | M |  |
+| F22 | Virtualised rows, 'showing first N' cap | missing | All rows in DOM | must | M |  |
+| F23 | Op failure inline at row, tree rolled back | partial | Banner; no relist | must | S |  |
+| F24 | ⇧⌘F focuses search prefilled from selection; results persist | partial | Mod+8, no focus/prefill, remount wipes results | must | M |  |
+| F25 | Search toggles persisted with keys; regex error translated | partial | useState only | must | S |  |
+| F26 | Include/exclude globs (**, commas, negation), ignored toggle, scope shown | partial | One basename glob | must | M |  |
+| F27 | Per-file counts, collapse, dismiss | partial | Absent | must | S |  |
+| F28 | Streaming, cancellable search with progress | partial | One synchronous 5 s call | must | M |  |
+| F31 | Replace in files with preview, $1, mtime guard, undo | missing | Absent | must | L |  |
+| F33 | Recent files MRU (quick open, MENU › Open Recent) | missing | Absent | must | M |  |
+| F35 | Multi-root tree; search spans roots; session+workspace on same folder share ids | partial | One panel per id | must | L |  |
+| F36 | Open/unsaved marker on tree rows | partial | None | must | S |  |
+| F37 | Selection/badges/focus styled in all four skins | partial | skin-base only; literal scrim colour | must | S |  |
+| F05 | Symlinks marked; broken links shown | partial | No link flag | should | S |  |
+| F09 | Single-click preview tab, double-click pins | missing | Every click opens a permanent panel | should | M |  |
+| F10 | Multi-selection with bulk actions (tree, rail, changes, search) | missing | Single selection everywhere | should | M |  |
+| F15 | Duplicate 'name copy.ext' | missing | Absent | should | S |  |
+| F17 | Open in default app / new session here / reveal in palette | partial | Reveal only | should | S |  |
+| F18 | Drag file → terminal quoted path / → editor / from Finder | missing | No drag handlers | should | M |  |
+| F29 | Scope: folder from tree, subfolder, open files | partial | Whole root only | should | M |  |
+| F30 | Search history with recall | missing | Absent | should | S |  |
+| F32 | '@' symbols via provider registry | missing | No slot | should | M | chat: LSP |
+| F34 | Recent folders in path field and MENU | partial | Workspaces double as list | should | S |  |
+| F38 | ARIA tree semantics, focusable rows | partial | Div soup | should | M |  |
+| F40 | Settings › Files (tree/search prefs) | missing | Absent | should | S |  |
+| F39 | Breadcrumbs above editor | missing | Absent | nice | S |  |
+| F41 | Windows/Linux path parity | partial | Untested; drive-letter case | nice | S | chat: Windows git-mark keying |
+
+### layout (40 open · already there: 5 done (role lanes, openOrFocus, terminal fills group, restart keeps panel, no auto-open steals focus))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| L01 | Rules/Marks/Player/Queue as panels; Notes panel; drop in-session Files/SPLIT | partial | Overlays cover terminal; no notes panel | must | L | chat: notes scratchpad (OFFEN C) |
+| L02 | Recreated aside lane at rem default width | partial | Half of reference group | must | S |  |
+| L03 | Companions open beside source (diff in Changes group) | partial | Third desk lane instead | must | S |  |
+| L04 | Active panel visibly distinct in every skin | partial | Text colour only; no per-skin rules | must | S |  |
+| L05 | Tab strip overflow/active skinned, width tokens | partial | Unstyled dropdown | must | S |  |
+| L06 | Split right/down commands (palette, menu, tab menu) | partial | Drag only; SPLIT is nested terminal | must | S |  |
+| L07 | Drop preview matches result (verified) | partial | Unverified, translucent overlay | must | S |  |
+| L08 | Minimum sizes per panel kind | missing | None passed | must | S |  |
+| L10 | Maximise/restore via dblclick, key, menu | missing | Nothing calls maximizeGroup | must | S |  |
+| L13 | Close via ⌘W/middle-click/menu; empty groups removed | partial | No ⌘W action; middle-click unverified | must | S |  |
+| L16 | Layout restored before first paint | partial | Dock blank until prefs arrive | must | S |  |
+| L17 | connected = first snapshot; loading placeholders for editor/files/diff | partial | Restored panels flash 'not running' | must | S |  |
+| L18 | Uniform dead-target state (Restart/Choose folder/Close) | partial | Inconsistent per panel kind | must | M |  |
+| L19 | Version-guarded layout JSON with backup + notice | partial | Bare try/catch | must | S |  |
+| L20 | Per-window layout key; second window from preset | missing | One `dock` key overwritten by every window | must | M |  |
+| L21 | Presets with role slots, default-for-activity | partial | Raw toJSON with session ids/px | must | M |  |
+| L23 | Refit every xterm/CodeMirror after preset/reset | partial | RO-only | must | S |  |
+| L24 | Dock chrome tokens in rem; re-assert on type-size change; Window px only x/y | partial | Rail px not re-asserted; sizes stored px | must | S |  |
+| L26 | Dock chrome per skin; opaque drop overlay above .fx; CM tooltips themed | partial | skin-base only; 22% overlay under scanlines | must | M |  |
+| L27 | Custom tab: tooltip, dirty dot, status dot, context menu, middle-click, keyboard reorder, pin | missing | Default dockview tab; browser menu on right-click | must | M |  |
+| L28 | Transactional addPanel with reported errors | partial | Unwrapped, no notice | must | S |  |
+| L29 | Watermark empty state (new terminal/open folder/preset) | missing | Blank dock | must | S |  |
+| L31 | Esc cancels drag | partial | No handling | must | S |  |
+| L34 | Settings window geometry persisted, resize all edges | partial | In-memory Map only | must | S |  |
+| L35 | MENU › Layout submenu with all panel verbs | partial | Separate LAYOUTS button, reset only | must | S |  |
+| L37 | Background-open API with badge | partial | Absent (vacuous) | must | S |  |
+| L09 | Splitter rem size, hover state per skin, dblclick reset | partial | Defaults | should | S |  |
+| L11 | Float/dock commands; floating frame on --surface per skin | partial | Shift-drag only, glass titlebar | should | S |  |
+| L12 | Pop out to OS window with skin/rem/session; remembers geometry | missing | No multi-window plumbing | should | L | chat: pop-out panels |
+| L14 | Context menu on empty dock/splitters | missing | Absent | should | S |  |
+| L22 | Built-in terminal presets with shell placeholder, documented | partial | No preset contains a terminal | should | M |  |
+| L25 | Rail min width, non-closable, collapsible; decide rail vs one dock | partial | Draggable to zero, closable; decision open | should | S | chat: rail-goes-away decision |
+| L30 | Click/modifier-click placement grammar | missing | Absent | should | M |  |
+| L32 | Narrow-window aside fallback | missing | Absent | should | M |  |
+| L33 | Main window geometry persisted; DPR change refit | missing | Fixed 1440×900 | should | S |  |
+| L36 | Per-panel view state saved (scroll, filter, cursor) | partial | Params frozen at creation | should | M |  |
+| L40 | 20+ panel jank gate; throttled fits | partial | No gate | should | S |  |
+| L15 | Pinned panels | missing | Absent | nice | S |  |
+| L38 | Reopen closed panel ⌘⇧T / undo layout | missing | Absent | nice | S |  |
+| L39 | Keyboard-operable dock (tab roles, sash keys) | partial | Default divs | nice | M |  |
+
+### commands (43 open · already there: 0 done)
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| C01 | MENU lists every command grouped (session, terminal, editor, git, search, window, layout, recovery) | partial | 14 shell rows; Find is menu-less | must | M | #6 no visible menu; chat: all settings |
+| C02 | Keybinding hints on every row; parity gate menu↔keymap | partial | Palette views/new session lack hints; literals in terminal menu | must | S |  |
+| C03 | Inapplicable items disabled with reason tooltip | partial | Hidden instead; no reasons | must | S |  |
+| C04 | Toggle state in palette rows | partial | No on/off | must | S |  |
+| C05 | ARIA menu keyboard navigation, focus return to invoker | missing | Escape only | must | M |  |
+| C06 | Menus re-clamp/flip on resize; palette closes on blur | partial | Stale position; shift never flips | must | S |  |
+| C07 | Single command registry driving menu/palette/context/keys/tooltips | missing | Five hand-maintained lists | must | L |  |
+| C08 | Palette: ⇧⌘P, MRU/recents, aliases, highlighted matches, PgUp/Dn, no 50-row cap, categories | partial | Substring, ⌘K only, silent cap | must | M |  |
+| C09 | Prefix modes > : @ # | missing | Single command list | must | M |  |
+| C10 | One keybinding dispatch layer with priority and reserved chords | missing | Ten scattered listeners; every Escape fires all | must | M |  |
+| C12 | Keybindings tab: all commands, search, when/source, multi-stroke, ⌃ separate from ⌘, export/import, orphans shown | partial | 15 rows, no search/when, ctrl folded into Mod | must | M |  |
+| C13 | Conflict dialog keep/replace/cancel before save | partial | Silently unbinds the other row | must | S |  |
+| C16 | Suppress native WebView: explicit Wails menu (no ⌘R/⌘W/⌘Q roles), global contextmenu, beforeunload, drop-nav, title= gate, ⌘M/full-screen | missing | ⌘R reloads over terminals, ⌘W closes window, browser menu on tabs/editor/dialogs | must | M |  |
+| C17 | plxr context menu on every object (tabs, editor body, changes rows, search hits, usage, status row, inbox, dock background, dialogs) | partial | 6 of ~15 surfaces; existing menus thin | must | L | #7 context menus everywhere |
+| C18 | Open context menu via ⇧F10/Menu key, first item focused | partial | Right-click only | must | S |  |
+| C19 | Right-click selects target first | partial | Tree keeps old highlight | must | S |  |
+| C20 | All destructive actions via Ask (terminate, reset layout, ports kill, forget, theme delete, RESET ALL keys, remove folder); Ask = real modal, Cancel default, focus trap/restore | partial | Six paths bypass; danger button is primary; no trap | must | M |  |
+| C21 | One shared popover primitive: exclusive surface, top-most Esc, outside click not passed through, focus return | partial | Five hand-rolled listeners; menu over palette; click passes through | must | M |  |
+| C23 | Core shortcut set (⌘T/W/⇧T/⇧S/O/⇧F/G/B/J/\/⌃Tab/⌥⌘arrows/⌘`/zoom/⌘K Z, next/prev session, focus pane dirs, split, close, maximise, group N) | partial | ~5 of ~30 exist; ⌘1-8 hijacked by views | must | L |  |
+| C24 | Focus management layer: activation focuses xterm/CodeMirror, focus returns after menu/palette/dialog/find/settings, never lost to body, focus commands, ring + SR announce | missing | No term.focus() anywhere; every close drops focus | must | L |  |
+| C25 | :focus-visible on bare rows (rail, menu, palette, tab, changes, search) in all skins | partial | Buttons only; skins have none of their own | must | S |  |
+| C26 | ARIA roles/names: icon buttons, palette combobox, tree, dialogs, tabs, status | partial | ~10 unnamed buttons, no dialog/tree roles | must | M |  |
+| C28 | prefers-reduced-motion everywhere + Settings override | partial | crtbreath, transitions, cursor blink ignore it | must | S |  |
+| C30 | Tooltip aria-describedby, keybinding suffix, portalled surfaces gated | partial | No aria link; keys omitted | must | S |  |
+| C31 | Settings window: focus on open, arrow-key tabs, trap, restore, last tab remembered, ⌘, closes from inputs | partial | None of it | must | M |  |
+| C33 | View titles i18n in tabs/palette | partial | VIEW_TITLES English-only | must | S |  |
+| C35 | Focused-session commands (restart/pause/kill/find) via lastActiveSessionId | partial | None; ⌘F per mounted session | must | S |  |
+| C42 | Chords on event.code; ⌥ chords usable; layout labels | partial | event.key only; ⌥K unbindable | must | S |  |
+| C11 | In-app toast for command failures | partial | ~15 calls `.catch(() => undefined)`; no toast surface | should | M |  |
+| C14 | Keymap validation with warning (grammar, duplicates) | partial | Silent drops | should | S |  |
+| C15 | Multi-stroke chords with pending feedback | missing | Absent | should | M |  |
+| C22 | Overflow ⋯ on every toolbar; reflow while open; ARIA/arrow keys; hints | partial | Session bar only; closes on resize | should | M |  |
+| C27 | Live-region announcements | missing | Absent | should | S |  |
+| C29 | WCAG AA contrast measured per skin (focus, disabled, placeholder, ANSI) | missing | No measurement; crt placeholder ≈2.9:1 | should | M |  |
+| C32 | window.plxr.commands seam, JSON-dumpable registry | missing | Absent | should | S |  |
+| C36 | Window-management commands (new/next window, move panel) | partial | None; SingleInstance | should | S |  |
+| C37 | Recovery commands with confirm (reset keys, reload, logs, diagnostics) | partial | Half missing, no confirms | should | S |  |
+| C39 | Busy/re-entrancy on every mutating button | partial | pause/kill/ports/inbox/forget fire-and-forget | should | S |  |
+| C40 | Menu variants per skin; danger from palette token | partial | --warn undefined → #e66 literal | should | S |  |
+| C41 | Pointer edge cases (right-click during modal/drag, editor body) | partial | Native menu leaks | should | S |  |
+| C43 | Registry gate: every command in MENU+palette, no conflicts, aria-labels, contextmenu preventDefault | missing | Hand-written row list | should | S |  |
+| C34 | Shortcuts reference grouped by area, complete | partial | Flat 15-row list | nice | S |  |
+| C38 | About dialog, release notes, what's new once per version | partial | Help has 'Keyboard' only | nice | S |  |
+
+### settings (38 open · already there: 2 done (single entry points, skin CSS carries no sizes))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| S01 | Per-skin --surface/--shadow | partial | Global fallback only | must | S |  |
+| S02 | Every knob in Settings (updates, spend ceiling, shell, remote, notify in prefs) | partial | Scattered or absent | must | M | chat: all settings (OFFEN A) |
+| S03 | Settings search across tabs | missing | Absent | must | M |  |
+| S04 | Language/backdrop apply live without reload | partial | location.reload() | must | M |  |
+| S05 | Default readout, modified marker, per-setting/tab/all reset with confirm | partial | Keys/colours only | must | M |  |
+| S06 | Per-machine vs synced classification | missing | Flat blob | must | M |  |
+| S07 | Export/import settings with diff, scope, atomic apply, unknown keys preserved | missing | Theme import only | must | M |  |
+| S08 | Schema version, migrations, corrupt-file notice + restore (prefs, accounts, layout) | partial | Renamed .broken silently, no version | must | M |  |
+| S09 | Inline validation with range; invalid never persisted | partial | Silent clamps (-5 → 10000) | must | S |  |
+| S10 | No native controls (number input spinner, file chooser skinned) | partial | Agents number input | must | S |  |
+| S11 | Skin class gate checks token-backing and state variants | partial | Presence only | must | S |  |
+| S12 | Chosen skin applied before first paint in every window | partial | crt-green first frame | must | S |  |
+| S16 | Fonts: system enumeration, preview, ligatures, editor font, weight/lh, per-machine | partial | Three options, no preview | must | M |  |
+| S17 | Failed font load warns and reverts | partial | Rejection swallowed | must | S |  |
+| S19 | Editor tab: spaces, line numbers, gutters, brackets, auto-close, format, trim, newline, rulers, cursor, vim | partial | Three knobs | must | M |  |
+| S20 | Layouts tab: set default, reorder, rename/delete any row, version message | partial | Incompatible presets vanish silently | must | S |  |
+| S21 | Preset apply keeps dirty editors/sessions with fallback group + notice | partial | Dropped without prompt | must | S |  |
+| S22 | Notification settings: ceiling/git/build/update/reconnect events, per-event channel, quiet hours, real test notification | partial | Four events, sound test only | must | M |  |
+| S23 | Agents tab: defaults (model, flags, cwd policy, auto-approve, timeout, retention) + command preview | partial | Recognition profiles only | must | M |  |
+| S24 | Updates tab: build/commit/channel, check-now, auto-check, last check, changelog, copyable | partial | Version line in footer only | must | M |  |
+| S27 | Open Settings re-renders on prefs from other window; no whole-blob clobber | partial | State copied once at mount | must | S |  |
+| S28 | Service unreachable: read-only banner, retry; no silent write loss | missing | All pref writes `.catch(() => undefined)` | must | M |  |
+| S32 | Full state-variant token set per skin (focus, selection, disabled, danger, invalid, drag-over) + control-sheet gate | partial | Tokens missing; no visual diff | must | M |  |
+| S13 | Light/dark declaration, Auto follows macOS | missing | Absent | should | M |  |
+| S14 | Per-token picker with contrast readout and reset | partial | Hex fields only | should | M |  |
+| S15 | Save/duplicate/rename/export user skins; delete confirmed | partial | Import/delete only | should | M |  |
+| S18 | Remove imported fonts, in-use prompt, magic-byte check | partial | No button | should | S |  |
+| S25 | Appearance: zoom keys, density, animation toggle, rail position, status items, tooltip delay, confirm-quit | partial | Two sliders | should | M |  |
+| S26 | Description under every setting | partial | Coverage incomplete | should | S |  |
+| S30 | Per-project .plxr/settings override | missing | Absent | should | M |  |
+| S33 | Correct at min width / 200% zoom (tab overflow, truncation) | partial | Tabs wrap; rows unverified | should | S |  |
+| S34 | Diagnostics: paths, log reveal, both versions + mismatch, PID/uptime, port, pairing, hook per account, copy-diagnostics | partial | Version + hook only; /api/running unused | should | S |  |
+| S35 | Safe mode / reset everything from MENU and launch flag | partial | Layout only | should | S |  |
+| S36 | No console errors/layout shift during changes (measured) | missing | Nothing measured | should | S |  |
+| S37 | Sliders debounced, wheel, typed entry | partial | Refit + PUT per pixel | should | S |  |
+| S29 | Schema-validated JSON view | missing | Absent | nice | M |  |
+| S31 | Recently changed with undo | missing | Absent | nice | S |  |
+| S38 | Deep links plxr://settings/… and panels/sessions/files | missing | No scheme | nice | M |  |
+
+### status (36 open · already there: 3 done (ceiling wording, daemon-side edge, meter sync))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| ST01 | Status row never covered by windows/dialogs/palette | partial | Overlays can sit on it | must | S |  |
+| ST02 | Counts unified with stateOf; idle-shell bucket; 'connecting' before first frame | partial | Frozen mismatch; '0 sessions' before data | must | S |  |
+| ST03 | 'shell' state at CLI exit; hook state evicted by age/TTY | partial | Bare prompt reads 'Claude waiting' forever | must | M |  |
+| ST04 | 'unknown' shown with cause and INSTALL HOOK action | missing | Renamed 'running' | must | S |  |
+| ST05 | No stale last message after restart; no German 'Suche:' | partial | LastMessage kept | must | S |  |
+| ST06 | Connection state: attempt n / next in, jitter, stale 'as of' markers, actions disabled, no full reload on service restart | partial | Text swap; fixed 1 s hammer; keepDaemon reloads page | must | S |  |
+| ST07 | Per-session git summary (branch, ± count, dirty) on tile/rail/bar | partial | Branch from Claude transcript only | must | M |  |
+| ST08 | Nothing rendered before data; failure keeps last value + stale marker; 150 ms loading rule | partial | Inbox/Overview/Usage lie before first frame; Ports blank | must | M |  |
+| ST09 | Per-hour rate in the readout | partial | Tooltip only | must | S |  |
+| ST10 | Ceiling input refuses invalid, shows saved/error; reaction at limit decided | partial | Typo clears ceiling silently | must | S | chat: leash |
+| ST11 | Usage buckets per hour/session/account; byAccount rendered or explained | partial | Day/project/model only | must | M | OFFEN B usage panel |
+| ST14 | Inbox rows: account, age; permission > waiting, oldest first | partial | Newest first, no account/age | must | S |  |
+| ST15 | Failed reply keeps draft and shows error | partial | Draft cleared before request | must | S |  |
+| ST17 | Header needs-answer badge → inbox | partial | Rail only | must | S |  |
+| ST20 | Notifications from the window process with icon, permission state + System Settings link, click routes to session/usage, launch-from-notification | missing | Daemon → osascript → Script Editor unchanged | must | L | #11 notifications without icon |
+| ST21 | Edge dedupe across service restart; one beep across windows | partial | Refires after restart; beep per window | must | S |  |
+| ST22 | DND with durations, quiet hours, strip indicator | missing | Absent | must | M |  |
+| ST26 | Workbench: capture before React, source column, copy-all, level filter, dropped marker | partial | Starts in effect; no source/copy/filter | must | M |  |
+| ST27 | Service faults streamed to Workbench with codes | missing | log.Printf only | must | M |  |
+| ST28 | Fault banner slot in status row linked to Workbench | partial | Connection/update only | must | M |  |
+| ST29 | 'daemon' out of all fallbacks/logs with gate; stale advice fixed | partial | state.ts:51, err.remote.notListening | must | S |  |
+| ST31 | Status row complete and clickable: service, counts→inbox, spend→usage, branch, update, faults; collapses at 12rem | partial | Nothing clickable, half missing | must | M |  |
+| ST34 | Honest degradation: error + retry per surface, last good kept | partial | Inbox/Usage/Status/Overview swallow errors | must | M |  |
+| ST12 | Attribution line: tokens measured, currency/plan unavailable | partial | Absent | should | S |  |
+| ST13 | Window start/bounds in pace tooltip | missing | Absent | should | S |  |
+| ST16 | Drafts survive panel close | partial | Component state | should | S |  |
+| ST18 | Inbox keyboard (rows, Esc, open session) | partial | Enter sends only | should | S |  |
+| ST19 | Hazard style on inbox rows per skin | partial | Absent | should | S |  |
+| ST23 | Suppress when window frontmost and session visible | missing | Absent | should | S |  |
+| ST24 | Rune-safe truncation; question excerpt + short cwd in body | partial | Byte cut | should | S |  |
+| ST25 | In-app notification log/center | missing | Absent | should | M |  |
+| ST30 | Non-colour 'hot' cue; win95/pixel | partial | Colour only | should | S |  |
+| ST33 | macOS dock badge + bounce | missing | Absent | should | S |  |
+| ST35 | Session grid tiles: age, spend share, changes count | partial | State/preview only | should | S | chat: session grid (OFFEN D) |
+| ST36 | Account named in inbox/notification when non-default/collision | missing | Absent | should | S |  |
+| ST32 | Remote viewer notify capability note | missing | Absent | nice | S |  |
+
+### accounts (29 open · already there: 4 done (remove keeps dir, never reads credentials, secret env not recorded, one service across windows))
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| A01 | Login state measured per account; missing dir greyed/not pickable; sign-in completion observed with e-mail/plan; one-click log in | missing | No such state exists | must | M | #12 account management broken |
+| A02 | Label everywhere; account on tile/rail/overview; picker defaults to default account (radiogroup); shell = 'no account' | partial | 'account N'/raw name; picker sends accounts[0] | must | M | #12 |
+| A04 | Switch explains + confirms + states continuation | partial | Fires on Select change | must | S |  |
+| A05 | 'AI layer runs on' account setting; claude -p uses only it | missing | No code | must | M | chat: AI layer |
+| A06 | Accounts atomic write, pushed to all windows; live sync verified with two real windows | partial | Plain WriteFile; loaded once at mount | must | S | chat: kitchen-to-bedroom sync |
+| A08 | GitHub/gh account + git identity per workspace: show, switch, set, drift/mismatch warnings, gh missing/expired | missing | No code (7 requirements) | must | L | chat: GitHub accounts |
+| A11 | Token never in URLs (window load, WS upgrades) | partial | ?token= everywhere | must | M |  |
+| A12 | Secrets in Keychain/0600; store named in Status; per-client credential not raw token | partial | Raw token in 30-day cookies | must | M |  |
+| A14 | Pairing code as QR; never in URL/argv | partial | --browser puts code in URL | must | S | chat: phone page |
+| A15 | Paired clients listed, individually unpairable | missing | No registry | must | M |  |
+| A16 | Bind address always visible | partial | Hidden when off | must | S |  |
+| A17 | Route-guard audit test (no prefix-only guard) | partial | /userfonts, /skins open; no test | must | S |  |
+| A18 | Remote window says remote/machine/connection | missing | Absent | must | S |  |
+| A19 | Sync semantics written in UI | missing | Stale comment only | must | S | chat: kitchen-to-bedroom sync |
+| A20 | prefsRev precondition; losing write rejected and shown | missing | Silent last-writer-wins | must | M | chat: kitchen-to-bedroom sync |
+| A21 | Update shows notes/asset; no offer without archive | partial | Web path never checks asset | must | S | chat: update-without-archive |
+| A22 | Downloaded asset verified (checksum/signature) | missing | None | must | S |  |
+| A23 | Single-rename swap; rollback material kept; recovery at next start | partial | Two renames, .old deleted | must | M |  |
+| A24 | Update restart asks with session count; 'later' re-offered at idle | partial | Unused i18n keys | must | S |  |
+| A26 | Writability checked before download | partial | After full download | must | S |  |
+| A03 | Add existing dir validated inline | partial | Typo creates empty dir | should | S |  |
+| A07 | Label validation (non-empty, unique) | missing | Anything accepted | should | S |  |
+| A13 | Revoke/rotate service token | missing | Minted once | should | S |  |
+| A25 | Rollback on failed health check | missing | Absent | should | M |  |
+| A27 | Offline check with last-success time + backoff | partial | Fixed 30 min | should | S |  |
+| A28 | Window update with old service: reconnect or ask; never kill sessions silently | missing | daemon.Ensure stops old service, sessions end | should | M | chat: PTY survival |
+| A29 | Account/pairing/update actions in MENU/palette | partial | Settings only | should | S |  |
+| A09 | Signing key shown, failing sign warned | missing | Absent | nice | S |  |
+| A10 | Identities panel with extension point | missing | Claude-only | nice | M |  |
+
+### polish (20 open · already there: 0 done)
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| P01 | Opaque surfaces proven per skin at panelSolid 0/100 over a terminal in WKWebView; custom palette path | partial | Code contract only, Blink proof | must | M | #1 see-through popovers |
+| P02 | Find portalled; z-ladder covers dockview layers | partial | Find local stacking under scanlines | must | S |  |
+| P03 | All popovers flip/clamp at open and resize | partial | Menu stale, Select off-edge | must | S |  |
+| P04 | One truncation rule: ellipsis + Tooltip + copy for title/cwd/branch/root | partial | Two mechanisms, no tooltips | must | S | #3 path cut off |
+| P05 | Every panel correct at 12/20/40rem × 8rem; all toolbars overflow; measured | partial | OverflowBar on session bar only; no gate | must | M |  |
+| P06 | List/grid/empty panels fill dockview host | partial | .list/.grid collapse to content height | must | S | #2 terminal not full height (same class) |
+| P07 | Designed empties for Queue/Accounts/Branches with actions; Usage loading ≠ empty | partial | Missing/lying | must | S |  |
+| P08 | Designed starting/offline screen; never WebKit error page; log-open action | missing | log.Fatal or WebKit error page | must | M |  |
+| P09 | First-run onboarding, skippable, re-openable | missing | Absent | must | M |  |
+| P11 | i18n complete: no English flash, DE overflow sweep, missing keys, aria labels | partial | Renders English first; 2 keys missing; 62 long DE strings unchecked | must | M |  |
+| P13 | Cold-start timing measured and logged | missing | Nothing measured | must | S |  |
+| P14 | Tiles tick: structural equality, no whole-dock re-render, pause when hidden, CPU measured | partial | Every consumer re-renders per second | must | M |  |
+| P15 | Per-panel error boundary; window crash recovery page | missing | One throw unmounts root | must | S |  |
+| P16 | Service panic recovery, crash marker, 'restarted unexpectedly at' | partial | No marker/message | must | S |  |
+| P17 | Logs: rotation, service log file, level+time, no secrets; MENU open-logs/copy-diagnostics | partial | stderr only, half-truncate | must | M |  |
+| P20 | Real-window WKWebView capture path: per-phase screenshots per skin/tab under docs/verify, pixel-diffed, in check.sh | missing | docs/verify does not exist; every gate is Blink | must | M | #10 process failed |
+| P10 | Prerequisite check at start (CLIs, git, gh, shell PATH) | missing | Missing CLI = dead terminal later | should | S |  |
+| P12 | Skinned scrollbars everywhere, verified | partial | Unbounded lists; unverified | should | S |  |
+| P18 | Paths/logs/diagnostics selectable; no blurred text at 2x | partial | Only joinline selectable | should | S |  |
+| P19 | Deep links from palette/notification/plxr://; not-found state | missing | Absent | nice | M |  |
+
+### owner-only (6 open · already there: —)
+
+| id | requirement | status | gap | weight | size | his example |
+|---|---|---|---|---|---|---|
+| O01 | packaged.sh builds a working bundle | missing | Reported failing by owner; not in any audit | must | S | chat: packaged.sh failing |
+| O02 | plxr as MCP server | missing | Draft only | should | L | chat: MCP server |
+| O04 | Slack/Teams/Outlook client + AI layer (Pillar 8) | missing | Spec only; gated on everything above | should | L | chat: Slack/Outlook/Teams/AI layer |
+| O05 | LSP for the editor (diagnostics, completion, hover, symbols) | missing | Plugin slots do not exist (E42) | should | L | chat: LSP |
+| O03 | Night shift auto-answer (decision + rules) | missing | Awaiting owner decision | nice | M | chat: night shift |
+| O06 | Windows code-signing certificate | missing | Deferred | nice | S | chat: Windows signing |
+
 ## Planned windows/panels I said I would build (not yet done)
 
 The window-manager is meant to fill up with panels — everywhere — each a small
