@@ -85,8 +85,11 @@ export default function SearchPanel({
         </Tooltip>
       ) : null}
       {/* One search per folder: the id keys it, so switching sessions starts
-          a fresh box rather than showing one folder's hits over another. */}
-      <FileSearch key={rootId} rootId={rootId} onOpen={(path, line) => onOpen(rootId, path, line)} />
+          a fresh box rather than showing one folder's hits over another — and
+          the folder's own query, hits and scroll come back with it, whether
+          the tool was hidden, the arrangement loaded again or the session
+          clicked away from and back to. */}
+      <FileSearch key={rootId} rootId={rootId} memory={`search:${rootId}`} onOpen={(path, line) => onOpen(rootId, path, line)} />
     </div>
   );
 }

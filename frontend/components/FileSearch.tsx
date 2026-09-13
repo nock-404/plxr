@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Toggle from "@/components/ui/Toggle";
@@ -8,6 +8,7 @@ import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
 import { copyText } from "@/lib/browser";
 import { errText, tr, trN } from "@/lib/i18n";
+import { useScrollMemory, useToolMemory } from "@/lib/toolMemory";
 import type { FindReport } from "@/lib/types";
 
 /* Searching every file of a folder.
@@ -70,18 +71,27 @@ function lit(text: string, ranges: [number, number][]): React.ReactNode[] {
 export default function FileSearch({
   rootId,
   onOpen,
+  memory = "",
 }: {
   rootId: string;
   onOpen: (path: string, line: number) => void;
+  /* Where what was typed, what was found and how far down it was read are
+     kept while the window is open (lib/toolMemory): the Search tool's, under
+     the folder it searches. Empty keeps nothing — the search in the folders
+     view is not a tool and is not taken down behind anybody's back. */
+  memory?: string;
 }) {
-  const [text, setText] = useState("");
-  const [glob, setGlob] = useState("");
-  const [regex, setRegex] = useState(false);
-  const [word, setWord] = useState(false);
-  const [caseOn, setCaseOn] = useState(false);
-  const [report, setReport] = useState<FindReport | null>(null);
+  const kept = (name: string) => (memory ? `${memory}:${name}` : "");
+  const [text, setText] = useToolMemory(kept("text"), "");
+  const [glob, setGlob] = useToolMemory(kept("glob"), "");
+  const [regex, setRegex] = useToolMemory(kept("regex"), false);
+  const [word, setWord] = useToolMemory(kept("word"), false);
+  const [caseOn, setCaseOn] = useToolMemory(kept("case"), false);
+  const [report, setReport] = useToolMemory<FindReport | null>(kept("report"), null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+  useScrollMemory(kept("results"), () => box.current, report);
 
   async function run() {
     if (!text.trim()) return;
@@ -123,7 +133,7 @@ export default function FileSearch({
   }
 
   return (
-    <div className="filesearch">
+    <div className="filesearch" ref={box}>
       <div className="field">
         <span className="rowInline">
           <Input

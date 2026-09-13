@@ -385,6 +385,13 @@ groups now appear in `dv.panels` and `dv.groups`; step 0 confirms this). The pla
 - **Inline strip.** A view's `TopStrip` renders as `.toolBar` directly under the header. `ToolWindow`
   provides a `ToolStrip` context that `TopStrip.tsx` checks before `InlineStrip`. The prompt labels
   "usage>", "search>" and so on are dropped (P5).
+- **As built in step 12.** The view strips stay in their bodies: `.listbody` scrolls under them, so
+  they already stand directly under the header, and usage.mjs reads the count through `.list .listbar`.
+  The prompts are gone. What acts on the whole tool is drawn into `.toolActions` through
+  `components/stripes/ToolActions.tsx` (a portal; nothing outside a tool window): Files' Refresh,
+  Ports' Reload, Usage's Reload. `toolMemory` keeps Files' walk, open folders, listings, marks, filter
+  and scroll per place, Search's fields, hits and scroll per folder, the Archive's field, mode and
+  hits, and the Notes' text and editor scroll.
 - **A project tool with no project** shows an `.emptyNote` with one button, "Choose a project", which
   opens ProjectSwitch.
 
@@ -676,7 +683,7 @@ windows.
 .stripeGap { flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); }
 .stripeGhost { position: fixed; left: 0; top: 0; z-index: 420; width: var(--stripe-icon-box); height: var(--stripe-icon-box);
   display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.toolWindow { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.toolWindow { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; contain: inline-size; }
 .toolHead { flex: 0 0 var(--toolhead-h); display: flex; align-items: center; gap: 0.375rem; padding: 0 0.25rem 0 0.625rem; min-width: 0; }
 .toolIcon, .menuIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; justify-content: center; }
 .toolTitle, .toolScope, .switchLabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -689,6 +696,10 @@ windows.
 .edgeToggles { display: inline-flex; gap: 0.125rem; }
 ```
 
+- **`.toolWindow` is contained** (`contain: inline-size`, found in step 4). dockview's content box is a
+  flex item that grows to its content, so without it a Files tree of long names made the window 743 px
+  wide in a 320 px edge, its — out of reach and its body under main; Search 3672 px, Archive 633 px.
+  stripes.mjs holds it, with the containment taken away as its control.
 - **No `writing-mode` and no logical properties.** The stripes are plain flex boxes, so skinrules.py's
   physical-property `SIZING` list is enough, and no change to skinrules.py is needed.
 - **Pixel pack:** `(--stripe-icon-box − icon) / 2` has to be a whole number of device pixels at 1x and

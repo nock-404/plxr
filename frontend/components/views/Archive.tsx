@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
@@ -10,6 +10,7 @@ import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { copyText } from "@/lib/browser";
+import { useScrollMemory, useToolMemory } from "@/lib/toolMemory";
 import type { ArchiveEntry, SearchHit } from "@/lib/types";
 
 type Mode = "titles" | "conversations" | "terminals";
@@ -23,9 +24,15 @@ function day(ms: number): string {
 export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
   // null until the answer is in — see emptylies.py.
   const [rows, setRows] = useState<ArchiveEntry[] | null>(null);
-  const [hits, setHits] = useState<SearchHit[] | null>(null);
-  const [mode, setMode] = useState<Mode>("titles");
-  const [q, setQ] = useState("");
+  /* The field, the mode it searched in and what that found are kept while the
+     window is open (lib/toolMemory): the archive is not rendered while it is
+     hidden, and came back with its filter gone. The rows are asked for again —
+     a session may have ended since. */
+  const [hits, setHits] = useToolMemory<SearchHit[] | null>("archive:hits", null);
+  const [mode, setMode] = useToolMemory<Mode>("archive:mode", "titles");
+  const [q, setQ] = useToolMemory("archive:q", "");
+  const body = useRef<HTMLDivElement>(null);
+  useScrollMemory("archive:list", () => body.current, `${rows?.length ?? -1}:${hits?.length ?? -1}:${mode}`);
   const [busy, setBusy] = useState(false);
   // The transcript the menu's Delete is asking about; nothing goes until YES.
   const [doomed, setDoomed] = useState<ArchiveEntry | null>(null);
@@ -88,7 +95,6 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
     <section className="list">
       <TopStrip>
         <div className="listbar">
-          <span className="prompt">{tr("archive.prompt", "search>")}</span>
           <Input
             value={q}
             placeholder={tr("archive.placeholder", "Title, project or path…")}
@@ -141,7 +147,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
         </div>
       </TopStrip>
 
-      <div className="listbody">
+      <div className="listbody" ref={body}>
         {searching ? (
           hits!.length === 0 ? (
             <div className="emptyNote">

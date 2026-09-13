@@ -36,6 +36,7 @@ const BOXES = {
   stripeRight: '.stripe[data-edge="right"]',
   stripeBottom: '.stripe[data-edge="bottom"]',
   stripeIcon: ".stripe .stripeIcon",
+  // A tool window's header, measured with the Files tool shown.
   toolHead: '.toolWindow[data-tool="files"] .toolHead',
   switchProject: '.switch[data-switch="project"]',
   switchSession: '.switch[data-switch="session"]',
@@ -258,9 +259,12 @@ for (let i = 0; i < 80; i++) {
   await sleep(250);
 }
 await evaluate(`(async () => { ${GATEKIT} return await openDoc("overview"); })()`).catch(() => false);
-// A tool's header is measured on the Files window, so it is shown.
-await sleep(800);
+/* A tool window's header is a box of the frame as well, and a hidden one
+   measures nothing in every skin alike, so the Files tool is shown for the
+   measurement — and put away again after it, below: a window left with a tool
+   open is not what the next check expects to find. */
 await evaluate(`(() => { ${GATEKIT} return openTool("files"); })()`).catch(() => false);
+await sleep(900);
 
 /* Waited for until every box is on the page, for twenty seconds at most, so a
    page still arriving does not read as a page without one. */
@@ -299,6 +303,9 @@ for (const skin of [SKINS[0], ...SKINS]) {
     return out;
   })()`);
 }
+await evaluate(`(() => { ${GATEKIT} if (toolLit("files")) stripeIcon("files").click(); return true; })()`).catch(() => false);
+// The arrangement is saved a moment after a change; the browser stays until it is.
+await sleep(900);
 cdp.close();
 
 const names = Object.keys(BOXES);

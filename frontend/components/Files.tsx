@@ -8,6 +8,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import OverflowBar from "@/components/ui/OverflowBar";
 import Input from "@/components/ui/Input";
 import TreePick from "@/components/ui/TreePick";
+import ToolActions from "@/components/stripes/ToolActions";
 import { api } from "@/lib/api";
 import { errText, tr, trN } from "@/lib/i18n";
 import { bindingOf, caption, matches } from "@/lib/keymap";
@@ -15,6 +16,8 @@ import { atTop, parent, segments } from "@/lib/paths";
 import { fileIcon } from "@/lib/fileIcons";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { announceFilesChanged } from "@/lib/useChanges";
+import { useToolShown } from "@/lib/toolShown";
+import { useScrollMemory, useToolMemory } from "@/lib/toolMemory";
 import type { FileEntry } from "@/lib/types";
 
 /* The tree beside the terminal.
@@ -205,6 +208,7 @@ export default function Files({
   rootId,
   root,
   onPick,
+  memory = "",
 }: {
   /* A session or a folder — the daemon reads which from the id. This was
      called sessionId, from the days when a file could only be reached through
@@ -215,18 +219,23 @@ export default function Files({
      session or the folder behind, and an editor opened on a file above them
      would ask the wrong root for it and be refused. */
   onPick: (path: string, rootId: string) => void;
+  /* Where the walk, the open folders, the filter and the scroll are kept while
+     the window is open (lib/toolMemory) — the Files tool's. The dock makes the
+     tool's panel again whenever an arrangement is loaded, and the tree came
+     back at the folder it was given, its filter gone, scrolled to the top.
+     Empty keeps nothing: the tree in the folders view is not taken down
+     behind anybody's back. */
+  memory?: string;
 }) {
   /* The folder the tree has walked to, and the root that walk belongs to. The
      two are held together on purpose: handed another session or another folder,
      this is that folder's tree again at once — with the walk remembered as
      state of the root it was made in, there is no render in between where the
      new folder is read through the old one's directory. */
-  const [at, setAt] = useState<{ of: string; dir: string }>({ of: "", dir: "" });
-  const [open, setOpen] = useState<Record<string, FileEntry[]>>({});
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [noise, setNoise] = useState(false);
-  const [filter, setFilter] = useState("");
-  const [git, setGit] = useState<Record<string, string>>({});
+  const ofRoot = (name: string) => (memory ? `${memory}:${rootId}:${name}` : "");
+  const [at, setAt] = useToolMemory<{ of: string; dir: string }>(ofRoot("at"), { of: "", dir: "" });
+  const [noise, setNoise] = useToolMemory(ofRoot("noise"), false);
+  const [filter, setFilter] = useToolMemory(ofRoot("filter"), "");
   const [here, setHere] = useState("");
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
@@ -244,6 +253,19 @@ export default function Files({
   const walked = at.of === rootId ? at.dir : "";
   const base = walked || root;
   const baseId = walked ? DIR_ID + walked : rootId;
+
+  /* What was read where the tree stands — the listings, the folders unfolded
+     in them, the git marks — kept per place, so a tree made again shows them
+     at once and reads them again underneath. */
+  const ofPlace = (name: string) => (memory ? `${memory}:${baseId}:${name}` : "");
+  const [open, setOpen] = useToolMemory<Record<string, FileEntry[]>>(ofPlace("open"), {});
+  const [unfolded, setUnfolded] = useToolMemory<string[]>(ofPlace("expanded"), []);
+  const [git, setGit] = useToolMemory<Record<string, string>>(ofPlace("git"), {});
+  const expanded = useMemo(() => new Set(unfolded), [unfolded]);
+  const setExpanded = useCallback(
+    (next: Set<string> | ((was: Set<string>) => Set<string>)) => setUnfolded((was) => [...(typeof next === "function" ? next(new Set(was)) : next)]),
+    [setUnfolded],
+  );
 
   const list = useCallback(
     async (dir: string) => {
@@ -292,13 +314,23 @@ export default function Files({
    * walks into: nothing of the last root may survive the step. The listing
    * starts empty, and the git marks are read again for this folder — going up
    * used to be the one way to end up with the marks of the folder below still
-   * on the rows. */
+   * on the rows.
+   *
+   * A place this tree has stood before, while the window has been open, is
+   * shown as it was kept — the listings, the unfolded folders, the marks — and
+   * every listing is read again underneath, the marks after them. */
   useEffect(() => {
-    setOpen({});
-    setExpanded(new Set());
     setHere("");
     setError("");
+    if (memory && open[""] !== undefined) {
+      void Promise.all(Object.keys(open).map((dir) => list(dir))).then(() => api.gitStatus(baseId).then(setGit).catch(() => undefined));
+      return;
+    }
+    setOpen({});
+    setExpanded(new Set());
     void reload("");
+    // Only a new place starts the tree again; what it holds is read, not watched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, reload]);
 
   /* And the folders that were open unfold themselves again, as the listing
@@ -315,18 +347,32 @@ export default function Files({
     for (const dir of back) if (!open[dir]) void list(dir);
   }, [open, expanded, list]);
 
-  // Git changes while an agent works, so it is asked again now and then rather
-  // than only when something is clicked — and at once when something in the
-  // window changed the tree, like a mark being restored.
+  /* Git changes while an agent works, so it is asked again now and then rather
+     than only when something is clicked — and at once when something in the
+     window changed the tree, like a mark being restored.
+   *
+   * Only while the tree is on screen. The Files tool stays mounted when it is
+   * put away, and asked git every four seconds for a window nobody could see.
+   * Shown again, it asks at once, and then on the beat. */
+  const shown = useToolShown();
+  const wasHidden = useRef(false);
   useEffect(() => {
+    if (!shown) {
+      wasHidden.current = true;
+      return;
+    }
     const ask = () => api.gitStatus(baseId).then(setGit).catch(() => undefined);
+    if (wasHidden.current) {
+      wasHidden.current = false;
+      void ask();
+    }
     const t = window.setInterval(ask, 4000);
     window.addEventListener("plxr:files-changed", ask);
     return () => {
       window.clearInterval(t);
       window.removeEventListener("plxr:files-changed", ask);
     };
-  }, [baseId]);
+  }, [baseId, shown]);
 
   /* Standing somewhere else. The folder it was given keeps its own id, so
      coming back down to it is a session's tree again rather than a directory
@@ -361,6 +407,9 @@ export default function Files({
     walk("", 0);
     return out;
   }, [open, expanded, noise, needle]);
+
+  // How far down the tree was read, per place, back when it is made again or shown.
+  useScrollMemory(ofPlace("tree"), () => tree.current, visible.length);
 
   /* How many rows the filter found.
    *
@@ -583,6 +632,15 @@ export default function Files({
 
   return (
     <aside className="files">
+      {/* Refresh stood only in the tree's right-click menu; in the Files
+          tool it is a button in the window's header. */}
+      <ToolActions>
+        <Tooltip text={tr("files.refreshTip", "Read the tree and its git marks again")}>
+          <Button icon data-do="files-refresh" aria-label={tr("files.menuRefresh", "Refresh")} onClick={() => void reloadAll()}>
+            <Icon name="reset" />
+          </Button>
+        </Tooltip>
+      </ToolActions>
       <div className="filesbar" onContextMenu={ctx(rootMenu())}>
         {/* Where the tree stands, as a place rather than as a caption: every
             step of the path is a root to stand on, and the step above it has a

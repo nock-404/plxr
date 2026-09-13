@@ -8,6 +8,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { tr, trN } from "@/lib/i18n";
 import { PREFS_CHANGED } from "@/lib/prefsEvents";
+import { recall, remember, useScrollMemory, useToolMemory } from "@/lib/toolMemory";
 
 /* A scratchpad beside the work.
  *
@@ -29,9 +30,20 @@ function wordCount(text: string): number {
   return t ? t.split(/\s+/).length : 0;
 }
 
+/* A body taken down with a save still on its way leaves the time here: the
+   body made in its place starts from the text it kept, and an answer from the
+   service read in the moment before that save lands is older than it. */
+const FLUSHED = "notes:flushed";
+const FLUSH_LANDS_MS = 3000;
+
 export default function Notes() {
-  const [text, setText] = useState("");
+  /* The text is kept while the window is open (lib/toolMemory): the notes
+     stay mounted behind a hidden edge, but every arrangement loaded makes the
+     panel again, and it came back empty until the service answered. */
+  const [text, setText] = useToolMemory("notes:text", "");
   const [asking, setAsking] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useScrollMemory("notes:editor", () => wrap.current?.querySelector<HTMLElement>(".cm-scroller") ?? null, text === "" ? 0 : 1);
   // The text as this panel holds it, readable from the listeners without a
   // rebuild — and whether a save is still on its way.
   const held = useRef("");
@@ -55,7 +67,8 @@ export default function Notes() {
     api
       .prefs()
       .then((p) => {
-        if (live && typeof p.notes === "string" && pending.current === undefined) setText(p.notes);
+        const landing = Date.now() - (recall<number>(FLUSHED) ?? 0) < FLUSH_LANDS_MS;
+        if (live && typeof p.notes === "string" && pending.current === undefined && !landing) setText(p.notes);
       })
       .catch(() => undefined);
     const follow = (e: Event) => {
@@ -74,6 +87,7 @@ export default function Notes() {
       if (pending.current !== undefined) {
         window.clearTimeout(pending.current);
         pending.current = undefined;
+        remember(FLUSHED, Date.now());
         write(held.current);
       }
     };
@@ -108,7 +122,7 @@ export default function Notes() {
           </Button>
         </Tooltip>
       </div>
-      <div className="viewerwrap">
+      <div className="viewerwrap" ref={wrap}>
         <Editor
           value={text}
           filename={FILENAME}

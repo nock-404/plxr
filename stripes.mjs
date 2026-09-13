@@ -26,12 +26,17 @@
  *     ⌘2 shows the Inbox with the keyboard in it, gives the keyboard back to
  *     it, and puts it away from inside it; ⇧⎋ hides the window the keyboard
  *     is in and nothing else;
+ *   a tool window is as wide as its edge whatever it holds, its — in reach;
  *   a file clicked in the Files tool opens in main, and a document dragged
  *     onto a tool window, its edges or the grid's outer edge stays in main;
  *   main's splits keep their proportions whatever order the edges go in;
  *   a hidden tool asks the service for nothing;
  *   main with every document closed offers the board, a new session and the
  *     commands, and each opens what it names;
+ *   what a tool had on screen — a folder unfolded, a query and its hits, a
+ *     filter, a place scrolled to — comes back through a hide and through an
+ *     arrangement loaded again; a tool's own actions stand in its header, and
+ *     no tool window carries a prompt;
  *   main is never narrower than its floor, nor under a tool window, while the
  *     window is wide enough for both;
  *   an arrangement saved by the old window comes up with its tools on their
@@ -105,7 +110,7 @@ const api = (path, init = {}) =>
 /* The window starts from a known arrangement: where a tool opens and how wide
    depends on what was saved, so what the service had is put aside for the run
    and written back at the end. */
-const KEYS = ["dock", "dockSizes", "toolLayout", "dockRegions", "dockPresets", "dockActivity"];
+const KEYS = ["dock", "dockSizes", "toolLayout", "dockRegions", "dockPresets", "dockActivity", "notes"];
 const before = await api("/api/prefs").catch(() => ({}));
 const held = Object.fromEntries(KEYS.map((k) => [k, before?.[k] ?? null]));
 const fresh = Object.fromEntries(KEYS.map((k) => [k, null]));
@@ -143,6 +148,20 @@ const work = mkdtempSync(join(tmpdir(), "plxr-stripes-work-"));
 writeFileSync(join(work, "alpha.txt"), "one\ntwo\nthree\n");
 writeFileSync(join(work, "beta.txt"), "four\nfive\n");
 writeFileSync(join(work, "gamma.txt"), "six\n");
+/* And what no tool window is wide enough for: a chain of folders whose names
+   alone are wider than the window, and a line far longer than any window. */
+{
+  let deep = work;
+  for (let i = 1; i <= 6; i++) {
+    deep = join(deep, `a-folder-with-a-long-name-that-keeps-going-level-${i}`);
+    mkdirSync(deep);
+    writeFileSync(join(deep, `a-file-whose-name-is-longer-than-the-window-level-${i}.txt`), "x\n");
+  }
+  writeFileSync(join(work, "wide.txt"), `const wide = "${"w".repeat(300)}needle-far-out${"w".repeat(300)}";\n`);
+  // A folder tall enough to scroll, every file of it a hit for one word.
+  mkdirSync(join(work, "many"));
+  for (let i = 1; i <= 120; i++) writeFileSync(join(work, "many", `row-${String(i).padStart(3, "0")}.txt`), `needle-row line ${i}\n`);
+}
 let made = null;
 
 let browserGone = false;
@@ -268,7 +287,7 @@ await cdp.send("Network.enable");
 
 // What this window asks the service for, as the browser records it.
 const traffic = [];
-cdp.on("Network.requestWillBeSent", (p) => traffic.push({ at: Date.now(), kind: "http", url: p.request.url }));
+cdp.on("Network.requestWillBeSent", (p) => traffic.push({ at: Date.now(), kind: "http", url: p.request.url, method: p.request.method, body: p.request.postData ?? "" }));
 cdp.on("Network.webSocketCreated", (p) => traffic.push({ at: Date.now(), kind: "ws", url: p.url, id: p.requestId }));
 cdp.on("Network.webSocketClosed", (p) => traffic.push({ at: Date.now(), kind: "wsclosed", id: p.requestId }));
 
@@ -768,6 +787,114 @@ if (!documents.why) {
   );
 }
 
+// ---- a tool window is as wide as its edge, whatever it holds -------------------
+/* dockview's content box is a flex item that grows to what is inside it, so a
+   tree of long names made the Files window 743 pixels wide in a 320 pixel
+   edge, its — out of reach and its body under main. Each tool is given the
+   widest thing it can hold here, and its window and its — are read against the
+   edge; the control takes the containment away and the same tree has to push
+   the window wider, or the claim could not have seen the fault. */
+const contained = await run(`${HELPERS}
+  const measure = id => {
+    const w = win(id); const g = w?.closest('.dv-groupview'); const hide = w?.querySelector('[data-do="tool-hide"]'); const body = w?.querySelector('.toolBody');
+    const gr = g?.getBoundingClientRect(); const hr = hide?.getBoundingClientRect();
+    return { edge: Math.round(gr?.width ?? 0), win: Math.round(w?.getBoundingClientRect().width ?? 0),
+      widest: body ? Math.max(0, ...[...body.querySelectorAll('*')].map(e => e.scrollWidth)) : 0,
+      hideInside: Boolean(hr && gr && hr.width > 0 && hr.left >= gr.left - 0.5 && hr.right <= gr.right + 0.5) };
+  };
+  const out = {};
+  if (!toolLit('files')) await click('files', 900);
+  for (let i = 0; i < 20; i++) {
+    const closed = [...(win('files')?.querySelectorAll('.frow') ?? [])].filter(r => (r.dataset.path || '').includes('a-folder-with-a-long-name') && (r.querySelector('.fchev')?.innerHTML || '').includes('chevron-right'));
+    if (!closed.length) break;
+    closed[0].click(); await wait(300);
+  }
+  await wait(500);
+  out.files = measure('files');
+  const loose = document.createElement('style'); loose.textContent = '.toolWindow { contain: none !important; }'; document.head.appendChild(loose);
+  await wait(300);
+  out.control = measure('files');
+  loose.remove(); await wait(300);
+  await click('search', 900);
+  const field = await until(() => win('search')?.querySelector('[data-do="find-what"]'), 6000);
+  if (field) {
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value').set.call(field, 'needle-far-out');
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(200);
+    win('search').querySelector('[data-do="find-go"]')?.click();
+    await until(() => win('search')?.querySelector('.findline'), 6000);
+    await wait(400);
+  }
+  out.search = measure('search');
+  await click('usage', 1500);
+  out.usage = measure('usage');
+  await click('archive', 1500);
+  out.archive = measure('archive');
+  await click('archive', 500);
+  await click('files', 900);
+  return out;
+`);
+{
+  const c = contained;
+  const held = (m) => m && m.edge > 0 && near(m.win, m.edge) && m.hideInside;
+  claim(
+    "a tool window is as wide as its edge and its — stays inside it, whatever it holds: a tree of long names, a line of six hundred characters, the usage, the archive",
+    ["files", "search", "usage", "archive"].every((k) => held(c[k])) && c.files.widest > c.files.edge && c.search.widest > c.search.edge,
+    ["files", "search", "usage", "archive"].map((k) => `${k}: window ${c[k]?.win} in an edge of ${c[k]?.edge}, content ${c[k]?.widest} wide, — inside ${c[k]?.hideInside}`).join(" · "),
+  );
+  claim(
+    "the control: uncontained, the same tree pushes the Files window wider than its edge",
+    c.control.win > c.control.edge + 50 && !c.control.hideInside,
+    `window ${c.control.win} in an edge of ${c.control.edge}, — inside ${c.control.hideInside}`,
+  );
+}
+
+// ---- main split while both sides show ------------------------------------------
+/* Main's floor is what main needs, and it needs more once it is split: two
+   groups side by side each keep their minimum. A split made while both sides
+   were showing had nothing after it to bring the floor round — no resize, no
+   edge change — and at 1100 the second group lay 247 pixels under the right
+   tool window. So at each width main is made one column, both sides are
+   shown, and a file is opened from the tree, which splits main in two. */
+const splitWhileOpen = [];
+for (const w of [1600, 1100, 900]) {
+  await view(w);
+  await sleep(900);
+  splitWhileOpen.push(
+    await run(`${HELPERS}
+      for (const name of ['alpha.txt', 'beta.txt']) { const t = tabNamed(name); if (t) { t.querySelector('.panelTabClose')?.click(); await wait(400); } }
+      if (!toolLit('files')) await click('files', 900);
+      if (!toolLit('usage')) await click('usage', 900);
+      await wait(600);
+      const px = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
+      const read = () => {
+        const l = edgeBox('files'); const r = edgeBox('usage'); const gs = gridGroups().map(g => g.b).filter(b => b.w > 0);
+        const left = Math.min(...gs.map(b => b.x)); const right = Math.max(...gs.map(b => b.x + b.w));
+        return { shell: box(document.querySelector('.dv-shell')).w, left: l?.w ?? 0, main: grid().w, right: r?.w ?? 0, columns: new Set(gs.map(b => b.x)).size,
+          under: Math.max(0, l ? l.x + l.w - left : 0, r ? right - r.x : 0) };
+      };
+      const before = read();
+      const row = await until(() => [...(win('files')?.querySelectorAll('.frow') ?? [])].find(r => (r.querySelector('.fname') || {}).textContent?.trim() === 'alpha.txt'), 6000);
+      row?.click();
+      await until(() => tabNamed('alpha.txt'), 5000);
+      await wait(1200);
+      return { width: innerWidth, mainMin: px('--main-min'), sideMin: px('--side-min'), before, after: read() };
+    `),
+  );
+}
+{
+  const need = (f) => 2 * f.sideMin + f.after.columns * f.mainMin;
+  const roomy = (f) => f.after.shell >= need(f);
+  claim(
+    "main split in two while both sides show: wherever there is room nothing of main is under a tool window and main keeps both groups' floor",
+    splitWhileOpen.every((f) => f.after.columns === 2 && (!roomy(f) || (f.after.under <= 1 && f.after.main >= f.after.columns * f.mainMin - 1))) &&
+      splitWhileOpen.some((f) => roomy(f) && f.before.main < 2 * f.mainMin),
+    splitWhileOpen
+      .map((f) => `${f.width}px: sides ${f.before.left}+${f.before.right} → ${f.after.left}+${f.after.right} · main ${f.before.main} → ${f.after.main} (${f.after.columns} columns) · under a window ${f.after.under} · ${roomy(f) ? "room" : `no room, the shell is ${f.after.shell} and both sides at their minimum with two groups need ${need(f)}`}`)
+      .join(" | "),
+  );
+}
+
 // ---- main's floor, and never under a tool window ------------------------------
 const floor = [];
 await run(`${HELPERS} if (!toolLit('files')) await click('files', 700); if (!toolLit('usage')) await click('usage', 900);`);
@@ -846,7 +973,39 @@ if (splitSetup.why || splitSetup.groups.length < 3) {
 }
 
 // ---- a hidden tool asks for nothing --------------------------------------------
-await run(`${HELPERS} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1200);`);
+/* Every tool is shown once first, so every body has been mounted — the tree
+   and the notes stay mounted when they are put away — then every edge is
+   hidden, and ten seconds of what the window asks for are read against what
+   each tool asks for. The window's own feeds — the tiles, the settings'
+   revision, the limits on the status row — are nobody's tool and are left
+   out. The tree used to go on asking git every four seconds from behind a
+   hidden edge. */
+const TOOL_ASKS = {
+  files: (t) => /\/api\/git\/[^/?]+$|\/api\/files\/[^?]+\?dir=/.test(t.url),
+  changes: (t) => /\/ws\/changes\/|\/api\/branches\/|\/api\/history\/|\/api\/position\/|\/api\/git\/[^/]+\/stashes/.test(t.url),
+  review: (t) => /\/api\/review\//.test(t.url),
+  search: (t) => /\/api\/find\//.test(t.url),
+  inbox: (t) => /\/api\/replies/.test(t.url),
+  usage: (t) => /\/api\/usage\?|\/api\/waiting/.test(t.url),
+  ports: (t) => /\/api\/ports/.test(t.url),
+  archive: (t) => /\/api\/archive|\/api\/search/.test(t.url),
+  // The notes write the one key they keep; the saved arrangement names the
+  // notes panel too, and is not the notes asking for anything.
+  notes: (t) => t.method === "PUT" && /\/api\/prefs$/.test(t.url) && Object.prototype.hasOwnProperty.call(prefsBody(t), "notes"),
+};
+function prefsBody(t) {
+  try {
+    const parsed = JSON.parse(t.body || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+await run(`${HELPERS}
+  await hideAll(); await openSession(/plxr-stripes-check/); await wait(1200);
+  for (const id of TOOL_IDS) { if (!toolLit(id)) await click(id, 900); }
+  await hideAll();
+`);
 const openChanges = () => {
   const open = new Map();
   for (const t of traffic) {
@@ -857,21 +1016,245 @@ const openChanges = () => {
 };
 await sleep(1500);
 const quietFrom = Date.now();
+await sleep(10000);
+const since = (from) => traffic.filter((t) => t.at >= from && t.url);
+const quiet = since(quietFrom);
+const idle = {
+  ...Object.fromEntries(Object.entries(TOOL_ASKS).map(([id, asks]) => [id, quiet.filter(asks).length])),
+  openChanges: openChanges(),
+  otherRequests: quiet.length,
+  prefsWrites: quiet.filter((t) => t.method === "PUT" && /\/api\/prefs$/.test(t.url)).map((t) => Object.keys(prefsBody(t)).join("+")),
+};
+/* Brought back, each picks up: the tree asks git at once and then on its
+   beat, the ports, what has changed and the usage ask again. */
+const treeFrom = Date.now();
+await run(`${HELPERS} await click('files', 400); await click('ports', 400);`);
 await sleep(5000);
-const quiet = traffic.filter((t) => t.at >= quietFrom);
-const asked = (list, re) => list.filter((t) => re.test(t.url ?? "")).length;
-const idle = { usage: asked(quiet, /\/api\/usage\?/), ports: asked(quiet, /\/api\/ports/), changes: asked(quiet, /\/ws\/changes\//), openChanges: openChanges() };
-const litFrom = Date.now();
-await run(`${HELPERS} await click('changes', 400); await click('ports', 400); await click('usage', 400);`);
+const treeAsks = since(treeFrom).filter(TOOL_ASKS.files);
+const portsAsks = since(treeFrom).filter(TOOL_ASKS.ports);
+const restFrom = Date.now();
+await run(`${HELPERS} await click('changes', 400); await click('usage', 400);`);
 await sleep(5000);
-const lit = traffic.filter((t) => t.at >= litFrom);
-const busy = { usage: asked(lit, /\/api\/usage\?/), ports: asked(lit, /\/api\/ports/), changes: asked(lit, /\/ws\/changes\//), openChanges: openChanges() };
+const busy = {
+  files: treeAsks.length,
+  filesFirstAfterMs: treeAsks.length ? treeAsks[0].at - treeFrom : null,
+  ports: portsAsks.length,
+  changes: since(restFrom).filter((t) => /\/ws\/changes\//.test(t.url)).length,
+  usage: since(restFrom).filter((t) => /\/api\/usage\?/.test(t.url)).length,
+  openChanges: openChanges(),
+};
 claim(
-  "with every edge hidden for five seconds, the window asks for no usage, no ports and no changes",
-  idle.usage === 0 && idle.ports === 0 && idle.changes === 0 && idle.openChanges === 0,
+  "with every edge hidden for ten seconds, no tool asks the service for anything — the tree and the notes, which stay mounted, included",
+  Object.keys(TOOL_ASKS).every((id) => idle[id] === 0) && idle.openChanges === 0,
   JSON.stringify(idle),
 );
-claim("with Changes, Ports and Usage showing, each asks again", busy.usage > 0 && busy.ports > 0 && busy.changes > 0, JSON.stringify(busy));
+claim(
+  "shown again, each picks up: the tree asks git at once and on its beat, the ports, the changes and the usage ask again",
+  busy.files >= 2 && busy.filesFirstAfterMs !== null && busy.filesFirstAfterMs <= 1500 && busy.ports > 0 && busy.changes > 0 && busy.usage > 0,
+  JSON.stringify(busy),
+);
+await run(`${HELPERS} await hideAll();`);
+await sleep(900);
+
+// ---- what a tool had on screen comes back ---------------------------------------
+/* A tool's body is taken down more often than it looks: a hidden tool that
+   polls is not rendered at all, and every arrangement loaded makes every panel
+   again, the tree and the notes with them. What each had on screen is kept for
+   the life of the window (lib/toolMemory). A search typed and put away came
+   back empty; a tree came back at the folder it was given, folded, at the top.
+   The places scrolled to are far enough down that a box put back at the top
+   cannot pass for one put back where it was. */
+const MEMORY = `${HELPERS}
+  const rowNamed = (id, n) => [...(win(id)?.querySelectorAll('.frow') ?? [])].find(r => (r.querySelector('.fname') || {}).textContent?.trim() === n);
+  const unfolded = (id, n) => (rowNamed(id, n)?.querySelector('.fchev')?.innerHTML || '').includes('chevron-down');
+  const typeInto = async (el, v) => { el.focus(); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); await wait(250); };
+  const scroller = { files: () => win('files')?.querySelector('.filetree'), search: () => win('search')?.querySelector('.filesearch'), archive: () => win('archive')?.querySelector('.listbody'), notes: () => win('notes')?.querySelector('.cm-scroller') };
+  const topOf = id => Math.round(scroller[id]()?.scrollTop ?? -1);
+  const roomOf = id => { const el = scroller[id](); return el ? el.scrollHeight - el.clientHeight : -1; };
+`;
+const kept24 = await run(`${MEMORY}
+  await hideAll(); await openSession(/plxr-stripes-check/); await wait(1200);
+  await click('files', 900);
+  if (!(await until(() => rowNamed('files', 'many'), 6000))) return { why: 'no folder "many" in the Files tool' };
+  if (!unfolded('files', 'many')) rowNamed('files', 'many').click();
+  await until(() => rowNamed('files', 'row-001.txt'), 4000);
+  const before = { unfolded: unfolded('files', 'many'), child: Boolean(rowNamed('files', 'row-001.txt')) };
+  document.activeElement?.blur?.();
+  await key('b', { metaKey: true }); await wait(300);
+  const hidden = !edgeBox('files');
+  document.activeElement?.blur?.();
+  await key('b', { metaKey: true }); await wait(600);
+  const after = { shown: Boolean(edgeBox('files')), unfolded: unfolded('files', 'many'), child: Boolean(rowNamed('files', 'row-001.txt')) };
+  await click('search', 900);
+  const field = await until(() => win('search')?.querySelector('[data-do="find-what"]'), 6000);
+  if (!field) return { why: 'no search field in the Search tool' };
+  await typeInto(field, 'needle-row');
+  win('search').querySelector('[data-do="find-go"]').click();
+  await until(() => (win('search')?.querySelectorAll('.findline').length ?? 0) >= 100, 6000);
+  await wait(300);
+  const hits = win('search').querySelectorAll('.findline').length;
+  document.activeElement?.blur?.();
+  await click('search', 600);
+  const unmounted = !edgeBox('search') && !win('search')?.querySelector('[data-do="find-what"]');
+  await click('search', 900);
+  const again = { query: win('search')?.querySelector('[data-do="find-what"]')?.value ?? null, hits: win('search')?.querySelectorAll('.findline').length ?? 0 };
+  return { before, hidden, after, hits, unmounted, again };
+`);
+if (kept24.why) {
+  unmeasured("tool memory through a hide and a show (claim 24)", kept24.why);
+} else {
+  const k = kept24;
+  claim(
+    "a folder unfolded in the Files tool is still unfolded after ⌘B twice",
+    k.before.unfolded && k.before.child && k.hidden && k.after.shown && k.after.unfolded && k.after.child,
+    JSON.stringify({ before: k.before, hidden: k.hidden, after: k.after }),
+  );
+  claim(
+    "a query run in the Search tool is there again with its hits after the tool was hidden, its body gone, and shown",
+    k.unmounted && k.again.query === "needle-row" && k.hits >= 100 && k.again.hits === k.hits,
+    JSON.stringify({ hits: k.hits, unmounted: k.unmounted, again: k.again }),
+  );
+}
+
+const scrolled = kept24.why
+  ? null
+  : await run(`${MEMORY}
+  const res = {};
+  scroller.search().scrollTop = 500; await wait(300);
+  res.search = { set: topOf('search'), room: roomOf('search') };
+  await click('search', 600); await click('search', 1000);
+  res.search.back = topOf('search');
+  await click('files', 1000);
+  scroller.files().scrollTop = 600; await wait(300);
+  res.files = { set: topOf('files'), room: roomOf('files') };
+  await click('files', 600); await click('files', 1000);
+  res.files.back = topOf('files');
+  await click('changes', 900); await click('files', 1000);
+  res.files.behindChanges = topOf('files');
+  await click('archive', 1800);
+  res.archive = { room: roomOf('archive') };
+  if (res.archive.room > 150) {
+    scroller.archive().scrollTop = 150; await wait(300);
+    res.archive.set = topOf('archive');
+    await click('archive', 600); await click('archive', 1800);
+    res.archive.back = topOf('archive');
+  }
+  await click('notes', 1200);
+  win('notes')?.querySelector('.cm-content')?.focus();
+  return res;
+`);
+if (scrolled) {
+  // Ninety lines, typed the way a keyboard types them.
+  await cdp.send("Input.insertText", { text: Array.from({ length: 90 }, (_, i) => `note line ${i + 1}`).join("\n") });
+  await sleep(1200);
+  const notes = await run(`${MEMORY}
+    scroller.notes().scrollTop = 400; await wait(300);
+    const set = topOf('notes'); const room = roomOf('notes');
+    document.activeElement?.blur?.();
+    await click('notes', 600); await click('notes', 1200);
+    return { set, room, back: topOf('notes') };
+  `);
+  const s = scrolled;
+  const held = (x) => Boolean(x) && x.set > 0 && near(x.back, x.set, 2);
+  const archive = s.archive.room > 150 ? `archive ${s.archive.set} → ${s.archive.back}` : `the archive has ${s.archive.room}px to scroll here and is not measured`;
+  claim(
+    "scrolled and put away, each tool comes back where it was read to: the tree through a hide and with another tool in front of it, the search results, the archive, the notes",
+    held(s.search) && held(s.files) && near(s.files.behindChanges, s.files.set, 2) && (s.archive.room <= 150 || held(s.archive)) && held(notes),
+    `search ${s.search.set} → ${s.search.back} · tree ${s.files.set} → ${s.files.back}, with Changes in front meanwhile → ${s.files.behindChanges} · ${archive} · notes ${notes.set} → ${notes.back}`,
+  );
+
+  /* An arrangement loaded again: the layout reset. The tree walks into a
+     folder, filters and scrolls, the archive filters, and the bodies that
+     stay mounted are marked, so the claim knows they were made anew. */
+  const remounted = await run(`${MEMORY}
+    await click('files', 1000);
+    const many = rowNamed('files', 'many');
+    if (!many) return { why: 'no folder "many" to walk into' };
+    const r = many.getBoundingClientRect();
+    many.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 20, clientY: r.top + 5, button: 2 }));
+    await wait(300);
+    const walk = [...document.querySelectorAll('body > .menu .menuItem')].find(x => (x.querySelector('.menuLabel')?.textContent || '').trim() === 'Show only this folder');
+    if (!walk) { await closeMenu(); return { why: 'no "Show only this folder" in the row menu' }; }
+    walk.click(); await wait(1200);
+    await typeInto(win('files').querySelector('.filesbar input'), 'row-0');
+    await wait(800);
+    document.activeElement?.blur?.();
+    scroller.files().scrollTop = 300; await wait(300);
+    const before = { crumb: [...win('files').querySelectorAll('.crumb')].pop()?.textContent.trim() ?? '', filter: win('files').querySelector('.filesbar input')?.value ?? '', tree: topOf('files') };
+    await click('archive', 1500);
+    await typeInto(win('archive').querySelector('.listbar input'), 'kept-filter');
+    document.activeElement?.blur?.();
+    await wait(300);
+    for (const id of ['files', 'notes']) { const b = win(id)?.querySelector('.toolBody > *'); if (b) b.dataset.gateMark = 'old'; }
+    const reset = document.querySelector('[data-do="reset-layout"]');
+    if (!reset) return { why: 'no reset-layout button' };
+    reset.click();
+    await wait(2000);
+    // A body is read for the mark once its tool is on screen again: a tool not shown since the load has no body on the page at all.
+    const mark = id => win(id)?.querySelector('.toolBody > *')?.dataset.gateMark ?? 'new';
+    await click('files', 1500);
+    const files = { mark: mark('files'), crumb: [...(win('files')?.querySelectorAll('.crumb') ?? [])].pop()?.textContent.trim() ?? '', filter: win('files')?.querySelector('.filesbar input')?.value ?? '', tree: topOf('files') };
+    await click('search', 1200);
+    const search = { query: win('search')?.querySelector('[data-do="find-what"]')?.value ?? null, hits: win('search')?.querySelectorAll('.findline').length ?? 0, results: topOf('search') };
+    await click('archive', 1800);
+    const archive = { filter: win('archive')?.querySelector('.listbar input')?.value ?? null };
+    await click('notes', 1500);
+    const notes = { mark: mark('notes'), text: /note line \\d+/.test(win('notes')?.querySelector('.cm-content')?.textContent || ''), editor: topOf('notes') };
+    await hideAll();
+    return { before, files, search, archive, notes };
+  `);
+  if (remounted.why) {
+    unmeasured("an arrangement loaded again brings every tool back as it was", remounted.why);
+  } else {
+    const m = remounted;
+    claim(
+      "an arrangement loaded again makes the tool bodies anew, and each comes back as it was: the tree at the folder it walked to with its filter and its scroll, the search with its query, hits and scroll, the archive's filter, the notes' text and scroll",
+      m.files.mark === "new" && m.notes.mark === "new" && m.before.crumb === "many" && m.files.crumb === "many" && m.files.filter === "row-0" && m.before.tree > 0 && near(m.files.tree, m.before.tree, 2) &&
+        m.search.query === "needle-row" && m.search.hits >= 100 && near(m.search.results, s.search.set, 2) && m.archive.filter === "kept-filter" && m.notes.text && near(m.notes.editor, notes.set, 2),
+      JSON.stringify(m),
+    );
+  }
+}
+
+// ---- a tool's own actions in its header, and no prompts ---------------------------
+const heads = await run(`${HELPERS}
+  const res = {};
+  for (const id of TOOL_IDS) {
+    if (!toolLit(id)) await click(id, 900);
+    const w = win(id); const g = w.closest('.dv-groupview').getBoundingClientRect();
+    const hide = w.querySelector('[data-do="tool-hide"]').getBoundingClientRect();
+    const title = w.querySelector('.toolTitle').getBoundingClientRect();
+    const acts = [...w.querySelectorAll('.toolActions [data-do]')];
+    res[id] = { prompts: w.querySelectorAll('.prompt').length, actions: acts.map(a => a.dataset.do), edge: Math.round(g.width),
+      inside: [hide, ...acts.map(a => a.getBoundingClientRect())].every(r => r.width > 0 && r.left >= g.left - 0.5 && r.right <= g.right + 0.5),
+      clear: acts.every(a => title.right <= a.getBoundingClientRect().left + 0.5) };
+  }
+  return res;
+`);
+{
+  const own = { files: ["files-refresh"], usage: ["usage-reload"], ports: ["ports-reload"] };
+  const ids = Object.keys(heads);
+  claim(
+    "no tool window carries a prompt, and the tools with actions of their own wear them in the header: Files its refresh, Usage and Ports their reload",
+    ids.length === 9 && ids.every((id) => heads[id].prompts === 0 && JSON.stringify(heads[id].actions) === JSON.stringify(own[id] ?? [])),
+    ids.map((id) => `${id}: ${heads[id].prompts} prompts, ${heads[id].actions.join(",") || "no actions"}`).join(" · "),
+  );
+  claim(
+    "the title, the actions and the — stay inside the edge and clear of each other, at the 320 pixel edge too",
+    ids.every((id) => heads[id].inside && heads[id].clear) && heads.usage.edge <= 330 && heads.ports.edge <= 330,
+    ids.map((id) => `${id} ${heads[id].edge}px: inside ${heads[id].inside}, clear ${heads[id].clear}`).join(" · "),
+  );
+}
+const actionAsks = {};
+for (const [id, name, re] of [["files", "files-refresh", /\/api\/files\//], ["ports", "ports-reload", /\/api\/ports/], ["usage", "usage-reload", /\/api\/usage\/accounts|\/api\/usage\?/]]) {
+  // Past the ports' own four-second beat, so the request counted is the button's.
+  await run(`${HELPERS} if (!toolLit('${id}')) await click('${id}', 1500); await wait(4300);`);
+  const from = Date.now();
+  await run(`${HELPERS} win('${id}')?.querySelector('.toolActions [data-do="${name}"]')?.click();`);
+  await sleep(900);
+  actionAsks[id] = traffic.filter((t) => t.at >= from && t.url && re.test(t.url)).length;
+}
+claim("each header action asks the service there and then: the tree reads its folders again, the ports and the usage ask again", Object.values(actionAsks).every((n) => n > 0), JSON.stringify(actionAsks));
 await run(`${HELPERS} await hideAll();`);
 await sleep(900);
 
