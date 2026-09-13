@@ -676,7 +676,7 @@ windows.
 .stripeGap { flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); }
 .stripeGhost { position: fixed; left: 0; top: 0; z-index: 420; width: var(--stripe-icon-box); height: var(--stripe-icon-box);
   display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.toolWindow { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.toolWindow { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; contain: inline-size; }
 .toolHead { flex: 0 0 var(--toolhead-h); display: flex; align-items: center; gap: 0.375rem; padding: 0 0.25rem 0 0.625rem; min-width: 0; }
 .toolIcon, .menuIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; justify-content: center; }
 .toolTitle, .toolScope, .switchLabel { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -689,6 +689,10 @@ windows.
 .edgeToggles { display: inline-flex; gap: 0.125rem; }
 ```
 
+- **`.toolWindow` is contained** (`contain: inline-size`, found in step 4). dockview's content box is a
+  flex item that grows to its content, so without it a Files tree of long names made the window 743 px
+  wide in a 320 px edge, its — out of reach and its body under main; Search 3672 px, Archive 633 px.
+  stripes.mjs holds it, with the containment taken away as its control.
 - **No `writing-mode` and no logical properties.** The stripes are plain flex boxes, so skinrules.py's
   physical-property `SIZING` list is enough, and no change to skinrules.py is needed.
 - **Pixel pack:** `(--stripe-icon-box − icon) / 2` has to be a whole number of device pixels at 1x and

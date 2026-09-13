@@ -20,6 +20,7 @@
  *     ⌘2 shows the Inbox with the keyboard in it, gives the keyboard back to
  *     it, and puts it away from inside it; ⇧⎋ hides the window the keyboard
  *     is in and nothing else;
+ *   a tool window is as wide as its edge whatever it holds, its — in reach;
  *   a file clicked in the Files tool opens in main, and a document dragged
  *     onto a tool window, its edges or the grid's outer edge stays in main;
  *   main's splits keep their proportions whatever order the edges go in;
@@ -133,6 +134,17 @@ const work = mkdtempSync(join(tmpdir(), "plxr-stripes-work-"));
 writeFileSync(join(work, "alpha.txt"), "one\ntwo\nthree\n");
 writeFileSync(join(work, "beta.txt"), "four\nfive\n");
 writeFileSync(join(work, "gamma.txt"), "six\n");
+/* And what no tool window is wide enough for: a chain of folders whose names
+   alone are wider than the window, and a line far longer than any window. */
+{
+  let deep = work;
+  for (let i = 1; i <= 6; i++) {
+    deep = join(deep, `a-folder-with-a-long-name-that-keeps-going-level-${i}`);
+    mkdirSync(deep);
+    writeFileSync(join(deep, `a-file-whose-name-is-longer-than-the-window-level-${i}.txt`), "x\n");
+  }
+  writeFileSync(join(work, "wide.txt"), `const wide = "${"w".repeat(300)}needle-far-out${"w".repeat(300)}";\n`);
+}
 let made = null;
 
 let browserGone = false;
@@ -644,6 +656,68 @@ if (!documents.why) {
     "a document dragged onto a tool window's centre, its edges or the grid's outer edge stays in main, and every edge holds tools only",
     drops.length === 5 && drops.every((d) => d.intercepted && d.inMain && d.inTools === 0),
     drops.map((d) => `${d.zone}: in main ${d.inMain}, non-tools in edges ${d.inTools}`).join(" · "),
+  );
+}
+
+// ---- a tool window is as wide as its edge, whatever it holds -------------------
+/* dockview's content box is a flex item that grows to what is inside it, so a
+   tree of long names made the Files window 743 pixels wide in a 320 pixel
+   edge, its — out of reach and its body under main. Each tool is given the
+   widest thing it can hold here, and its window and its — are read against the
+   edge; the control takes the containment away and the same tree has to push
+   the window wider, or the claim could not have seen the fault. */
+const contained = await run(`${HELPERS}
+  const measure = id => {
+    const w = win(id); const g = w?.closest('.dv-groupview'); const hide = w?.querySelector('[data-do="tool-hide"]'); const body = w?.querySelector('.toolBody');
+    const gr = g?.getBoundingClientRect(); const hr = hide?.getBoundingClientRect();
+    return { edge: Math.round(gr?.width ?? 0), win: Math.round(w?.getBoundingClientRect().width ?? 0),
+      widest: body ? Math.max(0, ...[...body.querySelectorAll('*')].map(e => e.scrollWidth)) : 0,
+      hideInside: Boolean(hr && gr && hr.width > 0 && hr.left >= gr.left - 0.5 && hr.right <= gr.right + 0.5) };
+  };
+  const out = {};
+  if (!toolLit('files')) await click('files', 900);
+  for (let i = 0; i < 20; i++) {
+    const closed = [...(win('files')?.querySelectorAll('.frow') ?? [])].filter(r => (r.dataset.path || '').includes('a-folder-with-a-long-name') && (r.querySelector('.fchev')?.innerHTML || '').includes('chevron-right'));
+    if (!closed.length) break;
+    closed[0].click(); await wait(300);
+  }
+  await wait(500);
+  out.files = measure('files');
+  const loose = document.createElement('style'); loose.textContent = '.toolWindow { contain: none !important; }'; document.head.appendChild(loose);
+  await wait(300);
+  out.control = measure('files');
+  loose.remove(); await wait(300);
+  await click('search', 900);
+  const field = await until(() => win('search')?.querySelector('[data-do="find-what"]'), 6000);
+  if (field) {
+    Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value').set.call(field, 'needle-far-out');
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    await wait(200);
+    win('search').querySelector('[data-do="find-go"]')?.click();
+    await until(() => win('search')?.querySelector('.findline'), 6000);
+    await wait(400);
+  }
+  out.search = measure('search');
+  await click('usage', 1500);
+  out.usage = measure('usage');
+  await click('archive', 1500);
+  out.archive = measure('archive');
+  await click('archive', 500);
+  await click('files', 900);
+  return out;
+`);
+{
+  const c = contained;
+  const held = (m) => m && m.edge > 0 && near(m.win, m.edge) && m.hideInside;
+  claim(
+    "a tool window is as wide as its edge and its — stays inside it, whatever it holds: a tree of long names, a line of six hundred characters, the usage, the archive",
+    ["files", "search", "usage", "archive"].every((k) => held(c[k])) && c.files.widest > c.files.edge && c.search.widest > c.search.edge,
+    ["files", "search", "usage", "archive"].map((k) => `${k}: window ${c[k]?.win} in an edge of ${c[k]?.edge}, content ${c[k]?.widest} wide, — inside ${c[k]?.hideInside}`).join(" · "),
+  );
+  claim(
+    "the control: uncontained, the same tree pushes the Files window wider than its edge",
+    c.control.win > c.control.edge + 50 && !c.control.hideInside,
+    `window ${c.control.win} in an edge of ${c.control.edge}, — inside ${c.control.hideInside}`,
   );
 }
 
