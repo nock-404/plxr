@@ -1219,19 +1219,28 @@ const isMainPanel = (id: string) =>
   id.startsWith("diff:") ||
   id.startsWith("preview:") ||
   id === "overview" ||
-  id === "settings";
+  id === "settings" ||
+  id === "folders" ||
+  id === "archive" ||
+  id === "notes";
 
-/* Where each view goes when nobody has said otherwise. What is read beside the
-   work goes left; what is watched while it runs goes right. */
+/* Where each view goes when nobody has said otherwise.
+ *
+ * A tool region is one column wide, so only a view that is a single list
+ * belongs in one: the file tree, what has changed, a search, a branch review.
+ * A view that lays itself out in two columns — folders, with its tree beside
+ * what the tree opens — is squeezed to nothing in a tool region, and its
+ * second column came out ninety pixels wide. Those are main views, whatever
+ * else they are about. What is watched rather than worked in goes right. */
 const HOME_REGION: Record<string, Region> = {
   overview: "main",
   settings: "main",
   notes: "main",
-  folders: "left",
+  folders: "main",
+  archive: "main",
   changes: "left",
   review: "left",
   search: "left",
-  archive: "left",
   inbox: "right",
   usage: "right",
   ports: "right",

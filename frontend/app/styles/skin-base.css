@@ -958,3 +958,6 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
    hairline where it meets the work. */
 .dockShell { background: transparent; }
 .railHost { background: var(--panel); border-right: var(--hair) solid var(--line); }
+
+/* A port row: the number in the accent, because that is what is looked up. */
+.row.port .hitDate { color: var(--accent); }
