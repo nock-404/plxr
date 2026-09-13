@@ -8,8 +8,9 @@ import Tooltip from "@/components/ui/Tooltip";
 import { accountName, shortPath } from "@/lib/format";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { useAccounts } from "@/lib/useAccounts";
 import { isHot, useAccountLimits, worst } from "@/lib/useLimits";
-import type { Account, Agent, Tile } from "@/lib/types";
+import type { Agent, Tile } from "@/lib/types";
 
 // Start a session: where, what to start, under which account.
 export default function NewSession({
@@ -29,7 +30,9 @@ export default function NewSession({
   const [browsing, setBrowsing] = useState(false);
   const [pick, setPick] = useState("shell");
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  /* The window's one list: an account added or signed in to while this
+     dialog is open turns up here without it being opened again. */
+  const accounts = useAccounts() ?? [];
   const [account, setAccount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -78,11 +81,16 @@ export default function NewSession({
         return api.paths("~").then((p) => p?.[0] && setCwd(p[0]));
       })
       .catch(() => undefined);
-    api.accounts().then((a) => {
-      setAccounts(a ?? []);
-      if (a?.[0]) setAccount(a[0].name);
-    }).catch(() => undefined);
   }, []);
+
+  /* The first account until somebody picks one, as it always was.
+     This was set where the list was fetched — after the early return for a
+     dialog opened on a chosen folder, so that dialog never offered an account
+     at all. */
+  const firstAccount = accounts[0]?.name ?? "";
+  useEffect(() => {
+    if (!account && firstAccount) setAccount(firstAccount);
+  }, [account, firstAccount]);
 
   async function start() {
     setBusy(true);

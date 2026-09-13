@@ -16,7 +16,7 @@ func TestCreateDefaultRenameRemove(t *testing.T) {
 	}
 
 	// Create a fresh one — it takes the next free numbered directory.
-	acc, list, err := Create("work")
+	acc, list, err := Create("work", false)
 	if err != nil {
 		t.Fatal(err)
 	}

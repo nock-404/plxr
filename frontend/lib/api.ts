@@ -151,10 +151,12 @@ export const api = {
 
   paths: (q = "") => req<string[]>(`/api/paths?q=${encodeURIComponent(q)}`),
   accounts: () => req<Account[]>("/api/accounts"),
-  accountCreate: (label: string) =>
+  /* share: the new account's projects folder becomes a link to the history the
+     other accounts read, instead of an empty folder of its own. */
+  accountCreate: (label: string, share: boolean) =>
     req<{ account: Account; accounts: Account[] }>("/api/accounts", {
       method: "POST",
-      body: JSON.stringify({ label }),
+      body: JSON.stringify({ label, share }),
     }),
   accountRename: (name: string, label: string) =>
     req<Account[]>(`/api/accounts/${encodeURIComponent(name)}`, {
@@ -168,8 +170,12 @@ export const api = {
     }),
   accountRemove: (name: string) =>
     req<Account[]>(`/api/accounts/${encodeURIComponent(name)}`, { method: "DELETE" }),
-  accountAdd: (dir: string, label: string) =>
-    req<Account[]>("/api/accounts", { method: "POST", body: JSON.stringify({ dir, label }) }),
+  accountAdd: (dir: string, label: string, share: boolean) =>
+    req<Account[]>("/api/accounts", { method: "POST", body: JSON.stringify({ dir, label, share }) }),
+  /* Joins an account already in the list to the history the others read.
+     Refused, with nothing changed, while its projects folder holds anything. */
+  accountShare: (name: string) =>
+    req<Account[]>(`/api/accounts/${encodeURIComponent(name)}/share`, { method: "POST" }),
 
   ports: () => req<Port[]>("/api/ports"),
   portKill: (pid: number, hard = false) =>

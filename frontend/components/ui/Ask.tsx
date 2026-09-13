@@ -28,6 +28,7 @@ export default function Ask({
   third,
   onConfirm,
   onCancel,
+  children,
 }: {
   /* What the dialog asks, as its heading. Named so, and not "title", because a
      title on an element is the system's own tooltip — see ui/Tooltip. */
@@ -44,6 +45,9 @@ export default function Ask({
   third?: { label: string; danger?: boolean; onClick: () => void };
   onConfirm: (answer: string) => void;
   onCancel: () => void;
+  /* A choice that belongs to the question, under the field — "share the
+     history" beside the directory an account is taken from. */
+  children?: React.ReactNode;
 }) {
   const box = useRef<HTMLInputElement>(null);
   // Only the completing field needs state: the plain one is read off the DOM
@@ -90,6 +94,7 @@ export default function Ask({
             )}
           </label>
         ) : null}
+        {children}
         <div className="cardButtons">
           <span className="spacer" />
           <Button onClick={onCancel}>{tr("common.cancel", "CANCEL")}</Button>

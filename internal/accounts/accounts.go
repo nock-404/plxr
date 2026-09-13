@@ -36,6 +36,10 @@ type Account struct {
 	// chosen. Exactly one is default; if the saved list names none, the first
 	// one stands in.
 	Default bool `json:"default,omitempty"`
+	// State is what the Accounts page says about the account right now —
+	// signed in, hooked up, sharing the history, how old its usage reading is.
+	// Filled in by Describe on the way out, and never saved.
+	State *State `json:"state,omitempty"`
 }
 
 // Env returns the environment variable that makes a process use this account.
@@ -137,7 +141,14 @@ func Save(list []Account) error {
 	if err := os.MkdirAll(filepath.Dir(configPath()), 0o755); err != nil {
 		return err
 	}
-	b, _ := json.MarshalIndent(list, "", "  ")
+	// What the disk says about an account is read afresh each time; written
+	// into the list it would be a stale answer the next start reads back.
+	kept := make([]Account, len(list))
+	for i, a := range list {
+		a.State = nil
+		kept[i] = a
+	}
+	b, _ := json.MarshalIndent(kept, "", "  ")
 	return os.WriteFile(configPath(), b, 0o644)
 }
 
@@ -169,8 +180,9 @@ func ByName(list []Account, name string) (Account, bool) {
 // Create makes a fresh account in the next free numbered directory — .claude if
 // it is somehow missing, otherwise .claude2, .claude3 and so on — and returns
 // it and the new list. This is "add an account and log in": the directory is
-// empty, so the first `claude` run in it asks to sign in.
-func Create(label string) (Account, []Account, error) {
+// empty, so the first `claude` run in it asks to sign in. With share, its
+// projects folder is a link to the history the other accounts read.
+func Create(label string, share bool) (Account, []Account, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Account{}, nil, err
@@ -191,7 +203,7 @@ func Create(label string) (Account, []Account, error) {
 		if _, err := os.Stat(dir); err == nil {
 			continue // a directory is there but not in the list; do not claim it
 		}
-		list, err := Add(dir, label)
+		list, err := Add(dir, label, share)
 		if err != nil {
 			return Account{}, nil, err
 		}
@@ -243,7 +255,12 @@ func Default(list []Account) Account {
 // Add takes a directory into the list. The directory is made if it is not there
 // yet, along with the projects folder inside it, because a configuration
 // directory without one is not one Claude Code will use.
-func Add(dir, label string) ([]Account, error) {
+//
+// With share the projects folder is not made but linked to the history the
+// accounts already in the list read — and only when it is not there or is
+// empty. One that holds anything is refused before a single thing is created
+// or saved.
+func Add(dir, label string, share bool) ([]Account, error) {
 	dir = strings.TrimSpace(dir)
 	if dir == "" {
 		return nil, uierr.New("err.account.noDir")
@@ -282,7 +299,22 @@ func Add(dir, label string) ([]Account, error) {
 			return nil, uierr.With("err.account.exists", a.Dir)
 		}
 	}
-	if err := os.MkdirAll(filepath.Join(dir, "projects"), 0o755); err != nil {
+	projects := filepath.Join(dir, "projects")
+	if share {
+		store, _ := Store(list, "")
+		if store == "" {
+			return nil, uierr.New("err.account.noStore")
+		}
+		if _, err := linkable(projects, store); err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, uierr.With("err.account.notCreated", err.Error())
+		}
+		if err := link(projects, store); err != nil {
+			return nil, err
+		}
+	} else if err := os.MkdirAll(projects, 0o755); err != nil {
 		return nil, uierr.With("err.account.notCreated", err.Error())
 	}
 

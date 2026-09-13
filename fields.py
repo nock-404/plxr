@@ -21,6 +21,7 @@ PAIRS = {
     "Session": ("internal/session/session.go", "Session"),
     "Port": ("internal/ports/ports.go", None),
     "Account": ("internal/accounts/accounts.go", None),
+    "AccountState": ("internal/accounts/state.go", None),
     "FileEntry": ("internal/files/files.go", None),
     "AgentProfile": ("internal/agent/agent.go", None),
     "Pace": ("internal/usage/usage.go", None),

@@ -159,17 +159,20 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	mux.HandleFunc("GET /api/accounts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.Accounts()) })
+	mux.HandleFunc("GET /api/accounts", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, s.c.AccountsShown()) })
 	mux.HandleFunc("POST /api/accounts", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Dir   string `json:"dir"`
 			Label string `json:"label"`
+			// Share links the new account's projects folder to the history
+			// the others read. Absent means: share when the others do.
+			Share *bool `json:"share"`
 		}
 		_ = json.NewDecoder(io.LimitReader(r.Body, 8<<10)).Decode(&req)
 		// A directory given means "take this one I already have" (option a);
 		// none means "make a fresh one to sign in to" (option b).
 		if strings.TrimSpace(req.Dir) != "" {
-			list, err := s.c.AddAccount(req.Dir, req.Label)
+			list, err := s.c.AddAccount(req.Dir, req.Label, req.Share)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
@@ -177,7 +180,7 @@ func (s *Server) Routes() *http.ServeMux {
 			writeJSON(w, list)
 			return
 		}
-		acc, list, err := s.c.CreateAccount(req.Label)
+		acc, list, err := s.c.CreateAccount(req.Label, req.Share)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -207,12 +210,23 @@ func (s *Server) Routes() *http.ServeMux {
 			return
 		}
 		if list == nil {
-			list = s.c.Accounts()
+			list = s.c.AccountsShown()
 		}
 		writeJSON(w, list)
 	})
 	mux.HandleFunc("DELETE /api/accounts/{name}", func(w http.ResponseWriter, r *http.Request) {
 		list, err := s.c.RemoveAccount(r.PathValue("name"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, list)
+	})
+	/* Joining the shared history later, for an account that was added with a
+	   projects folder of its own. Refused with nothing changed while that folder
+	   holds anything. */
+	mux.HandleFunc("POST /api/accounts/{name}/share", func(w http.ResponseWriter, r *http.Request) {
+		list, err := s.c.ShareAccountHistory(r.PathValue("name"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

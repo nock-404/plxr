@@ -195,6 +195,16 @@ step "folder overview" node folders.mjs
 # one that is nearly out.
 step "usage per account" node usage.mjs
 
+# A fourth account, added from the window on a machine arranged like his:
+# three accounts reading one projects folder through links, the hook in all
+# three. Once through the service and once clicked through the page — the
+# new directory, its projects folder a link to the shared one, the hook in its
+# settings, the sign-in session in front, the row turning to "signed in"
+# without a reload, the new account in the session's switch, the usage view
+# and the new-session dialog, joining the history later, and the refusal that
+# leaves a projects folder holding a file exactly as it was.
+step "a fourth account" node accounts.mjs
+
 # Files managed from the tree and the project searched from a panel: a file
 # made from a row's context menu, renamed, moved through the folder picker
 # and deleted after the question — each held against the disk and the

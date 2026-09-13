@@ -188,6 +188,26 @@ export interface Account {
   sessions: number;
   /* The account a new session starts under when none is chosen. */
   default?: boolean;
+  /* What the disk says about it right now — sent with every answer the
+     accounts routes give, never saved. */
+  state?: AccountState;
+}
+
+/* internal/accounts/state.go State, field for field. */
+export interface AccountState {
+  /* Claude Code has recorded a signed-in account. Only the presence of that
+     entry is read; what it holds stays in Claude Code's own file. */
+  signedIn: boolean;
+  /* plxr's hook is in this account's settings. */
+  hook: boolean;
+  /* Where its transcripts are really read from, links resolved, ~ for home. */
+  projects: string;
+  /* The other accounts reading the same directory. Empty: its own history. */
+  sharedWith: string[];
+  /* When Claude Code last fetched its usage, in ms; 0 when it never has. */
+  usageAt: number;
+  /* The state file all of this was read from, ~ for home. */
+  file: string;
 }
 
 /* How far along an update is.
