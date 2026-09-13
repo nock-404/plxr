@@ -82,7 +82,7 @@
       },
       "usage": {
         "set": "tabler-icons",
-        "path": "icons/outline/chart-bar.svg"
+        "path": "icons/outline/gauge.svg"
       },
       "archive": {
         "set": "tabler-icons",
@@ -159,6 +159,34 @@
       "preview": {
         "set": "tabler-icons",
         "path": "icons/outline/app-window.svg"
+      },
+      "files": {
+        "set": "tabler-icons",
+        "path": "icons/outline/list-tree.svg"
+      },
+      "hide": {
+        "set": "tabler-icons",
+        "path": "icons/outline/minus.svg"
+      },
+      "more": {
+        "set": "tabler-icons",
+        "path": "icons/outline/dots-vertical.svg"
+      },
+      "move": {
+        "set": "tabler-icons",
+        "path": "icons/outline/grip-vertical.svg"
+      },
+      "panel-left": {
+        "set": "tabler-icons",
+        "path": "icons/outline/layout-sidebar.svg"
+      },
+      "panel-right": {
+        "set": "tabler-icons",
+        "path": "icons/outline/layout-sidebar-right.svg"
+      },
+      "panel-bottom": {
+        "set": "tabler-icons",
+        "path": "icons/outline/layout-bottombar.svg"
       },
       "file-code": {
         "set": "tabler-icons",
@@ -308,7 +336,7 @@
       },
       "usage": {
         "set": "phosphor-core",
-        "path": "assets/regular/chart-bar.svg"
+        "path": "assets/regular/gauge.svg"
       },
       "archive": {
         "set": "phosphor-core",
@@ -385,6 +413,42 @@
       "preview": {
         "set": "phosphor-core",
         "path": "assets/regular/browser.svg"
+      },
+      "files": {
+        "set": "phosphor-core",
+        "path": "assets/regular/tree-view.svg"
+      },
+      "hide": {
+        "set": "phosphor-core",
+        "path": "assets/regular/minus.svg"
+      },
+      "more": {
+        "set": "phosphor-core",
+        "path": "assets/regular/dots-three-outline-vertical.svg"
+      },
+      "move": {
+        "set": "phosphor-core",
+        "path": "assets/regular/arrows-out-cardinal.svg"
+      },
+      "panel-left": {
+        "set": "phosphor-core",
+        "path": "assets/regular/sidebar-simple.svg"
+      },
+      "panel-right": {
+        "set": "plxr",
+        "what": "sidebar-simple mirrored: the column on the right",
+        "after": {
+          "set": "phosphor-core",
+          "path": "assets/regular/sidebar-simple.svg"
+        }
+      },
+      "panel-bottom": {
+        "set": "plxr",
+        "what": "sidebar-simple's frame with its column laid along the bottom",
+        "after": {
+          "set": "phosphor-core",
+          "path": "assets/regular/sidebar-simple.svg"
+        }
       },
       "file-code": {
         "set": "phosphor-core",
@@ -569,7 +633,7 @@
       },
       "usage": {
         "set": "lucide",
-        "path": "icons/chart-column.svg"
+        "path": "icons/gauge.svg"
       },
       "archive": {
         "set": "lucide",
@@ -646,6 +710,34 @@
       "preview": {
         "set": "lucide",
         "path": "icons/app-window.svg"
+      },
+      "files": {
+        "set": "lucide",
+        "path": "icons/folder-tree.svg"
+      },
+      "hide": {
+        "set": "lucide",
+        "path": "icons/minus.svg"
+      },
+      "more": {
+        "set": "lucide",
+        "path": "icons/ellipsis-vertical.svg"
+      },
+      "move": {
+        "set": "lucide",
+        "path": "icons/grip-vertical.svg"
+      },
+      "panel-left": {
+        "set": "lucide",
+        "path": "icons/panel-left.svg"
+      },
+      "panel-right": {
+        "set": "lucide",
+        "path": "icons/panel-right.svg"
+      },
+      "panel-bottom": {
+        "set": "lucide",
+        "path": "icons/panel-bottom.svg"
       },
       "file-code": {
         "set": "lucide",
@@ -806,8 +898,8 @@
         "path": "svg/folder.svg"
       },
       "changes": {
-        "set": "pixelarticons",
-        "path": "svg/git-commit.svg"
+        "set": "plxr",
+        "what": "plus over minus"
       },
       "review": {
         "set": "pixelarticons",
@@ -900,6 +992,34 @@
       "preview": {
         "set": "pixelarticons",
         "path": "svg/monitor.svg"
+      },
+      "files": {
+        "set": "pixelarticons",
+        "path": "svg/files.svg"
+      },
+      "hide": {
+        "set": "pixelarticons",
+        "path": "svg/minus.svg"
+      },
+      "more": {
+        "set": "pixelarticons",
+        "path": "svg/more-vertical.svg"
+      },
+      "move": {
+        "set": "pixelarticons",
+        "path": "svg/move.svg"
+      },
+      "panel-left": {
+        "set": "plxr",
+        "what": "a window with a column along its left side"
+      },
+      "panel-right": {
+        "set": "plxr",
+        "what": "a window with a column along its right side"
+      },
+      "panel-bottom": {
+        "set": "plxr",
+        "what": "a window with a row along its bottom"
       },
       "file-code": {
         "set": "pixelarticons",
