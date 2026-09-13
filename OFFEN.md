@@ -859,10 +859,10 @@ showed Claude Code's own /usage screen as the reference.
 
 ### Found while building the icon packs (13.09.2026), already on main
 
-- **A long folder name wraps out of its rail heading in the Pixel skin.** The
+- **A long folder name wraps out of its rail heading in the Pixel skin.** (fixed on main 13.09: the heading stays on one line) The
   group heading above a folder's sessions breaks onto a second line and runs
   over the entry under it.
-- **The first letter of tree names is clipped in Windows 95 at 1x.** The icon
+- **The first letter of tree names is clipped in Windows 95 at 1x.** (fixed on main 13.09: an icon's slot is never narrower than the largest icon; measured in all four skins and packs) The icon
   column and the name overlap by a pixel or two at normal density.
 - **clicked.mjs fails when run twice against one service,** and its count of
   ports can be off by one when a port opens or closes during the run.

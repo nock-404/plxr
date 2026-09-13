@@ -1534,7 +1534,8 @@ function sizedFor(dv: DockviewApi, region: Region, position: AddPanelPositionOpt
     return { position, initialHeight: Math.min(Math.round(dv.height * 0.45), cssPx("--bottom-h", "18rem")) };
   }
   if (region === "left" || region === "right") {
-    return { position, initialWidth: Math.min(Math.round(dv.width * 0.4), cssPx("--side-w", "20rem")) };
+    // At the size it was last given, so opening it needs no correction after.
+    return { position, initialWidth: Math.min(Math.round(dv.width * 0.4), sizes.get(region) ?? cssPx("--side-w", "20rem")) };
   }
   const ref =
     "referenceGroup" in position
@@ -1564,20 +1565,42 @@ function hold(dv: DockviewApi): void {
   const sideMin = cssPx("--side-min", "11rem");
   const sideMax = Math.max(sideMin, Math.round(dv.width * 0.45));
   const bottomMin = cssPx("--bottom-min", "5rem");
+  /* Every tool region is pinned at the size it should have before any of them
+     is resized, and let go again afterwards.
+   *
+   * Resizing one group hands the difference to a neighbour, and dockview picks
+   * which: putting the left region back to its remembered 249px gave the 71px
+   * it freed to the right region, which grew from 284 to 355 while main stayed
+   * where it was. With both sides held at exactly their size, the only group
+   * that can take or give anything is main — which is the whole rule. */
+  const pinned: { g: DockviewGroupPanel; region: Region; want: number }[] = [];
   for (const g of dv.groups) {
     if (g.api.location.type !== "grid") continue;
     const region = regionOfGroup(g);
     if (region === "left" || region === "right") {
-      g.api.setConstraints({ minimumWidth: sideMin, maximumWidth: sideMax });
-      const want = sizes.get(region) ?? Math.min(Math.round(dv.width * 0.3), cssPx("--side-w", "20rem"));
-      if (Math.abs(g.api.width - want) > 1) g.api.setSize({ width: want });
+      const fallback = Math.min(Math.round(dv.width * 0.3), cssPx("--side-w", "20rem"));
+      const want = Math.min(sideMax, Math.max(sideMin, sizes.get(region) ?? fallback));
+      pinned.push({ g, region, want });
+      g.api.setConstraints({ minimumWidth: want, maximumWidth: want });
     } else if (region === "bottom") {
-      g.api.setConstraints({ minimumHeight: bottomMin });
-      const want = sizes.get("bottom") ?? Math.min(Math.round(dv.height * 0.4), cssPx("--bottom-h", "18rem"));
-      if (Math.abs(g.api.height - want) > 1) g.api.setSize({ height: want });
+      const fallback = Math.min(Math.round(dv.height * 0.4), cssPx("--bottom-h", "18rem"));
+      const want = Math.max(bottomMin, sizes.get("bottom") ?? fallback);
+      pinned.push({ g, region, want });
+      g.api.setConstraints({ minimumHeight: want, maximumHeight: want });
     } else {
       g.api.setConstraints({ minimumWidth: cssPx("--main-min", "16rem") });
     }
+  }
+  for (const { g, region, want } of pinned) {
+    if (region === "bottom") {
+      if (Math.abs(g.api.height - want) > 1) g.api.setSize({ height: want });
+    } else if (Math.abs(g.api.width - want) > 1) {
+      g.api.setSize({ width: want });
+    }
+  }
+  for (const { g, region } of pinned) {
+    if (region === "bottom") g.api.setConstraints({ minimumHeight: bottomMin, maximumHeight: Number.MAX_SAFE_INTEGER });
+    else g.api.setConstraints({ minimumWidth: sideMin, maximumWidth: sideMax });
   }
 }
 

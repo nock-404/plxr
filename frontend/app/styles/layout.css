@@ -53,6 +53,11 @@
      stands exactly where it stood. A slot only grows — through --icon-slot and
      --chev-slot — for a pack drawn larger than that glyph was. */
   --icon: 1rem;
+  /* The narrowest an icon's slot may be, the same for every pack: the largest
+     icon a pack draws at the normal size. Tied to the pack's own --icon, the
+     slot followed the pack, and switching to one drawn smaller moved every
+     name beside it. */
+  --icon-box: 1rem;
   --chev: 0.65rem;
   --icon-slot: 0rem;
   --chev-slot: 0rem;
@@ -270,8 +275,16 @@ body {
 .railitem:has(.rsub) .rdot { margin-top: 0.18em; }
 /* Fixed like every other row: a heading that grows with the typeface moves
    every session below it, and the four skins stop lining up. */
-.railgroup { display: flex; align-items: center; height: var(--group-h); padding: 0 0.625rem; }
-.rdot { flex: 0 0 auto; width: max(1.1em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+/* A group heading is one line, whatever the folder is called: a long name ran
+   onto a second line in the pixel skin and over the entry under it. */
+.railgroup { display: flex; align-items: center; height: var(--group-h); padding: 0 0.625rem; white-space: nowrap; overflow: hidden; }
+/* An icon's slot is never narrower than the icon.
+   The slots were measured in the skin's own em, so they matched the old
+   glyphs; a drawn icon is a fixed size, and where the skin's type is smaller
+   than the icon — Windows 95 writes at 13px, the icon is 16 — the icon hung
+   over the first letter of every name beside it: "b.tsx" read "o.tsx",
+   "running" read "unning". */
+.rdot { flex: 0 0 auto; width: max(1.1em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .rtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.06rem; }
 .rname, .rsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rmeta { flex: 0 0 auto; }
@@ -556,7 +569,7 @@ body {
 .filetree { flex: 1; overflow: auto; padding: 0.25rem 0 0.75rem; }
 .frow { display: flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.5rem; cursor: pointer; white-space: nowrap; }
 .fchev { flex: 0 0 auto; width: max(0.65rem, var(--chev-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
-.ficon { flex: 0 0 auto; width: max(1em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.ficon { flex: 0 0 auto; width: max(1em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; padding: 0.625rem 0.75rem 0.75rem; }
@@ -1088,7 +1101,7 @@ button.diffline { cursor: pointer; }
    sent draws it. */
 .plxrDock .dv-tab::before { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: var(--tabmark-h); pointer-events: none; }
 /* The mark on a tab: one line tall, never squeezed, never wrapped. */
-.panelTabIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.panelTabIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 /* A tab is only as wide as it needs to be, and the strip scrolls rather than
    squeezing every title into nothing. */
 .plxrDock .dv-tabs-container { min-width: 0; }
