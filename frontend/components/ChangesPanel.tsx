@@ -19,7 +19,7 @@ import { useChanges } from "@/lib/useChanges";
  * the folder from it), so nothing has to be opened as a workspace for it.
  *
  * Only when no session has ever been active in this layout does it fall
- * back to the folder the path field points at, opened as a workspace — the
+ * back to the folder picked at the top, opened as a workspace — the
  * way it worked before it learned to follow.
  *
  * What it shows moves by itself: the service watches the folder and pushes
@@ -57,7 +57,7 @@ export default function ChangesPanel({
     return () => window.clearTimeout(t);
   }, [sessionId]);
 
-  // The fallback: the path field's folder, as a workspace — only with no session.
+  // The fallback: the picked folder, as a workspace — only with no session.
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [problem, setProblem] = useState("");
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function ChangesPanel({
       return (
         <div className="emptyNote">
           <b>{tr("changesPanel.emptyHead", "no folder")}</b>
-          {tr("changesPanel.empty", "Choose a folder in the path field, then this shows what changed in it.")}
+          {tr("changesPanel.empty", "Choose a project at the top, then this shows what changed in it.")}
         </div>
       );
     }
@@ -103,7 +103,7 @@ export default function ChangesPanel({
   return (
     <div className="changesPanel">
       {label ? (
-        <Tooltip text={tr("changesPanel.followTip", "Follows the session that was focused last")}>
+        <Tooltip text={tr("changesPanel.followTip", "Follows the project: the session in front, or the folder picked at the top")}>
           <span className="notice">{tr("changesPanel.following", "following {name}", { name: label })}</span>
         </Tooltip>
       ) : null}

@@ -19,7 +19,7 @@ export default function NewSession({
   onClose,
   onCreated,
 }: {
-  /* The folder the window is about, from the path field at the top. A new
+  /* The folder the window is about, picked in the project switch. A new
      session starts there — nobody should have to find the same folder twice. */
   here?: string;
   running: Tile[];

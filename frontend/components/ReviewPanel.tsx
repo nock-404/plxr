@@ -72,7 +72,7 @@ export default function ReviewPanel({
     return () => window.clearTimeout(t);
   }, [sessionId]);
 
-  // The fallback: the path field's folder, as a workspace — only with no session.
+  // The fallback: the picked folder, as a workspace — only with no session.
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [folderProblem, setFolderProblem] = useState("");
   useEffect(() => {
@@ -147,7 +147,7 @@ export default function ReviewPanel({
       return (
         <div className="emptyNote">
           <b>{tr("changesPanel.emptyHead", "no folder")}</b>
-          {tr("review.empty", "Choose a folder in the path field, then this shows what its branch changed.")}
+          {tr("review.empty", "Choose a project at the top, then this shows what its branch changed.")}
         </div>
       );
     }

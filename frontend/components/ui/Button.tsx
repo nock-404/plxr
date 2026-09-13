@@ -1,6 +1,6 @@
 "use client";
 
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 // The one button. Feature code never reaches for a raw <button>.
 export default function Button({
@@ -34,6 +34,10 @@ export default function Button({
      whatever it is. Before this existed, seven views reached for a raw <button>
      to get it. */
   bare?: boolean;
+  /* The element itself, for a control that opens a menu under it and has to
+     know where it stands. A plain prop since React 19; it reaches the button
+     through the spread below. */
+  ref?: Ref<HTMLButtonElement>;
   children: ReactNode;
 }) {
   const cls = [!bare && "btn", primary && "primary", tiny && "tiny", icon && "icon", on && "on", danger && "danger", className]

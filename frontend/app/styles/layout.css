@@ -233,8 +233,27 @@ body {
 .mark svg { width: 100%; height: 100%; display: block; }
 .wordmark { line-height: 1; }
 
-.filter { flex: 0 1 auto; display: flex; align-items: center; gap: 0.5rem; min-width: 0; width: 32rem; max-width: 45vw; }
-.filter input { flex: 1; min-width: 0; font: inherit; color: inherit; }
+/* The two switches: the project the tools follow, and the session in front.
+   Each has a width of its own, so a long name changes the letters and not the
+   header, and all four skins measure the same; a narrow window takes the room
+   back from them before it takes it from the buttons on the right. */
+:root { --switch-project-w: 13rem; --switch-session-w: 19rem; --badge-h: 0.875rem; }
+/* The height grows only through --icon-slot, like every slot: a pack drawn
+   larger than the glyph it replaced — the pixel pack's 24 px on a plain screen —
+   gets room around its mark, rather than a mark touching the frame. At 1.875rem
+   a 24 px icon stood 3 px off the edge, 1 px inside Sketch's ink border. */
+.switch { display: inline-flex; align-items: center; gap: 0.375rem; flex: 0 1 auto; min-width: 0; height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; font: inherit; text-align: left; cursor: pointer; }
+/* A project's name is short and a session's title is long: when the header is
+   short of room, the session switch gives up most of it. */
+.switch[data-switch="project"] { width: var(--switch-project-w); flex-shrink: 0.25; }
+.switch[data-switch="session"] { width: var(--switch-session-w); }
+.switchIcon, .switchChevron { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.switch .dot { line-height: 1; }
+.switchLabel { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The branch runs on after the name inside the label, so when the room runs
+   out the ellipsis takes the branch first and the name last. */
+.switchBranch { margin-left: 0.5rem; font-size: 0.85em; }
+.switchBadge { flex: 0 0 auto; min-width: var(--badge-h); height: var(--badge-h); padding: 0 0.1875rem; line-height: var(--badge-h); text-align: center; font-size: 0.7em; }
 
 .draghandle { flex: 1; min-width: 1.25rem; align-self: stretch; }
 .tools { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
@@ -746,7 +765,6 @@ body {
 
 .tactions { display: flex; gap: 0.375rem; padding: 0.375rem 0.625rem 0.5rem; }
 
-.filterclear, .filtergo { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
 .hiding { margin-left: 0; }
 
 /* ---------- the frame-rate readout ---------- */
@@ -1129,6 +1147,13 @@ button.diffline { cursor: pointer; }
 .menuSep { height: 0; margin: 0.25rem 0.4rem; }
 /* A section's name: not a row, not clickable, set apart from the rows under it. */
 .menuHeader { padding: 0.35rem 0.6rem 0.15rem; font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; }
+/* A row's mark and its second line, which the switches' lists use: a session
+   with its state under its name, a folder with its path. The mark's slot is
+   never narrower than the icon, the rule every icon slot here follows. */
+.menuIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.menuSub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.8em; }
+/* A field in the menu, as wide as the menu. */
+.menuField { display: flex; padding: 0.25rem 0.35rem; }
 
 /* The one tooltip: placed at runtime beside the thing it explains, hidden
    until it has been measured so it never flashes at the corner first. */

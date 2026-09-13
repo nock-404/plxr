@@ -49,6 +49,7 @@ export type Action =
   | "groupNext"
   | "view9"
   | "newShell"
+  | "sessionSwitch"
   | "filesUp"
   | "toggleLeft"
   | "toggleRight"
@@ -75,6 +76,12 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "view8", chord: "Mod+8", key: "keys.view8", fallback: "Search" },
   { id: "view9", chord: "Mod+9", key: "keys.view9", fallback: "Notes" },
   { id: "newShell", chord: "Mod+Shift+N", key: "keys.newShell", fallback: "New shell in the folder of the session you are working in" },
+  /* The session switch at the top, from the keyboard: every session in one
+     list, the keyboard on its first row. Not while a field or a text area is
+     being written in, where ⌘E belongs to the text; the terminal's keyboard is
+     a text area too, and that is where the switch is needed most, so it counts
+     as neither. */
+  { id: "sessionSwitch", chord: "Mod+E", key: "keys.sessionSwitch", fallback: "Switch session — every session in one list" },
   { id: "workbench", chord: "F12", key: "keys.workbench", fallback: "Workbench — the console inside the window" },
   { id: "workshop", chord: "Shift+F12", key: "keys.workshop", fallback: "Workshop — write CSS against the running window" },
   { id: "help", chord: "?", key: "keys.help", fallback: "This list" },

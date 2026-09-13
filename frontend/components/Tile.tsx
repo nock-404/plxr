@@ -4,8 +4,8 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { shortNumber } from "@/lib/format";
 import { tr } from "@/lib/i18n";
-import { api } from "@/lib/api";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
+import { sessionMenu } from "@/lib/sessionMenu";
 import { agentOf, detailOf, stateOf, tileLine, titleOf, unattended } from "@/lib/state";
 import type { Tile as TileData } from "@/lib/types";
 
@@ -29,29 +29,9 @@ export default function Tile({
   const stopped = state === "dead" || state === "orphaned";
 
   const ctx = useContextMenu();
-  const menu: MenuItem[] = [
-    { label: tr("tile.menuOpen", "Open"), onClick: onOpen },
-    ...(stopped
-      ? onResume
-        ? [{ label: tr("tile.menuRestart", "Restart"), onClick: onResume }]
-        : []
-      : tile.frozen
-        ? [{ label: tr("tile.menuUnfreeze", "Resume"), onClick: () => void api.unfreeze(tile.id).catch(() => undefined) }]
-        : [{ label: tr("tile.menuFreeze", "Pause"), onClick: () => void api.freeze(tile.id).catch(() => undefined) }]),
-    ...(tile.alive
-      ? [
-          { separator: true as const },
-          { label: tr("tile.menuTerminate", "Terminate"), danger: true, onClick: () => void api.kill(tile.id).catch(() => undefined) },
-        ]
-      : onForget
-        ? [
-            { separator: true as const },
-            { label: tr("tile.menuForget", "Remove from the board"), onClick: onForget },
-          ]
-        : []),
-    { separator: true },
-    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(tile.cwd).catch(() => undefined) },
-  ];
+  // The one list every place a session is met offers — see lib/sessionMenu.
+  // The board starts an ended session its own way, and opens it afterwards.
+  const menu: MenuItem[] = sessionMenu(tile, onOpen, { restart: onResume, forget: onForget });
 
   return (
     <Tooltip text={unattended(tile) ? tr("tile.unattended", "Started with its permission prompts turned off — nothing will stop it to ask") : undefined}>

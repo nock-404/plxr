@@ -32,7 +32,7 @@ const GROUPS: { key: string; fallback: string; entries: Entry[] }[] = [
   {
     key: "keys.groupNavigation",
     fallback: "Navigation",
-    entries: ["palette", "view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8", "view9", "panelPrev", "panelNext", "groupPrev", "groupNext", "historyBack", "historyForward"],
+    entries: ["palette", "sessionSwitch", "view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8", "view9", "panelPrev", "panelNext", "groupPrev", "groupNext", "historyBack", "historyForward"],
   },
   { key: "keys.groupWork", fallback: "Terminal and editor", entries: ["find", "filesUp"] },
   { key: "keys.groupOther", fallback: "Other", entries: ["workbench", "workshop", "help"] },

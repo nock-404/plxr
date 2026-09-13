@@ -69,10 +69,19 @@ export const GATEKIT = `
   }
 
   /* Picks the project the window works in, by its folder, the way a person
-     does: typed into the field and taken with Enter. False when there is no
-     field to type into. */
+     does: the project switch at the top opened, the folder typed into the
+     field in its list and taken with Enter. False when there is no field to
+     type into. */
   async function pickProject(path) {
-    const field = document.querySelector('.filter input');
+    const toggle = document.querySelector('.switch[data-switch="project"]');
+    if (!toggle) return false;
+    // The same click closes a list that is already down.
+    if (toggle.dataset.open !== 'yes') toggle.click();
+    let field = null;
+    for (let i = 0; i < 60 && !field; i++) {
+      field = document.querySelector('body > .menu .menuField input');
+      if (!field) await new Promise((r) => setTimeout(r, 50));
+    }
     if (!field) return false;
     field.focus();
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value').set.call(field, path);
