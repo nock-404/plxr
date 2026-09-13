@@ -292,7 +292,7 @@
 [data-skin="sketch"] .frow:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 /* A hit is underlined in pencil, not painted over. */
 [data-skin="sketch"] .findmark { background: transparent; color: var(--accent); text-decoration: underline wavy; }
-[data-skin="sketch"] .filesroot {
+[data-skin="sketch"] .filesbar .crumbs {
   color: var(--dim);
   font-family: var(--mono);
   font-size: 0.5em;

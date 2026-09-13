@@ -1131,15 +1131,18 @@ func (c *Core) KillPort(pid int, hard bool) error {
 // is checked against it.
 // root is the directory an id may work in.
 //
-// Two kinds of id arrive here. A workspace is a folder somebody opened and it
+// Three kinds of id arrive here. A workspace is a folder somebody opened and it
 // outlives every session; a session is the older way in and still works, so no
-// route had to change shape. Which one it is can be read off the id, so the
-// caller never has to say.
+// route had to change shape; and a bare directory is the tree walking upwards.
+// Which one it is can be read off the id, so the caller never has to say.
 //
 // Everything below this — the tree, the editor, the git status, reveal — used
 // to resolve through the session registry alone, and a session is cleared away
 // shortly after it ends. That is why an open file went dead with its terminal.
 func (c *Core) root(id string) (string, error) {
+	if strings.HasPrefix(id, DirPrefix) {
+		return dirRoot(id)
+	}
 	if workspace.IsID(id) {
 		return workspace.RootOf(daemon.Root(), id)
 	}
@@ -1148,6 +1151,41 @@ func (c *Core) root(id string) (string, error) {
 		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
+}
+
+// DirPrefix marks an id that is a directory and nothing else: "dir:/Users/me".
+//
+// The tree could only ever go downwards. Everything it can address is a session
+// or a folder somebody opened, and both of those resolve to one directory with
+// no way to name the one above it — so the answer to "how do I get to the
+// folder above this one?" was to go and open that one as a folder too.
+//
+// It is deliberately not leashed to the folder it came from. Walking up is the
+// point; a check that refused to leave the root would refuse exactly the thing
+// being asked for, and anyone holding the token can already start a shell in any
+// directory on this machine. What is checked is that the id names a path that is
+// absolute, is there, and is a directory — the three ways it can be nonsense.
+const DirPrefix = "dir:"
+
+func dirRoot(id string) (string, error) {
+	path := strings.TrimPrefix(id, DirPrefix)
+	if path == "" || !filepath.IsAbs(path) {
+		return "", uierr.With("err.dir.notAbsolute", path)
+	}
+	// Resolved, like every other root: files.List measures what it finds
+	// against the resolved root, and /tmp on a Mac is /private/tmp.
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", uierr.With("err.dir.unreachable", path)
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		return "", uierr.With("err.dir.unreachable", path)
+	}
+	if !info.IsDir() {
+		return "", uierr.With("err.dir.notADirectory", path)
+	}
+	return real, nil
 }
 
 // Changes lists what differs in a folder, staged and unstaged kept apart.

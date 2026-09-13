@@ -229,7 +229,7 @@
 [data-skin="pixel"] .frow { color: var(--fg); font-size: 0.8em; }
 [data-skin="pixel"] .frow:hover { background: var(--panel); color: var(--accent); }
 [data-skin="pixel"] .findmark { background: var(--panel); color: var(--accent); }
-[data-skin="pixel"] .filesroot { color: var(--dim); font-size: 0.75em; }
+[data-skin="pixel"] .filesbar .crumbs { color: var(--dim); font-size: 0.75em; }
 [data-skin="pixel"] .pterm { background: var(--term-bg); }
 [data-skin="pixel"] .panelabel {
   background: var(--bg);

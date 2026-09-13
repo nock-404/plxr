@@ -39,9 +39,11 @@ export default function Session({
      moving to a different account does exactly that. */
   onReplaced?: (id: string) => void;
   /* A file picked in the tree, or a path clicked in the terminal — with the
-     line it named, when it named one. It opens as a panel beside this one —
-     the terminal stays where it is — so the session itself holds no editor. */
-  onOpenFile: (path: string, line?: number) => void;
+     line it named, when it named one, and with the root to read it through
+     when the tree has walked above this session's folder. It opens as a panel
+     beside this one — the terminal stays where it is — so the session itself
+     holds no editor. */
+  onOpenFile: (path: string, line?: number, rootId?: string) => void;
   /* Source control for this session's folder, as a panel beside it. */
   onChanges?: () => void;
 }) {
@@ -343,7 +345,7 @@ export default function Session({
       </TopStrip>
 
       <div className="sesssplit">
-        {files ? <Files rootId={tile.id} root={tile.cwd} onPick={onOpenFile} /> : null}
+        {files ? <Files rootId={tile.id} root={tile.cwd} onPick={(path, rootId) => onOpenFile(path, undefined, rootId)} /> : null}
         <div className="panes">
           <Terminal
             id={tile.id}
