@@ -342,10 +342,10 @@ const HELPERS = `
 `;
 
 const open = await tab.run(`${HELPERS}
-  /* By its glyph, not its name: the window may be running in either language.
-     Found by its name, not its glyph: the glyph changed twice in one day and will change again with the icon packs; the
-     \u25a4 this looked for before matched nothing, and the view was never opened. */
-  [...document.querySelectorAll('.railhome')].find(b => (b.querySelector('.rname')?.textContent ?? '').trim().toLowerCase() === 'usage')?.click();
+  /* By the view it opens, not by its name or its glyph: the window may be
+     running in either language, the glyph changed twice in one day, and the
+     icon packs draw every entry differently again. */
+  document.querySelector('.railhome[data-view="usage"]')?.click();
   const got = await until(() => document.querySelectorAll('.uacct').length === 3 ? cards() : null, 12000);
   return { cards: got.v, ms: got.ms,
     head: document.querySelector('.listbody .uhead')?.textContent.trim() ?? '',

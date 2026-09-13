@@ -159,6 +159,7 @@ export default function Rail({
             bare
             key={h.view}
             className={`railitem railhome${view === h.view ? " active" : ""}${hot ? " railhot" : ""}`}
+            data-view={h.view}
             data-nearly-out={hot ? "yes" : undefined}
             onClick={() => onView(h.view)}
             onContextMenu={ctx(homeMenu(h.view))}
