@@ -128,8 +128,10 @@ type DockData = {
   layouts: LayoutControls;
   /* An editor for one file, as a panel beside the session — one panel per
      path, so every file keeps its own undo history. `path` is the path the
-     tree reports for the file, which is what the file API reads. */
-  openEditor: (rootId: string, path: string, line?: number, title?: string) => void;
+     tree reports for the file, which is what the file API reads. `from` is the
+     id of the panel it was opened from, so the editor stands beside that
+     panel instead of over it. */
+  openEditor: (rootId: string, path: string, line?: number, title?: string, from?: string) => void;
   /* The file tree of a session or a folder, as a panel of its own. */
   openFiles: (rootId: string, root: string, title: string) => void;
   /* Whether an editor panel holds unsaved edits, by panel id — written by the
@@ -184,9 +186,11 @@ function InboxPanel() {
   const d = useDock();
   return <Inbox tiles={d.tiles} onOpen={d.openSession} />;
 }
-function FoldersPanel() {
+/* A file picked in its tree opens beside the view, never over it: the panel
+   says who it is, so the editor knows which group to stand next to. */
+function FoldersPanel(props: IDockviewPanelProps) {
   const d = useDock();
-  return <Folders place={d.here} onOpenFile={d.openEditor} />;
+  return <Folders place={d.here} onOpenFile={(rootId, path, line) => d.openEditor(rootId, path, line, undefined, props.api.id)} />;
 }
 function PortsPanel() {
   const d = useDock();
@@ -216,7 +220,7 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           props.api.close();
           d.onReplaced(nextId);
         }}
-        onOpenFile={(path, line, rootId) => d.openEditor(rootId ?? tile.id, path, line)}
+        onOpenFile={(path, line, rootId) => d.openEditor(rootId ?? tile.id, path, line, undefined, props.api.id)}
         /* The changes panel follows the session focused last, and the click
            that asks for it lands in this panel — so it is this session's
            folder the panel comes up on. */
@@ -365,7 +369,7 @@ function DiffPanel(props: IDockviewPanelProps<{ rootId: string; path: string; st
           d.onDiffClosed(p.rootId, p.path, p.staged, p.base);
           props.api.close();
         }}
-        onEdit={(path, line) => d.openEditor(p.rootId, path, line || undefined)}
+        onEdit={(path, line) => d.openEditor(p.rootId, path, line || undefined, undefined, props.api.id)}
       />
     </div>
   );
@@ -986,7 +990,7 @@ export default function Dock({
     return () => window.removeEventListener("keydown", onKey);
   }, [requestClose, reopen, stepHistory]);
 
-  const openEditor = useCallback((rootId: string, rawPath: string, line?: number, title?: string) => {
+  const openEditor = useCallback((rootId: string, rawPath: string, line?: number, title?: string, from?: string) => {
     const dv = apiRef.current;
     if (!dv) return;
     const { tiles: ts, here: h } = rootDirRef.current;
@@ -995,7 +999,8 @@ export default function Dock({
     if (rootDir && (rawPath === rootDir || rawPath.startsWith(rootDir + "/"))) path = rawPath.slice(rootDir.length + 1);
     const id = `editor:${rootId}:${path}`;
     const name = title || path.split("/").pop() || path;
-    const made = openOrFocus(dv, id, "editor", name, { rootId, path, line });
+    const origin = from ? dv.getPanel(from)?.group : undefined;
+    const made = openOrFocus(dv, id, "editor", name, { rootId, path, line }, undefined, origin);
     // A panel that was already there keeps its frozen params; the line it is
     // asked for now goes through the context instead.
     if (!made && line) setEditorTarget((t) => ({ id, line, nonce: (t?.nonce ?? 0) + 1 }));
@@ -1193,6 +1198,10 @@ export default function Dock({
       // Sticky: only a session panel moves it, and nothing clears it.
       if (id.startsWith("session:")) setLastActiveSessionId(id.slice("session:".length));
     });
+    // The documents group looked at last, for the next document to join.
+    event.api.onDidActiveGroupChange((g) => {
+      if (g && holdsOnlyDocuments(g)) lastDocuments = g.id;
+    });
     // A diff closed from its tab never passes through Difference's BACK, so
     // the lit row is put out here, for every way a panel can go.
     event.api.onDidRemovePanel((p) => {
@@ -1376,9 +1385,9 @@ function stripRail(dv: DockviewApi) {
  *     [                bottom                   ]
  *
  * left, right and bottom hold the tools; main holds what is worked on — the
- * terminals, the editors, the diffs. There is never a fifth column: a region
- * that is already on screen takes the panel as a tab, and one that is not is
- * opened at its own edge. */
+ * terminals, the editors, the diffs. There is never a fifth column: a tool
+ * region that is already on screen takes the panel as a tab, and one that is
+ * not is opened at its own edge. Main alone may be split, in any direction. */
 export type Region = "left" | "main" | "right" | "bottom";
 export const REGIONS: Region[] = ["main", "left", "right", "bottom"];
 
@@ -1386,15 +1395,33 @@ const isRegion = (v: unknown): v is Region => typeof v === "string" && (REGIONS 
 
 /* A document or a terminal: it belongs to main whatever else is open. */
 const isMainPanel = (id: string) =>
+  isDocument(id) ||
   id.startsWith("session:") ||
-  id.startsWith("editor:") ||
-  id.startsWith("diff:") ||
-  id.startsWith("preview:") ||
   id === "overview" ||
   id === "settings" ||
   id === "folders" ||
   id === "archive" ||
   id === "notes";
+
+/* Main holds two kinds of panel: the work itself — a terminal, the folders,
+ * the overview — and the documents opened from it.
+ *
+ * Both were tabs of one group, so clicking a file in the folders' tree put
+ * the editor in front of the tree it was clicked in: "why does the tree close
+ * when I open a file?". The session's own tree beside its terminal did the
+ * same to the terminal. So a document never becomes a tab over the work: it
+ * joins a group that holds documents only, and where there is none yet, one
+ * is split off beside the work it came from. */
+const isDocument = (id: string) => id.startsWith("editor:") || id.startsWith("diff:") || id.startsWith("preview:");
+
+function holdsOnlyDocuments(g: DockviewGroupPanel): boolean {
+  const panels = g.panels.filter((p) => p.id !== "rail");
+  return panels.length > 0 && panels.every((p) => isDocument(p.id));
+}
+
+/* The documents group that was in front last: with several on screen, the
+   next document joins the one that was being read. */
+let lastDocuments = "";
 
 /* Where each view goes when nobody has said otherwise.
  *
@@ -1475,15 +1502,27 @@ function regionOfGroup(g: DockviewGroupPanel): Region | undefined {
 
 /* The group a region lives in, if it is on screen. The active group wins when
    it qualifies, so a second panel joins the one being looked at. A floating
-   group is a window of its own and belongs to no region. */
-function groupOfRegion(dv: DockviewApi, region: Region, except?: { id: string }): DockviewGroupPanel | undefined {
+   group is a window of its own and belongs to no region. In main, `kind` asks
+   for one of its two kinds of group: one that holds documents only, or one
+   that holds work. */
+function groupOfRegion(
+  dv: DockviewApi,
+  region: Region,
+  except?: { id: string },
+  kind?: "documents" | "work",
+): DockviewGroupPanel | undefined {
   const holds = (g: DockviewGroupPanel) =>
     g.id !== except?.id &&
     g.api.location.type === "grid" &&
     !g.panels.some((p) => p.id === "rail") &&
-    regionOfGroup(g) === region;
+    regionOfGroup(g) === region &&
+    (kind === undefined || (kind === "documents") === holdsOnlyDocuments(g));
   const active = dv.activeGroup;
   if (active && holds(active)) return active;
+  if (kind === "documents") {
+    const last = dv.groups.find((g) => g.id === lastDocuments);
+    if (last && holds(last)) return last;
+  }
   return dv.groups.find(holds);
 }
 
@@ -1492,11 +1531,33 @@ function groupOfRegion(dv: DockviewApi, region: Region, except?: { id: string })
  * A region already on screen takes it as a tab. One that is not is opened
  * against the region beside it, so the four always keep their order however
  * the window was built up — and the bottom one against the grid itself, so it
- * spans the whole width rather than the group it was split from. */
-function place(dv: DockviewApi, region: Region, except?: { id: string }): AddPanelPositionOptions {
+ * spans the whole width rather than the group it was split from.
+ *
+ * Main is asked by what the panel is. Work joins the work, and the documents
+ * group only when there is nothing else in main. A document joins the group
+ * it was opened from when that holds documents, or else the documents group on
+ * screen; with none, it is split off to the right of the work it came from —
+ * or of the work in front — so that work stays on screen beside it. */
+function place(
+  dv: DockviewApi,
+  region: Region,
+  except?: { id: string },
+  id = "",
+  from?: DockviewGroupPanel,
+): AddPanelPositionOptions {
   const at = (r: Region) => groupOfRegion(dv, r, except);
-  const here = at(region);
-  if (here) return { referenceGroup: here };
+  if (region === "main" && isDocument(id)) {
+    const origin =
+      from && from.id !== except?.id && from.api.location.type === "grid" && regionOfGroup(from) === "main" ? from : undefined;
+    if (origin && holdsOnlyDocuments(origin)) return { referenceGroup: origin };
+    const documents = groupOfRegion(dv, "main", except, "documents");
+    if (documents) return { referenceGroup: documents };
+    const beside = origin ?? groupOfRegion(dv, "main", except, "work");
+    if (beside) return { referenceGroup: beside, direction: "right" };
+  } else {
+    const here = region === "main" ? (groupOfRegion(dv, "main", except, "work") ?? at("main")) : at(region);
+    if (here) return { referenceGroup: here };
+  }
   const main = at("main");
   const left = at("left");
   const right = at("right");
@@ -1662,7 +1723,8 @@ function clearTools(dv: DockviewApi, region: Region, except: string): void {
 }
 
 // openOrFocus makes the panel where its region says if it is not there, and
-// brings it to the front. Returns whether it was made now.
+// brings it to the front. Returns whether it was made now. `from` is the group
+// of the panel it was opened from, for a document to stand beside.
 function openOrFocus(
   dv: DockviewApi,
   id: string,
@@ -1670,6 +1732,7 @@ function openOrFocus(
   title: string,
   params: object,
   region?: Region,
+  from?: DockviewGroupPanel,
 ): boolean {
   const where = region ?? regionOf(id);
   const existing = dv.getPanel(id);
@@ -1678,9 +1741,32 @@ function openOrFocus(
     return false;
   }
   if (where !== "main") clearTools(dv, where, id);
-  dv.addPanel({ id, component, title, params, ...sizedFor(dv, where, place(dv, where)) });
+  const position = place(dv, where, undefined, id, from);
+  const made = dv.addPanel({ id, component, title, params, ...sizedFor(dv, where, position) });
   hold(dv);
+  /* A document split off beside the work shares that work's width evenly.
+     The half it was asked for does not survive hold(): putting a side region
+     back to its width hands the difference to the neighbour, which is the new
+     group, and it came out at main's minimum. */
+  if (where === "main" && isDocument(id) && "referenceGroup" in position && position.direction === "right") {
+    const refId = typeof position.referenceGroup === "string" ? position.referenceGroup : position.referenceGroup.id;
+    const ref = dv.groups.find((g) => g.id === refId);
+    const mine = dv.groups.find((g) => g.id === made.group.id);
+    if (ref && mine && mine !== ref && mine.api.location.type === "grid") shareWidth(dv, ref, mine);
+  }
   return true;
+}
+
+/* shareWidth makes two groups side by side equally wide and moves nothing
+   else: every other group is held at the width it has while the two are
+   resized, and given its bounds back afterwards. */
+function shareWidth(dv: DockviewApi, a: DockviewGroupPanel, b: DockviewGroupPanel): void {
+  const others = dv.groups
+    .filter((g) => g !== a && g !== b && g.api.location.type === "grid")
+    .map((g) => ({ g, min: g.minimumWidth, max: g.maximumWidth }));
+  for (const { g } of others) g.api.setConstraints({ minimumWidth: g.api.width, maximumWidth: g.api.width });
+  b.api.setSize({ width: Math.floor((a.api.width + b.api.width) / 2) });
+  for (const { g, min, max } of others) g.api.setConstraints({ minimumWidth: min, maximumWidth: max });
 }
 
 /* addSplit puts a view into a region beside one that is already there —
@@ -1807,15 +1893,16 @@ function floatPanel(dv: DockviewApi, panel: IDockviewPanel) {
 /* dockPanel puts a floating panel back where it belongs — its own region, not
    whichever lane was nearest. */
 function dockPanel(dv: DockviewApi, panel: IDockviewPanel) {
-  moveInto(dv, panel, place(dv, regionOf(panel.id), panel.group));
+  moveInto(dv, panel, place(dv, regionOf(panel.id), panel.group, panel.id));
   hold(dv);
 }
 
 /* moveToRegion carries a panel into one of the four and remembers that this
-   is where its kind goes from now on. */
+   is where its kind goes from now on. A document carried into main joins the
+   documents there, the way one opened there would. */
 function moveToRegion(dv: DockviewApi, panel: IDockviewPanel, region: Region) {
   rememberRegion(panel.id, region);
-  moveInto(dv, panel, place(dv, region, panel.group));
+  moveInto(dv, panel, place(dv, region, panel.group, panel.id));
   hold(dv);
 }
 

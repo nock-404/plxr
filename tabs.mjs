@@ -144,6 +144,7 @@ const work = mkdtempSync(join(tmpdir(), "plxr-tabs-work-"));
 mkdirSync(work, { recursive: true });
 writeFileSync(join(work, "alpha.txt"), "one\ntwo\nthree\n");
 writeFileSync(join(work, "beta.txt"), "four\nfive\n");
+writeFileSync(join(work, "gamma.txt"), "six\n");
 
 let made = null;
 let space = null;
@@ -778,6 +779,171 @@ for (const f of folding) {
   );
 }
 
+// ---- a document never covers the work it was opened from ----------------------
+/* "Why does the tree close when I open a file?" The folders are a tab of main,
+   and a file clicked in their tree became a tab of that same group, in front
+   of the tree it was clicked in. The session's own tree beside its terminal
+   did the same to the terminal. So both are driven the way he drives them —
+   a click on a row — and the groups are measured afterwards: the work keeps
+   its group and stays in front of it, the document stands in a group of its
+   own to the right, half as wide as the work was, and the next files join
+   that group instead of splitting again. */
+const groupFacts = `
+  const groupFacts = (n) => {
+    const g = groupOf(n);
+    if (!g) return null;
+    const front = g.querySelector('.dv-tab.dv-active-tab');
+    return { b: box(g), tabs: [...g.querySelectorAll('.panelTabName')].map(e => e.textContent.trim()), front: front ? nameOf(front) : '' };
+  };
+  const seen = (el, within) => {
+    if (!el || el.offsetParent === null) return null;
+    const b = box(el);
+    return { b, inside: Boolean(within) && b.w > 0 && b.h > 0 && b.x >= within.x - 1 && b.x + b.w <= within.x + within.w + 1 };
+  };
+`;
+const fromFolders = await run(`${HELPERS}${groupFacts}
+  await showView('Overview', 900);
+  await showView('Folders', 2500);
+  const work = groupFacts('Folders');
+  const row = n => [...document.querySelectorAll('.foldersbody .frow')].find(r => (r.querySelector('.fname') || { textContent: '' }).textContent.trim() === n);
+  if (!row('alpha.txt')) return { why: 'alpha.txt is not in the folders\\u2019 tree' };
+  const columnsBefore = columns();
+  const groupsBefore = groups().length;
+  row('alpha.txt').click(); await wait(2200);
+  const one = { folders: groupFacts('Folders'), doc: groupFacts('alpha.txt'), apart: groupOf('alpha.txt') !== groupOf('Folders'),
+                tree: seen(row('beta.txt'), groupFacts('Folders') && groupFacts('Folders').b), groups: groups().length };
+  if (row('beta.txt')) { row('beta.txt').click(); await wait(1800); }
+  const two = { folders: groupFacts('Folders'), doc: groupFacts('beta.txt'), withAlpha: groupOf('beta.txt') === groupOf('alpha.txt'), groups: groups().length, columns: columns() };
+  if (row('gamma.txt')) { row('gamma.txt').click(); await wait(1800); }
+  const three = { folders: groupFacts('Folders'), doc: groupFacts('gamma.txt'), withAlpha: groupOf('gamma.txt') === groupOf('alpha.txt'), groups: groups().length };
+  return { work, columnsBefore, groupsBefore, one, two, three };
+`);
+// Looked at, not only measured: the tree and the three files side by side.
+if (process.env.PLXR_SHOTS) {
+  mkdirSync(process.env.PLXR_SHOTS, { recursive: true });
+  const png = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(join(process.env.PLXR_SHOTS, "documents-from-folders.png"), Buffer.from(png.data, "base64"));
+}
+if (!fromFolders.why) {
+  Object.assign(fromFolders, await run(`${HELPERS}${groupFacts}
+    const row = n => [...document.querySelectorAll('.foldersbody .frow')].find(r => (r.querySelector('.fname') || { textContent: '' }).textContent.trim() === n);
+    // The first file again: already open, it comes to the front where it is.
+    row('alpha.txt').click(); await wait(900);
+    const again = { doc: groupFacts('alpha.txt'), groups: groups().length, count: tabs().filter(t => nameOf(t) === 'alpha.txt').length };
+    // A view of main from the menu while a document is in front goes to the work.
+    await activate(tabNamed('alpha.txt'));
+    await clickMenu('Notes', 1100);
+    const notes = { withFolders: groupOf('Notes') === groupOf('Folders'), withDocs: groupOf('Notes') === groupOf('alpha.txt'), docs: groupFacts('alpha.txt') };
+    return { again, notes };
+  `));
+}
+if (fromFolders.why) {
+  unmeasured("a file clicked in the folders' tree opens beside the folders", fromFolders.why);
+} else {
+  const { work, one, two, three, again, notes } = fromFolders;
+  claim(
+    "a file clicked in the folders' tree leaves the folders in front of their own group",
+    one.folders && one.folders.front === "Folders" && !one.folders.tabs.includes("alpha.txt"),
+    `the folders' group holds ${JSON.stringify(one.folders?.tabs)} with ${one.folders?.front} in front`,
+  );
+  claim(
+    "and the tree is still on screen, inside that group",
+    one.tree && one.tree.inside,
+    `a tree row at ${one.tree?.b.x}+${one.tree?.b.w}, the group at ${one.folders?.b.x}+${one.folders?.b.w}`,
+  );
+  claim(
+    "the editor stands in a group of its own, to the right of the folders, in front there",
+    one.apart && one.doc && one.doc.front === "alpha.txt" && one.doc.b.x >= one.folders.b.x + one.folders.b.w - 2 &&
+      Math.abs(one.doc.b.y - one.folders.b.y) <= 2 && one.groups === fromFolders.groupsBefore + 1,
+    `folders ${one.folders?.b.x}+${one.folders?.b.w} · editor ${one.doc?.b.x}+${one.doc?.b.w} holding ${JSON.stringify(one.doc?.tabs)} · groups ${fromFolders.groupsBefore} → ${one.groups}`,
+  );
+  claim(
+    "taking half of the width the folders had",
+    one.doc && one.folders && Math.abs(one.doc.b.w - work.b.w / 2) <= 4 && Math.abs(one.folders.b.w - work.b.w / 2) <= 4,
+    `the folders were ${work.b.w} wide, now ${one.folders?.b.w} beside an editor of ${one.doc?.b.w}`,
+  );
+  claim(
+    "a second and a third file join the editor's group, with the folders still in front of theirs",
+    two.withAlpha && three.withAlpha && two.groups === one.groups && three.groups === one.groups &&
+      two.folders?.front === "Folders" && three.folders?.front === "Folders" && three.doc?.front === "gamma.txt",
+    `the editor's group holds ${JSON.stringify(three.doc?.tabs)} with ${three.doc?.front} in front · groups ${one.groups} → ${two.groups} → ${three.groups} · folders in front: ${two.folders?.front}, ${three.folders?.front}`,
+  );
+  claim(
+    "a file that is already open comes to the front where it is",
+    again.doc?.front === "alpha.txt" && again.count === 1 && again.groups === three.groups,
+    `${again.count} tab(s) called alpha.txt, ${again.doc?.front} in front of ${JSON.stringify(again.doc?.tabs)}, groups ${again.groups}`,
+  );
+  claim(
+    "a view of main opened while a document is in front goes to the work, not over the documents",
+    notes.withFolders && !notes.withDocs && !(notes.docs?.tabs ?? []).includes("Notes"),
+    `notes beside the folders ${notes.withFolders}, among the documents ${notes.withDocs}`,
+  );
+}
+
+/* The same from a session: its FILES tree stands beside its terminal, and a
+   file picked there must leave the terminal on screen. The documents from the
+   folders are closed first, so the editor has no group to join and has to
+   make its own beside the terminal. */
+const fromSession = await run(`${HELPERS}${groupFacts}
+  const alpha = tabNamed('alpha.txt');
+  if (alpha) { await rightClick(alpha); await pick('Close group', 1100); }
+  const rowLink = railLike(/plxr-tabs-check/);
+  if (!rowLink) return { why: 'the check\\u2019s session is not in the menu' };
+  rowLink.click(); await wait(1800);
+  const tab = tabLike(/plxr-tabs-check/);
+  if (!tab) return { why: 'the session panel did not open' };
+  await activate(tab);
+  const name = nameOf(tab);
+  const session = () => [...document.querySelectorAll('.plxrDock .session')].find(s => s.offsetParent !== null);
+  // The bar keeps an unseen copy of its buttons to measure them; the one clicked is the one on screen.
+  const filesButton = session() && [...session().querySelectorAll('.sessbar button')].find(b => b.textContent.trim() === 'FILES' && !b.closest('.obarMeasureBox'));
+  if (!filesButton) return { why: 'no FILES button in the session bar' };
+  filesButton.click(); await wait(1500);
+  const row = n => session() && [...session().querySelectorAll('.frow')].find(r => (r.querySelector('.fname') || { textContent: '' }).textContent.trim() === n);
+  if (!row('alpha.txt')) return { why: 'alpha.txt is not in the session\\u2019s tree' };
+  const work = groupFacts(name);
+  const groupsBefore = groups().length;
+  row('alpha.txt').click(); await wait(2200);
+  const terminal = () => session() && session().querySelector('.xterm');
+  const one = { session: groupFacts(name), doc: groupFacts('alpha.txt'), apart: groupOf('alpha.txt') !== groupOf(name),
+                terminal: seen(terminal(), groupFacts(name) && groupFacts(name).b), tree: seen(row('beta.txt'), groupFacts(name) && groupFacts(name).b), groups: groups().length };
+  if (row('beta.txt')) { row('beta.txt').click(); await wait(1800); }
+  const two = { session: groupFacts(name), doc: groupFacts('beta.txt'), withAlpha: groupOf('beta.txt') === groupOf('alpha.txt'), groups: groups().length,
+                terminal: seen(terminal(), groupFacts(name) && groupFacts(name).b) };
+  return { name, work, groupsBefore, one, two };
+`);
+if (process.env.PLXR_SHOTS) {
+  const png = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(join(process.env.PLXR_SHOTS, "documents-from-session.png"), Buffer.from(png.data, "base64"));
+}
+/* The session reads its files under its own id and the folders under theirs,
+   so these are other panels than the folders' alpha.txt and beta.txt, with the
+   same names. They go again, or the steps below find two of each. */
+await run(`${HELPERS}
+  if (tabNamed('alpha.txt')) { await rightClick(tabNamed('alpha.txt')); await pick('Close group', 1100); }
+`);
+if (fromSession.why) {
+  unmeasured("a file clicked in a session's tree opens beside the terminal", fromSession.why);
+} else {
+  const { name, work, one, two } = fromSession;
+  claim(
+    "a file clicked in a session's tree leaves the session in front of its group, the terminal on screen",
+    one.session?.front === name && !one.session.tabs.includes("alpha.txt") && one.terminal?.inside && one.terminal.b.w > 0 && one.tree?.inside,
+    `the session's group holds ${JSON.stringify(one.session?.tabs)} with ${one.session?.front} in front · terminal ${one.terminal?.b.x}+${one.terminal?.b.w} inside ${one.session?.b.x}+${one.session?.b.w}: ${one.terminal?.inside} · tree inside: ${one.tree?.inside}`,
+  );
+  claim(
+    "the editor stands in a group of its own to the right of the terminal, half as wide as the session was",
+    one.apart && one.doc?.front === "alpha.txt" && one.doc.b.x >= one.session.b.x + one.session.b.w - 2 &&
+      one.groups === fromSession.groupsBefore + 1 && Math.abs(one.doc.b.w - work.b.w / 2) <= 4,
+    `session was ${work.b.w} wide, now ${one.session?.b.x}+${one.session?.b.w} · editor ${one.doc?.b.x}+${one.doc?.b.w} · groups ${fromSession.groupsBefore} → ${one.groups}`,
+  );
+  claim(
+    "a second file from the same tree joins the editor, and the terminal stays",
+    two.withAlpha && two.groups === one.groups && two.session?.front === name && two.terminal?.inside,
+    `the editor's group holds ${JSON.stringify(two.doc?.tabs)} · groups ${one.groups} → ${two.groups} · terminal inside its group: ${two.terminal?.inside}`,
+  );
+}
+
 // ---- close others, close group, and the two splits ---------------------------
 /* Two tools can no longer share a region by clicking twice — that is the point
    of the menu — so the two tabs this needs are two of the things that live in
@@ -787,8 +953,9 @@ const many = await run(`${HELPERS}
   const alpha = byText('.frow', /alpha\\.txt/);
   if (!alpha) return { why: 'alpha.txt is not in the tree' };
   alpha.click(); await wait(2200);
-  /* The folders are a tab of main, and the editor they opened now stands in
-     front of them: the tree is brought forward again for the second file. */
+  /* The editor opens beside the folders, which stay in front of their own
+     group; they are brought forward all the same, in case a step before left
+     something else there. */
   await showView('Folders', 900);
   const beta = byText('.frow', /beta\\.txt/);
   if (!beta) return { why: 'beta.txt is not in the tree' };
@@ -823,16 +990,21 @@ if (many.why) {
   );
 }
 
+/* The documents have a group of their own now, so a second file is opened into
+   it again for the group to hold more than one panel — and the work beside it
+   is held to still being there afterwards. */
 const grouped = await run(`${HELPERS}
-  await clickMenu('Overview', 900);
+  await showView('Folders', 900);
+  const beta = byText('.foldersbody .frow', /beta\\.txt/);
+  if (beta) { beta.click(); await wait(1800); }
   const before = tabsIn('alpha.txt');
   await rightClick(tabNamed('alpha.txt'));
   await pick('Close group', 1100);
-  return { before, left: names(), alphaGone: !tabNamed('alpha.txt'), overviewGone: !tabNamed('Overview') };
+  return { before, left: names(), gone: before.filter(n => tabNamed(n)), foldersStay: Boolean(tabNamed('Folders')), overviewStays: Boolean(tabNamed('Overview')) };
 `);
 claim(
-  "close group closes every panel of the group",
-  grouped.before.length >= 2 && grouped.alphaGone && grouped.overviewGone,
+  "close group closes every panel of the group, and nothing beside it",
+  grouped.before.length >= 2 && grouped.gone.length === 0 && grouped.foldersStay && grouped.overviewStays,
   `${JSON.stringify(grouped.before)} → what is left: ${JSON.stringify(grouped.left)}`,
 );
 
