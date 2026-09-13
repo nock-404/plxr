@@ -25,7 +25,7 @@ export const VIEW_GLYPHS: Record<string, string> = {
   review: "\u2387",
   search: "\u2315",
   ports: "\u21C4",
-  usage: "\u2564",
+  usage: "\u25A4",
   archive: "\u2338",
   notes: "\u270E",
   settings: "\u2699",
