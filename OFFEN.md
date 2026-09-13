@@ -750,30 +750,30 @@ the second.
 
 ### W — the window manager
 
-- **W1 There are no regions, only lanes that grow.** Any new kind of panel may
+- **W1 There are no regions, only lanes that grow.** (on main 13.09, not released: four regions, never a fourth column) Any new kind of panel may
   invent a column, which is why Inbox opened a third one. Fixed regions —
   left, main, right, bottom — and never a fifth column.
-- **W2 Closing a column redistributes width proportionally**, so the menu
+- **W2 Closing a column redistributes width proportionally**, (on main 13.09: side regions keep their size, main takes what is freed) so the menu
   column doubles. Regions need remembered widths and min/max constraints, and
   main must absorb what is freed.
-- **W3 The menu column is itself a panel in the grid.** It can be tabbed into,
+- **W3 The menu column is itself a panel in the grid.** (on main 13.09: the menu stands beside the grid) It can be tabbed into,
   closed and moved. It belongs to the window chrome, outside the grid.
-- **W4 There is no bottom region at all.** Ports, usage, output, problems have
+- **W4 There is no bottom region at all.** (on main 13.09: bottom region through Move to, folded with ⌘J) Ports, usage, output, problems have
   no natural home.
-- **W5 Splitting has no direction.** "Open in a new group" always goes right.
+- **W5 Splitting has no direction.** (on main 13.09: split to the right, split downwards) "Open in a new group" always goes right.
   Main must split right and down; left and right must stack vertically.
-- **W6 A region cannot be collapsed**, only closed, and closing loses what was
+- **W6 A region cannot be collapsed**, (on main 13.09: ⌘B, ⌥⌘B, ⌘J fold and bring back the same panels) only closed, and closing loses what was
   in it. PhpStorm collapses and remembers.
 - **W7 No maximise.** No zen mode, no "make this panel big".
-- **W8 Floating has no way home.** "Dock" guesses a lane instead of returning
+- **W8 Floating has no way home.** (on main 13.09: dock returns to the panel's own region) "Dock" guesses a lane instead of returning
   the panel to the region it came from.
-- **W9 Where a panel goes is my rule, not his choice.** Once he moves a panel,
+- **W9 Where a panel goes is my rule, not his choice.** (on main 13.09: Move to sticks per kind of panel) Once he moves a panel,
   that choice must stick for that view.
 - **W10 Tab overflow is unsolved.** Many editors and the strip only scrolls —
   no most-recently-used, no quick switch, no overflow list.
 - **W11 Drag and drop does not respect regions.** Dockview's own edge drops can
   break the four-region shape.
-- **W12 Region sizes are not remembered** across close and reopen.
+- **W12 Region sizes are not remembered** (half, on main 13.09: kept while the window runs, not yet across a restart) across close and reopen.
 
 ### N — the menu and navigation
 
@@ -784,7 +784,7 @@ the second.
   command. Places belong on the stripe, commands in the palette and the keys.
 - **N3 The most important object is at the bottom.** The running sessions sit
   under ten view buttons.
-- **N4 Every click opens a tab.** In the side regions one view at a time
+- **N4 Every click opens a tab.** (on main 13.09: one tool per side region, a second click puts it away) In the side regions one view at a time
   belongs there, not a growing stack.
 - **N5 There is no file-first navigation.** No go-to-file, no find-in-project
   from the keyboard, no go-to-symbol, no back and forward through history.
@@ -795,7 +795,7 @@ the second.
 - **N8 The badges are on the wrong things.** Inbox, ports and archive carry
   counts; sessions waiting for an answer have no priority in the ordering.
 - **N9 The rail cannot shrink to icons.** It always eats its full width.
-- **N10 Settings is a floating window**, so it cannot be docked or put beside
+- **N10 Settings is a floating window**, (on main 13.09: settings are a dock panel) so it cannot be docked or put beside
   what it changes.
 - **N11 The header MENU duplicates the rail** without sharing its model.
 - **N12 No recently closed, no recent files.**
@@ -814,7 +814,7 @@ them, and what plxr has to take from them:
   wide column of words.
 - **D2 Every region has a head.** A title, and the two or three buttons that
   belong to that tool, not to the window. plxr's regions are bare tab strips.
-- **D3 Document tabs carry an icon and a mark.** A file-type glyph in the
+- **D3 Document tabs carry an icon and a mark.** (half, on main 13.09: mark bar and glyph per kind; real icon packs in progress) A file-type glyph in the
   file's own colour, the name, a close that appears on hover, and the tab in
   front marked with a line in the accent along the edge it meets the content.
   A count sits on the tab when there is something to count.
@@ -836,25 +836,25 @@ His words, translated: "I have three Claude accounts set up here and I see
 overall usage or what? What interests me far more is the CURRENT usage." He
 showed Claude Code's own /usage screen as the reference.
 
-- **U1 Usage is not split by account.** Three accounts, one number. Every
+- **U1 Usage is not split by account.** (on main 13.09: every figure per account, total underneath) Three accounts, one number. Every
   figure must be per account first, with a total underneath, not instead.
-- **U2 The interesting number is missing: what is left right now.** The
+- **U2 The interesting number is missing: what is left right now.** (on main 13.09: session and week windows from Claude Code's own reading) The
   reference screen leads with the current session (percent used, when it
   resets) and the current week (percent used, when it resets, per model
   family). plxr leads with a cost total for a period nobody asked about.
-- **U3 Resets are not shown.** A percentage without the time it goes back to
+- **U3 Resets are not shown.** (on main 13.09: reset time and countdown in his timezone) A percentage without the time it goes back to
   zero cannot be planned around — and planning around it is the whole reason
   he watches it, because a run that hits the limit costs him an evening.
-- **U4 It does not say where the numbers come from or how fresh they are.**
+- **U4 It does not say where the numbers come from or how fresh they are.** (on main 13.09: source and age at the foot; the reading refreshes about every 20 minutes, measured)
   The reference screen says it is approximate and local-only; plxr says
   nothing.
-- **U5 Per model, not just per account.** The reference breaks the spend down
+- **U5 Per model, not just per account.** (on main 13.09: input, output, cache read, cache written per model) The reference breaks the spend down
   by model with cache reads and writes; that is the line that explains a bill.
-- **U6 No warning before the wall.** He lost a whole wave of work to "you have
+- **U6 No warning before the wall.** (on main 13.09: rail mark, picker mark, one notification at his threshold) He lost a whole wave of work to "you have
   hit your weekly limit" with no notice. plxr knows the numbers and must say
   so — a mark on the account in the rail, a notification at the threshold he
   sets, and a refusal to start a wave on an account that cannot finish it.
-- **U7 It must be reachable where it matters**, not only in a view: the
+- **U7 It must be reachable where it matters**, (half, on main 13.09: new-session picker proven; the session bar's picker not proven on screen) not only in a view: the
   account picker on a session should show what that account has left.
 
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
