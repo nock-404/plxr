@@ -255,6 +255,13 @@ body {
 .pace { display: inline-flex; align-items: center; gap: 0.4rem; flex: 0 0 auto; white-space: nowrap; }
 .dnd { flex: 0 0 auto; white-space: nowrap; }
 .paceTrend { display: inline-block; width: 1em; text-align: center; }
+/* Every account's limits on the status row: a chip per account with its name
+   and the session and week windows used, in the order the accounts are
+   numbered. The row gives the chips up before it gives up the clock. */
+.limits { display: inline-flex; align-items: center; gap: 0.625rem; flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; }
+.limit { display: inline-flex; align-items: baseline; gap: 0.25rem; flex: 0 0 auto; padding: 0 0.25rem; background: none; border: 0; font: inherit; cursor: pointer; }
+.limitName { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; }
+.limitPct { min-width: 2.25em; text-align: right; }
 
 /* ---------- body: rail left, content right ---------- */
 

@@ -1329,5 +1329,15 @@
   "palette.reopen": "Reopen {name}",
   "palette.file": "File",
   "keys.historyBack": "Back to the panel that was in front before",
-  "keys.historyForward": "Forward again"
+  "keys.historyForward": "Forward again",
+  "limits.short": "#{n}",
+  "limits.session": "session",
+  "limits.week": "week",
+  "limits.weekModel": "week, {model}",
+  "limits.windowTip": "{pct} used, back {when}{left}",
+  "limits.in": "in {left}",
+  "limits.used": "{pct} used",
+  "limits.noReading": "no reading",
+  "limits.age": "reading from {when}",
+  "limits.noReadingLong": "Claude Code has left no reading for this account yet"
 }

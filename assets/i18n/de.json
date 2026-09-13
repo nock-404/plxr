@@ -1327,5 +1327,15 @@
   "palette.reopen": "{name} wieder öffnen",
   "palette.file": "Datei",
   "keys.historyBack": "Zurück zum Panel, das vorher vorne war",
-  "keys.historyForward": "Wieder vorwärts"
+  "keys.historyForward": "Wieder vorwärts",
+  "limits.short": "#{n}",
+  "limits.session": "Session",
+  "limits.week": "Woche",
+  "limits.weekModel": "Woche, {model}",
+  "limits.windowTip": "{pct} verbraucht, zurück {when}{left}",
+  "limits.in": "in {left}",
+  "limits.used": "{pct} verbraucht",
+  "limits.noReading": "kein Wert",
+  "limits.age": "Wert von {when}",
+  "limits.noReadingLong": "Claude Code hat für diesen Account noch keinen Wert hinterlegt"
 }

@@ -12,6 +12,7 @@ import Keys from "@/components/Keys";
 import NewSession from "@/components/NewSession";
 import Meter from "@/components/Meter";
 import Pace from "@/components/Pace";
+import Limits from "@/components/Limits";
 import Folders from "@/components/views/Folders";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
@@ -732,6 +733,8 @@ export default function App() {
         <span className="spacer" />
         {dnd ? <span className="dnd">{tr("notify.dndOn", "do not disturb")}</span> : null}
         {/* The spend, always in view — between the counts and the clock. */}
+        {/* Every account's limits, beside the spend. */}
+        <Limits onOpen={() => setFocus({ kind: "view", view: "usage" })} />
         <Pace />
         <span>{now}</span>
       </div>

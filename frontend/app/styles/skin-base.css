@@ -1094,3 +1094,18 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 
 /* A port row: the number in the accent, because that is what is looked up. */
 .row.port .hitDate { color: var(--accent); }
+
+/* The limits on the status row: the share used in the text colour, the
+   warning colour past the threshold, the blocked colour once a window is
+   spent, and an unread window as dim as nothing. */
+.limits { color: var(--dim); }
+.limit { color: var(--dim); }
+.limit:hover .limitName { color: var(--fg); }
+.limitName { color: var(--dim); }
+.limitSep { color: var(--dead); }
+.limitPct[data-level="ok"] { color: var(--fg); }
+.limitPct[data-level="hot"] { color: var(--waiting); }
+.limitPct[data-level="full"] { color: var(--blocked); }
+.limitPct[data-level="unknown"] { color: var(--dead); }
+.limit[data-level="full"] .limitName { color: var(--blocked); }
+.limit[data-level="hot"] .limitName { color: var(--waiting); }
