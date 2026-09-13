@@ -1060,8 +1060,8 @@ Rules for every step:
 
 ### 14.1 His answers (13.09.2026)
 
-Asked all seven with a proposal each, he answered "auf was wartest du?" —
-what are you waiting for — so the proposals stand:
+Asked all seven with a proposal each, he answered, translated, "what are you
+waiting for?" — so the proposals stand:
 
 1. Bottom stripe: empty, a drop target only, for now.
 2. One visible tool per side and one width per side; split mode later.
