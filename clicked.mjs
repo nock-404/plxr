@@ -920,7 +920,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 
 // ---- the command palette reaches everything -------------------------------
 /* ⌘K opens a search over every command — views, sessions, the shell's own
-   actions. Typing a view name narrows to it. */
+   actions — and, a moment after typing stops, the files whose names match.
+   Typing a view name narrows the commands to it; the files come after them,
+   the one whose own name holds the word first. */
 {
   const pal = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
@@ -932,14 +934,23 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     let narrowed = [];
     if (inp) {
       const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
-      set(inp, 'usage'); await w(300);
-      narrowed = [...document.querySelectorAll('.paletteRow .paletteLabel')].map(l => l.textContent.trim());
+      set(inp, 'usage'); await w(1500);
+      narrowed = [...document.querySelectorAll('.paletteRow')].map(r => ({ group: r.querySelector('.paletteGroup')?.textContent.trim() ?? '', label: r.querySelector('.paletteLabel')?.textContent.trim() ?? '' }));
     }
     document.querySelector('.paletteScrim')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     return { open, total, narrowed };
   `);
   claim("the command palette opens on the keyboard and lists commands", pal.open && pal.total >= 5, `${pal.total} commands`);
-  claim("typing narrows the palette", pal.narrowed.length > 0 && pal.narrowed.every(l => /usage/i.test(l)), pal.narrowed.join(", "));
+  const commandRows = pal.narrowed.filter((r) => r.group !== "File");
+  const fileRows = pal.narrowed.filter((r) => r.group === "File");
+  const lastCommand = pal.narrowed.map((r) => r.group).lastIndexOf(commandRows.at(-1)?.group ?? "");
+  const firstFile = pal.narrowed.findIndex((r) => r.group === "File");
+  claim("typing narrows the palette's commands", commandRows.length > 0 && commandRows.every((r) => /usage/i.test(r.label)), commandRows.map((r) => r.label).join(", "));
+  claim(
+    "and the files whose names match come after them, the file's own name first",
+    fileRows.length > 0 && (firstFile === -1 || firstFile > lastCommand) && /usage/i.test((fileRows[0]?.label ?? "").split("/").pop() ?? ""),
+    fileRows.map((r) => r.label).slice(0, 5).join(", "),
+  );
 }
 
 cdp.close();
