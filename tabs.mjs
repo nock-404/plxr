@@ -17,6 +17,8 @@
  *     beside the work and never over it, and the next files join it;
  *   split, close others in group, close group;
  *   every tab carries its mark, and the one in front its bar;
+ *   the close keeps its square on every tab and draws in it only in front and
+ *     under the pointer, takes the skin's hover colour, and never moves a title;
  *   ⌘W goes through the guard, a clean document closes without asking, and so
  *     do its × and the middle button;
  *   ⌥⌘← → walk the panels of a group, ⌥⌘↑ ↓ the groups of main.
@@ -758,6 +760,158 @@ if (!worn.behindBg) {
     worn.behindBg === "rgba(0, 0, 0, 0)",
   `"${worn.front}": bottom ${worn.mark?.bottom}, ${worn.mark?.height} of a ${worn.tabH}px tab, ${worn.mark?.bg} (accent ${worn.accent}); a tab behind draws ${worn.behindBg}`,
 );
+
+// ---- the close on every tab --------------------------------------------------
+/* The close sits in a square that every tab keeps, so a title never moves when
+   the cross comes up: on the tab in front and on a tab under the pointer the
+   cross is drawn, on every other tab the square is there and empty. Under the
+   pointer the close takes the skin's own hover colour with the cross at full
+   strength, pressed and focused it changes again — and through all of it the
+   title stands exactly where it stood. All of that was measured once with a
+   throwaway script and then held by nothing.
+
+   In all four skins, because each dresses the close its own way. The pointer
+   is the real one, moved through the debugging protocol, so :hover is the
+   browser's own. Pressed and focused are forced on the close through the same
+   protocol: a real press on it closes the tab, and a real Tab leaves focus
+   wherever the key happens to land. The hover colours are the ones the skins
+   declare — a skin that changes its own changes it here too. */
+const CLOSE_HOVER = {
+  crt: { background: "color-mix(in srgb, var(--accent) 16%, transparent)", color: "var(--fg)" },
+  win95: { background: "var(--panel)", color: "var(--dk)" },
+  sketch: { background: "color-mix(in srgb, var(--fg) 10%, transparent)", color: "var(--fg)" },
+  pixel: { background: "var(--line)", color: "var(--fg)" },
+};
+const CLOSE_CLAIMS = [
+  "on a tab behind, the close keeps its square and draws nothing in it",
+  "the close is drawn on the tab in front, and on a tab behind while the pointer is over it",
+  "under the pointer the close takes the skin's hover colour and the cross its full strength",
+  "a title stands still: idle, with its tab under the pointer, with the close under the pointer, pressed and focused",
+];
+const closeSetup = await run(`${HELPERS}
+  await showDoc('overview', 'Overview', 900);
+  await showDoc('settings', 'Settings', 1100);
+  const clean = t => t.querySelector('.panelTabClose') && t.querySelector('.panelTab[data-dirty="no"]');
+  const behind = [...document.querySelectorAll('.plxrDock .dv-tab:not(.dv-active-tab)')].find(clean);
+  const front = [...document.querySelectorAll('.plxrDock .dv-tab.dv-active-tab')].find(clean);
+  if (!behind || !front) return { why: 'no clean tab behind another on screen' };
+  const content = document.querySelector('.plxrDock .dv-content-container').getBoundingClientRect();
+  return { skin: document.documentElement.getAttribute('data-skin'), behind: nameOf(behind), front: nameOf(front),
+    park: { x: content.left + content.width / 2, y: content.top + content.height / 2 } };
+`);
+if (closeSetup.why) {
+  for (const what of CLOSE_CLAIMS) unmeasured(what, closeSetup.why);
+} else {
+  const { behind, front, park } = closeSetup;
+  const readClose = () => run(`${HELPERS}
+    const root = document.documentElement;
+    const closeOf = n => { const t = tabNamed(n); return t ? t.querySelector('.panelTabClose') : null; };
+    const b = closeOf(${JSON.stringify(behind)}), f = closeOf(${JSON.stringify(front)});
+    if (!b || !f) return null;
+    const icon = el => { const i = el.querySelector('.uiIcon'); return i ? getComputedStyle(i).visibility : 'no icon'; };
+    const t = tabNamed(${JSON.stringify(behind)}).querySelector('.panelTabName').getBoundingClientRect();
+    const r = b.getBoundingClientRect();
+    const cs = getComputedStyle(b);
+    return {
+      skin: root.getAttribute('data-skin'),
+      title: { x: t.left, w: t.width },
+      box: { w: b.offsetWidth, h: b.offsetHeight },
+      square: parseFloat(getComputedStyle(root).getPropertyValue('--tabclose')) * parseFloat(getComputedStyle(root).fontSize),
+      behindIcon: icon(b), frontIcon: icon(f),
+      bg: cs.backgroundColor, color: cs.color, shadow: cs.boxShadow, outline: cs.outlineStyle,
+      center: { x: r.left + r.width / 2, y: r.top + r.height / 2 },
+      titleCenter: { x: t.left + t.width / 2, y: t.top + t.height / 2 },
+    };
+  `);
+  /* What the skin's hover colours resolve to, read off a probe inside the tab,
+     so the tokens resolve exactly where the close reads them. */
+  const hoverWanted = (skin) => run(`${HELPERS}
+    const host = tabNamed(${JSON.stringify(behind)}).querySelector('.panelTab');
+    const probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden';
+    probe.style.background = ${JSON.stringify(CLOSE_HOVER[skin]?.background ?? "")};
+    probe.style.color = ${JSON.stringify(CLOSE_HOVER[skin]?.color ?? "")};
+    host.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    const out = { bg: cs.backgroundColor, color: cs.color };
+    probe.remove();
+    return out;
+  `);
+  await cdp.send("DOM.enable");
+  await cdp.send("CSS.enable");
+  const force = async (classes) => {
+    await cdp.send("DOM.getDocument", { depth: 0 });
+    const handle = await cdp.send("Runtime.evaluate", {
+      expression: `[...document.querySelectorAll('.dv-tab')].filter(t => !t.closest('.dv-groupview-edge')).find(t => (t.querySelector('.panelTabName') || { textContent: '' }).textContent.trim() === ${JSON.stringify(behind)})?.querySelector('.panelTabClose') ?? null`,
+    });
+    if (!handle.result?.objectId) throw new Error(`no close on the tab ${behind}`);
+    const { nodeId } = await cdp.send("DOM.requestNode", { objectId: handle.result.objectId });
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: classes });
+    await sleep(150);
+  };
+  const seen = {};
+  try {
+    for (const skin of Object.keys(CLOSE_HOVER)) {
+      await run(`document.documentElement.setAttribute('data-skin', ${JSON.stringify(skin)}); await document.fonts.ready; await new Promise(r => setTimeout(r, 500)); return true;`);
+      await mouse("mouseMoved", park.x, park.y);
+      await sleep(250);
+      const idle = await readClose();
+      if (!idle) throw new Error(`the tabs ${behind} and ${front} went away`);
+      await mouse("mouseMoved", idle.titleCenter.x, idle.titleCenter.y);
+      await sleep(250);
+      const tabHover = await readClose();
+      await mouse("mouseMoved", tabHover.center.x, tabHover.center.y);
+      await sleep(250);
+      const closeHover = await readClose();
+      await force(["active"]);
+      const pressed = await readClose();
+      await force([]);
+      await mouse("mouseMoved", park.x, park.y);
+      await sleep(250);
+      await force(["focus", "focus-visible"]);
+      const focused = await readClose();
+      await force([]);
+      seen[skin] = { idle, tabHover, closeHover, pressed, focused, want: await hoverWanted(skin) };
+    }
+  } catch (e) {
+    seen.why = e.message;
+  } finally {
+    await mouse("mouseMoved", park.x, park.y).catch(() => undefined);
+    await run(`document.documentElement.setAttribute('data-skin', ${JSON.stringify(closeSetup.skin)}); return true;`).catch(() => undefined);
+  }
+  if (seen.why) {
+    for (const what of CLOSE_CLAIMS) unmeasured(what, seen.why);
+  } else {
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const each = (test) => Object.entries(seen).map(([skin, m]) => ({ skin, ...test(skin, m) }));
+    const verdict = (what, results) =>
+      claim(what, results.every((x) => x.ok), results.map((x) => `${x.ok ? "" : "✗ "}${x.skin}: ${x.detail}`).join(" · "));
+    const inSkin = (skin, m) => ["idle", "tabHover", "closeHover", "pressed", "focused"].every((k) => m[k].skin === skin);
+    verdict(CLOSE_CLAIMS[0], each((skin, m) => ({
+      ok: inSkin(skin, m) && Math.abs(m.idle.box.w - m.idle.square) < 0.5 && Math.abs(m.idle.box.h - m.idle.square) < 0.5 &&
+        m.idle.behindIcon === "hidden" && m.idle.bg === "rgba(0, 0, 0, 0)",
+      detail: `${m.idle.box.w}×${m.idle.box.h} of a ${m.idle.square}px square, cross ${m.idle.behindIcon}, ${m.idle.bg}`,
+    })));
+    verdict(CLOSE_CLAIMS[1], each((skin, m) => ({
+      ok: inSkin(skin, m) && m.idle.frontIcon === "visible" && m.tabHover.behindIcon === "visible",
+      detail: `in front ${m.idle.frontIcon}, behind under the pointer ${m.tabHover.behindIcon}`,
+    })));
+    verdict(CLOSE_CLAIMS[2], each((skin, m) => ({
+      ok: inSkin(skin, m) && m.tabHover.bg === "rgba(0, 0, 0, 0)" && m.closeHover.bg === m.want.bg && m.closeHover.color === m.want.color,
+      detail: `${m.closeHover.bg} with ${m.closeHover.color} (the skin's ${m.want.bg} with ${m.want.color})`,
+    })));
+    verdict(CLOSE_CLAIMS[3], each((skin, m) => {
+      const states = ["tabHover", "closeHover", "pressed", "focused"];
+      const drift = Math.max(...states.map((k) => Math.max(Math.abs(m[k].title.x - m.idle.title.x), Math.abs(m[k].title.w - m.idle.title.w))));
+      const pressedShows = `${m.pressed.bg}|${m.pressed.color}|${m.pressed.shadow}` !== `${m.closeHover.bg}|${m.closeHover.color}|${m.closeHover.shadow}`;
+      const focusShows = m.focused.outline !== "none" && m.focused.behindIcon === "visible";
+      return {
+        ok: inSkin(skin, m) && drift < 0.01 && pressedShows && focusShows,
+        detail: `title at ${r2(m.idle.title.x)}px, ${r2(m.idle.title.w)} wide, moved ${r2(drift)}px · pressed drawn ${pressedShows}, focus ${m.focused.outline}`,
+      };
+    }));
+  }
+}
 
 // ---- ⌘W through the guard ----------------------------------------------------
 const guarded = await run(`${HELPERS}

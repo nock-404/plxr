@@ -392,8 +392,34 @@ body {
 .row.port .hitTitle { flex: 1 1 auto; min-width: 3rem; }
 .row.port .hitProject { flex: 0 1 auto; min-width: 0; max-width: 8rem; }
 .row.port .hitSmall { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@container listbody (max-width: 26rem) { .row.port .hitProject { display: none; } }
-@container listbody (max-width: 19rem) { .row.port .hitSmall { display: none; } }
+/* When a detail gives way is counted in the list's own characters, not in rem.
+ *
+ * What these widths decide is how many letters of a name are left, and a rem
+ * is the same in every skin while a letter is not: at the default text size a
+ * character is 9px in the tube, 8.2 in Windows 95, 6.8 in sketch and 15 in
+ * pixel. In rem, pixel kept the pid at 320px and cut 11 of 13 names, with the
+ * pid itself reading "PID …". A ch in a container condition is the
+ * container's own character, so the same count holds in every typeface and at
+ * every text size. Below 48 the name would keep fewer than about twenty
+ * characters beside both details, below 34 fewer than that beside the pid;
+ * in the tube that is 432px and 306px, next to the 26rem and 19rem it was.
+ * The sizes of the boxes themselves stay in rem. */
+@container listbody (max-width: 48ch) { .row.port .hitProject { display: none; } }
+@container listbody (max-width: 34ch) { .row.port .hitSmall { display: none; } }
+
+/* An archived conversation, as a row or as a search hit: a date, the title
+ * over its folder or its excerpt, and the model or the role.
+ *
+ * The date had a fixed 6.25rem and the model its full width, so at 320px the
+ * title got 35–58px in the tube and nothing at all in pixel, whose date did
+ * not even fit its own column. The date is as wide as its digits now, the
+ * model gives way with an ellipsis, and both drop out as the column narrows —
+ * the model first — counted in characters like the ports above. */
+.row.transcript .hitDate { width: auto; }
+.row.transcript .hitMain { min-width: 3rem; }
+.row.transcript .hitSmall { flex: 0 1 auto; min-width: 0; max-width: 10rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container listbody (max-width: 50ch) { .row.transcript .hitSmall { display: none; } }
+@container listbody (max-width: 32ch) { .row.transcript .hitDate { display: none; } }
 .hitDate { flex: 0 0 auto; width: 6.25rem; }
 /* An account, on one line: the name at its own width, the path giving way.
    Sharing the row evenly is what squeezed "account 1" down to "acc…" while the

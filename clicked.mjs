@@ -13,7 +13,8 @@
  * debugging protocol, the same way geometry.mjs does it.
  */
 import { spawn, execFileSync } from "node:child_process";
-import { readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -50,8 +51,11 @@ if (!browser) {
 }
 
 const base = `http://127.0.0.1:${info.port}`;
-const api = (path) =>
-  fetch(base + path, { headers: { "X-Plxr-Token": info.token } }).then((r) => r.json());
+const api = (path, init = {}) =>
+  fetch(base + path, {
+    ...init,
+    headers: { "X-Plxr-Token": info.token, "Content-Type": "application/json", ...(init.headers ?? {}) },
+  }).then((r) => (r.status === 204 ? null : r.json()));
 
 /* Which daemon is this?
  *
@@ -131,31 +135,135 @@ const browserExited = (proc) => {
     const t = Date.now() + 50; while (Date.now() < t);
   }
 };
+/* What this check needs, it brings, and it leaves the service as it found it.
+ *
+ * Several claims were made only when the machine happened to offer something
+ * to make them about: a listening port for the ports list and its preview, a
+ * repository with uncommitted work for the diff, a session for the overview and
+ * the right-click menu. So the same build counted 62 claims on one run and 64
+ * on the next, and a claim that is skipped says nothing about whether it holds.
+ * The check starts a server of its own, a repository with two changes in it and
+ * a session in that repository, and takes all three away again.
+ *
+ * Run twice against one service, the second run failed on what the first had
+ * left: the font it brought in was still the chosen one, so the font's select
+ * no longer read "skin default" and was not found. The settings the check
+ * changes — the skin, the font, the arrangement — are put back at the end,
+ * with null for whatever it added, and the folders and the font it added are
+ * removed. */
+let made = null;
+let server = null;
+let prefsBefore = null;
+let workspacesBefore = null;
+let fontsBefore = null;
+const repo = mkdtempSync(join(tmpdir(), "plxr-clicked-repo-"));
+
 const endBrowser = () => {
   try { child.kill(); browserExited(child); } catch { /* already gone */ }
   try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+  try { rmSync(repo, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
 };
 process.on("exit", endBrowser);
+/* A crash, an unhandled rejection or ^C goes through stop() too, so the
+ * service gets its settings back. A second failure while stopping does not
+ * wait for the first. */
+let stopping = false;
+const bail = (code) => {
+  if (stopping) process.exit(code);
+  stopping = true;
+  void stop(code);
+};
 for (const bad of ["uncaughtException", "unhandledRejection"]) {
-  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); bail(1); });
 }
-process.on("SIGINT", () => process.exit(130));
-process.on("SIGTERM", () => process.exit(143));
+process.on("SIGINT", () => bail(130));
+process.on("SIGTERM", () => bail(143));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function stop(code) {
+// Everything the check added or changed, taken away or put back.
+async function tidy() {
+  // Purged, not only ended: an ended session stays listed, and the next run
+  // found two tiles by this check's name.
+  if (made) await api(`/api/sessions/${encodeURIComponent(made.id)}?purge=1`, { method: "DELETE" }).catch(() => undefined);
+  if (workspacesBefore) {
+    const now = (await api("/api/workspaces").catch(() => [])) ?? [];
+    for (const w of now) {
+      if (!workspacesBefore.has(w.id)) await api(`/api/workspaces/${encodeURIComponent(w.id)}`, { method: "DELETE" }).catch(() => undefined);
+    }
+  }
+  if (fontsBefore !== null && !fontsBefore.includes("GateCaveat")) {
+    await api("/api/fonts/GateCaveat.woff2", { method: "DELETE" }).catch(() => undefined);
+  }
+  if (prefsBefore) {
+    const now = (await api("/api/prefs").catch(() => null)) ?? {};
+    const back = { ...prefsBefore };
+    for (const k of Object.keys(now)) if (!(k in prefsBefore)) back[k] = null;
+    await api("/api/prefs", { method: "PUT", body: JSON.stringify(back) }).catch(() => undefined);
+  }
+  if (server) {
+    server.closeAllConnections?.();
+    await new Promise((r) => server.close(() => r()));
+  }
+}
+
+async function stop(code) {
+  /* The browser first, so the page cannot write its settings again after
+     they were put back; the profile once it has let go of it. */
+  const exited = new Promise((r) => (child.exitCode !== null || child.signalCode !== null ? r() : child.once("exit", r)));
   try {
     child.kill();
   } catch {
     /* already gone */
   }
-  try {
-    rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
-  } catch {
-    /* the browser is still letting go; it lives in the temp directory */
+  await Promise.race([exited, sleep(5000)]);
+  await tidy();
+  for (const dir of [profile, repo]) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    } catch {
+      /* it lives in the temp directory */
+    }
   }
   process.exit(code);
+}
+
+prefsBefore = (await api("/api/prefs").catch(() => null)) ?? {};
+workspacesBefore = new Set(((await api("/api/workspaces").catch(() => [])) ?? []).map((w) => w.id));
+fontsBefore = JSON.stringify((await api("/api/fonts").catch(() => [])) ?? []);
+
+// A repository with one committed file and two changes far apart in it, so the
+// diff has two hunks to stack.
+{
+  const git = (...args) =>
+    execFileSync("git", ["-C", repo, "-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args], {
+      stdio: "ignore",
+      env: { ...process.env, GIT_AUTHOR_NAME: "plxr check", GIT_AUTHOR_EMAIL: "check@plxr.invalid", GIT_COMMITTER_NAME: "plxr check", GIT_COMMITTER_EMAIL: "check@plxr.invalid" },
+    });
+  const lines = Array.from({ length: 40 }, (_, i) => `line ${i + 1}`);
+  writeFileSync(join(repo, "notes.txt"), lines.join("\n") + "\n");
+  git("init", "-q");
+  git("add", "notes.txt");
+  git("commit", "-q", "-m", "start");
+  writeFileSync(join(repo, "notes.txt"), lines.map((l, i) => (i === 2 || i === 35 ? `${l} changed` : l)).join("\n") + "\n");
+}
+
+// A port that is listening for the whole run, whatever else the machine does.
+server = createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/html" });
+  res.end("<title>plxr check</title><p>served for clicked.mjs</p>");
+});
+await new Promise((r) => server.listen(0, "127.0.0.1", r));
+const ownPort = server.address().port;
+
+// And a session of its own, a plain shell in that repository.
+made = await api("/api/sessions", {
+  method: "POST",
+  body: JSON.stringify({ cwd: repo, cmd: [], name: "plxr-clicked-check", account: "" }),
+}).catch(() => null);
+if (!made?.id) {
+  console.log("  could not start a session for the check");
+  await stop(1);
 }
 
 async function endpoint() {
@@ -202,7 +310,7 @@ function connect(url) {
 const wsUrl = await endpoint();
 if (!wsUrl) {
   console.log("  the browser did not come up — nothing checked");
-  stop(1);
+  await stop(1);
 }
 const cdp = await connect(wsUrl);
 await cdp.send("Page.enable");
@@ -234,12 +342,11 @@ const loaded = await run(`${GATEKIT}
 `).catch(() => null);
 if (!loaded?.app || !loaded.up) {
   console.log("  the interface did not render — nothing to check");
-  stop(1);
+  await stop(1);
 }
 
 // ---- what the daemon says, as the yardstick -------------------------------
 const sessions = await api("/api/sessions");
-const ports = await api("/api/ports");
 
 // ---- the overview ---------------------------------------------------------
 const overview = await run(`${GATEKIT}
@@ -257,9 +364,8 @@ const overview = await run(`${GATEKIT}
   };
 `);
 
-if (sessions.length === 0) {
-  claim("overview explains itself when there is nothing", overview.emptyState);
-} else {
+// There is always at least the check's own session to count.
+{
   claim(
     "overview shows one tile per session",
     overview.tiles === sessions.length,
@@ -295,12 +401,11 @@ if (sessions.length === 0) {
 }
 
 // ---- every view opens, and none of them is a blank area -------------------
-for (const [name, expectRows] of [
-  ["Inbox", null],
-  ["Ports", ports.length],
-  ["Usage", null],
-  ["Archive", null],
-]) {
+for (const name of ["Inbox", "Ports", "Usage", "Archive"]) {
+  /* The ports are asked for right before the view opens and again right after
+     it is read. Held against an answer fetched at the start of the run, a port
+     that opened or closed in between put the count off by one. */
+  const asked = name === "Ports" ? (await api("/api/ports")).length : null;
   const view = await run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const id = ${JSON.stringify(name.toLowerCase())};
@@ -341,6 +446,7 @@ for (const [name, expectRows] of [
       against,
       edge,
       opened: true,
+      own: [...view.querySelectorAll('.row')].some(r => (r.querySelector('.hitDate')?.textContent || '').trim() === ${JSON.stringify(String(ownPort))}),
       rows: view.querySelectorAll('.row').length,
       blocks: view.querySelectorAll('.ublock').length,
       empty: !!view.querySelector('.emptyNote'),
@@ -354,8 +460,13 @@ for (const [name, expectRows] of [
     !view.blank && (view.rows > 0 || view.blocks > 0 || view.empty),
     `rows=${view.rows} blocks=${view.blocks} empty=${view.empty}`,
   );
-  if (expectRows !== null && expectRows > 0) {
-    claim(`${name} lists what the daemon reports`, view.rows === expectRows, `${view.rows} of ${expectRows}`);
+  if (name === "Ports") {
+    const askedAfter = (await api("/api/ports")).length;
+    claim(
+      "Ports lists what the daemon reports, the check's own server among them",
+      (view.rows === asked || view.rows === askedAfter) && view.own,
+      `${view.rows} rows; the daemon said ${asked} before and ${askedAfter} after · port ${ownPort} listed ${view.own}`,
+    );
   }
 }
 
@@ -366,7 +477,8 @@ if (live.length > 0) {
     const wait = ms => new Promise(r => setTimeout(r, ms));
     await openDoc('overview');
     await wait(500);
-    const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'orphaned' && t.dataset.status !== 'dead');
+    // The check's own session, in the repository it made.
+    const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'dead' && /plxr-clicked-check/.test(t.textContent || ''));
     if (!tile) return { noLiveTile: true };
     tile.click();
     await wait(2200);
@@ -499,7 +611,7 @@ if (live.length > 0) {
      endpoint and taking an empty answer as "no git" was wrong the moment
      everything was committed: the answer went empty, the check took the wrong
      branch, and it failed on correct behaviour. */
-  const isRepo = existsSync(join(sessions[0].cwd, ".git"));
+  const isRepo = existsSync(join(repo, ".git"));
   claim(
     isRepo ? "git says what it thinks of it" : "git is asked, and this directory has no git",
     isRepo ? browser.gitMark === "untracked" : browser.gitMark === "",
@@ -739,7 +851,11 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     if (gear) gear.click();
     await w(1200);
     const declared = (document.getElementById('plxr-userfonts')?.textContent || '').includes('GateCaveat');
-    const btn = [...document.querySelectorAll('.select .selectButton')].find(b => /skin default/i.test(b.textContent));
+    /* The interface font's select, found by its field rather than by what it
+       shows: after a font was chosen it reads as that font, and looked for as
+       "skin default" it was not found at all. */
+    const field = [...document.querySelectorAll('.settingsPanel .field')].find(f => (f.querySelector('.fieldName')?.textContent || '').trim() === 'fonts');
+    const btn = field ? field.querySelector('.select .selectButton') : null;
     let picked = false;
     if (btn) {
       btn.click(); await w(400);
@@ -854,19 +970,23 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   const preview = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
     openTool('ports');
-    await w(1200);
-    const row = [...document.querySelectorAll('.row')].find(r => /VIEW|ANSEHEN/.test(r.textContent || ''));
-    if (!row) return { noPorts: true };
+    // The row of the check's own server.
+    const own = ${JSON.stringify(String(ownPort))};
+    const ownRow = () => [...document.querySelectorAll('.toolWindow[data-tool="ports"] .row')].find(r => (r.querySelector('.hitDate')?.textContent || '').trim() === own);
+    for (let i = 0; i < 40 && !ownRow(); i++) await w(200);
+    const row = ownRow();
+    if (!row) return { noRow: true };
     const view = [...row.querySelectorAll('button')].find(b => /VIEW|ANSEHEN/.test(b.textContent));
     if (view) view.click();
     await w(1500);
     const iframe = document.querySelector('.previewframe iframe');
     return { framed: !!iframe, src: iframe?.getAttribute('src') || '' };
   `);
-  // Only assert when the machine has a listening port to view; otherwise skip.
-  if (!preview.noPorts) {
-    claim("a port opens as a web preview", preview.framed && /^https?:\/\/localhost:\d+/.test(preview.src), preview.src);
-  }
+  claim(
+    "a port opens as a web preview",
+    !preview.noRow && preview.framed && preview.src.startsWith(`http://localhost:${ownPort}`),
+    preview.noRow ? `no row for the check's own port ${ownPort}` : preview.src,
+  );
 }
 
 // ---- right-click opens a context menu ------------------------------------
@@ -875,10 +995,16 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 {
   const cm = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
+    /* The overview shows the sessions of the project picked at the top, and
+       the one picked last is a folder with no session in it — so there was no
+       tile to right-click and this claim quietly never ran. The check's own
+       repository is picked, where its own session is. */
+    await pickProject(${JSON.stringify(repo)});
+    await w(1200);
     await openDoc('overview');
     await w(800);
-    const tile = document.querySelector('.tile');
-    if (!tile) return { noTile: true };
+    const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'dead' && /plxr-clicked-check/.test(t.textContent || ''));
+    if (!tile) return { noTile: true, tiles: document.querySelectorAll('.tile').length };
     const r = tile.getBoundingClientRect();
     tile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: Math.round(r.x + 30), clientY: Math.round(r.y + 20) }));
     await w(300);
@@ -888,9 +1014,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     return { shown: !!menu, items };
   `);
-  if (!cm.noTile) {
-    claim("right-click opens a context menu", cm.shown && cm.items.length >= 2, cm.items.join(", "));
-  }
+  claim("right-click opens a context menu", !cm.noTile && cm.shown && cm.items.length >= 2, cm.noTile ? `no tile of the check's session among ${cm.tiles} on the overview` : cm.items.join(", "));
 }
 
 // ---- the changes panel, and a diff opening beside it ----------------------
@@ -901,7 +1025,8 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
    this holds that they stack. Skipped when the session is not in a repository
    with something changed, the way the preview claim skips with no port. */
 {
-  const cwd = sessions[0]?.cwd || "";
+  // The repository the check made, with its two changes.
+  const cwd = repo;
   const diff = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
     if (!(await pickProject(${JSON.stringify(cwd)}))) return { noField: true };
@@ -938,10 +1063,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
       stacked,
     };
   `);
-  if (!diff.noField && !diff.noIcon && !diff.nothingChanged) {
-    claim("a changed file opens as a diff panel", diff.openedPanel && diff.diffLines > 0, `${diff.rows} changed, ${diff.diffLines} diff lines in ${diff.picked}`);
-    claim("a diff stacks its hunks, one above the next", diff.stacked, `${diff.hunks} hunks`);
-  }
+  const why = diff.noField ? "no field in the project switch" : diff.noIcon ? "no icon for the changes" : diff.nothingChanged ? "the changes list nothing for a repository with two changes" : "";
+  claim("a changed file opens as a diff panel", !why && diff.openedPanel && diff.diffLines > 0, why || `${diff.rows} changed, ${diff.diffLines} diff lines in ${diff.picked}`);
+  claim("a diff stacks its hunks, one above the next", !why && diff.hunks >= 2 && diff.stacked, why || `${diff.hunks} hunks`);
 }
 
 // ---- the command palette reaches everything -------------------------------
@@ -950,8 +1074,14 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
    Typing a view name narrows the commands to it; the files come after them,
    the one whose own name holds the word first. */
 {
-  const pal = await run(`
+  const pal = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
+    /* The files are the project's. This used to run in whatever folder the
+       diff above had picked — the service's first session, which happened to
+       be this repository — and the check's own repository has no file named
+       like a view. So this repository is picked again first. */
+    await pickProject(${JSON.stringify(process.cwd())});
+    await w(1500);
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true }));
     await w(400);
     const open = !!document.querySelector('.palette');
@@ -985,12 +1115,12 @@ cdp.close();
 const failed = claims.filter((c) => !c.ok);
 if (claims.length === 0) {
   console.log("  checked nothing at all — the window did not load");
-  stop(1);
+  await stop(1);
 }
 if (failed.length) {
   console.log(`  ${failed.length} of ${claims.length} claims failed:`);
   for (const f of failed) console.log(`      ${f.what}${f.detail ? ` — ${f.detail}` : ""}`);
-  stop(1);
+  await stop(1);
 }
 console.log(`  the window does what it says — ${claims.length} claims checked`);
-stop(0);
+await stop(0);

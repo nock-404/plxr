@@ -156,7 +156,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
             </div>
           ) : (
             hits!.map((h, i) => (
-              <div key={`${h.sessionId}-${i}`} className="row tall" onContextMenu={ctx(hitMenu(h))}>
+              <div key={`${h.sessionId}-${i}`} className="row tall transcript" onContextMenu={ctx(hitMenu(h))}>
                 <span className="hitDate">{day(h.mod)}</span>
                 <span className="hitMain">
                   <span className="hitTitle">{h.title || h.project}</span>
@@ -178,7 +178,7 @@ export default function Archive({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
         ) : (
           shown.map((r) => (
-            <div key={r.id} className="row" onContextMenu={ctx(rowMenu(r))}>
+            <div key={r.id} className="row transcript" onContextMenu={ctx(rowMenu(r))}>
               <span className="hitDate">{day(r.mod)}</span>
               <span className="hitMain">
                 <span className="hitTitle">{r.title || r.project}</span>

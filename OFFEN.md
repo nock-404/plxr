@@ -957,15 +957,34 @@ that I do not agree with the menu as such."
 - **The first letter of tree names is clipped in Windows 95 at 1x.** (fixed on main 13.09: an icon's slot is never narrower than the largest icon; measured in all four skins and packs) The icon
   column and the name overlap by a pixel or two at normal density.
 - **clicked.mjs fails when run twice against one service,** and its count of
-  ports can be off by one when a port opens or closes during the run.
+  ports can be off by one when a port opens or closes during the run. (fixed
+  13.09 on wip7/narrow: it counted 64 claims, 62 without a listening port, and
+  its second run failed on the font the first had left chosen. It now brings a
+  listening server, a repository with two changes and a session of its own,
+  puts back the settings, fonts and folders it changed and purges its session;
+  the right-click and diff claims, which had been skipped, always run. 65
+  claims twice in a row on one fresh service, the service left with its one
+  session, no folders, no fonts and empty settings; the port count is held
+  against the answers just before and just after the view is read)
 
 ### Left open by the row-actions fix (13.09.2026)
 
 - **In the pixel skin at 320px most port names are still cut** (13 of 17) and
   the pid reads "PID …": the narrow-column drop-out widths are in rem and do
-  not allow for pixel's much wider typeface.
+  not allow for pixel's much wider typeface. (fixed 13.09 on wip7/narrow: the
+  drop-outs are counted in the list's own characters, 48ch and 34ch, while the
+  boxes stay in rem — a character is 9px in crt, 8.2 in win95, 6.8 in sketch
+  and 15 in pixel. Names at 320px, median crt/win95/sketch/pixel 172/192/197/134px
+  before, 172/192/197/224px after; pixel's names cut 11 of 13 → 1 of 13, and
+  the pid drops out instead of reading "PID …")
 - **Archive has no narrow-column rules.** At 320px its titles get 40–55px because
-  the date and model columns keep their full width.
+  the date and model columns keep their full width. (fixed 13.09 on
+  wip7/narrow: the date is as wide as its digits, the model gives way with an
+  ellipsis, and the model and then the date drop out at 50ch and 32ch, for the
+  list and the search hits. Titles at 320px, median crt/win95/sketch/pixel
+  58/91/102/0px → 205/216/228/280px; search hits 138/148/152/118px →
+  217/228/240/292px. crt and pixel looked at in
+  ~/Downloads/plxr-screenshots-2026-09-13/schmale-spalten/)
 - **The crt hover overlay behind row actions is solid**, so it shows as a darker
   chip over the see-through rows. Seen only in headless Chrome.
 - **A clicked row action keeps focus in Chrome**, so its group stays visible
@@ -975,10 +994,29 @@ that I do not agree with the menu as such."
 
 - **No lasting gate for the close's behaviour:** hidden but spaced on inactive
   tabs, the hover colours, and a title that does not move were measured with a
-  throwaway script. They belong in tabs.mjs.
+  throwaway script. They belong in tabs.mjs. (fixed 13.09 on wip7/narrow: four
+  claims in tabs.mjs, in all four skins, with the real pointer for hover and
+  press and focus forced on the close — the empty 20px square behind, the cross
+  in front and under the pointer, each skin's hover colour, and the title
+  moving 0px through idle, tab hovered, close hovered, pressed and focused.
+  35 of 35 hold; with the square taken away, the hover rule removed, pixel's
+  hover colour changed and 2px of padding on a hovered tab, exactly these four
+  fail, each on its own break)
 - **Touch screens:** the close should show on every tab there; not measured.
 - **Pixel icon pack on a 1x screen:** its 24px icon is wider than the 20px hover
   square; the hover was not looked at.
+
+### Left open by the narrow columns fix (13.09.2026)
+
+- **The Archive's search field is a sliver at 320px:** CONVERSATIONS and
+  TERMINALS keep their width and the count is cut to "1…". Seen in the crt and
+  pixel screenshots, not measured.
+- **The ch in the container conditions was measured in headless Chrome only.**
+  WebKit should resolve it against the list the same way; not looked at in the
+  real window.
+- **tabs.mjs ends its session without purging it,** which is what left clicked.mjs
+  a dead session to trip over on a second run. Read from its code; tabs.mjs was
+  not run twice against one service.
 
 ### Left open by documents opening beside their source (13.09.2026)
 

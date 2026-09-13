@@ -59,6 +59,9 @@ LAYOUT_ONLY = {
     # Rows, cells and handles: geometry with no surface of their own.
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
     "hitMain", "draghandle", "brand", "rmain",
+    # A row of the archive, list or search hit: it only says how the row gives
+    # way in a narrow column. The row itself and every text in it are dressed.
+    "transcript",
     "fname", "style", "styleRow", "pathfield", "colourPicker", "settingsbody",
     # The floating window's body: it scrolls and pads what it holds; the frame,
     # the title bar and the grip carry the dressing. A short numeric field is
