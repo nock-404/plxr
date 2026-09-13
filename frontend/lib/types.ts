@@ -407,6 +407,91 @@ export interface GitEntry {
   subject: string;
   author: string;
   when: number; // milliseconds; the window words the age itself
+  /* What points at this commit — branches and tags, as git writes them
+     ("HEAD -> main, origin/main, tag: v1.2"). Empty for a commit nothing
+     names, which is most of them. */
+  refs: string;
+}
+
+/* One file a commit touched. `status` is git's own letter: A, M, D, R, C, T. */
+export interface GitCommitFile {
+  path: string;
+  status: string;
+  renamed?: string;
+  added: number;
+  removed: number;
+  binary: boolean;
+}
+
+/* One commit read in full: what it says, who made it, and what it did.
+   `hash` is the short form a person reads, `full` the one they paste
+   somewhere else. */
+export interface GitCommitDetail {
+  hash: string;
+  full: string;
+  subject: string;
+  body: string;
+  author: string;
+  email: string;
+  when: number; // milliseconds; the window words the age itself
+  refs: string;
+  files: GitCommitFile[];
+  added: number;
+  removed: number;
+}
+
+/* One remote and where it points. The fetch URL: the push one is almost always
+   the same address, and printing it twice says nothing twice. */
+export interface GitRemote {
+  name: string;
+  url: string;
+}
+
+/* One language of a folder, counted by files rather than by bytes: a single
+   generated 40,000-line file would otherwise make a project "JSON". */
+export interface FolderLanguage {
+  name: string;
+  files: number;
+  share: number; // percent of the counted files
+}
+
+/* The plain facts of a directory — true of a folder that was never a
+   repository just the same. */
+export interface FolderFacts {
+  files: number;
+  folders: number;
+  size: number; // bytes
+  touched: number; // milliseconds
+  /* The walk stopped early, so the counts are a floor and not a total. Said
+     out loud rather than passed off as the answer. */
+  partial: boolean;
+  languages: FolderLanguage[];
+  /* The directories the walk did not enter — node_modules, build output —
+     so the counts can be read for what they are. */
+  ignored: string[];
+  readme: string;
+  readme_path: string;
+  readme_more: boolean;
+}
+
+/* Everything the folder overview shows, in one answer. `repo` false is an
+   ordinary folder, not a failure: it gets the facts that apply to it and none
+   of the git sections. */
+export interface FolderReport {
+  path: string;
+  name: string;
+  repo: boolean;
+  where?: GitWhere;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  dirty: boolean;
+  stashes: number;
+  fetched: number; // milliseconds; 0 when it has never fetched
+  head?: GitCommitDetail;
+  log: GitEntry[];
+  remotes: GitRemote[];
+  facts: FolderFacts;
 }
 
 /* Which branch this is and how it stands against its upstream. */

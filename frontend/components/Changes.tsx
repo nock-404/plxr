@@ -41,7 +41,10 @@ const WORD: Record<string, [string, string]> = {
   T: ["git.typechange", "type changed"],
 };
 
-function word(letter: string): string {
+/* git's letter as a word. Exported because the folder overview lists the files
+   of a commit with the same letters, and a second table of them would be a
+   second table to fall out of step. */
+export function word(letter: string): string {
   const [key, fallback] = WORD[letter] ?? ["git.changed", "changed"];
   return tr(key, fallback);
 }
@@ -53,6 +56,7 @@ export default function Changes({
   onEdit,
   live,
   onOpenFiles,
+  compact = false,
 }: {
   rootId: string;
   shown: { path: string; staged: boolean } | null;
@@ -68,6 +72,11 @@ export default function Changes({
   /* The folder's tree, as a panel — offered in the list's own menu where a
      dock is there to hold it. */
   onOpenFiles?: () => void;
+  /* Embedded in something that already says where the folder stands and what
+     it has been doing lately — the folder overview. The branch line and the
+     history are left out there, because printing either of them twice on one
+     screen is worse than printing neither. Everything else is the same list. */
+  compact?: boolean;
 }) {
   const [list, setList] = useState<GitChange[] | null>(null);
   const [problem, setProblem] = useState("");
@@ -375,7 +384,7 @@ export default function Changes({
         <span className="notice">{tr("git.clean", "Nothing has changed in this folder.")}</span>
       ) : null}
 
-      {where ? (
+      {where && !compact ? (
         <span className="branchline">
           {where.detached
             ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
@@ -448,7 +457,7 @@ export default function Changes({
         />
       ) : null}
 
-      {history.length ? (
+      {history.length && !compact ? (
         <div className="changegroup">
           <span className="uhead">{tr("git.recent", "lately")}</span>
           {history.map((h) => (
