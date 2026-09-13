@@ -773,7 +773,7 @@ the second.
   no most-recently-used, no quick switch, no overflow list.
 - **W11 Drag and drop does not respect regions.** Dockview's own edge drops can
   break the four-region shape.
-- **W12 Region sizes are not remembered** (half, on main 13.09: kept while the window runs, not yet across a restart) across close and reopen.
+- **W12 Region sizes are not remembered** (on main 13.09: kept while the window runs and across a restart, measured at 400px through a reload) across close and reopen.
 
 ### N — the menu and navigation
 
