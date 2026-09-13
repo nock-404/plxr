@@ -62,6 +62,25 @@ function activityLabel(a: Activity): string {
   }
 }
 
+/* The session that was in front last in this window, so a reload starts from
+   it instead of from no project. Kept per window, like plxr.here; a folder
+   picked in the project switch clears it, because the pick came later. */
+function rememberFront(id: string): void {
+  try {
+    if (id) localStorage.setItem("plxr.front", id);
+    else localStorage.removeItem("plxr.front");
+  } catch {
+    /* no storage — it lasts for this page only */
+  }
+}
+function lastFront(): string {
+  try {
+    return localStorage.getItem("plxr.front") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 // The control room. Title bar, status strip, the dock with its stripes — the
 // arrangement stays the same in every skin; only the dressing changes.
 export default function App() {
@@ -97,13 +116,18 @@ export default function App() {
   /* The project the tools follow — see lib/project.ts. A folder picked in the
      project switch, or a session coming to the front: the later one wins, so a
      pick holds until the next session comes to the front. It starts as the
-     folder remembered from last time. */
+     folder remembered from last time, and as soon as the sessions are known,
+     from the session that was in front last (the effect below). */
   const [chosen, setChosen] = useState<Project>(() => ({ path: here, sessionId: "" }));
   // The session that came to the front last, which the session switch names.
   const [frontSession, setFrontSession] = useState("");
+  // Whether a pick or a session has set the project since this page loaded.
+  const projectSet = useRef(false);
   const pickProject = useCallback(
     (path: string) => {
       const p = path.trim().replace(/\/+$/, "");
+      projectSet.current = true;
+      rememberFront("");
       goHere(p);
       setChosen({ path: p, sessionId: "" });
     },
@@ -112,15 +136,34 @@ export default function App() {
   /* All projects: the board shows every session again. A folder that was
      picked goes with it; a session in front stays the project. */
   const allProjects = useCallback(() => {
+    projectSet.current = true;
     goHere("");
     setChosen((p) => (p.sessionId ? p : NO_PROJECT));
   }, [goHere]);
   const tilesNow = useRef(tiles);
   tilesNow.current = tiles;
   const sessionFront = useCallback((id: string) => {
+    projectSet.current = true;
+    rememberFront(id);
     setFrontSession(id);
     setChosen((p) => (p.sessionId === id ? p : { path: tilesNow.current.find((t) => t.id === id)?.cwd ?? "", sessionId: id }));
   }, []);
+  /* After a reload no session is in front — the dock brings the board back —
+     so the project read "No project" and the Files tool showed nothing until a
+     session was clicked. So once the sessions are known, and nothing has set
+     the project yet, it is the session that was in front last in this window
+     while that one is still there; else the folder picked last; else the only
+     session, or the first one running. A session the dock brings to the front
+     later still wins. */
+  useEffect(() => {
+    if (projectSet.current || tiles.length === 0) return;
+    projectSet.current = true;
+    const last = lastFront();
+    const front = tiles.find((t) => t.id === last) ?? (here ? undefined : (tiles.find((t) => t.alive) ?? tiles[0]));
+    if (!front) return;
+    setFrontSession(front.id);
+    setChosen({ path: front.cwd, sessionId: front.id });
+  }, [tiles, here]);
   // A session is followed by its id and its folder read off the tiles, so a
   // session that is not known yet when it comes to the front gets its folder
   // as soon as it is.

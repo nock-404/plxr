@@ -22,15 +22,19 @@ import { chordOf, edgeChordOf, viewDef, type Edge, type ToolId, type ToolLayout 
  * An icon is carried to another place by pressing it and moving: while it is
  * carried it is gone from its stripe, and a gap opens where it would land.
  *
- * A stripe with nothing on it is still drawn: the bottom starts empty, and it
- * is an edge a tool can be put on all the same. */
+ * A stripe with nothing on it is still there: the bottom starts empty, and it
+ * is an edge a tool can be put on all the same. At rest it is only its line,
+ * so it is no dead bar across the window; while an icon is carried it stands
+ * up as a whole stripe to be dropped on (layout.css). */
 
 // Where a tooltip goes: beside the icon, towards the work.
 const PLACE: Record<Edge, TipPlace> = { left: "right", right: "left", bottom: "above" };
 
 export type StripeMarks = {
-  // A number or a mark on the icon, empty for none.
+  // A number or a mark on the icon, empty for none: two glyphs at most.
   badge: Partial<Record<ToolId, string>>;
+  // The whole number where the badge had to shorten it, empty otherwise.
+  count: Partial<Record<ToolId, string>>;
   // What the usage has to warn about, empty when nothing is nearly out.
   hot: Partial<Record<ToolId, string>>;
 };
@@ -104,9 +108,11 @@ export default function Stripe({
     const key = chordOf(id);
     const lit = shown === id;
     const badge = marks.badge[id] ?? "";
+    const whole = marks.count[id] ?? "";
     const hot = marks.hot[id] ?? "";
-    const tip = [key ? `${name} ${key}` : name, hot].filter(Boolean).join(" — ");
-    const label = [name, badge && !hot ? badge : "", hot].filter(Boolean).join(" · ");
+    // A count the badge had to shorten is said whole in the tooltip.
+    const tip = [key ? `${name} ${key}` : name, whole, hot].filter(Boolean).join(" — ");
+    const label = [name, badge && !hot ? whole || badge : "", hot].filter(Boolean).join(" · ");
     return (
       <Tooltip key={id} text={carried ? undefined : tip} place={PLACE[edge]}>
         <Button
@@ -152,6 +158,7 @@ export default function Stripe({
       data-edge={edge}
       data-flash={flash ? "yes" : undefined}
       data-drop={landing >= 0 ? "yes" : undefined}
+      data-empty={ids.length === 0 ? "yes" : undefined}
       role="toolbar"
       aria-orientation={edge === "bottom" ? "horizontal" : "vertical"}
       aria-label={names[edge]}

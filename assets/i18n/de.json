@@ -1347,7 +1347,7 @@
   "limits.noReadingLong": "Claude Code hat für diesen Account noch keinen Wert hinterlegt",
   "tool.hide": "Ausblenden",
   "tool.more": "Mehr",
-  "tool.noFolder": "Kein Ordner zum Zeigen: Öffne eine Session oder gib oben im Pfadfeld einen Ordner an.",
+  "tool.noFolder": "Kein Ordner zum Zeigen: Öffne eine Session oder wähle oben in der Projektauswahl ein Projekt.",
   "keys.hideTool": "Das Werkzeugfenster ausblenden, in dem die Tastatur ist",
   "keys.toolReview": "Review",
   "menu.toolWindows": "Werkzeugfenster",

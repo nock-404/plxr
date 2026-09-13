@@ -423,7 +423,7 @@ function FilesToolPanel() {
   const rootId = followed ? followed.id : folder ? `dir:${folder}` : "";
   const root = followed ? followed.cwd : folder;
   if (!rootId) {
-    return <div className="emptyNote">{tr("tool.noFolder", "No folder to show: open a session, or name a folder in the path field above.")}</div>;
+    return <div className="emptyNote">{tr("tool.noFolder", "No folder to show: open a session, or pick a project in the project switch at the top.")}</div>;
   }
   return (
     <div className="filesPanel">
@@ -1553,7 +1553,7 @@ export default function Dock({
             the dock between them holds the tool windows at its edges and main
             in the middle. dockview puts the dock's own class on main alone, so
             the box that holds all of it is a wrapper of its own. */}
-        <div className="dockShell">
+        <div className="dockShell" data-bottom={toolLayout.order.bottom.length ? undefined : "empty"}>
           <Stripes
             layout={toolLayout}
             shown={shownTools}

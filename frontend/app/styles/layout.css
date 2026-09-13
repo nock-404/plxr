@@ -1076,8 +1076,41 @@ button.diffline { cursor: pointer; }
   --stripe-icon-box: 2rem;
   --stripe-gap: 0.25rem;
   --stripe-mark-w: 0.125rem;
+  /* The mark on a stripe is larger than a row's: a tool is found at a glance,
+     from across the window. Twenty pixels for a drawn pack; the pixel pack's
+     size follows the screen, below. */
+  --stripe-icon: 1.25rem;
+  /* A count on an icon is a small mark at its top corner. It stands in the gap
+     above the icon's box and ends where the mark begins: ten pixels over a
+     drawn pack's twenty-pixel mark, eight over the pixel pack's twenty-four,
+     whose ink reaches its top rows. Never less than a figure can be read in. */
+  --stripe-badge-h: clamp(0.5rem, calc((var(--stripe-icon-box) - var(--stripe-icon)) / 2 + min(var(--stripe-pad), var(--stripe-gap))), 0.625rem);
+  /* The bottom stripe with no icon on it is a line where the dock ends, not an
+     empty bar across the window: its row is this high. Room for the thickest
+     line a skin draws there. */
+  --stripe-rest: 0.25rem;
 }
-.dockShell { display: grid; grid-template-columns: var(--stripe-w) minmax(0, 1fr) var(--stripe-w); grid-template-rows: minmax(0, 1fr) var(--stripe-w); width: 100%; height: 100%; min-height: 0; }
+/* The pixel pack on a stripe: its 24-unit grid on 24, 48 or 72 device pixels,
+   whichever is the largest that still leaves whole device pixels around it in
+   the icon's box. At 2x that is 24 CSS pixels, where a row's mark is 12 — the
+   size that made the stripe's icons all but invisible. */
+[data-icons="pixel"] { --stripe-icon: 1.5rem; }
+@media (min-resolution: 1.25dppx) { [data-icons="pixel"] { --stripe-icon: 1.2rem; } }
+@media (min-resolution: 1.5dppx) { [data-icons="pixel"] { --stripe-icon: 1rem; } }
+@media (min-resolution: 1.75dppx) { [data-icons="pixel"] { --stripe-icon: 1.714285714rem; } }
+@media (min-resolution: 2dppx) { [data-icons="pixel"] { --stripe-icon: 1.5rem; } }
+@media (min-resolution: 2.5dppx) { [data-icons="pixel"] { --stripe-icon: 1.2rem; } }
+@media (min-resolution: 3dppx) { [data-icons="pixel"] { --stripe-icon: 1.5rem; } }
+.dockShell { position: relative; display: grid; grid-template-columns: var(--stripe-w) minmax(0, 1fr) var(--stripe-w); grid-template-rows: minmax(0, 1fr) var(--stripe-w); width: 100%; height: 100%; min-height: 0; }
+/* The bottom stripe with nothing on it stays a place an icon can be put, but
+   at rest it is only its line, and main has the height. While an icon is
+   carried, or while the edge is asked to show and has nothing, it stands over
+   the foot of the dock as a whole stripe — over it, so nothing in the dock
+   moves under the pointer. */
+.dockShell[data-bottom="empty"] { grid-template-rows: minmax(0, 1fr) var(--stripe-rest); }
+.stripe[data-empty="yes"] { padding-block: 0; }
+body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
+.stripe[data-empty="yes"][data-flash="yes"] { position: absolute; grid-row: 1 / 3; left: 0; right: 0; bottom: 0; height: var(--stripe-w); padding: var(--stripe-pad); z-index: 45; }
 .stripe { display: flex; align-items: center; gap: var(--stripe-gap); padding: var(--stripe-pad); min-width: 0; min-height: 0; overflow: hidden; }
 .stripe[data-edge="left"] { grid-column: 1; grid-row: 1; flex-direction: column; }
 .stripe[data-edge="right"] { grid-column: 3; grid-row: 1; flex-direction: column; }
@@ -1092,19 +1125,21 @@ button.diffline { cursor: pointer; }
 .stripeIcon[data-dragging="yes"] { display: none; }
 .stripeGap { flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); }
 .stripeGhost { position: fixed; left: 0; top: 0; z-index: 420; width: var(--stripe-icon-box); height: var(--stripe-icon-box); display: flex; align-items: center; justify-content: center; pointer-events: none; }
-.stripeGhost .uiIcon { margin: 0; }
-/* An icon is a square of its own whatever a skin draws around it; the mark
-   keeps its pack's size and sits in the middle of it. */
+.stripeGhost .uiIcon { margin: 0; width: var(--stripe-icon); height: var(--stripe-icon); }
+/* An icon is a square of its own whatever a skin draws around it; the mark is
+   the stripe's size, not a row's, and sits in the middle of it. */
 .stripeIcon { position: relative; flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font: inherit; line-height: 1; touch-action: none; }
-.stripeIcon .uiIcon { margin: 0; }
+.stripeIcon .uiIcon { margin: 0; width: var(--stripe-icon); height: var(--stripe-icon); }
 /* The bar a lit icon wears on the stripe's outer edge. Drawn by every skin
    that wants one, laid out here. */
 .stripeIcon::before { content: ""; position: absolute; pointer-events: none; }
 .stripe[data-edge="left"] .stripeIcon::before { left: calc(var(--stripe-pad) * -1); top: 0; bottom: 0; width: var(--stripe-mark-w); }
 .stripe[data-edge="right"] .stripeIcon::before { right: calc(var(--stripe-pad) * -1); top: 0; bottom: 0; width: var(--stripe-mark-w); }
 .stripe[data-edge="bottom"] .stripeIcon::before { bottom: calc(var(--stripe-pad) * -1); left: 0; right: 0; height: var(--stripe-mark-w); }
-/* A count on an icon: its corner, never its middle, so the mark stays read. */
-.stripeBadge { position: absolute; top: 0; right: 0; min-width: var(--badge-h); height: var(--badge-h); padding: 0 0.1875rem; line-height: var(--badge-h); text-align: center; font-size: 0.625rem; }
+/* A count on an icon: a small mark at its top corner. It stands in the gap
+   above the icon's box and ends where the mark's ink begins, so it never lies
+   over the mark it counts for. */
+.stripeBadge { position: absolute; top: calc(min(var(--stripe-pad), var(--stripe-gap)) * -1); right: 0; box-sizing: border-box; min-width: var(--stripe-badge-h); height: var(--stripe-badge-h); padding: 0 0.125rem; line-height: var(--stripe-badge-h); text-align: center; font-size: calc(var(--stripe-badge-h) - 0.0625rem); white-space: nowrap; pointer-events: none; }
 /* The three edge buttons in the top bar: one group, closer than the rest. */
 .edgeToggles { display: inline-flex; align-items: center; gap: 0.125rem; }
 /* Main with nothing in it: the note and its three buttons in the middle. */

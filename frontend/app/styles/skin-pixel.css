@@ -135,6 +135,15 @@
 [data-skin="pixel"] .stripeIcon[data-lit="yes"]::before { background: transparent; }
 [data-skin="pixel"] .stripeBadge { border-radius: 0; }
 [data-skin="pixel"] .stripeIcon[data-lit="yes"] .stripeBadge { background: var(--bg); color: var(--accent); }
+/* The console's type is an 8-pixel grid: a count is set on it, not between. */
+[data-skin="pixel"] .stripeBadge { font-size: 0.5rem; font-weight: 400; }
+/* The bottom stripe with no icon: the block line and nothing behind it. An
+   icon carried puts a row of blocks over the foot of the dock. */
+[data-skin="pixel"] .stripe[data-empty="yes"] { background: transparent; }
+[data-skin="pixel"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
+[data-skin="pixel"] .stripe[data-empty="yes"][data-flash="yes"] { background: var(--bg); box-shadow: inset 0 var(--px) 0 var(--accent); }
+[data-skin="pixel"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"][data-drop="yes"] { background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+[data-skin="pixel"] .stripe[data-empty="yes"][data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 18%, var(--bg)); box-shadow: inset 0 var(--px) 0 var(--blocked); }
 
 /* ---- tiles ---- */
 [data-skin="pixel"] .tile:hover { transform: none; box-shadow:

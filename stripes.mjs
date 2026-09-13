@@ -393,7 +393,7 @@ const frame = await run(`${HELPERS}
   const stripe = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
   const px = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
   return {
-    shell: box(document.querySelector('.dockShell')), left: stripe('left'), right: stripe('right'), bottom: stripe('bottom'), grid: grid(), thick: px('--stripe-w'),
+    shell: box(document.querySelector('.dockShell')), left: stripe('left'), right: stripe('right'), bottom: stripe('bottom'), grid: grid(), thick: px('--stripe-w'), rest: px('--stripe-rest'), dock: box(document.querySelector('.dockHost')),
     icons: stripeIcons().map(e => ({ tool: e.dataset.tool, edge: e.closest('.stripe').dataset.edge, mark: (e.querySelector('.uiIcon use')?.getAttribute('href') || '').split('#')[1] || '', inDock: Boolean(e.closest('.dockHost')) })),
     rail: document.querySelectorAll('.rail, .railHost, .railitem, .railhome').length,
   };
@@ -406,9 +406,9 @@ const frame = await run(`${HELPERS}
     `shell ${show(f.shell)} · left ${show(f.left)} · right ${show(f.right)} · --stripe-w ${f.thick}px`,
   );
   claim(
-    "the bottom stripe is as high as --stripe-w and spans the whole shell under the dock",
-    f.bottom && near(f.bottom.h, f.thick) && near(f.bottom.x, f.shell.x) && near(f.bottom.w, f.shell.w) && near(f.bottom.y + f.bottom.h, f.shell.y + f.shell.h),
-    `bottom ${show(f.bottom)} · shell ${show(f.shell)}`,
+    "the bottom stripe with no icon on it is only its line: as high as --stripe-rest, across the whole shell under the dock, and the dock has the height",
+    f.bottom && near(f.bottom.h, f.rest) && near(f.bottom.x, f.shell.x) && near(f.bottom.w, f.shell.w) && near(f.bottom.y + f.bottom.h, f.shell.y + f.shell.h) && f.dock && near(f.dock.y + f.dock.h, f.bottom.y),
+    `bottom ${show(f.bottom)} · shell ${show(f.shell)} · --stripe-rest ${f.rest}px · dock ${show(f.dock)}`,
   );
   const inside = f.grid && f.left && f.right && f.bottom && f.grid.x >= f.left.x + f.left.w - 1 && f.grid.x + f.grid.w <= f.right.x + 1 && f.grid.y + f.grid.h <= f.bottom.y + 1;
   claim("main sits inside all three stripes, no icon is inside the dock, and no rail is left", inside && f.icons.every((i) => !i.inDock) && f.rail === 0,
@@ -566,7 +566,10 @@ const header = await run(`${HELPERS}
 const edges = await run(`${HELPERS}
   await hideAll();
   document.activeElement?.blur?.();
-  const thick = () => ['left', 'right', 'bottom'].map(e => { const b = box(document.querySelector('.stripe[data-edge="' + e + '"]')); return e === 'bottom' ? b.h : b.w; }).join('/');
+  /* The bottom one by its row — where the dock ends above the shell's foot —
+     because an empty bottom stripe asked to show stands over the dock for a
+     moment without taking a pixel from it. */
+  const thick = () => ['left', 'right', 'bottom'].map(e => { if (e === 'bottom') { const s = box(document.querySelector('.dockShell')), d = box(document.querySelector('.dockHost')); return Math.round(s.y + s.h - (d.y + d.h)); } return box(document.querySelector('.stripe[data-edge="' + e + '"]')).w; }).join('/');
   const g0 = grid(); const f0 = thick();
   const step = async (k, mods) => { await key(k, mods); const flash = document.querySelector('.stripe[data-edge="bottom"]').dataset.flash === 'yes'; await wait(300);
     return { showing: showing(), grid: grid(), thick: thick(), flash, left: edgeBox('files') || edgeBox('changes'), right: edgeBox('inbox') || edgeBox('usage') }; };
@@ -730,7 +733,7 @@ async function carry(tool, to, { escape = false, shot = "" } = {}) {
   }
   await sleep(200);
   const mid = await run(`${HELPERS}
-    return { ghost: box(document.querySelector('.stripeGhost')), dropOn: [...document.querySelectorAll('.stripe[data-drop="yes"]')].map(s => s.dataset.edge),
+    return { standing: box(document.querySelector('.stripe[data-edge="bottom"]')), dock: box(document.querySelector('.dockHost')), ghost: box(document.querySelector('.stripeGhost')), dropOn: [...document.querySelectorAll('.stripe[data-drop="yes"]')].map(s => s.dataset.edge),
       gaps: document.querySelectorAll('.stripeGap').length, carried: [...document.querySelectorAll('.stripeIcon[data-dragging="yes"]')].map(e => e.dataset.tool),
       marked: document.body.dataset.draggingTool ?? '' };
   `);
@@ -758,6 +761,11 @@ const landed = await run(`${HELPERS} return { left: order('left'), right: order(
     "carried half way, a copy of the icon follows the pointer, the icon is out of its stripe, and the bottom stripe is marked with a gap",
     m.ghost && near(m.ghost.x + m.ghost.w / 2, bottomSpot.x, 2) && near(m.ghost.y + m.ghost.h / 2, bottomSpot.y, 2) && JSON.stringify(m.dropOn) === '["bottom"]' && m.gaps === 1 && JSON.stringify(m.carried) === '["inbox"]' && m.marked === "yes",
     `${JSON.stringify(m)} · pointer at ${Math.round(bottomSpot.x)},${Math.round(bottomSpot.y)}`,
+  );
+  claim(
+    "carried, the empty bottom stripe stands over the foot of the dock as thick as --stripe-w, and the dock under it does not move",
+    m.standing && near(m.standing.h, frame.thick) && near(m.standing.y + m.standing.h, frame.shell.y + frame.shell.h) && near(m.standing.w, frame.shell.w) && m.dock && boxNear(m.dock, frame.dock),
+    `bottom stripe ${show(m.standing)} · dock ${show(m.dock)} against ${show(frame.dock)} · --stripe-w ${frame.thick}px`,
   );
   claim(
     "let go on the empty bottom stripe, Inbox is its first icon and gone from the right one; it stays dark, and nothing of the carrying is left",

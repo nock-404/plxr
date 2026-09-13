@@ -143,6 +143,16 @@
 [data-skin="sketch"] .stripeIcon[data-lit="yes"] { background: color-mix(in srgb, var(--accent) 25%, transparent); border-radius: .5rem .25rem .44rem .3rem / .3rem .44rem .25rem .5rem; }
 [data-skin="sketch"] .stripeBadge { background: transparent; color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent); border-radius: 50%; }
 [data-skin="sketch"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { background: transparent; color: var(--blocked); box-shadow: 0 0 0 var(--hair) var(--blocked); }
+/* A count in handwriting at badge size is a smudge: its figures are typed. */
+[data-skin="sketch"] .stripeBadge { font-family: var(--mono); background: var(--panel); }
+[data-skin="sketch"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { background: var(--panel); }
+/* The bottom stripe with no icon: the ink line on the paper and nothing else.
+   An icon carried lays a sheet over the foot of the dock, ruled in the accent. */
+[data-skin="sketch"] .stripe[data-empty="yes"] { background: transparent; }
+[data-skin="sketch"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
+[data-skin="sketch"] .stripe[data-empty="yes"][data-flash="yes"] { background: var(--panel); box-shadow: inset 0 var(--ink) 0 var(--accent); }
+[data-skin="sketch"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"][data-drop="yes"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+[data-skin="sketch"] .stripe[data-empty="yes"][data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 14%, var(--panel)); box-shadow: inset 0 var(--ink) 0 var(--blocked); }
 
 /* ---- tiles: pinned notes, each one a touch askew ---- */
 [data-skin="sketch"] .tile:nth-child(3n) { transform: rotate(0.5deg); }

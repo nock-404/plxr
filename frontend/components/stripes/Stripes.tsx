@@ -108,13 +108,21 @@ export default function Stripes({
         pct: Math.max(...nearlyOut.map((a) => worst(a)?.percent ?? 0)),
       })
     : "";
-  // A number only on the tools that count something to act on.
+  /* A count is a small mark at the icon's corner, never over the icon, and only
+     on the tools that count something to act on (COUNTED): two glyphs at most
+     in any skin's type, nine and below as they are and more as "9+". "117" in
+     the corner covered most of the archive's mark. The whole number is in the
+     tooltip. */
+  const count = (n: number) => (n <= 0 ? "" : n <= 9 ? String(n) : "9+");
+  const whole = (n: number) => (n > 9 ? String(n) : "");
   const badge: StripeMarks["badge"] = { usage: usageHot ? tr("tool.nearlyOut", "!") : "" };
+  const wholeCount: Record<string, string> = {};
   for (const id of COUNTED) {
     const n = counts[id] ?? 0;
-    badge[id] = n > 0 ? String(n) : "";
+    badge[id] = count(n);
+    wholeCount[id] = whole(n);
   }
-  const marks: StripeMarks = { badge, hot: { usage: usageHot } };
+  const marks: StripeMarks = { badge, count: wholeCount, hot: { usage: usageHot } };
 
   const [carry, setCarry] = useState<Carry>(null);
   // The click a drag ends with is not a click.
