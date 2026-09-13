@@ -980,6 +980,21 @@ that I do not agree with the menu as such."
 - **Pixel icon pack on a 1x screen:** its 24px icon is wider than the 20px hover
   square; the hover was not looked at.
 
+### Left open by documents opening beside their source (13.09.2026)
+
+- **The terminal gets very narrow when a file opens from a session with both
+  side regions open.** At 1600px, half of main is 384px, the session's own tree
+  takes about 260 of that, and the terminal is left with 82px. The half share
+  is right for the Folders view; for a session it squeezes the terminal. The
+  icon-stripe redesign moves the tree out of the session view into the left
+  edge, which removes the cause; until then the share could leave the work
+  group a minimum width instead of half.
+- **Not measured:** where a diff or preview lands when opened from the changes
+  panel in the left region.
+- **A flaky claim in tabs.mjs:** "⌥⌘→ moves back to the next one" failed once
+  because the session tab's title changed from running to working between two
+  reads.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
