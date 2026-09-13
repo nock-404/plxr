@@ -7,7 +7,7 @@ import Stripe, { type StripeDrop, type StripeMarks } from "@/components/stripes/
 import { tr } from "@/lib/i18n";
 import { accountName } from "@/lib/format";
 import { isHot, useLimits, worst } from "@/lib/useLimits";
-import { EDGES, dropIndex, viewDef, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
+import { COUNTED, EDGES, dropIndex, viewDef, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
 
 /* The three stripes around the dock: left, right and the bottom one under all
  * of it.
@@ -86,7 +86,8 @@ export default function Stripes({
 }: {
   layout: ToolLayout;
   shown: Record<Edge, ToolId | null>;
-  counts: { inbox: number; ports: number; archive: number };
+  // What the tools in COUNTED count; the others carry no number.
+  counts: Partial<Record<ToolId, number>>;
   // The edge that was asked to show and has nothing on it, for a moment.
   flash: Edge | null;
   onToggle: (id: ToolId) => void;
@@ -107,16 +108,13 @@ export default function Stripes({
         pct: Math.max(...nearlyOut.map((a) => worst(a)?.percent ?? 0)),
       })
     : "";
-  const count = (n: number) => (n > 0 ? String(n) : "");
-  const marks: StripeMarks = {
-    badge: {
-      inbox: count(counts.inbox),
-      ports: count(counts.ports),
-      archive: count(counts.archive),
-      usage: usageHot ? tr("tool.nearlyOut", "!") : "",
-    },
-    hot: { usage: usageHot },
-  };
+  // A number only on the tools that count something to act on.
+  const badge: StripeMarks["badge"] = { usage: usageHot ? tr("tool.nearlyOut", "!") : "" };
+  for (const id of COUNTED) {
+    const n = counts[id] ?? 0;
+    badge[id] = n > 0 ? String(n) : "";
+  }
+  const marks: StripeMarks = { badge, hot: { usage: usageHot } };
 
   const [carry, setCarry] = useState<Carry>(null);
   // The click a drag ends with is not a click.

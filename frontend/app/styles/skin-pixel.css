@@ -358,6 +358,8 @@
 [data-skin="pixel"] .switch[data-open="yes"] .switchLabel { color: var(--accent); }
 [data-skin="pixel"] .switchBadge { border-radius: 0; }
 [data-skin="pixel"] .switchBadge[data-waiting="yes"] { background: var(--accent); color: var(--onAccent); }
+[data-skin="pixel"] .menuItem[data-status="waiting"] .menuSub,
+[data-skin="pixel"] .menuItem[data-status="permission"] .menuSub { text-transform: uppercase; }
 
 /* The keyboard list as blocks: accent headings on a hard line, the row under
    the pointer on the panel colour. */

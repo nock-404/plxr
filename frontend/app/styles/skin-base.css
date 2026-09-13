@@ -997,6 +997,13 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .switchIcon, .switchBranch, .switchChevron { color: var(--dim); }
 .switchBadge { border-radius: 999rem; }
 .switchBadge[data-waiting="yes"] { background: var(--waiting); color: var(--bg); }
+/* A session in the switch's list that cannot go on without an answer says so
+   on its row, not only in its dot: a bar in its state's colour along the
+   leading edge, and the state's word in that colour. */
+.menuItem[data-status="waiting"] { box-shadow: inset var(--need-bar) 0 0 var(--waiting); }
+.menuItem[data-status="permission"] { box-shadow: inset var(--need-bar) 0 0 var(--blocked); }
+.menuItem[data-status="waiting"] .menuSub { color: var(--waiting); }
+.menuItem[data-status="permission"] .menuSub { color: var(--blocked); }
 
 /* The palette on the panel surface, the picked row in the accent. */
 .paletteScrim { background: rgba(0,0,0,0.45); }

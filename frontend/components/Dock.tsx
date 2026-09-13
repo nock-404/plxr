@@ -126,7 +126,8 @@ type DockData = {
   shown: Tile[];
   here: string;
   connected: boolean;
-  counts: { inbox: number; ports: number; archive: number };
+  // What the tools in COUNTED count.
+  counts: Partial<Record<ToolId, number>>;
   /* The active document panel, whatever kind it is — never a tool: a tool in
      front is not where the work is. */
   activeId: string;

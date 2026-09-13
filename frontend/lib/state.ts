@@ -143,6 +143,24 @@ export interface Herd {
 // after it, what is over at the end.
 const ORDER = ["permission", "waiting", "working", "unknown", "frozen", "orphaned", "dead"];
 
+/* The order sessions are listed in, wherever they are listed: the ones that
+   cannot go on without an answer first — a permission before a plain
+   question, and the one that has waited longest before the others — then the
+   ones at work, then the ones that are only alive, then the ones that are
+   over. Within a state the order they came in is kept, so a list does not
+   reshuffle while nothing changed. */
+export function byNeed(tiles: Tile[]): Tile[] {
+  const idle = ORDER.indexOf("unknown");
+  const rank = (t: Tile) => {
+    const at = ORDER.indexOf(stateOf(t));
+    return at < 0 ? idle : at;
+  };
+  return tiles
+    .map((t, i) => ({ t, i, r: rank(t) }))
+    .sort((a, b) => a.r - b.r || (a.r < 2 ? (a.t.since ?? 0) - (b.t.since ?? 0) : 0) || a.i - b.i)
+    .map((x) => x.t);
+}
+
 export function herdOf(tiles: Tile[]): Herd {
   const counted = new Map<string, number>();
   for (const t of tiles) {

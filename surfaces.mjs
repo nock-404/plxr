@@ -13,7 +13,7 @@
  * surfaces composite in the real window is Phase 0's capture path.
  */
 import { spawn, execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1004,6 +1004,152 @@ const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", wor
 const spotted = keysSpot ? Object.entries(SPOT).map(([id, want]) => ({ id, want, got: keysSpot.rows.find((r) => r.id === id)?.cap })) : [];
 claim("the captions read the way a Mac writes them: ⌃⇧- for Ctrl+_, ⇧/ for ?, ⌥⌘← with ⌥ before ⌘",
   spotted.length && spotted.every((s) => s.got === s.want), spotted.map((s) => `${s.id} ${s.got}${s.got === s.want ? "" : ` (want ${s.want})`}`).join(" · "));
+
+// ---- the sessions that need him come first ------------------------------------------
+/* Five sessions in one folder, each in another state, started in an order that
+   is not the one they should be listed in: one at work, a plain shell, one that
+   has ended, one waiting for an answer and one asking for a permission. The
+   three Claude sessions are a stub of the check's own under the name claude,
+   reporting through plxr's hook the way Claude Code does. Held against what the
+   service reports: the session switch lists the two that wait first in their
+   project and the ended one last, their rows say so, its button counts the
+   two, the board puts the tiles in the same order, and of the stripe icons only
+   the inbox carries a number — not the ports, not the archive, whatever the
+   service counts there. */
+const SHOTS = process.env.SURFACES_SHOTS || "";
+const herd = join(home, "herd");
+mkdirSync(herd, { recursive: true });
+mkdirSync(join(home, "stub"), { recursive: true });
+// Nothing is said out loud from a check: a permission would otherwise notify.
+writeFileSync(join(home, "notify.json"), JSON.stringify({ on: false, sound: "", when: { needsYou: false, waiting: false, ended: false, crashed: false, limit: false }, limit: 80 }));
+const stub = join(home, "stub", "claude");
+writeFileSync(stub, `#!/bin/bash
+if [ -z "$STUB_AS_CLAUDE" ]; then STUB_AS_CLAUDE=1 exec -a claude /bin/bash "$0" "$@"; fi
+sid=dddddddd-bbbb-4ccc-8ddd-$(printf '%012d' $$)
+report() { printf '{"session_id":"%s","cwd":"%s",%s}' "$sid" "$PWD" "$1" | PLXR_HOME=${JSON.stringify(home)} ${JSON.stringify(APP)} hook; }
+report '"hook_event_name":"SessionStart"'
+case "$1" in
+  working) report '"hook_event_name":"UserPromptSubmit","prompt":"build it"' ;;
+  permission) report '"hook_event_name":"Notification","notification_type":"permission_prompt","message":"Allow Bash?"' ;;
+  waiting) report '"hook_event_name":"Stop","last_assistant_message":"done, what next?"' ;;
+esac
+echo "claude (the check's stub): $1"
+sleep 900
+`);
+chmodSync(stub, 0o755);
+const herdIds = {};
+const startIn = async (name, cmd) => {
+  const s = await (await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: herd, cmd, name, account: "" }) })).json().catch(() => null);
+  if (s?.id) herdIds[name] = s.id;
+  return s?.id;
+};
+/* The two that wait are started first: the service lists the live sessions
+   newest first, so in its own order they would come last. */
+await startIn("asks", [stub, "permission"]);
+await startIn("waits", [stub, "waiting"]);
+const goneId = await startIn("gone", []);
+await startIn("busy", [stub, "working"]);
+await startIn("idle", []);
+await sleep(1500);
+if (goneId) await api(`/api/sessions/${encodeURIComponent(goneId)}`, { method: "DELETE" });
+const HERD_WANT = { asks: "permission", waits: "waiting", busy: "working", idle: "unknown", gone: "dead" };
+const HERD_ORDER = ["asks", "waits", "busy", "idle", "gone"];
+const NEED = ["permission", "waiting", "working", "unknown", "frozen", "orphaned", "dead"];
+const stateOfTile = (t) => (t.orphaned ? "orphaned" : t.frozen ? "frozen" : !t.alive ? "dead" : t.status || "unknown");
+const inNeedOrder = (states) => states.every((s, i) => i === 0 || NEED.indexOf(states[i - 1]) <= NEED.indexOf(s));
+let herdTiles = [];
+for (let i = 0; i < 60; i++) {
+  herdTiles = (await (await api("/api/sessions")).json()).filter((t) => Object.values(herdIds).includes(t.id));
+  if (herdTiles.length === 5 && herdTiles.every((t) => stateOfTile(t) === HERD_WANT[t.name])) break;
+  await sleep(500);
+}
+claim("five sessions in one folder, each in the state it was made for, started out of order",
+  herdTiles.length === 5 && herdTiles.every((t) => stateOfTile(t) === HERD_WANT[t.name]),
+  herdTiles.map((t) => `${t.name} ${stateOfTile(t)}`).join(" · ") || "none came up");
+const everyTile = await (await api("/api/sessions")).json();
+const waitingN = everyTile.filter((t) => t.alive && (t.status === "permission" || t.status === "waiting")).length;
+
+// A fresh page in crt, the board filtered to the folder, the tiles in.
+await tab.run(`
+  const theme = JSON.parse(localStorage.getItem('plxr.theme') || '{}');
+  theme.skin = 'crt';
+  localStorage.setItem('plxr.theme', JSON.stringify(theme));
+  await fetch('/api/prefs', { method: 'PUT', headers: { 'X-Plxr-Token': ${JSON.stringify(info.token)}, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+  return true;
+`);
+await tab.cdp.send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 900, deviceScaleFactor: 1, mobile: false });
+let herdSkin = null;
+for (let i = 0; i < 20 && herdSkin !== "crt"; i++) {
+  await tab.cdp.send("Page.navigate", { url: PAGE });
+  await sleep(900);
+  herdSkin = await tab.run(`${GATEKIT} if (!appUp()) return null; await document.fonts.ready; return document.documentElement.getAttribute('data-skin');`).catch(() => null);
+}
+await tab.run(`${HELPERS}
+  await until(() => document.querySelector('.switch[data-switch="session"] .switchBadge'), 6000);
+  await pickProject(${JSON.stringify(herd)});
+  await wait(600);
+  closeLists();
+  await openDoc('overview');
+  await wait(1200);
+  return true;
+`);
+async function shoot(name) {
+  if (!SHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  const shot = await tab.cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(shot.data, "base64"));
+}
+
+// The board.
+const board = await tab.run(`return [...document.querySelectorAll('.overviewPanel .grid .tile')].map(el => ({ title: el.querySelector('.tname')?.textContent.trim() ?? '', status: el.dataset.status ?? '' }));`);
+await shoot("board-crt");
+const boardHerd = board.filter((b) => HERD_ORDER.includes(b.title)).map((b) => b.title);
+claim("the board puts the sessions that wait first and the ended one last: asks, waits, busy, idle, gone",
+  herdSkin === "crt" && boardHerd.join(",") === HERD_ORDER.join(",") && inNeedOrder(board.map((b) => b.status)),
+  `${board.map((b) => `${b.title} ${b.status}`).join(" · ")} · skin ${herdSkin}`);
+
+// The session switch: its button, then its list.
+const switchButton = await tab.run(`const b = document.querySelector('.switch[data-switch="session"]'); const badge = b?.querySelector('.switchBadge'); return { text: badge?.textContent.trim() ?? '', waiting: badge?.dataset.waiting ?? '', label: b?.getAttribute('aria-label') ?? '' };`);
+claim("the session switch's button counts the sessions waiting for an answer",
+  waitingN === 2 && switchButton.text === String(waitingN) && switchButton.waiting === "yes" && switchButton.label.includes(`${waitingN} waiting for an answer`),
+  `badge "${switchButton.text}" · aria-label "${switchButton.label}" · ${waitingN} waiting in the service`);
+const switchList = await tab.run(`${HELPERS}
+  closeLists();
+  await wait(200);
+  await sessionRows();
+  await wait(400);
+  const groups = [];
+  for (const el of document.querySelectorAll('body > .menu > *')) {
+    if (el.classList.contains('menuHeader')) groups.push({ head: el.textContent.trim(), rows: [] });
+    else if (el.classList.contains('menuItem') && el.querySelector('.menuSub') && groups.length) {
+      const sub = el.querySelector('.menuSub');
+      groups[groups.length - 1].rows.push({ title: el.querySelector('.menuLabel').firstChild.textContent.trim(), status: el.dataset.status ?? '', sub: sub.textContent.trim(), subColour: getComputedStyle(sub).color, bar: getComputedStyle(el).boxShadow });
+    }
+  }
+  return groups;
+`);
+await shoot("switch-list-crt");
+const herdGroup = switchList.find((g) => g.head === "herd");
+const herdRows = herdGroup?.rows ?? [];
+claim("the session switch lists the sessions that wait first in their project, then working, idle, ended",
+  herdRows.map((r) => r.title).join(",") === HERD_ORDER.join(",") && switchList.every((g) => inNeedOrder(g.rows.map((r) => r.status))),
+  switchList.map((g) => `${g.head}: ${g.rows.map((r) => `${r.title} ${r.status}`).join(", ")}`).join(" | ") || "no list");
+const row = (title) => herdRows.find((r) => r.title === title);
+const marked = (r) => Boolean(r) && r.bar !== "none" && r.subColour !== row("idle")?.subColour;
+claim("a row that waits says so: its word, a bar along its edge and the word in the state's colour; the others carry no bar",
+  marked(row("asks")) && marked(row("waits")) && row("asks")?.sub.startsWith("needs you") && row("waits")?.sub.startsWith("waiting") && ["busy", "idle", "gone"].every((t) => row(t)?.bar === "none"),
+  herdRows.map((r) => `${r.title} "${r.sub}" bar ${r.bar === "none" ? "none" : "yes"} ${r.subColour}`).join(" · "));
+await tab.run(`${HELPERS} closeLists(); await wait(150); return true;`);
+
+// The numbers on the stripe icons.
+const iconBadges = await tab.run(`${HELPERS} return stripeIcons().map(i => ({ id: i.dataset.tool, badge: i.querySelector('.stripeBadge')?.textContent.trim() ?? '' }));`);
+const portsN = await api("/api/ports").then((r) => r.json()).then((l) => l?.length ?? 0).catch(() => -1);
+const archiveN = await api("/api/archive").then((r) => r.json()).then((l) => l?.length ?? 0).catch(() => -1);
+const numbered = iconBadges.filter((i) => i.badge && i.id !== "usage");
+claim("of the stripe icons only the inbox carries a number, the sessions waiting for an answer — the ports and the archive none",
+  iconBadges.length === 9 && numbered.length === 1 && numbered[0].id === "inbox" && numbered[0].badge === String(waitingN),
+  `${iconBadges.filter((i) => i.badge).map((i) => `${i.id} "${i.badge}"`).join(" · ") || "no badges"} · the service counts ${portsN} ports and ${archiveN} archived conversations`);
+for (const id of Object.values(herdIds)) await api(`/api/sessions/${encodeURIComponent(id)}?purge=1`, { method: "DELETE" }).catch(() => undefined);
 
 // ---- report --------------------------------------------------------------------------
 report();

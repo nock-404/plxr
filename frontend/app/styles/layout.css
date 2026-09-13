@@ -237,6 +237,8 @@ body {
    header, and all four skins measure the same; a narrow window takes the room
    back from them before it takes it from the buttons on the right. */
 :root { --switch-project-w: 13rem; --switch-session-w: 19rem; --badge-h: 0.875rem; }
+/* The bar along the leading edge of a row whose session waits for an answer. */
+:root { --need-bar: 0.1875rem; }
 /* The height grows only through --icon-slot, like every slot: a pack drawn
    larger than the glyph it replaced — the pixel pack's 24 px on a plain screen —
    gets room around its mark, rather than a mark touching the frame. At 1.875rem

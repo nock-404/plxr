@@ -16,8 +16,8 @@ import { chordOf, edgeChordOf, viewDef, type Edge, type ToolId, type ToolLayout 
  * the key that reaches it are in its tooltip, said beside the icon rather than
  * over the next one. The icon is lit while its tool's window shows; a click
  * shows the window, the same click hides it. A number on it counts what waits
- * there — the inbox, the ports, the archive — and the usage says so when an
- * account is nearly out.
+ * for him there — the questions in the inbox, see COUNTED — and the usage says
+ * so when an account is nearly out.
  *
  * An icon is carried to another place by pressing it and moving: while it is
  * carried it is gone from its stripe, and a gap opens where it would land.

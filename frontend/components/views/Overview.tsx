@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { OVERVIEW_DENSE, PREFS_CHANGED, setDense } from "@/lib/prefsEvents";
+import { byNeed } from "@/lib/state";
 import type { Agent, Tile as TileData } from "@/lib/types";
 
 // The herd. Empty it explains itself rather than showing a blank field.
@@ -126,7 +127,8 @@ export default function Overview({
     <div className="overviewPanel">
       {strip}
       <section className="grid" data-dense={dense ? "yes" : undefined} onContextMenu={ctx(boardMenu)}>
-        {tiles.map((t) => (
+        {/* The sessions waiting for him first, the ones that are over last. */}
+        {byNeed(tiles).map((t) => (
           <Tile
             key={t.id}
             tile={t}

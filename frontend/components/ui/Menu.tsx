@@ -263,6 +263,7 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
             aria-checked={it.checked === undefined ? undefined : it.checked}
             className={`menuItem${it.danger ? " danger" : ""}`}
             data-do={it.do}
+            data-status={it.status}
             disabled={it.disabled}
             onClick={() => {
               onClose();

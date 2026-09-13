@@ -7,7 +7,7 @@
  */
 import "./resolveTs.mjs";
 
-const { TOOLS, EDGES, CHORD_ORDER, isTool, defaultToolLayout, normalizeToolLayout, fromRegions, edgeOf, moveInLayout, dropIndex, chordOf } =
+const { TOOLS, EDGES, CHORD_ORDER, COUNTED, isTool, defaultToolLayout, normalizeToolLayout, fromRegions, edgeOf, moveInLayout, dropIndex, chordOf } =
   await import("./tools.ts");
 
 let failed = 0;
@@ -102,6 +102,13 @@ claim(dropIndex([], 40) === 0, "on an empty stripe");
 claim(CHORD_ORDER.length === 9 && CHORD_ORDER[0] === "overview", `the chord order is not nine long, the overview first: ${CHORD_ORDER}`);
 claim(chordOf("inbox") !== "" && chordOf("inbox") !== chordOf("changes"), `inbox and changes do not have chords of their own: "${chordOf("inbox")}" "${chordOf("changes")}"`);
 claim(chordOf("review") === "", `review has a chord it should not have: "${chordOf("review")}"`);
+
+// ---- the numbers on the icons ----------------------------------------------------
+// Only what waits for him is counted: the inbox. A tally — the ports that
+// listen, the conversations that are over — is nothing to act on.
+claim(COUNTED.length === 1 && COUNTED[0] === "inbox", `the tools that carry a number are not the inbox alone: ${COUNTED}`);
+claim(COUNTED.every((id) => isTool(id)), `a counted tool is not a tool: ${COUNTED}`);
+claim(!COUNTED.includes("ports") && !COUNTED.includes("archive") && !COUNTED.includes("usage"), `ports, archive or usage carry a number: ${COUNTED}`);
 
 if (failed) {
   console.error(`  ${failed} claims failed`);

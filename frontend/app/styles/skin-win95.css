@@ -382,6 +382,8 @@
 [data-skin="win95"] .switch[data-open="yes"] .switchBranch { color: inherit; }
 [data-skin="win95"] .switchBadge { border-radius: 0; }
 [data-skin="win95"] .switchBadge[data-waiting="yes"] { background: var(--accent); color: var(--onAccent); }
+[data-skin="win95"] .menuItem[data-status="waiting"] .menuSub,
+[data-skin="win95"] .menuItem[data-status="permission"] .menuSub { font-weight: bold; }
 
 /* The keyboard list: bold black headings over an etched line, and the row
    under the pointer in the selection colour. */

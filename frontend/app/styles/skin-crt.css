@@ -138,6 +138,8 @@
 [data-skin="crt"] .switch[data-open="yes"] .switchLabel { color: var(--accent); }
 [data-skin="crt"] .switchBranch { letter-spacing: .1em; text-transform: uppercase; }
 [data-skin="crt"] .switchBadge[data-waiting="yes"] { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--waiting) 60%, transparent); }
+[data-skin="crt"] .menuItem[data-status="waiting"] .menuSub,
+[data-skin="crt"] .menuItem[data-status="permission"] .menuSub { text-shadow: 0 0 var(--glow) currentColor; }
 
 /* The keyboard list on the tube: headings spaced like the menu's, over a line
    in the dim phosphor. */

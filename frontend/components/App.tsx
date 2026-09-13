@@ -160,8 +160,6 @@ export default function App() {
   const [sessionAsk, setSessionAsk] = useState(0);
   const [projectAsk, setProjectAsk] = useState(0);
   const [now, setNow] = useState<string>("");
-  const [ports, setPorts] = useState(0);
-  const [archive, setArchive] = useState(0);
   /* The look, held rather than only applied.
      It used to be handed to apply() and forgotten, which was enough while
      nothing outside the settings panel needed to know it. The handle beside a
@@ -368,11 +366,6 @@ export default function App() {
     const t = window.setInterval(() => setNow(clock(new Date())), 1000);
     setNow(clock(new Date()));
     return () => window.clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    api.ports().then((p) => setPorts(p?.length ?? 0)).catch(() => undefined);
-    api.archive().then((a) => setArchive(a?.length ?? 0)).catch(() => undefined);
   }, []);
 
   const shown = useMemo(() => {
@@ -803,7 +796,7 @@ export default function App() {
             onSessionFront={sessionFront}
             onToolsChanged={setOpenTools}
             connected={connected}
-            counts={{ inbox: needsAnswer, ports, archive }}
+            counts={{ inbox: needsAnswer }}
             openSession={openSession}
             onReplaced={openSession}
             shell={shell}

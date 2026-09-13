@@ -49,6 +49,17 @@ export const TOOLS: readonly ToolDef[] = [
   { id: "notes", icon: "notes", key: "tool.notes", fallback: "Notes", scope: "global", edge: "right", keepMounted: true },
 ];
 
+/* The tools whose icon carries a number, and only these. A number on an icon
+   asks for something to be done, so it counts what waits for him: the
+   sessions in the inbox that cannot go on without an answer.
+   Ports: no number. How many ports are listening is a tally of what runs, not
+   a thing to act on.
+   Archive: no number. How many conversations are over only ever grows — a
+   "117" there says nothing to do, and teaches the eye to pass numbers by.
+   The usage carries no number either, only its "!" while an account is
+   nearly out. */
+export const COUNTED: readonly ToolId[] = ["inbox"];
+
 /* The documents that have a name of their own. Sessions, editors, diffs and
    previews are documents too, named after what they show. */
 export const DOCS = {

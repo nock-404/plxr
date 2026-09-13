@@ -9,7 +9,7 @@ import { tr, trN } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { projectLabel, samePath, type Project } from "@/lib/project";
 import { sessionMenu } from "@/lib/sessionMenu";
-import { sessionLine, stateOf, titleOf } from "@/lib/state";
+import { byNeed, sessionLine, stateOf, titleOf } from "@/lib/state";
 import type { Tile } from "@/lib/types";
 
 // The name the window menu knows this switch's list by.
@@ -71,7 +71,8 @@ export default function SessionSwitch({
     const rows: MenuItem[] = [];
     for (const [name, list] of ordered) {
       rows.push({ header: true, label: name });
-      for (const t of list) {
+      // Within a project, the sessions waiting for him first.
+      for (const t of byNeed(list)) {
         rows.push({
           label: titleOf(t),
           icon: "terminal",

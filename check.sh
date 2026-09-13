@@ -96,6 +96,9 @@ step "click to focus" node --experimental-strip-types frontend/lib/focus.test.mj
 # whatever was saved, the old region choices read across once, and an icon let
 # go between two others landing between them.
 step "tool layout" node --experimental-strip-types frontend/lib/tools.test.mjs
+# The order sessions are listed in, in the session switch and on the board:
+# what waits for an answer first, then what works, what is idle, what is over.
+step "session order" node --experimental-strip-types frontend/lib/state.test.mjs
 # An arrangement the old window saved, with tools where tools no longer go: out
 # of the grid, the ones that were in front named, the documents kept where they
 # were, and a second run changing nothing.
