@@ -959,6 +959,18 @@ that I do not agree with the menu as such."
 - **clicked.mjs fails when run twice against one service,** and its count of
   ports can be off by one when a port opens or closes during the run.
 
+### Left open by the row-actions fix (13.09.2026)
+
+- **In the pixel skin at 320px most port names are still cut** (13 of 17) and
+  the pid reads "PID …": the narrow-column drop-out widths are in rem and do
+  not allow for pixel's much wider typeface.
+- **Archive has no narrow-column rules.** At 320px its titles get 40–55px because
+  the date and model columns keep their full width.
+- **The crt hover overlay behind row actions is solid**, so it shows as a darker
+  chip over the see-through rows. Seen only in headless Chrome.
+- **A clicked row action keeps focus in Chrome**, so its group stays visible
+  until focus moves.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
