@@ -24,6 +24,9 @@ PAIRS = {
     "FileEntry": ("internal/files/files.go", None),
     "AgentProfile": ("internal/agent/agent.go", None),
     "Pace": ("internal/usage/usage.go", None),
+    "AccountUsage": ("internal/usage/limits.go", None),
+    "UsageWindow": ("internal/usage/limits.go", None),
+    "AccountUsageReport": ("internal/usage/limits.go", None),
 }
 
 
@@ -46,7 +49,11 @@ types = open(types_path, encoding="utf-8").read()
 
 read, bad = 0, []
 for name, (rel, _) in PAIRS.items():
-    block = re.search(r"export interface " + name + r"[^{]*\{(.*?)\n\}", types, re.S)
+    # The name has to end where it ends. Without the boundary, "Account"
+    # matched "AccountUsage" — the first interface in the file whose name
+    # starts the same way — so the check held one shape against another
+    # package's struct and reported nine mismatches that were not there.
+    block = re.search(r"export interface " + name + r"\b[^{]*\{(.*?)\n\}", types, re.S)
     if not block:
         bad.append(f"types.ts has no interface {name}")
         continue

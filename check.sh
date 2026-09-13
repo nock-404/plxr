@@ -174,6 +174,27 @@ step "editor works" node editor.mjs
 # one `git status` loop for two windows and none once they are gone.
 step "changes follow" node changes.mjs
 
+# The other half of the folders view, and the bar above it. Two faults lived
+# here that no gate could see, because both were about what a computed style
+# resolves to: the changed-files chip was the browser's own grey pill, in all
+# four skins at once, and the wide half of the view said "pick a file" across
+# half the window about a folder it was looking straight at. So this one reads
+# the overview back — a commit subject, a count, a remote, a tag, out of a
+# repository built for the check — and measures the chip's background, border
+# and two colours in every skin.
+step "folder overview" node folders.mjs
+
+# What is left, per account, before what anything cost: three accounts of the
+# check's own making — two with the reading Claude Code leaves beside its
+# configuration, one with none — their transcripts pooled the way they are on
+# a machine with linked projects/ folders. Held against arithmetic done in the
+# check: the percentages per account, the reset times in this machine's
+# timezone, the spend counted from the real start of the window, the account
+# with nothing on disk saying so instead of drawing a bar at zero, the pool
+# counted once in the total, and the rail and the account picker marking the
+# one that is nearly out.
+step "usage per account" node usage.mjs
+
 # Files managed from the tree and the project searched from a panel: a file
 # made from a row's context menu, renamed, moved through the folder picker
 # and deleted after the question — each held against the disk and the

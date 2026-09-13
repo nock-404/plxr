@@ -292,7 +292,7 @@
 [data-skin="sketch"] .frow:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 /* A hit is underlined in pencil, not painted over. */
 [data-skin="sketch"] .findmark { background: transparent; color: var(--accent); text-decoration: underline wavy; }
-[data-skin="sketch"] .filesroot {
+[data-skin="sketch"] .filesbar .crumbs {
   color: var(--dim);
   font-family: var(--mono);
   font-size: 0.5em;
@@ -504,3 +504,31 @@
 [data-skin="sketch"] .sessionTabBell { background: var(--blocked); border-radius: 0.3rem 0.2rem 0.35rem 0.25rem / 0.25rem 0.35rem 0.2rem 0.3rem; }
 
 [data-skin="sketch"] .panelTabIcon { color: var(--dim); text-shadow: none; }
+/* ---- the folder's standing, in ink ----
+   Handwriting does not shout in capitals, so the words are written out as
+   words; the count is the one thing underlined, the way somebody marking up a
+   page underlines the number they came for. */
+[data-skin="sketch"] .branchword,
+[data-skin="sketch"] .infoname,
+[data-skin="sketch"] .commitrefs {
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  font-size: 0.75em;
+}
+[data-skin="sketch"] .branchnum { color: var(--accent); text-decoration: underline; text-underline-offset: 0.12em; }
+[data-skin="sketch"] button.branchword:not(:disabled):hover { color: var(--accent); }
+[data-skin="sketch"] .branchword:disabled,
+[data-skin="sketch"] .branchword:disabled .branchnum { color: var(--dead); text-decoration: none; }
+[data-skin="sketch"] .commitrefs { color: var(--accent); }
+[data-skin="sketch"] .commithash, [data-skin="sketch"] .commitwhen, [data-skin="sketch"] .commitpath { color: var(--dim); font-size: 0.75em; }
+[data-skin="sketch"] .commitrow, [data-skin="sketch"] .infovalue, [data-skin="sketch"] .infosubject { color: var(--fg); }
+[data-skin="sketch"] .infotext { color: var(--dim); font-size: 0.7em; }
+
+/* Paper, like the tree beside it — the ruled ground is the surface here. */
+[data-skin="sketch"] .folderinfo {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-skin="sketch"] .infohead { color: var(--accent); text-transform: none; letter-spacing: 0.04em; font-size: 0.85em; }

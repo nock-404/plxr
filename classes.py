@@ -39,6 +39,14 @@ LAYOUT_ONLY = {
     "markfiles", "markfile",
     # The open-folder view: a row of tabs and a split, both arrangement only.
     "foldersbody", "folderTabs",
+    # The folder overview's inner boxes: one section, the grid a section puts
+    # names and values in, and the three boxes around a commit's files. Boxes
+    # and rails — every word inside them carries its own colour (.infoname,
+    # .infovalue, .commitpath, .commithash, .commitrefs), and no skin has
+    # anything to say about the boxes themselves. The column around them,
+    # .folderinfo, is NOT here: it is the reading surface of the view and every
+    # skin dresses it, the way every skin dresses the tree beside it.
+    "infoblock", "infofacts", "commitfiles", "commitfile", "commitmeta",
     # The search panel and how it stacks its results: arrangement only.
     "filesearch", "findresult", "findfile",
     # The changes panel and the diff grid: rows and columns, no surface. The
@@ -69,6 +77,10 @@ LAYOUT_ONLY = {
     # The ceiling row under the live pace: label, field and note in a flex
     # row; each of the three carries its own dressing.
     "paceLimit",
+    # The per-account readout: the card's head row places the name, the badge
+    # and the directory, and one row of the model breakdown places its cells.
+    # Every one of those carries its own colour; the two rows carry none.
+    "uacctHead", "umodelRow",
     # The inline toolbar strip inside a dock panel: arrangement only.
     "viewstrip",
     # The web preview: a toolbar row and the iframe box, arrangement only.

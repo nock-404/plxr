@@ -19,8 +19,8 @@ import (
 */
 
 func TestNothingIsSaidWhenItIsSwitchedOff(t *testing.T) {
-	off := Settings{On: false, When: When{NeedsYou: true, Waiting: true, Ended: true, Crashed: true}}
-	for _, state := range []string{"permission", "waiting", "dead", "orphaned"} {
+	off := Settings{On: false, When: When{NeedsYou: true, Waiting: true, Ended: true, Crashed: true, Limit: true}}
+	for _, state := range []string{"permission", "waiting", "dead", "orphaned", "limit"} {
 		if off.Wanted(state) {
 			t.Errorf("switched off and still wants to speak about %q", state)
 		}
@@ -36,6 +36,7 @@ func TestEachOccasionIsAskedAboutSeparately(t *testing.T) {
 		{"waiting", Settings{On: true, When: When{Waiting: true}}},
 		{"dead", Settings{On: true, When: When{Ended: true}}},
 		{"orphaned", Settings{On: true, When: When{Crashed: true}}},
+		{"limit", Settings{On: true, When: When{Limit: true}}},
 	}
 	for _, c := range cases {
 		t.Run(c.state, func(t *testing.T) {
@@ -44,7 +45,7 @@ func TestEachOccasionIsAskedAboutSeparately(t *testing.T) {
 			}
 			// And only that one: switching on "an agent asks" must not also
 			// bring every ending session along with it.
-			for _, other := range []string{"permission", "waiting", "dead", "orphaned"} {
+			for _, other := range []string{"permission", "waiting", "dead", "orphaned", "limit"} {
 				if other != c.state && c.on.Wanted(other) {
 					t.Fatalf("switching on %q also speaks about %q", c.state, other)
 				}
@@ -54,7 +55,7 @@ func TestEachOccasionIsAskedAboutSeparately(t *testing.T) {
 }
 
 func TestAStateNobodyKnowsSaysNothing(t *testing.T) {
-	all := Settings{On: true, When: When{NeedsYou: true, Waiting: true, Ended: true, Crashed: true}}
+	all := Settings{On: true, When: When{NeedsYou: true, Waiting: true, Ended: true, Crashed: true, Limit: true}}
 	for _, unknown := range []string{"", "running", "gestartet", "PERMISSION", "needs-you"} { // german-ok: a value older builds wrote, which must stay silent
 		if all.Wanted(unknown) {
 			t.Errorf("spoke about %q, which is not a state this knows", unknown)
@@ -123,4 +124,42 @@ func TestTheDefaultSoundIsOneThatExists(t *testing.T) {
 		}
 	}
 	t.Fatalf("the default sound %q is not among the %d on offer", want, len(all))
+}
+
+/*
+The threshold a window has to reach before anything is said.
+
+	A number outside 1–100 cannot be crossed, so it would silently switch the
+	warning off — and a warning that is off while its toggle says on is the
+	shape of defect this whole package exists to avoid. Out of range means the
+	default; switching it off is what the toggle beside it is for.
+*/
+func TestAThresholdNobodyCanCrossFallsBackToTheDefault(t *testing.T) {
+	cases := map[int]int{
+		0:    DefaultLimit,
+		-5:   DefaultLimit,
+		101:  DefaultLimit,
+		1:    1,
+		50:   50,
+		80:   80,
+		100:  100,
+		9999: DefaultLimit,
+	}
+	for set, want := range cases {
+		if got := (Settings{Limit: set}).Threshold(); got != want {
+			t.Errorf("a threshold of %d comes out as %d, wanted %d", set, got, want)
+		}
+	}
+}
+
+// The default has to be a working one: switched on, at a percentage that can
+// be reached before the wall rather than at it.
+func TestTheDefaultWarnsBeforeTheWall(t *testing.T) {
+	d := Default()
+	if !d.When.Limit {
+		t.Fatal("the default says nothing when an account runs out — that is the one that cost hours")
+	}
+	if d.Threshold() != DefaultLimit || d.Threshold() >= 100 {
+		t.Fatalf("the default threshold is %d%%, which is not before the wall", d.Threshold())
+	}
 }

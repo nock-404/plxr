@@ -206,7 +206,7 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           props.api.close();
           d.onReplaced(nextId);
         }}
-        onOpenFile={(path, line) => d.openEditor(tile.id, path, line)}
+        onOpenFile={(path, line, rootId) => d.openEditor(rootId ?? tile.id, path, line)}
         /* The changes panel follows the session focused last, and the click
            that asks for it lands in this panel — so it is this session's
            folder the panel comes up on. */
@@ -399,10 +399,23 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
  * is met; a session the state square it wears on the board and in the rail; a
  * document the mark of what it is. The kind travels beside it as an
  * attribute, because the colour of a mark is the skin's business. */
-const FILE_GLYPHS: Record<string, string> = {
-  ts: "\u25C8", tsx: "\u25C8", js: "\u25C7", jsx: "\u25C7", json: "\u2263",
-  go: "\u25B7", py: "\u25B3", rs: "\u25B6", sh: "\u276F", css: "\u25A7",
-  html: "\u25A4", md: "\u2261", yml: "\u2263", yaml: "\u2263", sql: "\u25A6",
+const FILE_GLYPHS: Record<string, { glyph: string; kind: string }> = {
+  ts: { glyph: "\u25C8", kind: "code" },
+  tsx: { glyph: "\u25C8", kind: "code" },
+  js: { glyph: "\u25C7", kind: "code" },
+  jsx: { glyph: "\u25C7", kind: "code" },
+  go: { glyph: "\u25B7", kind: "code" },
+  py: { glyph: "\u25B3", kind: "code" },
+  rs: { glyph: "\u25B6", kind: "code" },
+  sh: { glyph: "\u276F", kind: "code" },
+  css: { glyph: "\u25A7", kind: "style" },
+  html: { glyph: "\u25A4", kind: "style" },
+  json: { glyph: "\u2263", kind: "data" },
+  yml: { glyph: "\u2263", kind: "data" },
+  yaml: { glyph: "\u2263", kind: "data" },
+  sql: { glyph: "\u25A6", kind: "data" },
+  md: { glyph: "\u2261", kind: "text" },
+  txt: { glyph: "\u2261", kind: "text" },
 };
 
 function tabMark(id: string): { glyph: string; kind: string } {
@@ -412,7 +425,7 @@ function tabMark(id: string): { glyph: string; kind: string } {
   if (id.startsWith("files:")) return { glyph: VIEW_GLYPHS.folders, kind: "view" };
   if (id.startsWith("editor:")) {
     const ext = id.slice(id.lastIndexOf(".") + 1).toLowerCase();
-    return { glyph: FILE_GLYPHS[ext] ?? "\u25A1", kind: FILE_GLYPHS[ext] ? ext : "plain" };
+    return FILE_GLYPHS[ext] ?? { glyph: "\u25A1", kind: "plain" };
   }
   return { glyph: VIEW_GLYPHS[id] ?? "\u25A1", kind: "view" };
 }
@@ -550,7 +563,10 @@ function FilesPanel(props: IDockviewPanelProps<{ rootId: string; root: string }>
   const p = props.params;
   return (
     <div className="filesPanel">
-      <Files rootId={p.rootId} root={p.root} onPick={(path) => d.openEditor(p.rootId, path)} />
+      {/* The root the tree hands back, not the one the panel was opened on:
+          a tree that has walked above its folder reads files through the
+          directory itself, and the editor has to ask the same root. */}
+      <Files rootId={p.rootId} root={p.root} onPick={(path, rootId) => d.openEditor(rootId, path)} />
     </div>
   );
 }
@@ -853,6 +869,9 @@ export default function Dock({
       if (fire("panelNext", () => stepPanel(dv, 1))) return;
       if (fire("groupPrev", () => stepGroup(dv, -1))) return;
       if (fire("groupNext", () => stepGroup(dv, 1))) return;
+      if (fire("toggleLeft", () => toggleRegion(dv, "left"))) return;
+      if (fire("toggleRight", () => toggleRegion(dv, "right"))) return;
+      if (fire("toggleBottom", () => toggleRegion(dv, "bottom"))) return;
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1219,19 +1238,28 @@ const isMainPanel = (id: string) =>
   id.startsWith("diff:") ||
   id.startsWith("preview:") ||
   id === "overview" ||
-  id === "settings";
+  id === "settings" ||
+  id === "folders" ||
+  id === "archive" ||
+  id === "notes";
 
-/* Where each view goes when nobody has said otherwise. What is read beside the
-   work goes left; what is watched while it runs goes right. */
+/* Where each view goes when nobody has said otherwise.
+ *
+ * A tool region is one column wide, so only a view that is a single list
+ * belongs in one: the file tree, what has changed, a search, a branch review.
+ * A view that lays itself out in two columns — folders, with its tree beside
+ * what the tree opens — is squeezed to nothing in a tool region, and its
+ * second column came out ninety pixels wide. Those are main views, whatever
+ * else they are about. What is watched rather than worked in goes right. */
 const HOME_REGION: Record<string, Region> = {
   overview: "main",
   settings: "main",
   notes: "main",
-  folders: "left",
+  folders: "main",
+  archive: "main",
   changes: "left",
   review: "left",
   search: "left",
-  archive: "left",
   inbox: "right",
   usage: "right",
   ports: "right",
@@ -1478,6 +1506,43 @@ function addSplit(dv: DockviewApi, view: string, region: Region, direction: "rig
       ? { initialHeight: Math.floor(g.api.height / 2) }
       : { initialWidth: Math.floor(g.api.width / 2) };
   dv.addPanel({ id: view, component: view, title: VIEW_TITLES[view] ?? view, position, ...size });
+  hold(dv);
+}
+
+/* Folding a tool region away, and bringing it back with what was in it.
+ *
+ * A region could only be CLOSED, one panel at a time, and what was in it was
+ * gone — so clearing the sides to read a long file meant rebuilding them
+ * afterwards. Every editor has one chord for this and it does not throw
+ * anything away: what stood in the region is written down, the panels go, and
+ * the same chord puts them back in the order they were in. Main is never
+ * folded: there would be nothing left. */
+const folded = new Map<Region, string[]>();
+
+function toggleRegion(dv: DockviewApi, region: Region): void {
+  if (region === "main") return;
+  const g = groupOfRegion(dv, region);
+  if (g) {
+    const ids = g.panels.map((p) => p.id);
+    folded.set(region, ids);
+    for (const p of [...g.panels]) p.api.close();
+    hold(dv);
+    return;
+  }
+  const back = folded.get(region) ?? [];
+  folded.delete(region);
+  if (back.length === 0) {
+    // Nothing was folded away: the chord still has to do something, so the
+    // region opens with what belongs in it.
+    const first = Object.entries(HOME_REGION).find(([, r]) => r === region)?.[0];
+    if (first) openOrFocus(dv, first, first, VIEW_TITLES[first] ?? first, {}, region);
+    return;
+  }
+  for (const id of back) {
+    if (dv.getPanel(id)) continue;
+    const component = id.includes(":") ? id.slice(0, id.indexOf(":")) : id;
+    openOrFocus(dv, id, component, VIEW_TITLES[id] ?? id, {}, region);
+  }
   hold(dv);
 }
 

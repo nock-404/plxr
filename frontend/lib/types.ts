@@ -81,6 +81,73 @@ export interface Usage {
   byModel?: UsageBucket[];
 }
 
+/* One rolling allowance, as far as this machine can see it —
+   internal/usage/limits.go Window, field for field.
+
+   `known` is the honest one: false means no reading was found on disk for
+   this account, and the view has to say so rather than draw a bar at zero.
+   `resetsAt` and `startsAt` are milliseconds, 0 when unknown; they are shown
+   in the reader's own timezone, which only the window knows. `measured` says
+   the spend was summed from the window's real start — without a reset time
+   there is no real start, and the figure is over the window's nominal length
+   ending now. */
+export interface UsageWindow {
+  kind: "session" | "week" | "weekModel";
+  known: boolean;
+  percent: number;
+  severity?: string;
+  model?: string;
+  resetsAt: number;
+  startsAt: number;
+  measured: boolean;
+  spend: Omit<UsageBucket, "key">;
+  byModel: UsageBucket[];
+}
+
+/* One account's readout. The percentages are genuinely per account — they
+   come out of that account's own file. The token figures may not be: where
+   several accounts read one directory of transcripts, `sharedWith` names the
+   others and the numbers are the pool's, because nothing on disk says which
+   account paid for a line. */
+export interface AccountUsage {
+  name: string;
+  label?: string;
+  number: number;
+  short: string;
+  isDefault?: boolean;
+  known: boolean;
+  fetchedAt: number;
+  source: string;
+  session: UsageWindow;
+  week: UsageWindow;
+  weekModel: UsageWindow;
+  sharedWith: string[];
+  transcripts: string;
+}
+
+/* Every account added together, underneath the per-account figures rather
+   than instead of them. There is no total percentage on purpose: three
+   accounts on three plans have three different allowances. */
+export interface UsageTotals {
+  accounts: number;
+  session: Omit<UsageBucket, "key">;
+  week: Omit<UsageBucket, "key">;
+  byModel: UsageBucket[];
+}
+
+export interface AccountUsageReport {
+  accounts: AccountUsage[];
+  total: UsageTotals;
+  pools: number;
+  /* The percentage at which the service says something, as set in the
+     notification settings. The rail and the pickers mark at the same point,
+     so a colour never disagrees with a notification. */
+  threshold: number;
+  files: number;
+  readAt: number;
+  duration: string;
+}
+
 /* How fast the allowance is going right now — internal/usage/usage.go Pace,
    field for field. window5h and perHour are tokens, active is the number of
    sessions that spent something in the last hour. */
@@ -257,12 +324,18 @@ export interface NotifyWhen {
   waiting: boolean;
   ended: boolean;
   crashed: boolean;
+  /* An account is running out of its window. On by default, for the same
+     reason as needsYou: it is the other state where nothing anybody does
+     afterwards helps. */
+  limit: boolean;
 }
 
 export interface NotifySettings {
   on: boolean;
   sound: string;
   when: NotifyWhen;
+  /* How full a window has to be before plxr says so, in percent. */
+  limit: number;
 }
 
 /* How the system permission stands, as the plxr window reported it to the
@@ -407,6 +480,91 @@ export interface GitEntry {
   subject: string;
   author: string;
   when: number; // milliseconds; the window words the age itself
+  /* What points at this commit — branches and tags, as git writes them
+     ("HEAD -> main, origin/main, tag: v1.2"). Empty for a commit nothing
+     names, which is most of them. */
+  refs: string;
+}
+
+/* One file a commit touched. `status` is git's own letter: A, M, D, R, C, T. */
+export interface GitCommitFile {
+  path: string;
+  status: string;
+  renamed?: string;
+  added: number;
+  removed: number;
+  binary: boolean;
+}
+
+/* One commit read in full: what it says, who made it, and what it did.
+   `hash` is the short form a person reads, `full` the one they paste
+   somewhere else. */
+export interface GitCommitDetail {
+  hash: string;
+  full: string;
+  subject: string;
+  body: string;
+  author: string;
+  email: string;
+  when: number; // milliseconds; the window words the age itself
+  refs: string;
+  files: GitCommitFile[];
+  added: number;
+  removed: number;
+}
+
+/* One remote and where it points. The fetch URL: the push one is almost always
+   the same address, and printing it twice says nothing twice. */
+export interface GitRemote {
+  name: string;
+  url: string;
+}
+
+/* One language of a folder, counted by files rather than by bytes: a single
+   generated 40,000-line file would otherwise make a project "JSON". */
+export interface FolderLanguage {
+  name: string;
+  files: number;
+  share: number; // percent of the counted files
+}
+
+/* The plain facts of a directory — true of a folder that was never a
+   repository just the same. */
+export interface FolderFacts {
+  files: number;
+  folders: number;
+  size: number; // bytes
+  touched: number; // milliseconds
+  /* The walk stopped early, so the counts are a floor and not a total. Said
+     out loud rather than passed off as the answer. */
+  partial: boolean;
+  languages: FolderLanguage[];
+  /* The directories the walk did not enter — node_modules, build output —
+     so the counts can be read for what they are. */
+  ignored: string[];
+  readme: string;
+  readme_path: string;
+  readme_more: boolean;
+}
+
+/* Everything the folder overview shows, in one answer. `repo` false is an
+   ordinary folder, not a failure: it gets the facts that apply to it and none
+   of the git sections. */
+export interface FolderReport {
+  path: string;
+  name: string;
+  repo: boolean;
+  where?: GitWhere;
+  staged: number;
+  unstaged: number;
+  untracked: number;
+  dirty: boolean;
+  stashes: number;
+  fetched: number; // milliseconds; 0 when it has never fetched
+  head?: GitCommitDetail;
+  log: GitEntry[];
+  remotes: GitRemote[];
+  facts: FolderFacts;
 }
 
 /* Which branch this is and how it stands against its upstream. */

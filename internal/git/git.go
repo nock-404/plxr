@@ -811,6 +811,14 @@ type Entry struct {
 	 * English in a German window. A number has no language; the window says
 	 * it in its own. */
 	When int64 `json:"when"`
+
+	/* What points at this commit: branches and tags, as git's %D writes them.
+	 *
+	 * The history without them is a list of sentences with nothing to hold on
+	 * to — "which of these is main, and how far back is the tag" cannot be
+	 * answered from a hash and an age. Empty for a commit nothing names,
+	 * which is most of them. */
+	Refs string `json:"refs"`
 }
 
 // Log returns the last commits.
@@ -821,7 +829,7 @@ func Log(dir string, n int) ([]Entry, error) {
 	// %x00 between the fields and %x01 between records: neither appears in a
 	// commit message, and a subject may hold anything else including tabs.
 	out, err := Raw(dir, "log", "--no-color", "-n", strconv.Itoa(n),
-		"--format=%h%x00%s%x00%an%x00%at%x01")
+		"--format=%h%x00%s%x00%an%x00%at%x00%D%x01")
 	if err != nil {
 		// A repository with no commits has no log, and that is not a fault.
 		return []Entry{}, nil
@@ -833,10 +841,10 @@ func Log(dir string, n int) ([]Entry, error) {
 			continue
 		}
 		f := strings.Split(record, "\x00")
-		if len(f) < 4 {
+		if len(f) < 5 {
 			continue
 		}
-		list = append(list, Entry{Hash: f[0], Subject: f[1], Author: f[2], When: millis(f[3])})
+		list = append(list, Entry{Hash: f[0], Subject: f[1], Author: f[2], When: millis(f[3]), Refs: f[4]})
 	}
 	return list, nil
 }

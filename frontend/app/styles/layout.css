@@ -309,9 +309,31 @@ body {
 .list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .listbar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.875rem; }
 .listbar input { flex: 1; min-width: 0; font: inherit; color: inherit; }
-.listbody { flex: 1; overflow-y: auto; padding: 0.375rem 0 1.25rem; }
-.row { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 0.875rem; }
-.row.tall { align-items: flex-start; }
+/* The body of a list is a container, so a row can lay itself out by how much
+   room the column actually has rather than by how wide the window is. A panel
+   in a tool region and the same panel filling main are two different widths,
+   and the rows have to answer to their own. */
+.listbody { flex: 1; overflow-y: auto; padding: 0.375rem 0 1.25rem; container-type: inline-size; container-name: listbody; }
+/* Dense. A row was 0.45rem of air above and below its text, which reads as
+   generous in a list of six and as bulky in a list of thirty. */
+.row { display: flex; align-items: center; gap: 0.75rem; padding: 0.25rem 0.875rem; }
+.row.tall { align-items: flex-start; padding: 0.45rem 0.875rem; }
+
+/* A port is a number, the program holding it, and two details.
+ *
+ * The number was given a hundred pixels — a date's width, for four digits —
+ * so the name sat far away across a gap; and when the column was narrowed it
+ * was the NAME that was crushed to a single letter while the address and the
+ * pid kept their full width. The one thing being read must be the last thing
+ * to go: the number is as narrow as its digits, the name takes what is left,
+ * and the details drop out as the column gets narrower. */
+.row.port { gap: 0.5rem; padding: 0.2rem 0.625rem; }
+.row.port .hitDate { width: auto; min-width: 3.25rem; text-align: right; }
+.row.port .hitTitle { flex: 1 1 auto; min-width: 3rem; }
+.row.port .hitProject { flex: 0 1 auto; min-width: 0; max-width: 8rem; }
+.row.port .hitSmall { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container listbody (max-width: 26rem) { .row.port .hitProject { display: none; } }
+@container listbody (max-width: 19rem) { .row.port .hitSmall { display: none; } }
 .hitDate { flex: 0 0 auto; width: 6.25rem; }
 /* An account, on one line: the name at its own width, the path giving way.
    Sharing the row evenly is what squeezed "account 1" down to "acc…" while the
@@ -367,6 +389,43 @@ body {
 .paceLimitLabel { flex: 0 0 auto; }
 .paceNote { flex: 1 1 14rem; min-width: 0; max-width: 46rem; }
 
+/* What is left, per account.
+
+   One card per account, each holding its windows. The card carries the
+   padding so every line inside it starts at the same column as the rest of
+   the view, and the whole thing has to stay readable at 12rem wide — the
+   window's own head row wraps rather than pushing the reset time off the
+   edge. */
+.uacct { padding: 0.75rem 1rem 0.5rem; }
+.uacctHead { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.375rem; }
+.uacctName { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uacctBadge { flex: 0 0 auto; }
+.uacctHot { flex: 0 0 auto; }
+.uacctDir { flex: 0 1 auto; min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+
+/* One window: what it is, how much is gone, a bar, and when it comes back.
+   The bar takes a whole row of its own so the percentage and the reset time
+   never have to share width with it. */
+.uwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.12rem 0.625rem; padding: 0.3rem 0 0.4rem; }
+.uwinHead { grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uwinPct { grid-column: 2; white-space: nowrap; }
+.uwinBar { grid-column: 1 / -1; height: 0.55rem; position: relative; }
+.uwinFill { position: absolute; inset: 0 auto 0 0; }
+.uwinWhen { grid-column: 1 / -1; }
+.uwinSpend { grid-column: 1 / -1; }
+.uwinNote { grid-column: 1 / -1; display: block; padding: 0.25rem 1rem 0.25rem 0; max-width: 46rem; line-height: 1.45; }
+.uacct .uwinNote { padding-left: 0; }
+
+/* The spend by model: a header row and one row per model, five columns that
+   collapse to two when the panel is narrow. */
+.umodels { padding: 0.75rem 1rem 0.5rem; }
+.umodelRow { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; padding: 0.15rem 0; }
+.umodelName { flex: 1 1 10rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.umodelCell { flex: 0 0 5rem; text-align: right; }
+
+/* Where the numbers come from, at the foot of the view. */
+.ufoot { display: block; padding: 0.75rem 1rem 1.25rem; max-width: 52rem; line-height: 1.5; }
+
 /* ---------- session ---------- */
 
 /* Dockview's panel content host is a plain height:100% block, not a flex parent,
@@ -386,8 +445,22 @@ body {
 /* The overflow bar: one line at any width, the rest of the controls under a
    single trigger. The left slot grows and shrinks (its text ellipsises), the
    items keep their size and spill into the menu from the end. */
+/* How little the left slot may be squeezed to before the controls start
+   moving under the "⋯" instead.
+ *
+ * It was 3rem for every bar, so in a narrow column the session's own name and
+ * folder were ground down to "[ … ]" while nine buttons kept their full width
+ * — the one thing being read went first. The rule is the other way round: the
+ * name keeps enough room to be a name, and the ornaments go into the menu. */
 .obar { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; width: 100%; min-width: 0;
   --obar-left-min: 3rem; }
+.sessbar.obar { --obar-left-min: 12rem; }
+/* Inside that slot, the name holds its width and the path is what gives way:
+   a title ground down to "pr…" names nothing. */
+.sessbar .sesstitle { flex: 0 0 auto; max-width: 14rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sessbar .obarLeft > .meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folderbarLow.obar { --obar-left-min: 9rem; }
+.filesbar.obar { --obar-left-min: 5rem; }
 .obarLeft { flex: 1 1 auto; min-width: var(--obar-left-min); display: flex; align-items: center; gap: 0.75rem; overflow: hidden; }
 .obarItems { flex: 0 0 auto; display: flex; align-items: center; gap: 0.75rem; }
 .obarItems > span { flex: 0 0 auto; display: inline-flex; }
@@ -413,7 +486,15 @@ body {
    keyboard, and invisible. A row of controls in a panel whose width somebody
    else decides has to be allowed to fall onto a second line. */
 .filesbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.375rem; flex: 0 0 auto; padding: 0.3rem 0.5rem; }
-.filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+/* The path at the top of the tree, as crumbs. The same crumbs the folder
+   picker uses — dressed once, in skin-base — but in a column of 16rem they may
+   not wrap onto four lines, so this one line runs off to the LEFT: the end of
+   the path is the part being worked in, and the whole of it is in the tooltip.
+   The line that stood here before was one ellipsised string that nothing could
+   be done with. */
+.filesbar .crumbs { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; overflow: hidden; }
+.filesbar .crumb { flex: 0 0 auto; white-space: nowrap; }
+.filesbar .notice { flex: 0 0 auto; }
 .fgit { flex: 0 0 auto; width: 1rem; text-align: center; }
 .filesbar .input { flex: 1; min-width: 0; }
 .filetree { flex: 1; overflow: auto; padding: 0.25rem 0 0.75rem; }
@@ -554,7 +635,9 @@ body {
 .meterUnit, .meterGap, .meterCost { font-size: 0.8em; }
 
 /* ---------- what has changed ---------- */
-.changes { flex: 0 0 var(--files-w); min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; }
+/* The changes list is its own container: a row lays itself out by the width
+   of the column it is in, not the width of the window. */
+.changes { flex: 0 0 var(--files-w); min-width: 0; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.5rem; overflow-y: auto; container-type: inline-size; container-name: changes; }
 .changegroup { display: flex; flex-direction: column; gap: 0.1rem; }
 /* Which branch, and how far from its upstream. Its own class rather than the
    general small text: it is the one line in this panel that says where you
@@ -567,7 +650,15 @@ body {
 .branchrow { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0 0.4rem; padding: 0.2rem 0; }
 .branchname { grid-row: 1; grid-column: 1; }
 .branchdist { grid-row: 1; grid-column: 2; }
-.branchword { grid-row: 1; grid-column: 3; }
+/* A live status, not a control.
+   It says how many files differ and it opens the list that names them, so it
+   has to be a button — for the keyboard and for anything reading the screen
+   out loud. What it must not be is a button to look at: nothing here resets
+   what the browser draws around a <button>, so it came out as the system's own
+   grey pill in the middle of a bar of skinned controls, and greyed out to
+   boot. Every other bare button in this file carries the same three lines. */
+.branchword { grid-row: 1; grid-column: 3; background: none; border: 0; font: inherit; padding: 0; text-align: left; }
+button.branchword:not(:disabled) { cursor: pointer; }
 .branchrow button { grid-row: 1; }
 .branchsubject { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .branchrow .logwhen { grid-row: 2; grid-column: 5; }
@@ -582,7 +673,11 @@ body {
 .loghash { grid-row: 1; grid-column: 1; }
 .logwhen { grid-row: 1; grid-column: 2; }
 .logsubject { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.changepath { flex: 1 1 auto; min-width: 0; text-align: left; background: none; border: 0; font: inherit; cursor: pointer;
+/* The path is what a row is about: it keeps enough width to be read, and the
+   count and the word for what happened drop out before it does. */
+@container changes (max-width: 23rem) { .changerow .changeword { display: none; } }
+@container changes (max-width: 17rem) { .changerow .changecount { display: none; } }
+.changepath { flex: 1 1 auto; min-width: 5rem; text-align: left; background: none; border: 0; font: inherit; cursor: pointer;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0.1rem 0; }
 .changeword { flex: 0 0 auto; }
 .changecount { flex: 0 0 auto; white-space: nowrap; }
@@ -625,7 +720,16 @@ button.diffline { cursor: pointer; }
    rather than a click on BACK and then a click on the file. The box has to be
    positioned for the overlay to measure itself against it. */
 .foldersbody { flex: 1; min-height: 0; display: flex; position: relative; }
-.foldersbody .filetree { flex: 0 0 var(--files-w); }
+/* No width for the tree here, and above all no flex-basis.
+ *
+ * This row used to hold the .filetree itself, so `flex: 0 0 var(--files-w)`
+ * was its width. The tree became .files — a column with its bars above it —
+ * and the rule stayed, now addressing the scrolling list INSIDE that column,
+ * where a flex-basis is a HEIGHT: the list was exactly 16.25rem tall whatever
+ * the window's height, and under it sat a dead grey area with the scrollbar
+ * ending in the middle of the panel. Measured in the three places the tree is
+ * mounted, this was the only one that was wrong. The width belongs to .files
+ * (width: var(--files-w)), the height to .filetree's own flex: 1. */
 .foldersbody .viewer { left: var(--files-w); }
 /* The folder tabs share the row: when four names do not fit, each gives up
    width rather than scrolling out of sight — a tab cut short still says
@@ -643,6 +747,62 @@ button.diffline { cursor: pointer; }
 .foldergit { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
 .foldergit .branchname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 18rem; }
 .folderTab { padding: 0 0.5rem; background: none; border: 0; font: inherit; cursor: pointer; }
+
+/* ---------- what the folder is ----------
+
+   The wide half of the folders view, when no difference is open. It used to
+   hold an empty box reading "pick a file" across half the window — half a
+   screen saying nothing about the folder it was looking straight at. It now
+   carries what a person looks up before touching a folder: where the branch
+   stands, what HEAD did, what has changed, where the remote is, what the
+   directory is made of, and what its README says.
+
+   One column that scrolls: the sections read top to bottom, and a second
+   column at this width would halve every path in it. */
+.folderinfo { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 0.75rem 1rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.infoblock { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+/* A section heading, with room for a button beside it.
+   Its own class rather than .uhead: .uhead is the quiet label of a group in a
+   list, and on a page made of eight sections a heading nobody can pick out is
+   a page nobody can read. Read on the tube, "WHERE IT STANDS" in .uhead's
+   --dead was not there at all. */
+.infohead { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+/* Name and value in two columns, so the values line up down the whole block
+   rather than each starting wherever its label happened to end. */
+.infofacts { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; align-items: baseline; min-width: 0; }
+.infoname { white-space: nowrap; }
+/* A value wraps rather than being cut off, and can be picked up.
+   With an ellipsis it read "never — nothing has been fetched i…" in a panel
+   this wide, which is a fact turned back into a guess; and a path or a remote's
+   address is exactly the thing somebody is here to copy. */
+.infovalue { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+/* A commit message body and a README: whitespace as written, and a ceiling, so
+   a long README does not push everything below it off the screen. */
+.infotext { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; max-height: 16rem; overflow-y: auto; margin: 0; }
+.infosubject { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+/* One commit in the history. Two lines: who, when and the subject across the
+   top, whatever points at it underneath — a row that only fits on one line is
+   a row whose subject is cut off after two words. */
+.commitrow {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 0 0.5rem;
+  align-items: baseline; min-width: 0; width: 100%;
+  background: none; border: 0; font: inherit; text-align: left; cursor: pointer;
+  padding: 0.2rem 0;
+}
+.commithash { grid-row: 1; grid-column: 1; }
+.commitwhen { grid-row: 1; grid-column: 2; white-space: nowrap; }
+.commitsubject { grid-row: 1; grid-column: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commitmeta { grid-row: 2; grid-column: 1 / -1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 0.5rem; }
+.commitrefs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The files of a commit, under the row that was clicked. */
+.commitfiles { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.15rem 0 0.4rem 1rem; min-width: 0; }
+.commitfile { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+.commitpath { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The changes list, reused here rather than written a second time. In the left
+   column it is a fixed width that scrolls inside itself; here it IS the wide
+   area, so it takes the width it is given and grows down the page while the
+   overview around it does the scrolling. */
+.folderinfo .changes { flex: 0 0 auto; width: auto; overflow: visible; padding: 0; }
 
 /* ---------- choosing a folder ---------- */
 .folderpick { width: min(34rem, 92vw); }

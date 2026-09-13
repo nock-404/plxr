@@ -19,8 +19,9 @@ import Terminal from "@/components/Terminal";
 import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { matches } from "@/lib/keymap";
-import { shortPath } from "@/lib/format";
+import { accountName, shortPath } from "@/lib/format";
 import { barLine, titleOf } from "@/lib/state";
+import { isHot, useAccountLimits, worst } from "@/lib/useLimits";
 import type { Account, Tile } from "@/lib/types";
 
 // One open session: the terminal, and the tools that act on it.
@@ -39,9 +40,11 @@ export default function Session({
      moving to a different account does exactly that. */
   onReplaced?: (id: string) => void;
   /* A file picked in the tree, or a path clicked in the terminal — with the
-     line it named, when it named one. It opens as a panel beside this one —
-     the terminal stays where it is — so the session itself holds no editor. */
-  onOpenFile: (path: string, line?: number) => void;
+     line it named, when it named one, and with the root to read it through
+     when the tree has walked above this session's folder. It opens as a panel
+     beside this one — the terminal stays where it is — so the session itself
+     holds no editor. */
+  onOpenFile: (path: string, line?: number, rootId?: string) => void;
   /* Source control for this session's folder, as a panel beside it. */
   onChanges?: () => void;
 }) {
@@ -133,10 +136,24 @@ export default function Session({
     api.accounts().then((a) => setAccounts(a ?? [])).catch(() => setAccounts([]));
   }, []);
 
-  const accountOptions = accounts.map((a) => ({
-    value: a.name,
-    label: tr("accounts.numbered", `account ${a.number}`, { n: a.number }),
-  }));
+  // What is left on each of them, shared with the rail and the usage view.
+  const { accounts: limits, at: hotAt } = useAccountLimits();
+
+  /* The picker says which account is nearly out of a window before the
+     switch, not after it. Moving a run onto an account with nothing left is
+     the move that costs the run — it was the only thing anybody could do
+     about a limit, and it was made blind. */
+  const accountOptions = accounts.map((a) => {
+    const seen = limits.get(a.name);
+    const top = seen ? worst(seen) : null;
+    const name = accountName(a);
+    return {
+      value: a.name,
+      label: seen && isHot(seen, hotAt) && top
+        ? tr("accounts.nearlyOut", "{name} · {pct}% used", { name, pct: top.percent })
+        : name,
+    };
+  });
 
   const account = accountOptions.length
     ? canSwitch
@@ -343,7 +360,7 @@ export default function Session({
       </TopStrip>
 
       <div className="sesssplit">
-        {files ? <Files rootId={tile.id} root={tile.cwd} onPick={onOpenFile} /> : null}
+        {files ? <Files rootId={tile.id} root={tile.cwd} onPick={(path, rootId) => onOpenFile(path, undefined, rootId)} /> : null}
         <div className="panes">
           <Terminal
             id={tile.id}

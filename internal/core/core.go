@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"plxr/internal/shell"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -144,6 +145,14 @@ type Core struct {
 	// whether the five-hour spend was over the ceiling at the last look, so
 	// the crossing is said once — see checkPace
 	paceOver bool
+	// which account windows have already been warned about, keyed by account,
+	// window and the moment that window resets — so one warning is given per
+	// window and the next one starts fresh. See checkLimits.
+	limitSaid map[string]bool
+	// the last account readout and when it was taken, so the window polling
+	// it and the service watching it share one walk of the transcripts.
+	limitsAt   time.Time
+	limitsSeen usage.AccountReport
 
 	// The folders being followed for changes, one loop each, keyed by the
 	// resolved path — see gitwatch.go.
@@ -157,6 +166,7 @@ func New(reg *session.Registry, themes, agents, skins fs.FS) *Core {
 		hosts:      map[string]*ptyhost.Host{},
 		lastStatus: map[string]session.Status{},
 		watches:    map[string]*gitWatch{},
+		limitSaid:  map[string]bool{},
 	}
 }
 
@@ -499,9 +509,23 @@ func (c *Core) Archive(pathFilter string) []archive.Entry {
 	return archive.List(c.Accounts(), pathFilter)
 }
 
+/* Finding a transcript, for an account that can read it.
+ *
+ * The name to match against used to be Entry.Account alone, and that is not the
+ * account a transcript belongs to — it is the one that fold happened to put in
+ * front when several accounts hold the same conversation. Point
+ * ~/.claude2/projects and ~/.claude3/projects at ~/.claude/projects, which is
+ * how one transcript store is kept across three logins, and all three accounts
+ * read the very same file; whichever of them led, the other two were told
+ * "Transcript not found" about a file they had open.
+ *
+ * So the question asked here is the one that matters: can this account reach
+ * this transcript. A name that reaches nothing still finds nothing — Accounts
+ * lists only the accounts whose projects directory really holds the file.
+ */
 func (c *Core) archiveFind(id, account string) (archive.Entry, bool) {
 	for _, e := range archive.List(c.Accounts(), "") {
-		if e.ID == id && (account == "" || e.Account == account) {
+		if e.ID == id && e.HasAccount(account) {
 			return e, true
 		}
 	}
@@ -523,6 +547,23 @@ func (c *Core) SearchTerminals(question string) []search.RecordingHit {
 	return search.SearchRecordings(ptyhost.RecordingDir, question, names)
 }
 
+/* Why the transcript was not found, said out loud.
+ *
+ * "Transcript not found" was the whole of it, and with three accounts sharing
+ * one store it was not even true — the file was there and the lookup was
+ * asking the wrong question. Now that the lookup is right, a refusal means the
+ * conversation really is not in that account's projects directory, and the two
+ * things worth knowing are which conversation and which account. Both go into
+ * the detail; without them the message sends somebody looking through three
+ * home directories for a name they were never told.
+ */
+func notForAccount(id, account string) error {
+	if account == "" {
+		return uierr.New("err.transcript.missing")
+	}
+	return uierr.With("err.transcript.notInAccount", id+" ("+account+")")
+}
+
 func (c *Core) ArchiveDelete(id, account string) error {
 	e, ok := c.archiveFind(id, account)
 	if !ok {
@@ -537,7 +578,7 @@ func (c *Core) ArchiveDelete(id, account string) error {
 func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, error) {
 	e, ok := c.archiveFind(id, fromAccount)
 	if !ok {
-		return nil, uierr.New("err.transcript.missing")
+		return nil, notForAccount(id, fromAccount)
 	}
 	if e.Cwd == "" {
 		return nil, uierr.New("err.session.noCwd")
@@ -550,7 +591,10 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	if target == "" {
 		target = e.Account
 	}
-	if target != e.Account {
+	// Copied only where there is something to copy. An account that already
+	// holds this transcript — its own, or through a projects directory shared
+	// with the account that has it — needs nothing done to its disk.
+	if !e.HasAccount(target) {
 		acc, ok := accounts.ByName(c.Accounts(), target)
 		if !ok {
 			return nil, uierr.With("err.account.unknown", target)
@@ -700,7 +744,7 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 		return nil, uierr.With("err.account.unknown", toAccount)
 	}
 	if _, found := c.archiveFind(claudeID, source); !found {
-		return nil, uierr.New("err.transcript.missing")
+		return nil, notForAccount(claudeID, source)
 	}
 	c.Kill(sessionID, true)
 	return c.Resume(claudeID, source, toAccount)
@@ -709,6 +753,31 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 // ---- What has been used up ----
 
 func (c *Core) Usage(days int) usage.Report { return usage.Compute(c.Accounts(), days) }
+
+// usageFresh is how long an account readout stands before it is worked out
+// again. The window polls it and the service watches it against the warning
+// threshold; without this the two would walk the transcripts separately, and
+// the window polls far more often than anything up there can change.
+const usageFresh = 15 * time.Second
+
+// UsageAccounts is the readout the usage view leads with: what is left per
+// account, when it comes back, and what has been spent since it opened.
+func (c *Core) UsageAccounts() usage.AccountReport {
+	c.mu.RLock()
+	at, seen := c.limitsAt, c.limitsSeen
+	c.mu.RUnlock()
+	if time.Since(at) < usageFresh && len(seen.Accounts) > 0 {
+		return seen
+	}
+	out := usage.Accounts(c.Accounts())
+	// The window marks an account at the same percentage the service speaks
+	// at, so the colour and the notification never disagree.
+	out.Threshold = notify.Read().Threshold()
+	c.mu.Lock()
+	c.limitsAt, c.limitsSeen = time.Now(), out
+	c.mu.Unlock()
+	return out
+}
 
 // ---- Where Claude Code is hooked into ----
 
@@ -1131,15 +1200,18 @@ func (c *Core) KillPort(pid int, hard bool) error {
 // is checked against it.
 // root is the directory an id may work in.
 //
-// Two kinds of id arrive here. A workspace is a folder somebody opened and it
+// Three kinds of id arrive here. A workspace is a folder somebody opened and it
 // outlives every session; a session is the older way in and still works, so no
-// route had to change shape. Which one it is can be read off the id, so the
-// caller never has to say.
+// route had to change shape; and a bare directory is the tree walking upwards.
+// Which one it is can be read off the id, so the caller never has to say.
 //
 // Everything below this — the tree, the editor, the git status, reveal — used
 // to resolve through the session registry alone, and a session is cleared away
 // shortly after it ends. That is why an open file went dead with its terminal.
 func (c *Core) root(id string) (string, error) {
+	if strings.HasPrefix(id, DirPrefix) {
+		return dirRoot(id)
+	}
 	if workspace.IsID(id) {
 		return workspace.RootOf(daemon.Root(), id)
 	}
@@ -1148,6 +1220,41 @@ func (c *Core) root(id string) (string, error) {
 		return "", uierr.New("err.session.unknown")
 	}
 	return s.Cwd, nil
+}
+
+// DirPrefix marks an id that is a directory and nothing else: "dir:/Users/me".
+//
+// The tree could only ever go downwards. Everything it can address is a session
+// or a folder somebody opened, and both of those resolve to one directory with
+// no way to name the one above it — so the answer to "how do I get to the
+// folder above this one?" was to go and open that one as a folder too.
+//
+// It is deliberately not leashed to the folder it came from. Walking up is the
+// point; a check that refused to leave the root would refuse exactly the thing
+// being asked for, and anyone holding the token can already start a shell in any
+// directory on this machine. What is checked is that the id names a path that is
+// absolute, is there, and is a directory — the three ways it can be nonsense.
+const DirPrefix = "dir:"
+
+func dirRoot(id string) (string, error) {
+	path := strings.TrimPrefix(id, DirPrefix)
+	if path == "" || !filepath.IsAbs(path) {
+		return "", uierr.With("err.dir.notAbsolute", path)
+	}
+	// Resolved, like every other root: files.List measures what it finds
+	// against the resolved root, and /tmp on a Mac is /private/tmp.
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", uierr.With("err.dir.unreachable", path)
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		return "", uierr.With("err.dir.unreachable", path)
+	}
+	if !info.IsDir() {
+		return "", uierr.With("err.dir.notADirectory", path)
+	}
+	return real, nil
 }
 
 // Changes lists what differs in a folder, staged and unstaged kept apart.
@@ -1874,6 +1981,107 @@ func (c *Core) paceCrossed(window, limit int64) bool {
 	was := c.paceOver
 	c.paceOver = over
 	return over && !was
+}
+
+/* Before the wall, not at it.
+
+   A weekly limit arrived in the middle of a long run with no warning anywhere
+   and took hours of work with it. The reading that would have said it was
+   coming was on the disk the whole time — Claude Code writes the account's
+   utilisation beside its own configuration — and nothing looked at it.
+
+   So it is looked at, every minute, and the one thing said is the one thing
+   that is actionable: this account is at n% of a window that comes back at
+   such a time. Said once per window; the next window is a new one and starts
+   quiet again. Nothing is stopped, and nothing is moved — which account a
+   session runs on stays the operator's decision, as it does everywhere else
+   in this program.
+*/
+
+// limitEvery is how often the accounts are held against the threshold. The
+// reading underneath it is a cache Claude Code refreshes when it runs, so
+// asking faster than this would only re-read the same file.
+const limitEvery = time.Minute
+
+// WatchLimits watches every account's windows against the warning threshold
+// for as long as the service runs.
+func (c *Core) WatchLimits() {
+	for range time.Tick(limitEvery) {
+		c.checkLimits()
+	}
+}
+
+func (c *Core) checkLimits() {
+	settings := notify.Read()
+	if !settings.On || !settings.Wanted("limit") {
+		return
+	}
+	at := settings.Threshold()
+	for _, a := range c.UsageAccounts().Accounts {
+		w, hot := a.Hot(at)
+		if !hot || !c.limitCrossed(a.Name, w) {
+			continue
+		}
+		name := a.Label
+		if name == "" {
+			name = a.Name
+		}
+		log.Printf("limit: %s is at %d%% of its %s window", name, w.Percent, w.Kind)
+		notify.Post(notify.Message{
+			Title: "plxr",
+			Body:  name + " is at " + strconv.Itoa(w.Percent) + "% of its " + windowWord(w.Kind) + ", back " + backAt(w),
+			Sound: settings.Sound,
+			Kind:  "limit",
+		})
+	}
+}
+
+// limitCrossed reports true exactly once per window per account. The key
+// carries the moment the window resets, so the next window — a different reset
+// time — is a different key and says its own piece when it gets there.
+func (c *Core) limitCrossed(account string, w usage.Window) bool {
+	key := account + "\x00" + w.Kind + "\x00" + strconv.FormatInt(w.ResetsAt, 10)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.limitSaid[key] {
+		return false
+	}
+	// Anything remembered about a window that has already come back is of no
+	// further use, and the map is what would otherwise grow for ever.
+	now := time.Now().UnixMilli()
+	for old := range c.limitSaid {
+		if i := strings.LastIndexByte(old, 0); i >= 0 {
+			if when, err := strconv.ParseInt(old[i+1:], 10, 64); err == nil && when > 0 && when < now {
+				delete(c.limitSaid, old)
+			}
+		}
+	}
+	c.limitSaid[key] = true
+	return true
+}
+
+// windowWord is what a window is called in a sentence. The three names come
+// from the usage package; anything else is said as it stands rather than
+// silently turned into one of them.
+func windowWord(kind string) string {
+	switch kind {
+	case usage.KindSession:
+		return "five-hour window"
+	case usage.KindWeek:
+		return "weekly window"
+	case usage.KindWeekModel:
+		return "weekly window for one model"
+	}
+	return kind
+}
+
+// backAt says when the window comes back, in the machine's own timezone —
+// which is the operator's. An unknown reset time is said as unknown.
+func backAt(w usage.Window) string {
+	if w.ResetsAt == 0 {
+		return "at a time this machine cannot see"
+	}
+	return time.UnixMilli(w.ResetsAt).Local().Format("Mon 15:04")
 }
 
 // compact writes a token count the way the window does — 1.2M, 850.0k — so

@@ -29,6 +29,11 @@ type When struct {
 	Ended bool `json:"ended"`
 	// Crashed: the daemon died and took a session with it.
 	Crashed bool `json:"crashed"`
+	// Limit: an account is running out of its window. This is on by default
+	// with NeedsYou, and for the same reason — it is the other state where
+	// nothing anybody does will help once it has happened. Hours of work were
+	// lost to a weekly limit that arrived without a word.
+	Limit bool `json:"limit"`
 }
 
 // Settings is the whole of it.
@@ -36,13 +41,22 @@ type Settings struct {
 	On    bool   `json:"on"`
 	Sound string `json:"sound"` // a name from Sounds(), or "" for silence
 	When  When   `json:"when"`
+	// Limit is how full a window has to be before plxr says so, in percent.
+	// Said once per window, when it is crossed — see core.limitCrossed.
+	Limit int `json:"limit"`
 }
 
-// Default: say something when an agent is stuck, and nothing else. Everything
-// beyond that is a choice somebody has to make on purpose — a notification for
-// every ending session is a notification nobody reads.
+// DefaultLimit is how full a window has to be before anything is said. Far
+// enough from the wall that a long run can still be finished or moved to
+// another account, close enough that it is not said every day.
+const DefaultLimit = 80
+
+// Default: say something when an agent is stuck or an account is running out,
+// and nothing else. Everything beyond that is a choice somebody has to make on
+// purpose — a notification for every ending session is a notification nobody
+// reads.
 func Default() Settings {
-	return Settings{On: true, Sound: defaultSound(), When: When{NeedsYou: true}}
+	return Settings{On: true, Sound: defaultSound(), When: When{NeedsYou: true, Limit: true}, Limit: DefaultLimit}
 }
 
 var settingsLock sync.Mutex
@@ -92,6 +106,20 @@ func (s Settings) Wanted(state string) bool {
 		return s.When.Ended
 	case "orphaned":
 		return s.When.Crashed
+	case "limit":
+		return s.When.Limit
 	}
 	return false
+}
+
+// Threshold is the percentage a window has to reach before anything is said,
+// clamped to something that can actually be crossed. 0 and anything outside
+// 1–100 mean the default rather than silence: a threshold nobody can reach is
+// the same as switching the warning off, and switching it off is what the
+// toggle beside it is for.
+func (s Settings) Threshold() int {
+	if s.Limit < 1 || s.Limit > 100 {
+		return DefaultLimit
+	}
+	return s.Limit
 }

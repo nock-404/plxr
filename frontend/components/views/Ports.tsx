@@ -73,7 +73,7 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
           </div>
         ) : (
           ports.map((p) => (
-            <div key={`${p.pid}-${p.port}`} className="row" onContextMenu={ctx(rowMenu(p))}>
+            <div key={`${p.pid}-${p.port}`} className="row port" onContextMenu={ctx(rowMenu(p))}>
               <span className="hitDate">{p.port}</span>
               <span className="hitTitle">{p.command}</span>
               <span className="hitProject">{p.addr}</span>

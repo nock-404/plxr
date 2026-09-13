@@ -254,6 +254,74 @@
 }
 .paceNote { color: var(--dim); font-size: .8em; }
 .pacenow.pace--hot .paceNote { color: var(--blocked); }
+
+/* What is left, per account.
+
+   The card is one readout, so it draws its own line underneath and the
+   windows inside it draw none. The bar is the same one the history uses, so
+   the two read as the same kind of number; what is different is the colour it
+   takes once a window is nearly gone — `uhot` is the one state in this view
+   and it reaches the name, the percentage and the bar together, because a
+   coloured bar on its own is a decoration and a coloured sentence is a
+   warning. */
+.uacct { border-bottom: var(--hair) solid var(--line); }
+.uacctName {
+  color: var(--fg);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .8em;
+}
+.uacctBadge {
+  color: var(--dead);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uacctHot {
+  color: var(--blocked);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uacctDir { color: var(--dead); font-size: .78em; }
+.uwinHead {
+  color: var(--dead);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uwinPct { color: var(--accent); }
+.uwinBar { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.uwinFill { background: var(--accent); opacity: .55; }
+.uwinWhen { color: var(--dim); font-size: .8em; }
+.uwinSpend { color: var(--dim); font-size: .78em; }
+.uwinNote { color: var(--dim); font-size: .78em; }
+.uacct.uhot .uacctName { color: var(--blocked); }
+.uwin.uhot .uwinPct,
+.uwin.uhot .uwinWhen { color: var(--blocked); }
+.uwin.uhot .uwinFill { background: var(--blocked); opacity: .75; }
+
+/* The spend by model. The header row is a label, the numbers are numbers,
+   and the block closes with the same hairline every other block does. */
+.umodels { border-bottom: var(--hair) solid var(--line); }
+.umodelName { color: var(--fg); font-size: .84em; }
+.umodelCell { color: var(--dim); font-size: .8em; }
+.umodelHead .umodelName,
+.umodelHead .umodelCell {
+  color: var(--dead);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+
+/* Where the numbers come from: quieter than everything above it, and never
+   hidden — it is the sentence that says how much to trust the rest. */
+.ufoot { color: var(--dead); font-size: .76em; }
+
+/* The rail entry for a view that has something to warn about. */
+.railhot .rname,
+.railhot .rmeta { color: var(--blocked); }
+.choiceButton.railhot { color: var(--blocked); }
 .ubox b { color: var(--accent); font-weight: 400; }
 .ubox span {
   color: var(--dead);
@@ -263,10 +331,11 @@
 }
 .sesstitle { color: var(--accent); letter-spacing: .08em; }
 .filesbar { border-bottom: var(--hair) solid var(--line); }
-/* The session's own directory. It was set in the quiet colour at three
+/* The path the tree stands on. It was set in the quiet colour at three
    quarters size, which on a see-through ground left it barely there — and it
-   is the one line saying which tree this is. */
-.filesroot { color: var(--fg); font-size: .8em; opacity: .85; }
+   is the one line saying which tree this is. Every step of it is a crumb you
+   can stand on now; the size and the weight are the same. */
+.filesbar .crumbs { font-size: .8em; opacity: .85; }
 .frow {
   color: var(--fg);
   opacity: .85;
@@ -766,8 +835,51 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .branchname { color: var(--fg); }
 .branchname[data-on="yes"] { color: var(--accent); }
 .branchdist { color: var(--dim); font-size: .8em; }
-.branchword { color: var(--dead); font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+/* A count and the word for it, read as one status: the number carries, the
+   word beside it does not. Every number in this bar wears the accent — the
+   files that differ, the commits ahead, the commits behind — because the
+   number is the part that changes and the part somebody is looking for. */
+.branchnum { color: var(--accent); }
+/* The words of a status, never a control.
+   This was var(--dead) on an unreset <button>, which is to say: the system's
+   grey pill with greyed-out text in it, in a bar of skinned controls. It is a
+   status now — dim words, an accent number — and it says under the pointer
+   that it opens the list it is counting. */
+.branchword { color: var(--dim); font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+button.branchword:not(:disabled):hover { color: var(--accent); }
+button.branchword:not(:disabled):hover .branchnum { text-decoration: underline; }
+button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: .12rem; }
+/* Nothing to show is still something to say. It goes quiet rather than grey:
+   there is no dead control here, only a folder with nothing in it. */
+.branchword:disabled { color: var(--dead); }
+.branchword:disabled .branchnum { color: var(--dead); }
 .branchsubject { color: var(--dim); font-size: .85em; }
+
+/* ---- what the folder is ---- */
+/* The head of a section, in the accent: three levels on one page — the heading
+   carries, the name beside a value is quiet, the value itself is the text. */
+.infohead { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .72em; }
+/* A name and its value. The name is the quiet half — it is the same word every
+   time — and the value is what was looked up. Quiet, not faint: --dead is the
+   colour of a heading nobody has to read, and these are the keys to the values
+   beside them. Read on the tube, "LAST FETCH" in --dead was not there at all. */
+.infoname { color: var(--dim); letter-spacing: .12em; text-transform: uppercase; font-size: .7em; }
+.infovalue { color: var(--fg); font-size: .9em; }
+/* A commit's message body and a README, as they were written. */
+.infotext { color: var(--dim); font-size: .85em; line-height: 1.5; }
+.infosubject { color: var(--fg); }
+/* One commit in the history, as a row that opens what it changed. */
+.commitrow { color: var(--fg); }
+.commitrow:hover .commitsubject { color: var(--accent); }
+.commitrow.on .commitsubject { color: var(--accent); }
+.commitrow:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: .1rem; }
+.commithash { color: var(--dim); font-size: .85em; }
+.commitwhen { color: var(--dead); font-size: .8em; }
+.commitsubject { color: var(--fg); }
+/* What points at a commit — a branch, a tag. The one thing in the history that
+   turns a list of sentences into a place. */
+.commitrefs { color: var(--accent); font-size: .75em; letter-spacing: .04em; }
+.commitpath { color: var(--dim); font-size: .82em; }
 
 /* Where you are. Read before anything else in this panel, so it carries. */
 .branchline { color: var(--accent); letter-spacing: .06em; text-transform: uppercase; font-size: .78em; }
@@ -945,9 +1057,12 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .panelTab[data-kind="session"] .panelTabIcon { color: var(--working); }
 .panelTab[data-kind="diff"] .panelTabIcon { color: var(--waiting); }
 .panelTab[data-kind="preview"] .panelTabIcon { color: var(--accent); }
-.panelTab[data-kind="ts"] .panelTabIcon, .panelTab[data-kind="tsx"] .panelTabIcon { color: var(--accent); }
-.panelTab[data-kind="go"] .panelTabIcon { color: var(--working); }
-.panelTab[data-kind="md"] .panelTabIcon { color: var(--fg); }
+.panelTab[data-kind="code"] .panelTabIcon { color: var(--accent); }
+.panelTab[data-kind="style"] .panelTabIcon { color: var(--working); }
+.panelTab[data-kind="data"] .panelTabIcon { color: var(--waiting); }
+.panelTab[data-kind="text"] .panelTabIcon { color: var(--fg); }
+.panelTab[data-kind="plain"] .panelTabIcon { color: var(--dead); }
+.panelTab[data-kind="view"] .panelTabIcon { color: var(--dim); }
 
 /* The strip the tabs sit in, and the settings filling a panel: both take the
    panel's own surface, so a region reads as one box rather than two. */
@@ -958,3 +1073,6 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
    hairline where it meets the work. */
 .dockShell { background: transparent; }
 .railHost { background: var(--panel); border-right: var(--hair) solid var(--line); }
+
+/* A port row: the number in the accent, because that is what is looked up. */
+.row.port .hitDate { color: var(--accent); }

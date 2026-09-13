@@ -545,6 +545,10 @@ func (s *Server) Routes() *http.ServeMux {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		writeJSON(w, s.c.Usage(days))
 	})
+	// What is left right now, per account — the figures the view leads with.
+	mux.HandleFunc("GET /api/usage/accounts", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.UsageAccounts())
+	})
 	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Pace())
 	})
@@ -633,6 +637,28 @@ func (s *Server) Routes() *http.ServeMux {
 			return
 		}
 		writeJSON(w, map[string]string{"hash": hash})
+	})
+	/* One commit, read in full: what it says, who made it, and which files it
+	 * touched. The history list has the subject and the age; this is what a
+	 * click on one of those rows opens. No hash means HEAD. */
+	mux.HandleFunc("GET /api/commit/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.ShowCommit(r.PathValue("id"), r.URL.Query().Get("hash"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
+	})
+	/* Everything the folder overview shows, in one answer: where the branch
+	 * stands, what HEAD did, the remotes, and the plain facts of the directory
+	 * itself. One route rather than eight, so the panel is never half drawn. */
+	mux.HandleFunc("GET /api/folder/{id}", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.c.FolderReport(r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, out)
 	})
 	mux.HandleFunc("GET /api/history/{id}", func(w http.ResponseWriter, r *http.Request) {
 		n, _ := strconv.Atoi(r.URL.Query().Get("n"))

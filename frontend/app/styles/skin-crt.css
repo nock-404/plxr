@@ -171,3 +171,21 @@
 [data-skin="crt"] .sessionTabBell { background: var(--accent); box-shadow: 0 0 .35rem var(--accent); }
 
 [data-skin="crt"] .panelTabIcon { text-shadow: 0 0 var(--glow) currentColor; }
+/* ---- the folder's standing, on the tube ----
+   A status the tube can carry: the number that changes glows the way every
+   live reading in this skin does, and the words beside it stay quiet. It is
+   not a control and it never was — it only looked like one, because nothing
+   reset what the browser draws around a <button>. */
+[data-skin="crt"] .branchnum { text-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 65%, transparent); }
+[data-skin="crt"] button.branchword:not(:disabled):hover .branchnum { text-decoration: none; text-shadow: 0 0 var(--glow) var(--accent); }
+[data-skin="crt"] .commitrefs { text-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 45%, transparent); }
+
+/* The overview is the reading half of the same view the tree is the other half
+   of, so it takes the same glass. Without a surface of its own it sat straight
+   on the tube and the quiet labels down its left edge had nothing to sit on. */
+[data-skin="crt"] .folderinfo {
+  background-color: var(--panel-glass);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+  backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+}
+[data-skin="crt"] .infohead { text-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 50%, transparent); }

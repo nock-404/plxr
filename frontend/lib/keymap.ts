@@ -48,7 +48,11 @@ export type Action =
   | "groupPrev"
   | "groupNext"
   | "view9"
-  | "newShell";
+  | "newShell"
+  | "filesUp"
+  | "toggleLeft"
+  | "toggleRight"
+  | "toggleBottom";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -78,6 +82,18 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "panelNext", chord: "Mod+Option+ArrowRight", key: "keys.panelNext", fallback: "Next panel in the group" },
   { id: "groupPrev", chord: "Mod+Option+ArrowUp", key: "keys.groupPrev", fallback: "Previous group" },
   { id: "groupNext", chord: "Mod+Option+ArrowDown", key: "keys.groupNext", fallback: "Next group" },
+  /* The file tree, upwards. It belongs in this table like every other key —
+     it is rebindable and it is printed under "?" — but it is read by the tree
+     itself rather than by the window: several trees can be open at once, and
+     the one being walked through is the one with the keyboard. */
+  { id: "filesUp", chord: "Mod+ArrowUp", key: "keys.filesUp", fallback: "Up one folder in the file tree" },
+  /* The three tool regions, folded away and brought back — the chords every
+     editor has, because a region that can only be closed loses what was in
+     it and a window with no way to clear the sides is a window with no room
+     to work in. */
+  { id: "toggleLeft", chord: "Mod+B", key: "keys.toggleLeft", fallback: "Show or hide the left region" },
+  { id: "toggleRight", chord: "Mod+Option+B", key: "keys.toggleRight", fallback: "Show or hide the right region" },
+  { id: "toggleBottom", chord: "Mod+J", key: "keys.toggleBottom", fallback: "Show or hide the bottom region" },
 ];
 
 // The rail views, in the order ⌘1…9 reaches them. Search came last, so the
