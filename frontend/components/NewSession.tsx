@@ -5,9 +5,10 @@ import Button from "@/components/ui/Button";
 import FolderPick from "@/components/ui/FolderPick";
 import PathField from "@/components/ui/PathField";
 import Tooltip from "@/components/ui/Tooltip";
-import { shortPath } from "@/lib/format";
+import { accountName, shortPath } from "@/lib/format";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { isHot, useAccountLimits, worst } from "@/lib/useLimits";
 import type { Account, Agent, Tile } from "@/lib/types";
 
 // Start a session: where, what to start, under which account.
@@ -40,6 +41,9 @@ export default function NewSession({
      ask. Only Claude Code knows the flag, so it is only offered for it. */
   const [unattended, setUnattended] = useState(false);
   const unattendable = pick === "claude";
+
+  // What is left on each account, shared with the rail and the usage view.
+  const { accounts: limits, at: hotAt } = useAccountLimits();
 
   /* Two agents in one folder edit the same files without knowing about each
      other, and the damage shows up much later as a conflict nobody can explain.
@@ -202,17 +206,35 @@ export default function NewSession({
             <div className="field">
               <span className="fieldName">{tr("new.account", "account")}</span>
               <div className="choice">
-                {accounts.map((a) => (
-                  <Button
-                    bare
-                    key={a.name}
-                    className="choiceButton"
-                    data-picked={account === a.name ? "yes" : undefined}
-                    onClick={() => setAccount(a.name)}
-                  >
-                    {tr("accounts.numbered", `account ${a.number}`, { n: a.number })}
-                  </Button>
-                ))}
+                {accounts.map((a) => {
+                  /* An account nearly out of one of its windows is marked
+                     here, before the run starts on it — that is the moment
+                     the choice still costs nothing. */
+                  const seen = limits.get(a.name);
+                  const top = seen ? worst(seen) : null;
+                  const hot = Boolean(seen && isHot(seen, hotAt) && top);
+                  const button = (
+                    <Button
+                      bare
+                      key={a.name}
+                      className={`choiceButton${hot ? " railhot" : ""}`}
+                      data-picked={account === a.name ? "yes" : undefined}
+                      data-nearly-out={hot ? "yes" : undefined}
+                      onClick={() => setAccount(a.name)}
+                    >
+                      {hot && top
+                        ? tr("accounts.nearlyOut", "{name} · {pct}% used", { name: accountName(a), pct: top.percent })
+                        : accountName(a)}
+                    </Button>
+                  );
+                  return hot ? (
+                    <Tooltip key={a.name} text={tr("usage.hotTip", "This account is close to the end of one of its windows. Start long work somewhere else, or wait for it to come back.")}>
+                      {button}
+                    </Tooltip>
+                  ) : (
+                    button
+                  );
+                })}
               </div>
             </div>
           ) : null}

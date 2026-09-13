@@ -81,6 +81,73 @@ export interface Usage {
   byModel?: UsageBucket[];
 }
 
+/* One rolling allowance, as far as this machine can see it —
+   internal/usage/limits.go Window, field for field.
+
+   `known` is the honest one: false means no reading was found on disk for
+   this account, and the view has to say so rather than draw a bar at zero.
+   `resetsAt` and `startsAt` are milliseconds, 0 when unknown; they are shown
+   in the reader's own timezone, which only the window knows. `measured` says
+   the spend was summed from the window's real start — without a reset time
+   there is no real start, and the figure is over the window's nominal length
+   ending now. */
+export interface UsageWindow {
+  kind: "session" | "week" | "weekModel";
+  known: boolean;
+  percent: number;
+  severity?: string;
+  model?: string;
+  resetsAt: number;
+  startsAt: number;
+  measured: boolean;
+  spend: Omit<UsageBucket, "key">;
+  byModel: UsageBucket[];
+}
+
+/* One account's readout. The percentages are genuinely per account — they
+   come out of that account's own file. The token figures may not be: where
+   several accounts read one directory of transcripts, `sharedWith` names the
+   others and the numbers are the pool's, because nothing on disk says which
+   account paid for a line. */
+export interface AccountUsage {
+  name: string;
+  label?: string;
+  number: number;
+  short: string;
+  isDefault?: boolean;
+  known: boolean;
+  fetchedAt: number;
+  source: string;
+  session: UsageWindow;
+  week: UsageWindow;
+  weekModel: UsageWindow;
+  sharedWith: string[];
+  transcripts: string;
+}
+
+/* Every account added together, underneath the per-account figures rather
+   than instead of them. There is no total percentage on purpose: three
+   accounts on three plans have three different allowances. */
+export interface UsageTotals {
+  accounts: number;
+  session: Omit<UsageBucket, "key">;
+  week: Omit<UsageBucket, "key">;
+  byModel: UsageBucket[];
+}
+
+export interface AccountUsageReport {
+  accounts: AccountUsage[];
+  total: UsageTotals;
+  pools: number;
+  /* The percentage at which the service says something, as set in the
+     notification settings. The rail and the pickers mark at the same point,
+     so a colour never disagrees with a notification. */
+  threshold: number;
+  files: number;
+  readAt: number;
+  duration: string;
+}
+
 /* How fast the allowance is going right now — internal/usage/usage.go Pace,
    field for field. window5h and perHour are tokens, active is the number of
    sessions that spent something in the last hour. */
@@ -257,12 +324,18 @@ export interface NotifyWhen {
   waiting: boolean;
   ended: boolean;
   crashed: boolean;
+  /* An account is running out of its window. On by default, for the same
+     reason as needsYou: it is the other state where nothing anybody does
+     afterwards helps. */
+  limit: boolean;
 }
 
 export interface NotifySettings {
   on: boolean;
   sound: string;
   when: NotifyWhen;
+  /* How full a window has to be before plxr says so, in percent. */
+  limit: number;
 }
 
 /* How the system permission stands, as the plxr window reported it to the

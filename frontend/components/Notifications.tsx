@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 import Tooltip from "@/components/ui/Tooltip";
 import Select from "@/components/ui/Select";
 import Toggle from "@/components/ui/Toggle";
@@ -27,12 +28,18 @@ const EVENTS: { key: keyof NotifySettings["when"]; text: string; english: string
   { key: "waiting", text: "notify.waiting", english: "an agent falls idle" },
   { key: "ended", text: "notify.ended", english: "a session ends" },
   { key: "crashed", text: "notify.crashed", english: "a session is lost to a crash" },
+  { key: "limit", text: "notify.limit", english: "an account is running out of its window" },
 ];
 
 // The permission is asked of the service every few seconds while the panel
 // is open: it changes when the window answers the system's question, and
 // that happens while this is on screen.
 const ASK_EVERY = 2000;
+
+/* How full a window has to be before plxr says so, when nothing is set. The
+   same number as internal/notify.DefaultLimit — far enough from the wall that
+   a long run can still be finished or moved. */
+const DEFAULT_LIMIT = 80;
 
 function permissionText(p: NotifyPermission, windows: number): string {
   if (windows === 0) {
@@ -62,6 +69,12 @@ export default function Notifications() {
   const [dnd, setDnd] = useState(false);
   const [note, setNote] = useState("");
   const [tested, setTested] = useState("");
+  /* What is being typed in the threshold field, held apart from what is
+     saved: the field commits on blur or Enter, and the poll above must not
+     overwrite a half-typed number. A ref rather than state, because the poll
+     reads it from inside an effect that was set up once. */
+  const [threshold, setThreshold] = useState("");
+  const typingRef = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -71,6 +84,7 @@ export default function Notifications() {
       setSounds(n.sounds ?? []);
       setPermission(n.permission ?? "unknown");
       setWindows(n.windows ?? 0);
+      if (!typingRef.current) setThreshold(String(n.settings.limit || DEFAULT_LIMIT));
     };
     api.notify().then(take).catch((e) => setNote(errText(e)));
     api
@@ -105,6 +119,21 @@ export default function Notifications() {
     } catch (e) {
       setNote(errText(e));
     }
+  }
+
+  /* The threshold, saved on leaving the field. Out of 1–100 is refused in
+     words rather than silently corrected: a number that cannot be crossed
+     would switch the warning off while its toggle still said on. */
+  async function keepThreshold(value: string) {
+    typingRef.current = false;
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n) || n < 1 || n > 100) {
+      setNote(tr("notify.limitRange", "Between 1 and 100 percent. Left as it was."));
+      setThreshold(String(settings?.limit || DEFAULT_LIMIT));
+      return;
+    }
+    setThreshold(String(n));
+    if (settings) await keep({ ...settings, limit: n });
   }
 
   // Do not disturb rides the shared settings, where the service reads it.
@@ -190,6 +219,36 @@ export default function Notifications() {
               ))}
             </div>
           </div>
+
+          {settings.when.limit ? (
+            <div className="field">
+              <span className="fieldName">{tr("notify.limitAt", "say so at")}</span>
+              <span className="rowInline">
+                <Input
+                  className="short"
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={5}
+                  value={threshold}
+                  onFocus={() => {
+                    typingRef.current = true;
+                  }}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  onBlur={(e) => void keepThreshold(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                  }}
+                />
+                <span className="notice">
+                  {tr(
+                    "notify.limitNote",
+                    "Percent of a window used. Said once per window, per account, with the time it comes back — the percentages are Claude Code's own reading from this machine. Nothing is stopped.",
+                  )}
+                </span>
+              </span>
+            </div>
+          ) : null}
 
           <div className="field">
             <span className="fieldName">{tr("notify.sound", "sound")}</span>

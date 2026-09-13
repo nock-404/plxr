@@ -92,7 +92,7 @@ func TestTheCurrentShapeSurvivesARoundTrip(t *testing.T) {
 		Version: cacheVersion,
 		Size:    4096,
 		Mod:     1700000000,
-		Days:    map[string]map[string]Item{"2026-08-31": {"opus": {In: 7, Out: 8}}},
+		Hours:   map[string]map[string]Item{"2026-08-31T09": {"opus": {In: 7, Out: 8}}},
 		Project: "plxr",
 	}
 	b, err := json.Marshal(before)
@@ -106,7 +106,7 @@ func TestTheCurrentShapeSurvivesARoundTrip(t *testing.T) {
 	if after.Size != before.Size || after.Version != before.Version || after.Project != before.Project {
 		t.Fatalf("a round trip changed %+v into %+v", before, after)
 	}
-	if after.Days["2026-08-31"]["opus"].In != 7 {
+	if after.Hours["2026-08-31T09"]["opus"].In != 7 {
 		t.Fatal("the numbers did not survive the round trip")
 	}
 }

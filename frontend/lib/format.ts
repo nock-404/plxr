@@ -1,7 +1,52 @@
 // Small shared formatters. Never duplicated in a view.
 
+import { tr } from "./i18n";
+
 export function clock(d: Date): string {
   return d.toLocaleTimeString(undefined, { hour12: false });
+}
+
+/* What an account is called on screen.
+ *
+ * The settings let somebody name an account, and an account nobody named is
+ * "account 2". That rule lived in the accounts panel alone, so the session
+ * bar, the new-session dialog and the usage view each said something else
+ * about the same account. It lives here now and they all ask.
+ */
+export function accountName(a: { label?: string; number: number }): string {
+  return a.label || tr("accounts.numbered", `account ${a.number}`, { n: a.number });
+}
+
+/* A moment in the reader's own timezone — the only one they can act on.
+ *
+ * Weekday and time for anything inside the next week, which is every window a
+ * plan has; a date as well once it is further off than that. 0 means nobody
+ * knows, and the caller says so in words instead of printing 1970. */
+export function moment(ms: number): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const week = 7 * 24 * 60 * 60 * 1000;
+  const near = Math.abs(ms - Date.now()) < week;
+  return d.toLocaleString(undefined, {
+    weekday: "short",
+    ...(near ? {} : { day: "2-digit", month: "2-digit" }),
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+/* How long until a moment, in the shortest useful words: 3h 20m, 2d 4h. Past
+   or unknown comes back empty, and the caller says what that means. */
+export function until(ms: number): string {
+  if (!ms) return "";
+  const s = Math.floor((ms - Date.now()) / 1000);
+  if (s <= 0) return "";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
 /* A big number, short enough for a tile. */
