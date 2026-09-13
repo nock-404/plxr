@@ -90,6 +90,9 @@
 [data-skin="crt"] .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--dim); }
 [data-skin="crt"] .stripe[data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--panel-glass)); }
+[data-skin="crt"] .stripe[data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--panel-glass)); }
+[data-skin="crt"] .stripeGap { border-radius: 0; }
+[data-skin="crt"] .stripeGhost { border-radius: 0; box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent), 0 .5rem 1.5rem var(--shadow); }
 [data-skin="crt"] .stripeIcon { border-radius: 0; }
 [data-skin="crt"] .stripeIcon[data-lit="yes"] { filter: drop-shadow(0 0 .25rem var(--accent)); }
 [data-skin="crt"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent); }

@@ -126,6 +126,9 @@
 [data-skin="pixel"] .stripe[data-edge="right"] { box-shadow: inset var(--px) 0 0 var(--line); }
 [data-skin="pixel"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--px) 0 var(--line); }
 [data-skin="pixel"] .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 18%, var(--bg-glass)); }
+[data-skin="pixel"] .stripe[data-drop="yes"] { background: color-mix(in srgb, var(--accent) 16%, var(--bg-glass)); }
+[data-skin="pixel"] .stripeGap { border: var(--px) dashed var(--accent); border-radius: 0; }
+[data-skin="pixel"] .stripeGhost { color: var(--bg); background: var(--accent); border-radius: 0; box-shadow: var(--px) var(--px) 0 0 var(--line); }
 [data-skin="pixel"] .stripeIcon { border-radius: 0; }
 [data-skin="pixel"] .stripeIcon:hover { background: var(--panel); }
 [data-skin="pixel"] .stripeIcon[data-lit="yes"] { background: var(--accent); color: var(--bg); }

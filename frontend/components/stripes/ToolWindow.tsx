@@ -33,6 +33,7 @@ export default function ToolWindow({
   edge,
   lit,
   onHide,
+  moreRows,
   children,
 }: {
   id: ToolId;
@@ -41,6 +42,10 @@ export default function ToolWindow({
   // Whether it is the window showing at its edge.
   lit: boolean;
   onHide: () => void;
+  /* The ⋮ menu's rows around its Hide — where the tool can be moved to, and
+     every tool back where it started — from the dock, which knows both.
+     Without it the menu offers Hide alone. */
+  moreRows?: (hide: MenuItem) => MenuItem[];
   children: ReactNode;
 }) {
   const def = TOOLS.find((t) => t.id === id) ?? TOOLS[0];
@@ -52,7 +57,10 @@ export default function ToolWindow({
   const title = tr(def.key, def.fallback);
   const hideText = tr("tool.hide", "Hide");
 
-  const items = (): MenuItem[] => [{ label: hideText, hint: chord || undefined, onClick: onHide }];
+  const items = (): MenuItem[] => {
+    const hide: MenuItem = { label: hideText, hint: chord || undefined, onClick: onHide };
+    return moreRows ? moreRows(hide) : [hide];
+  };
 
   return (
     <div

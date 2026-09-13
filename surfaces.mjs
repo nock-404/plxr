@@ -398,12 +398,15 @@ const iconMenu = await tab.run(`${HELPERS}
   const rows = menuRows();
   const open = document.querySelector('body > .menu [data-do="tool-open"]');
   const hint = open?.querySelector('.menuHint')?.textContent.trim() ?? '';
+  const ticked = [...document.querySelectorAll('body > .menu .menuItem[aria-checked="true"]')].map(b => b.querySelector('.menuLabel').textContent.trim());
+  const heads = menuHeads();
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(100);
-  return { rows, open: Boolean(open), hint, ms: got.ms };
+  return { rows, open: Boolean(open), hint, ticked, heads, ms: got.ms };
 `);
-claim("right-click on a tool's icon offers Open, with the key that opens it", iconMenu.open && iconMenu.rows[0] === "Open" && iconMenu.hint === "⌘2",
-  `${iconMenu.rows.join(" · ")} · Open's key ${iconMenu.hint} · after ${iconMenu.ms} ms`);
+claim("right-click on a tool's icon offers Open with its key, Move to Left / Right / Bottom with its edge ticked, and Reset tool positions",
+  iconMenu.open && iconMenu.rows.join(" · ") === "Open · Left · Right · Bottom · Reset tool positions" && iconMenu.hint === "⌘2" && iconMenu.heads.includes("Move to") && iconMenu.ticked.join(",") === "Right",
+  `${iconMenu.rows.join(" · ")} under ${iconMenu.heads.join(", ")} · ticked ${iconMenu.ticked.join(",")} · Open's key ${iconMenu.hint} · after ${iconMenu.ms} ms`);
 
 // ---- the session switch: every session, its menu, and the keyboard ------------------
 /* The list of sessions, at the top of the window. A

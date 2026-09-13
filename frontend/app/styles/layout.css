@@ -205,6 +205,8 @@ body {
                                 a dialog included
      400     .selectList        a dropdown's list, over any of the above
      410     .tooltip           a hint, over everything — it is read last
+     420     .stripeGhost       an icon carried to another stripe, under the
+                                pointer, over the hint it had
 */
 
 /* The skin's effect layer: scanlines, vignette, grain. Above everything,
@@ -1078,6 +1080,17 @@ button.diffline { cursor: pointer; }
 .stripe[data-edge="left"] { grid-column: 1; grid-row: 1; flex-direction: column; }
 .stripe[data-edge="right"] { grid-column: 3; grid-row: 1; flex-direction: column; }
 .stripe[data-edge="bottom"] { grid-column: 1 / 4; grid-row: 2; flex-direction: row; }
+/* An icon is carried by the window's own pointer handling, not the browser's:
+   nothing in a stripe is selected on the way, a press has to move further than
+   --stripe-drag before it counts as carrying, the carried icon is out of sight
+   in its stripe while a gap of an icon's size opens where it would land, and a
+   copy of it follows the pointer over everything. */
+:root { --stripe-drag: 0.25rem; }
+.stripe { user-select: none; -webkit-user-select: none; }
+.stripeIcon[data-dragging="yes"] { display: none; }
+.stripeGap { flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); }
+.stripeGhost { position: fixed; left: 0; top: 0; z-index: 420; width: var(--stripe-icon-box); height: var(--stripe-icon-box); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.stripeGhost .uiIcon { margin: 0; }
 /* An icon is a square of its own whatever a skin draws around it; the mark
    keeps its pack's size and sits in the middle of it. */
 .stripeIcon { position: relative; flex: 0 0 auto; width: var(--stripe-icon-box); height: var(--stripe-icon-box); margin: 0; padding: 0; display: flex; align-items: center; justify-content: center; font: inherit; line-height: 1; touch-action: none; }

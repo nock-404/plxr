@@ -23,6 +23,12 @@
  *   ⌘B ⌥⌘B ⌘J and the three edge buttons in the top bar show and hide their
  *     edge, the buttons pressed while it shows, and an empty edge changes no
  *     box and flashes its stripe; an icon's tooltip names it and its key;
+ *   an icon carried to another stripe lands where it was let go and opens
+ *     there, a stray release or Escape changes nothing and a press that does
+ *     not move is a click; the placement survives a reload and a reset of the
+ *     layout, a second window follows it, its key follows it, the ⋮ and the
+ *     right button move a tool the same way, and Reset tool positions puts
+ *     every tool back;
  *     ⌘2 shows the Inbox with the keyboard in it, gives the keyboard back to
  *     it, and puts it away from inside it; ⇧⎋ hides the window the keyboard
  *     is in and nothing else;
@@ -359,6 +365,8 @@ const HELPERS = `${GATEKIT}
   const closeMenu = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(150); };
   const near = (a, b, t) => a !== null && b !== null && Math.abs(a - b) <= (t || 1);
   const TOOL_IDS = ['files', 'changes', 'search', 'review', 'inbox', 'usage', 'ports', 'archive', 'notes'];
+  const order = e => [...document.querySelectorAll('.stripe[data-edge="' + e + '"] .stripeIcon[data-tool]')].map(i => i.dataset.tool);
+  const menuChecked = () => [...document.querySelectorAll('body > .menu .menuItem[aria-checked="true"]')].map(e => ((e.querySelector('.menuLabel') || {}).textContent || '').trim());
 `;
 
 const near = (a, b, tol = 1) => typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= tol;
@@ -513,6 +521,7 @@ const header = await run(`${HELPERS}
   w.querySelector('[data-do="tool-more"]').click();
   await wait(300);
   const rows = menuRows();
+  const ticked = menuChecked();
   await closeMenu();
   // The middle button inside the window.
   const body = w.querySelector('.toolBody');
@@ -531,14 +540,18 @@ const header = await run(`${HELPERS}
   const shownAgain = Boolean(edgeBox('files'));
   win('files').querySelector('[data-do="tool-hide"]').click();
   await wait(600);
-  return { title, icon: iconName('files'), closes, hideLabel, rows, afterMiddle, focused, afterW, afterReopen, shownAgain, afterHideButton: { lit: toolLit('files'), box: edgeBox('files') } };
+  return { title, icon: iconName('files'), closes, hideLabel, rows, ticked, afterMiddle, focused, afterW, afterReopen, shownAgain, afterHideButton: { lit: toolLit('files'), box: edgeBox('files') } };
 `);
 {
   const h = header;
   const chord = process.platform === "darwin" ? "⌘B" : "Ctrl+B";
   claim("the header names the tool the way its icon does", h.title !== "" && h.title.toLowerCase() === h.icon.toLowerCase(), `header "${h.title}" · icon "${h.icon}"`);
   claim("there is no × anywhere in a tool window", h.closes === 0, `${h.closes} closes in the edges`);
-  claim(`⋮ offers Hide with the edge's chord, and nothing else`, JSON.stringify(h.rows) === JSON.stringify([`${h.hideLabel} [${chord}]`]), h.rows.join(" | "));
+  claim(
+    "⋮ reads Move to Left, Right, Bottom with the tool's own edge ticked, then Hide with the edge's chord, then Reset tool positions",
+    JSON.stringify(h.rows) === JSON.stringify(["# Move to", "Left", "Right", "Bottom", "---", `${h.hideLabel} [${chord}]`, "Reset tool positions"]) && JSON.stringify(h.ticked) === '["Left"]',
+    `${h.rows.join(" | ")} · ticked ${h.ticked.join(",")}`,
+  );
   claim("the middle button inside a tool window closes nothing", h.afterMiddle.lit && Boolean(h.afterMiddle.box), JSON.stringify(h.afterMiddle));
   claim("⌘W with the keyboard in the window hides it, and its icon stays", h.focused && !h.afterW.lit && !h.afterW.box && h.afterW.icon, JSON.stringify({ focused: h.focused, ...h.afterW }));
   claim("⇧⌘T does not bring the tool back, as a window or as a tab of main", !h.afterReopen.lit && !h.afterReopen.box && !h.afterReopen.gridTabs.includes(h.title), JSON.stringify(h.afterReopen));
@@ -699,6 +712,231 @@ const chord = await run(`${HELPERS}
   claim("⇧⎋ with the keyboard outside every tool window hides nothing", c.outside.lit && c.outside.shown, JSON.stringify(c.outside));
 }
 
+// ---- carrying an icon to another stripe --------------------------------------------
+/* The pointer the way a hand moves it, through the debugging protocol: pressed
+   on an icon, moved in steps, let go. Measured half way: the copy under the
+   pointer, the stripe it would land on marked, one gap on it. */
+const order = async () => run(`${HELPERS} return { left: order('left'), right: order('right'), bottom: order('bottom') };`);
+const centreOf = async (selector) => run(`${HELPERS} const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;`);
+async function carry(tool, to, { escape = false, shot = "" } = {}) {
+  const from = await centreOf(`.stripe .stripeIcon[data-tool="${tool}"]`);
+  if (!from) return { error: `no icon for ${tool}` };
+  await mouse("mouseMoved", from.x, from.y);
+  await mouse("mousePressed", from.x, from.y, { button: "left", buttons: 1, clickCount: 1 });
+  const steps = 14;
+  for (let i = 1; i <= steps; i++) {
+    await mouse("mouseMoved", from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps, { button: "left", buttons: 1 });
+    await sleep(20);
+  }
+  await sleep(200);
+  const mid = await run(`${HELPERS}
+    return { ghost: box(document.querySelector('.stripeGhost')), dropOn: [...document.querySelectorAll('.stripe[data-drop="yes"]')].map(s => s.dataset.edge),
+      gaps: document.querySelectorAll('.stripeGap').length, carried: [...document.querySelectorAll('.stripeIcon[data-dragging="yes"]')].map(e => e.dataset.tool),
+      marked: document.body.dataset.draggingTool ?? '' };
+  `);
+  if (shot) await snap(shot);
+  if (escape) {
+    await cdp.send("Input.dispatchKeyEvent", { type: "rawKeyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 });
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27, nativeVirtualKeyCode: 27 });
+    await sleep(200);
+  }
+  await mouse("mouseReleased", to.x, to.y, { button: "left", buttons: 0, clickCount: 1 });
+  await sleep(900);
+  return { from, mid };
+}
+const settledPlaces = (p) => JSON.stringify([p.left, p.right, p.bottom]);
+const DEFAULT_PLACES = JSON.stringify([["files", "changes", "search", "review"], ["inbox", "usage", "ports", "archive", "notes"], []]);
+
+await run(`${HELPERS} await hideAll(); document.activeElement?.blur?.();`);
+const bottomSpot = await run(`${HELPERS} const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { x: b.x + 90, y: b.y + b.h / 2 };`);
+const carried = await carry("inbox", bottomSpot, { shot: "carrying" });
+const landed = await run(`${HELPERS} return { left: order('left'), right: order('right'), bottom: order('bottom'), lit: toolLit('inbox'), showing: showing(),
+  ghost: Boolean(document.querySelector('.stripeGhost')), gaps: document.querySelectorAll('.stripeGap').length, marked: document.body.dataset.draggingTool ?? '' };`);
+{
+  const m = carried.mid ?? {};
+  claim(
+    "carried half way, a copy of the icon follows the pointer, the icon is out of its stripe, and the bottom stripe is marked with a gap",
+    m.ghost && near(m.ghost.x + m.ghost.w / 2, bottomSpot.x, 2) && near(m.ghost.y + m.ghost.h / 2, bottomSpot.y, 2) && JSON.stringify(m.dropOn) === '["bottom"]' && m.gaps === 1 && JSON.stringify(m.carried) === '["inbox"]' && m.marked === "yes",
+    `${JSON.stringify(m)} · pointer at ${Math.round(bottomSpot.x)},${Math.round(bottomSpot.y)}`,
+  );
+  claim(
+    "let go on the empty bottom stripe, Inbox is its first icon and gone from the right one; it stays dark, and nothing of the carrying is left",
+    landed.bottom[0] === "inbox" && !landed.right.includes("inbox") && !landed.lit && landed.showing.length === 0 && !landed.ghost && landed.gaps === 0 && landed.marked === "",
+    `left ${landed.left.join(",")} · right ${landed.right.join(",")} · bottom ${landed.bottom.join(",")} · lit ${landed.lit} · showing ${landed.showing.join(",") || "none"}`,
+  );
+}
+const between = await run(`${HELPERS}
+  await click('files', 800); await click('usage', 800); await click('inbox', 1000);
+  const out = { b: edgeBox('inbox'), l: edgeBox('files'), r: edgeBox('usage'), s: box(document.querySelector('.stripe[data-edge="bottom"]')), lit: toolLit('inbox') };
+  await hideAll();
+  return out;
+`);
+claim(
+  "clicked, it opens its window at the bottom, between the two side windows and on the bottom stripe",
+  between.lit && between.b && between.l && between.r && near(between.b.x, between.l.x + between.l.w, 2) && near(between.b.x + between.b.w, between.r.x, 2) && near(between.b.y + between.b.h, between.s.y, 1),
+  `inbox ${show(between.b)} · left ${show(between.l)} · right ${show(between.r)} · bottom stripe ${show(between.s)}`,
+);
+
+// Let go where no stripe is, Escape half way, and a press that does not move.
+await run(`${HELPERS} await hideAll(); document.activeElement?.blur?.();`);
+const placesNow = settledPlaces(await order());
+const mainSpot = await run(`${HELPERS} const g = grid(); return { x: g.x + g.w / 2, y: g.y + g.h / 2 };`);
+await carry("notes", mainSpot);
+const afterStray = { places: settledPlaces(await order()), lit: await run(`${HELPERS} return toolLit('notes');`) };
+const escaped = await carry("notes", bottomSpot, { escape: true });
+const afterEscape = await run(`${HELPERS} return { lit: toolLit('notes'), marked: document.body.dataset.draggingTool ?? '', ghost: Boolean(document.querySelector('.stripeGhost')) };`);
+afterEscape.places = settledPlaces(await order());
+async function tap(tool) {
+  const at = await centreOf(`.stripe .stripeIcon[data-tool="${tool}"]`);
+  await mouse("mouseMoved", at.x, at.y);
+  await mouse("mousePressed", at.x, at.y, { button: "left", buttons: 1, clickCount: 1 });
+  await mouse("mouseReleased", at.x, at.y, { button: "left", buttons: 0, clickCount: 1 });
+  await sleep(900);
+  return run(`${HELPERS} return toolLit(${JSON.stringify(tool)});`);
+}
+const tapOn = await tap("usage");
+const tapOff = await tap("usage");
+claim("let go where there is no stripe, nothing moves and nothing opens", afterStray.places === placesNow && afterStray.lit === false, `${afterStray.places} against ${placesNow} · notes lit ${afterStray.lit}`);
+claim(
+  "Escape half way puts the icon back: let go on a stripe afterwards, nothing moves and nothing opens",
+  escaped.mid?.gaps === 1 && afterEscape.places === placesNow && !afterEscape.lit && afterEscape.marked === "" && !afterEscape.ghost,
+  `gap before Escape ${escaped.mid?.gaps} · ${afterEscape.places} · notes lit ${afterEscape.lit} · still carrying ${afterEscape.marked === "yes"}`,
+);
+claim("pressed and let go without moving, an icon toggles its window", tapOn === true && tapOff === false, `first press lit ${tapOn} · second ${tapOff}`);
+
+// Kept: in prefs, through a reload, and through a reset of the panel layout.
+await sleep(900);
+const keptPrefs = await api("/api/prefs");
+await load();
+const reloadedPlaces = await order();
+claim(
+  "after a reload Inbox is still first on the bottom stripe, prefs.toolLayout says so, and there is no dockRegions key",
+  reloadedPlaces.bottom[0] === "inbox" && keptPrefs.toolLayout?.order?.bottom?.[0] === "inbox" && !("dockRegions" in keptPrefs),
+  `bottom ${reloadedPlaces.bottom.join(",")} · prefs.toolLayout.order ${JSON.stringify(keptPrefs.toolLayout?.order)} · dockRegions in prefs ${"dockRegions" in keptPrefs}`,
+);
+const followKey = await run(`${HELPERS}
+  document.activeElement?.blur?.();
+  const inside = () => Boolean(document.activeElement?.closest?.('.toolWindow[data-tool="inbox"]'));
+  const stripe = box(document.querySelector('.stripe[data-edge="bottom"]'));
+  await key('2', { metaKey: true }); await wait(800);
+  const first = { lit: toolLit('inbox'), box: edgeBox('inbox'), inside: inside() };
+  document.activeElement?.blur?.();
+  await key('2', { metaKey: true }); await wait(800);
+  const back = { lit: toolLit('inbox'), inside: inside() };
+  await key('2', { metaKey: true }); await wait(800);
+  const gone = { lit: toolLit('inbox'), box: edgeBox('inbox') };
+  return { first, back, gone, stripe };
+`);
+claim(
+  "⌘2 follows the icon: it opens the Inbox at the bottom with the keyboard in it, gives the keyboard back to it from elsewhere, and hides it from inside",
+  followKey.first.lit && followKey.first.box && near(followKey.first.box.y + followKey.first.box.h, followKey.stripe.y, 1) && followKey.first.inside && followKey.back.lit && followKey.back.inside && !followKey.gone.lit && !followKey.gone.box,
+  JSON.stringify({ first: { ...followKey.first, box: show(followKey.first.box) }, back: followKey.back, gone: { lit: followKey.gone.lit, box: show(followKey.gone.box) } }),
+);
+const afterLayoutReset = await run(`${HELPERS} document.querySelector('.bar [data-do="reset-layout"]').click(); await wait(1400); return { bottom: order('bottom'), right: order('right') };`);
+claim("a reset of the panel layout leaves his placement: Inbox stays on the bottom stripe", afterLayoutReset.bottom[0] === "inbox" && !afterLayoutReset.right.includes("inbox"), `bottom ${afterLayoutReset.bottom.join(",")} · right ${afterLayoutReset.right.join(",")}`);
+
+// Two windows on one service: a tool carried in this one stands where it was put in the other within three seconds.
+let other = null;
+try {
+  const made = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(`${base}/?token=${info.token}`)}`, { method: "PUT" }).then((r) => r.json());
+  const second = await connect(made.webSocketDebuggerUrl);
+  await second.send("Runtime.enable");
+  await second.send("Emulation.setDeviceMetricsOverride", { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
+  const runB = async (expression) => {
+    const r = await second.send("Runtime.evaluate", { expression: `(async () => { ${expression} })()`, returnByValue: true, awaitPromise: true });
+    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
+    return r.result?.value;
+  };
+  let up = 0;
+  for (let i = 0; i < 60 && !up; i++) {
+    await sleep(300);
+    up = await runB(`${GATEKIT} return appUp();`).catch(() => 0);
+  }
+  other = { id: made.id, close: () => second.close(), runB, up };
+} catch (e) {
+  other = { error: String(e?.message ?? e) };
+}
+await cdp.send("Page.bringToFront").catch(() => undefined);
+if (!other?.up) {
+  unmeasured("an icon moved in one window stands on the other window's stripe within three seconds", other?.error ?? "the second window did not come up");
+} else {
+  await sleep(1500);
+  const litThere = await other.runB(`${HELPERS} await click('archive', 900); return toolLit('archive');`);
+  await cdp.send("Page.bringToFront").catch(() => undefined);
+  await sleep(500);
+  await carry("archive", bottomSpot);
+  const t0 = Date.now();
+  let seen = null;
+  while (Date.now() - t0 < 3000) {
+    seen = await other.runB(`${HELPERS} return { bottom: order('bottom'), right: order('right'), lit: toolLit('archive'), box: edgeBox('archive'), stripe: box(document.querySelector('.stripe[data-edge="bottom"]')) };`);
+    if (seen.bottom.includes("archive")) break;
+    await sleep(150);
+  }
+  const ms = Date.now() - t0;
+  const here = await run(`${HELPERS} return { bottom: order('bottom'), lit: toolLit('archive') };`);
+  claim(
+    "an icon carried in one window stands on the other window's stripe within three seconds, and the tool that showed there keeps showing, on its new edge",
+    seen?.bottom.includes("archive") && !seen.right.includes("archive") && ms <= 3000 && litThere && seen.lit && seen.box && near(seen.box.y + seen.box.h, seen.stripe.y, 1) && here.bottom.includes("archive") && !here.lit,
+    `after ${ms} ms the other window's bottom stripe holds ${seen?.bottom.join(",")} · archive showing there ${seen?.lit} (${show(seen?.box)}), before ${litThere} · here ${here.bottom.join(",")}, showing ${here.lit}`,
+  );
+  await fetch(`http://127.0.0.1:${port}/json/close/${other.id}`).catch(() => undefined);
+  other.close();
+  await cdp.send("Page.bringToFront").catch(() => undefined);
+  await sleep(600);
+}
+
+// ⋮ → Bottom, and the icon's own menu.
+const viaMore = await run(`${HELPERS}
+  await hideAll();
+  await click('files', 900);
+  win('files').querySelector('[data-do="tool-more"]').click();
+  const row = await until(() => document.querySelector('body > .menu [data-do="move-bottom"]'), 2000);
+  if (!row) return { why: 'no Bottom row under ⋮' };
+  row.click(); await wait(1100);
+  return { bottom: order('bottom'), left: order('left'), lit: toolLit('files'), box: edgeBox('files'), leftShows: showing().some(t => ['changes', 'search', 'review'].includes(t)),
+    stripe: box(document.querySelector('.stripe[data-edge="bottom"]')) };
+`);
+claim(
+  "⋮ → Bottom moves Files to the end of the bottom stripe, and as it was showing it shows there; the left edge is hidden",
+  !viaMore.why && viaMore.bottom[viaMore.bottom.length - 1] === "files" && !viaMore.left.includes("files") && viaMore.lit && viaMore.box && near(viaMore.box.y + viaMore.box.h, viaMore.stripe.y, 1) && !viaMore.leftShows,
+  viaMore.why ?? `bottom ${viaMore.bottom.join(",")} · left ${viaMore.left.join(",")} · files lit ${viaMore.lit} at ${show(viaMore.box)} · a left tool showing ${viaMore.leftShows}`,
+);
+const portsAt = await centreOf('.stripe .stripeIcon[data-tool="ports"]');
+await mouse("mousePressed", portsAt.x, portsAt.y, { button: "right", clickCount: 1 });
+await mouse("mouseReleased", portsAt.x, portsAt.y, { button: "right", clickCount: 1 });
+const viaIcon = await run(`${HELPERS}
+  const row = await until(() => document.querySelector('body > .menu [data-do="move-bottom"]'), 2000);
+  if (!row) return { why: 'no Bottom row under the right button' };
+  const rows = menuRows(); const ticked = menuChecked();
+  row.click(); await wait(1100);
+  return { rows, ticked, bottom: order('bottom'), right: order('right'), lit: toolLit('ports'), filesLit: toolLit('files') };
+`);
+claim(
+  "right-click on an icon reads Open with its key, Move to Left, Right, Bottom with its edge ticked, and Reset tool positions; Bottom moves Ports there and leaves it dark",
+  !viaIcon.why && JSON.stringify(viaIcon.rows) === JSON.stringify(["Open [⌘5]", "---", "# Move to", "Left", "Right", "Bottom", "---", "Reset tool positions"]) && JSON.stringify(viaIcon.ticked) === '["Right"]'
+    && viaIcon.bottom[viaIcon.bottom.length - 1] === "ports" && !viaIcon.right.includes("ports") && !viaIcon.lit && viaIcon.filesLit,
+  viaIcon.why ?? `${viaIcon.rows.join(" | ")} · ticked ${viaIcon.ticked.join(",")} · bottom ${viaIcon.bottom.join(",")} · ports lit ${viaIcon.lit} · files still showing ${viaIcon.filesLit}`,
+);
+const filesAt = await centreOf('.stripe .stripeIcon[data-tool="files"]');
+await mouse("mousePressed", filesAt.x, filesAt.y, { button: "right", clickCount: 1 });
+await mouse("mouseReleased", filesAt.x, filesAt.y, { button: "right", clickCount: 1 });
+const resetTools = await run(`${HELPERS}
+  const row = await until(() => document.querySelector('body > .menu [data-do="reset-tools"]'), 2000);
+  if (!row) return { why: 'no Reset tool positions row' };
+  row.click(); await wait(1400);
+  return { left: order('left'), right: order('right'), bottom: order('bottom'), filesLit: toolLit('files'), files: edgeBox('files'), stripe: box(document.querySelector('.stripe[data-edge="left"]')) };
+`);
+await sleep(800);
+const prefsAfterReset = await api("/api/prefs");
+claim(
+  "Reset tool positions puts every tool back where it started, Inbox on the right, forgets the placement, and Files, which was showing, shows on the left again",
+  !resetTools.why && settledPlaces(resetTools) === DEFAULT_PLACES && !("toolLayout" in prefsAfterReset) && resetTools.filesLit && resetTools.files && near(resetTools.files.x, resetTools.stripe.x + resetTools.stripe.w),
+  resetTools.why ?? `${settledPlaces(resetTools)} · prefs.toolLayout ${JSON.stringify(prefsAfterReset.toolLayout)} · files lit ${resetTools.filesLit} at ${show(resetTools.files)}`,
+);
+// The reset of the panel layout above closed the check's session; the sections after this one expect it in main.
+await run(`${HELPERS} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1500);`);
+await sleep(600);
+
 // ---- documents open in main, and stay there -----------------------------------
 const documents = await run(`${HELPERS}
   await click('files', 900);
@@ -772,6 +1010,13 @@ if (!documents.why) {
     return { centre: { x: b.x + b.w / 2, y: b.y + b.h / 2 }, inner: { x: b.x + b.w - i, y: b.y + b.h / 2 }, outer: { x: b.x + i, y: b.y + b.h / 2 }, top: { x: b.x + b.w / 2, y: b.y + i } };
   `);
   if (zones) for (const [zone, at] of Object.entries(zones)) drops.push({ zone, ...(await tabDrag("alpha.txt", at)) });
+  // And onto the stripes themselves, which are no drop target of the dock's.
+  const stripeSpots = await run(`${HELPERS} const l = box(document.querySelector('.stripe[data-edge="left"]')); const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { "left stripe": { x: l.x + l.w / 2, y: l.y + l.h - 40 }, "bottom stripe": { x: b.x + b.w / 2, y: b.y + b.h / 2 } };`);
+  for (const [zone, at] of Object.entries(stripeSpots)) {
+    const got = await tabDrag("alpha.txt", at);
+    const stripes = await run(`${HELPERS} return { onStripes: document.querySelectorAll('.stripe .dv-tab, .stripe .panelTab, .stripe .editorPanel').length, icons: stripeIcons().length };`);
+    drops.push({ zone, ...got, ...stripes });
+  }
   // The grid's own outer edge, with the left window hidden so main reaches it.
   const outer = await run(`${HELPERS} if (toolLit('files')) await click('files', 700); const g = grid(); return { x: g.x + 4, y: g.y + g.h / 2 };`);
   drops.push({ zone: "grid's outer edge", ...(await tabDrag("alpha.txt", outer)) });
@@ -781,9 +1026,9 @@ if (!documents.why) {
     JSON.stringify(moved),
   );
   claim(
-    "a document dragged onto a tool window's centre, its edges or the grid's outer edge stays in main, and every edge holds tools only",
-    drops.length === 5 && drops.every((d) => d.intercepted && d.inMain && d.inTools === 0),
-    drops.map((d) => `${d.zone}: in main ${d.inMain}, non-tools in edges ${d.inTools}`).join(" · "),
+    "a document dragged onto a tool window's centre, its edges, the grid's outer edge or a stripe stays in main, every edge holds tools only and every stripe its nine icons",
+    drops.length === 7 && drops.every((d) => d.intercepted && d.inMain && d.inTools === 0 && (d.onStripes ?? 0) === 0 && (d.icons ?? 9) === 9),
+    drops.map((d) => `${d.zone}: in main ${d.inMain}, non-tools in edges ${d.inTools}${d.icons !== undefined ? `, on the stripes ${d.onStripes}, icons ${d.icons}` : ""}`).join(" · "),
   );
 }
 

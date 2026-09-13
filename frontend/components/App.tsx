@@ -594,6 +594,7 @@ export default function App() {
       { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: openSettings },
       { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
       { id: "cmd:reset", group: tr("palette.action", "Action"), label: tr("palette.resetLayout", "Reset the panel layout"), run: () => direct({ type: "reset" }) },
+      { id: "cmd:resettools", group: tr("palette.action", "Action"), label: tr("tool.reset", "Reset tool positions"), run: () => direct({ type: "resetTools" }) },
       {
         id: "cmd:pauseall",
         group: tr("palette.action", "Action"),

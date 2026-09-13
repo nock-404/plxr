@@ -1362,5 +1362,10 @@
   "watermark.empty": "Nothing is open here",
   "watermark.board": "Board",
   "watermark.newSession": "New session",
-  "watermark.commands": "Commands"
+  "watermark.commands": "Commands",
+  "tool.moveTo": "Move to",
+  "edge.left": "Left",
+  "edge.right": "Right",
+  "edge.bottom": "Bottom",
+  "tool.reset": "Reset tool positions"
 }

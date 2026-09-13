@@ -1360,5 +1360,10 @@
   "watermark.empty": "Hier ist nichts offen",
   "watermark.board": "Tafel",
   "watermark.newSession": "Neue Session",
-  "watermark.commands": "Befehle"
+  "watermark.commands": "Befehle",
+  "tool.moveTo": "Verschieben nach",
+  "edge.left": "Links",
+  "edge.right": "Rechts",
+  "edge.bottom": "Unten",
+  "tool.reset": "Werkzeugpositionen zurücksetzen"
 }

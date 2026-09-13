@@ -27,16 +27,17 @@ import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
 import Stripes from "@/components/stripes/Stripes";
+import { moveRows, resetRow } from "@/components/stripes/moveMenu";
 import ToolWindow from "@/components/stripes/ToolWindow";
 import { edgeHost, focusedTool, type ToolHost } from "@/components/dock/toolHost";
-import { toolOps } from "@/components/dock/tools";
+import { followLayout, toolOps } from "@/components/dock/tools";
 import { migrateLayout } from "@/lib/layoutMigrate";
 import {
   DOCS,
   EDGES,
-  TOOLS,
   chordOf,
   defaultToolLayout,
+  edgeOf,
   fromRegions,
   isTool,
   normalizeToolLayout,
@@ -65,7 +66,7 @@ import { api } from "@/lib/api";
 import { fileIcon } from "@/lib/fileIcons";
 import type { IconName } from "@/lib/icons";
 import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
-import { setDense } from "@/lib/prefsEvents";
+import { PREFS_CHANGED, setDense } from "@/lib/prefsEvents";
 import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
 import { tabTitle } from "@/lib/state";
@@ -154,6 +155,11 @@ type DockData = {
   toggleTool: (id: ToolId) => void;
   revealTool: (id: ToolId) => void;
   hideEdge: (edge: Edge) => void;
+  /* His placement of the tools, and the two ways to change it from a menu: a
+     tool put on another edge, and every tool back where it started. */
+  toolLayout: ToolLayout;
+  moveTool: (id: ToolId, to: Edge, index: number) => void;
+  resetTools: () => void;
   /* The shell's own verbs, for the menus on the board and the stripes. */
   shell?: ShellActions;
   /* What the settings' layouts page can do — the shell owns the dialogs
@@ -681,9 +687,15 @@ function tool(id: ToolId, Body: () => ReactNode) {
   function ToolPanel() {
     const d = useDock();
     const edge = EDGES.find((e) => d.shownTools[e] === id) ?? null;
-    const home = edge ?? TOOLS.find((t) => t.id === id)?.edge ?? null;
+    const home = edge ?? edgeOf(d.toolLayout, id);
     return (
-      <ToolWindow id={id} edge={home} lit={edge !== null} onHide={() => edge && d.hideEdge(edge)}>
+      <ToolWindow
+        id={id}
+        edge={home}
+        lit={edge !== null}
+        onHide={() => edge && d.hideEdge(edge)}
+        moreRows={(hide) => [...moveRows(id, d.toolLayout, d.moveTool), { separator: true }, hide, resetRow(d.resetTools)]}
+      >
         <Body />
       </ToolWindow>
     );
@@ -763,7 +775,9 @@ export type LayoutRequest =
   | { type: "newShell" }
   | { type: "grid" }
   // An edge shown or hidden from the top bar, the way its key does it.
-  | { type: "toggleEdge"; arg: Edge };
+  | { type: "toggleEdge"; arg: Edge }
+  // Every tool back where it started, from the palette.
+  | { type: "resetTools" };
 export type LayoutAction = LayoutRequest & { seq: number };
 
 /* Every tab is the PanelTab. "editorTab" and "sessionTab" stay as names
@@ -803,6 +817,9 @@ export default function Dock({
   | "toggleTool"
   | "revealTool"
   | "hideEdge"
+  | "toolLayout"
+  | "moveTool"
+  | "resetTools"
   | "openEditor"
   | "activeId"
   | "editorTarget"
@@ -867,7 +884,43 @@ export default function Dock({
     flashTimer.current = window.setTimeout(() => setFlashing(null), 600);
   }, []);
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
-  const ops = useMemo(() => toolOps(() => hostRef.current, () => layoutRef.current, flash), [flash]);
+  /* A new placement is his: kept for the stripes and the verbs, and written
+     down — null for the one he started with — so it survives a reload and a
+     second window takes it up. What this window wrote lately is remembered for
+     a few seconds, so its own write coming back late is not taken for somebody
+     else's. */
+  const written = useRef<{ json: string; at: number }[]>([]);
+  const keepLayout = useCallback((next: ToolLayout | null) => {
+    const placed = next ?? defaultToolLayout();
+    layoutRef.current = placed;
+    setToolLayout(placed);
+    const now = Date.now();
+    written.current = [...written.current.filter((w) => now - w.at < 5000), { json: JSON.stringify(placed), at: now }];
+    void api.setPrefs({ toolLayout: next }).catch(() => undefined);
+  }, []);
+  const ops = useMemo(() => toolOps(() => hostRef.current, () => layoutRef.current, flash, keepLayout), [flash, keepLayout]);
+
+  /* Two windows, one placement. Another window moved a tool: this one takes
+     the new placement up and puts its tools where it says, and a tool showing
+     here keeps showing, on its new edge — which tools are open stays each
+     window's own. Not while an icon is being carried here. */
+  useEffect(() => {
+    const onPrefs = (e: Event) => {
+      const prefs = ((e as CustomEvent).detail ?? {}) as Record<string, unknown>;
+      const next = normalizeToolLayout(prefs.toolLayout);
+      const json = JSON.stringify(next);
+      if (json === JSON.stringify(layoutRef.current)) return;
+      const now = Date.now();
+      if (written.current.some((w) => w.json === json && now - w.at < 5000)) return;
+      if (document.body.dataset.draggingTool === "yes") return;
+      layoutRef.current = next;
+      setToolLayout(next);
+      const host = hostRef.current;
+      if (host) followLayout(host, next);
+    };
+    window.addEventListener(PREFS_CHANGED, onPrefs);
+    return () => window.removeEventListener(PREFS_CHANGED, onPrefs);
+  }, []);
   const hideEdge = useCallback((edge: Edge) => hostRef.current?.hide(edge), []);
   const toolsChangedRef = useRef(onToolsChanged);
   toolsChangedRef.current = onToolsChanged;
@@ -1169,11 +1222,12 @@ export default function Dock({
       tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openDoc, openPalette, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell, shownTools, toggleTool: ops.toggleTool, revealTool: ops.revealTool, hideEdge,
+      toolLayout, moveTool: ops.moveTool, resetTools: ops.resetTools,
     }),
     [
       tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openDoc, openPalette, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
-      requestClose, closeMany, newShell, shownTools, ops, hideEdge,
+      requestClose, closeMany, newShell, shownTools, ops, hideEdge, toolLayout,
     ],
   );
 
@@ -1267,6 +1321,9 @@ export default function Dock({
         break;
       case "toggleEdge":
         ops.toggleEdge(layoutAction.arg);
+        break;
+      case "resetTools":
+        ops.resetTools();
         break;
     }
     // onLayoutSaved is the shell's; only a new action is a reason to act.
@@ -1504,7 +1561,8 @@ export default function Dock({
             onToggle={ops.toggleTool}
             onReveal={ops.revealTool}
             onHide={hideEdge}
-            onResetLayout={shell?.resetLayout}
+            onMove={ops.moveTool}
+            onResetTools={ops.resetTools}
           />
           <div className="dockHost" ref={boxRef}>
             <DockviewReact

@@ -140,6 +140,9 @@
    pointer, and pressed in while its window shows. */
 [data-skin="win95"] .stripe { background: var(--panel-glass); box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
 [data-skin="win95"] .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 18%, var(--panel)); }
+[data-skin="win95"] .stripe[data-drop="yes"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+[data-skin="win95"] .stripeGap { border: var(--hair) dotted var(--dk); border-radius: 0; }
+[data-skin="win95"] .stripeGhost { color: var(--dk); background: var(--panel); border-radius: 0; box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
 [data-skin="win95"] .stripeIcon { color: var(--dk); border-radius: 0; }
 [data-skin="win95"] .stripeIcon:hover { color: var(--dk); background: none; box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
 [data-skin="win95"] .stripeIcon[data-lit="yes"] { color: var(--dk); background: color-mix(in srgb, var(--hi) 55%, var(--panel)); box-shadow: inset var(--hair) var(--hair) 0 var(--sh), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--hi); }

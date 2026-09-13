@@ -239,7 +239,9 @@ step "dock tabs" node tabs.mjs
 # The tools as icons on three stripes and windows at the edges of the dock:
 # the stripes at the frame whatever the dock does, a click on an icon shows its
 # window beside its stripe and main gives up exactly its width, the same click
-# hides it, the edge buttons in the top bar, a
+# hides it, the edge buttons in the top bar, an icon carried to another stripe
+# or moved from its menus landing there, kept through a reload and taken up by
+# a second window, a
 # second tool on the edge swaps into the same box, a dragged width that holds
 # through hide, show and a reload, no × and no ⌘W that loses one, files that
 # open in main and documents that cannot be dropped into a tool, main's splits

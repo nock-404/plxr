@@ -1095,6 +1095,12 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .stripeIcon:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: calc(var(--hair) * -1); }
 .stripeBadge { background: var(--accent); color: var(--bg); border-radius: 999rem; }
 .stripeIcon[data-nearly-out="yes"] .stripeBadge { background: var(--blocked); }
+/* Carrying an icon: the stripe it would land on washed in the accent, a dashed
+   gap where it lands, the copy under the pointer lifted off the page. */
+.stripe[data-drop="yes"] { background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.stripeGap { border: var(--hair) dashed var(--accent); border-radius: .375rem; }
+.stripeGhost { color: var(--accent); background: var(--surface); border-radius: .375rem; box-shadow: 0 .5rem 1.5rem var(--shadow); }
+body[data-dragging-tool="yes"] { cursor: grabbing; }
 
 /* A tool window: the panel surface, a hairline under its header, the name in
    spaced capitals and its mark dim — lit in the accent while the keyboard is
