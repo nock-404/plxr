@@ -927,7 +927,7 @@ that I do not agree with the menu as such."
   the next, and the panel remembers its width. plxr can fold a region only with
   ⌘B / ⌥⌘B / ⌘J, and nothing on screen shows or does it.
 
-- **P20 The model he wants, in his words (translated): "actually it is only icons
+- **P20 The model he wants, in his words (translated): "actually it is only icons (step 0 of the spec: GO on dockview's edge groups, measured 13.09 — see the spec §12.1)
   on every side. Left, right, bottom, and then it opens when you click on it, and
   then you can also move the icons to a side."** So: an icon stripe on the left,
   the right and the bottom edge and nothing else there; a click on an icon opens

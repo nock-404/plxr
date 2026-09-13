@@ -963,6 +963,51 @@ the results are written into OFFEN.md under this spec's name.
 
 ---
 
+### 12.1 Result (13.09.2026): GO on dockview 8.3.1's edge groups
+
+Measured in the real plxr window, a service of the spike build (branch
+spike/edge-groups, commit 3fc5249), headless Chrome at 1600×913. All six
+must-pass items pass; item 11 (not a must) fails, so plxr's own clamp is needed.
+
+- **Header hidden and body filling:** `group.model.header.hidden = true` takes
+  the header from 35 to 0 px on all three edges. A tool body filled only 19 px
+  until the fill rule was scoped to `.dv-shell` instead of `.plxrDock`.
+- **Hide and show keep the size:** main moves 0 px; after sash drags to
+  400/400/300, hide and show give exactly 400/400/300. A `setSize` while hidden
+  is applied on the next show.
+- **Serialization:** toJSON/fromJSON keep size, visibility, panels and the active
+  view in every path tried.
+- **Drops locked:** `api.locked = 'no-drop-target'` refuses 9 of 9 drops;
+  `dndEdges={false}` removes the outer-edge overlays.
+- **Documents:** `addPanel` with no position lands in the edge group when a tool
+  is active, so every document must go through `placeDocument`, which lands in
+  the last grid group.
+- **Emptied edges:** collapse to a 35 px strip; `expand()` then show restores the
+  size.
+- **Counting:** `dv.groups`/`dv.panels` include tools; filter on
+  `location.type === 'grid'`.
+- **Main floor (item 11, FAIL on its own):** dockview lets main overflow up to
+  156 px under the right tool window; with plxr's clamp main keeps 256 px with 0
+  overlap wherever there is room.
+
+#### Corrections to this spec from the spike
+1. `.plxrDock` lands on the centre grid inside `.dv-shell`, not on the whole dock;
+   the edge groups sit beside it. Every `.plxrDock …` rule that must reach tool
+   windows is rescoped, and §8.1's placement needs a wrapper element.
+2. `dv.width` is the centre width. The 45% cap measures `.dv-shell`; the main
+   floor reads `.plxrDock`'s width.
+3. The main-floor clamp is required, not optional.
+4. `ensure` re-applies `header.hidden` and `locked` after every load: fromJSON
+   restores neither.
+5. Every fromJSON and `clear()` remounts tool bodies, so `toolMemory` covers
+   Files and Notes as well; `keepMounted` does not survive a load.
+6. An emptied edge that stays visible shows a blank 35 px strip; reconcile hides
+   edges that end up empty.
+7. No pointerup fallback for saving sizes: `onDidDimensionsChange` fires on sash
+   drags (`onDidLayoutChange` does not, for drags or visibility).
+8. `setEdgeGroupVisible(true)` on a collapsed edge stays 35 px; call `expand()`
+   first.
+
 ## 13. Implementation plan
 
 Rules for every step:
