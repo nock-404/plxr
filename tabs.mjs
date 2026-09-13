@@ -597,7 +597,7 @@ if (four.why) {
     `left ${b.left && b.left.x}+${b.left && b.left.w} · main ${b.main && b.main.x}+${b.main && b.main.w} · right ${b.right && b.right.x}+${b.right && b.right.w} · bottom y ${b.bottom && b.bottom.y} w ${b.bottom && b.bottom.w}`,
   );
   claim(
-    "the tab menu reads close, close others, close group, float, the four regions, the two splits, copy title",
+    "the tab menu reads close, close others, close group, float, the four regions, the two splits, maximise, copy title",
     JSON.stringify(four.shape) ===
       JSON.stringify([
         "Close",
@@ -614,6 +614,8 @@ if (four.why) {
         "---",
         "Split to the right",
         "Split downwards",
+        "---",
+        "Maximise",
         "---",
         "Copy title",
       ]),
