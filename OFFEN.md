@@ -989,6 +989,12 @@ that I do not agree with the menu as such."
   icon-stripe redesign moves the tree out of the session view into the left
   edge, which removes the cause; until then the share could leave the work
   group a minimum width instead of half.
+- **The Folders overview is crushed beside a documents group** with both side
+  regions and the bottom open at 1600px: the overview half of the Folders view
+  becomes a column about 100px wide with its heading broken letter by letter,
+  and the documents group hides its third tab behind an overflow chevron. Too
+  many regions for the width; the icon-stripe redesign, with collapsed edges by
+  default, is the real answer.
 - **Not measured:** where a diff or preview lands when opened from the changes
   panel in the left region.
 - **A flaky claim in tabs.mjs:** "⌥⌘→ moves back to the next one" failed once
