@@ -60,7 +60,7 @@ function fontOptions(fonts: UserFont[], defaultLabel: string) {
  * about the look had to be found somewhere else. Now it is a window: opened
  * where the column stood, dragged wherever it is not in the way, and holding
  * the terminal, the editor, the keys, the accounts and the layouts as well. */
-export default function Settings({ onClose, layouts }: { onClose: () => void; layouts: LayoutControls }) {
+export default function Settings({ onClose, layouts, framed = true }: { onClose: () => void; layouts: LayoutControls; framed?: boolean }) {
   const [tab, setTab] = useState<Tab>("skins");
   // "en", to match what happens with no setting at all. Showing "System" here
   // while an unset plxr in fact speaks English would be the picker telling one
@@ -169,8 +169,11 @@ export default function Settings({ onClose, layouts }: { onClose: () => void; la
     save(next);
   }
 
-  return (
-    <Window id="settings" heading={tr("settings.title", "settings")} onClose={onClose}>
+  /* The same settings, either in a window of its own or filling a dock panel.
+     It was only ever a window, which is why it could be dragged and docked
+     nowhere; as a panel it is moved, split and tabbed like everything else,
+     and the window is what is left for anyone who liked it floating. */
+  const body = (
       <div className="settingsbody">
         <div className="tabs" role="tablist">
           {TABS.map(({ id, label }) => (
@@ -346,6 +349,11 @@ export default function Settings({ onClose, layouts }: { onClose: () => void; la
           </Button>
         </div>
       </div>
+  );
+  if (!framed) return <div className="settingsPanel">{body}</div>;
+  return (
+    <Window id="settings" heading={tr("settings.title", "settings")} onClose={onClose}>
+      {body}
     </Window>
   );
 }

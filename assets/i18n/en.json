@@ -1171,5 +1171,12 @@
   "notify.test": "TEST",
   "notify.testTip": "Shows one now and says who showed it",
   "notify.viaWindow": "posted by the plxr window",
-  "notify.viaLocal": "no window open — plain notification from the service"
+  "notify.viaLocal": "no window open — plain notification from the service",
+  "tab.moveTo": "Move to",
+  "tab.splitRight": "Split to the right",
+  "tab.splitDown": "Split downwards",
+  "region.main": "Main",
+  "region.left": "Left",
+  "region.right": "Right",
+  "region.bottom": "Bottom"
 }

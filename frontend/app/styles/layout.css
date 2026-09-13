@@ -32,6 +32,21 @@
   --label-h: 1.15rem;    /* the pane's tab label, pinned so the terminal can
                             reserve room for it — its height must not follow
                             the skin's typeface, or it lands on the first line */
+
+  /* The window manager's four regions. A tool region opens this wide and may
+     never fall below its minimum or grow past its share; main has a floor and
+     no ceiling, so the space a closed region leaves goes to the work rather
+     than to the menu. The bottom one is measured in height instead. */
+  --side-w: 20rem;
+  --side-min: 11rem;
+  --main-min: 16rem;
+  --bottom-h: 18rem;
+  --bottom-min: 5rem;
+
+  /* The bar on the tab in front, and how far a tab's text sits from its
+     edges — the frame of the tab strip; its colours are the skin's. */
+  --tabmark-h: 0.125rem;
+  --tab-pad-x: 0.625rem;
 }
 
 html, body {
@@ -751,8 +766,16 @@ button.diffline { cursor: pointer; }
 .pathList { max-width: 90vw; }
 .pathList .selectRow { direction: ltr; }
 
-/* The dock fills the content area, and its own panels lay themselves out. */
-.plxrDock { width: 100%; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }
+/* The window's frame: the menu at the left edge, the three regions in the
+   grid beside it. The menu is not one of the columns — it keeps the width the
+   frame declares whatever the grid does with itself. */
+.dockShell { display: flex; width: 100%; height: 100%; min-height: 0; }
+.railHost { flex: 0 0 var(--rail-w); min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
+.railHost > * { flex: 1 1 auto; min-height: 0; }
+
+/* The dock fills what is left of the content area, and its own panels lay
+   themselves out. */
+.plxrDock { flex: 1 1 auto; min-width: 0; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }
 /* Every panel fills its host. Dockview renders a panel into a plain
    height:100% block (.dv-react-part), not a flex parent — so a root that
    grew with flex:1 collapsed to its content and left the panel half empty:
@@ -828,11 +851,28 @@ button.diffline { cursor: pointer; }
    under the last group belongs to the list and its menu, not to nothing. ---- */
 .changesPanel .changes { flex: 1 1 auto; width: 100%; min-height: 0; }
 /* ---- dock tabs (scope: tabs) ----
-   Every panel's tab: the title and its own close, laid out like dockview's
-   default tab — arrangement only, the colours are the tab's. */
-.panelTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 0.5rem; white-space: nowrap; }
-.panelTabName { overflow: hidden; text-overflow: ellipsis; }
-.panelTabClose { padding: 0 0.125rem; line-height: 1; }
+   Every panel's tab: the title, the bell, and its own close — arrangement
+   only, the colours are the skin's. The tab in front carries a bar along its
+   top edge; the bar is drawn on dockview's own tab element because that is
+   the box that knows which tab is active. */
+.panelTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 var(--tab-pad-x); white-space: nowrap; min-width: 0; max-width: 18rem; }
+.panelTabName { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.panelTabClose { padding: 0 0.125rem; line-height: 1; flex: 0 0 auto; }
+.plxrDock .dv-tab { position: relative; }
+/* The bar that marks the tab in front sits on the edge where the tab meets
+   its content, so the two read as one surface — the way every reference he
+   sent draws it. */
+.plxrDock .dv-tab::before { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: var(--tabmark-h); pointer-events: none; }
+/* The mark on a tab: one line tall, never squeezed, never wrapped. */
+.panelTabIcon { flex: 0 0 auto; width: 1.15em; text-align: center; line-height: 1; }
+/* A tab is only as wide as it needs to be, and the strip scrolls rather than
+   squeezing every title into nothing. */
+.plxrDock .dv-tabs-container { min-width: 0; }
+
+/* The settings as a panel: the same body, filling the panel it was docked
+   into rather than a window of its own. */
+.settingsPanel { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.settingsPanel > .settingsbody { flex: 1 1 auto; min-height: 0; }
 /* ---------- windows: notes, inbox groups, session grid ---------- */
 
 /* The notes panel: its bar, and the editor filling the rest of the panel. */

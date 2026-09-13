@@ -13,17 +13,33 @@ import type { Tile } from "@/lib/types";
 // loses sight of the rest of the herd.
 export type View = "overview" | "inbox" | "folders" | "changes" | "review" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
 
+/* The mark each view wears — on the rail, and on the tab of the panel it
+   opens, so one thing is one glyph wherever it is met. */
+export const VIEW_GLYPHS: Record<string, string> = {
+  overview: "\u229E",
+  inbox: "\u25C9",
+  folders: "\u25A6",
+  changes: "\u00B1",
+  review: "\u2387",
+  search: "\u2315",
+  ports: "\u21C4",
+  usage: "\u2564",
+  archive: "\u2338",
+  notes: "\u270E",
+  settings: "\u2699",
+};
+
 const HOME: { view: View; glyph: string; key: string; fallback: string }[] = [
-  { view: "overview", glyph: "⊞", key: "rail.overview", fallback: "Overview" },
-  { view: "inbox", glyph: "◉", key: "rail.inbox", fallback: "Inbox" },
-  { view: "folders", glyph: "▦", key: "rail.folders", fallback: "Folders" },
-  { view: "changes", glyph: "±", key: "rail.changes", fallback: "Changes" },
-  { view: "review", glyph: "⎇", key: "rail.review", fallback: "Review" },
-  { view: "search", glyph: "⌕", key: "rail.search", fallback: "Search" },
-  { view: "ports", glyph: "⇄", key: "rail.ports", fallback: "Ports" },
-  { view: "usage", glyph: "▤", key: "rail.usage", fallback: "Usage" },
-  { view: "archive", glyph: "⌸", key: "rail.archive", fallback: "Archive" },
-  { view: "notes", glyph: "✎", key: "rail.notes", fallback: "Notes" },
+  { view: "overview", glyph: VIEW_GLYPHS.overview, key: "rail.overview", fallback: "Overview" },
+  { view: "inbox", glyph: VIEW_GLYPHS.inbox, key: "rail.inbox", fallback: "Inbox" },
+  { view: "folders", glyph: VIEW_GLYPHS.folders, key: "rail.folders", fallback: "Folders" },
+  { view: "changes", glyph: VIEW_GLYPHS.changes, key: "rail.changes", fallback: "Changes" },
+  { view: "review", glyph: VIEW_GLYPHS.review, key: "rail.review", fallback: "Review" },
+  { view: "search", glyph: VIEW_GLYPHS.search, key: "rail.search", fallback: "Search" },
+  { view: "ports", glyph: VIEW_GLYPHS.ports, key: "rail.ports", fallback: "Ports" },
+  { view: "usage", glyph: VIEW_GLYPHS.usage, key: "rail.usage", fallback: "Usage" },
+  { view: "archive", glyph: VIEW_GLYPHS.archive, key: "rail.archive", fallback: "Archive" },
+  { view: "notes", glyph: VIEW_GLYPHS.notes, key: "rail.notes", fallback: "Notes" },
 ];
 
 // The chord that reaches a view, read off the keymap's own order — never a

@@ -502,3 +502,5 @@
 [data-skin="sketch"] .endedOverlay { background: color-mix(in srgb, var(--panel) 74%, transparent); }
 [data-skin="sketch"] .pane[data-bell="yes"] .pterm { border-color: var(--blocked); box-shadow: 0 0 0 .15rem color-mix(in srgb, var(--blocked) 35%, transparent); }
 [data-skin="sketch"] .sessionTabBell { background: var(--blocked); border-radius: 0.3rem 0.2rem 0.35rem 0.25rem / 0.25rem 0.35rem 0.2rem 0.3rem; }
+
+[data-skin="sketch"] .panelTabIcon { color: var(--dim); text-shadow: none; }

@@ -734,6 +734,152 @@ gate (the section and its actions render).
   offered for a platform with no archive; a fish login shell yielding no PATH.
 - **plxr as an MCP server.**
 
+## The window manager and the menu — 13.09.2026, after he drove it
+
+His words: the whole navigation is not a VS Code replacement, "nobody presses
+Search", and the window manager needs a lot of rework — look at how other tools
+do it. PhpStorm solves it far better: regions, and inside each region tabs plus
+one main view. Left, main, right, and bottom under all of them. Left and right
+split vertically, main splits both ways for editors, bottom splits
+horizontally, and every single thing lives in a tab.
+
+What he hit, exactly: menu open and overview beside it, clicking Inbox opened a
+THIRD column; clicking Folders then joined that third column. Closing the third
+column made columns one and two 50% each instead of giving the space back to
+the second.
+
+### W — the window manager
+
+- **W1 There are no regions, only lanes that grow.** Any new kind of panel may
+  invent a column, which is why Inbox opened a third one. Fixed regions —
+  left, main, right, bottom — and never a fifth column.
+- **W2 Closing a column redistributes width proportionally**, so the menu
+  column doubles. Regions need remembered widths and min/max constraints, and
+  main must absorb what is freed.
+- **W3 The menu column is itself a panel in the grid.** It can be tabbed into,
+  closed and moved. It belongs to the window chrome, outside the grid.
+- **W4 There is no bottom region at all.** Ports, usage, output, problems have
+  no natural home.
+- **W5 Splitting has no direction.** "Open in a new group" always goes right.
+  Main must split right and down; left and right must stack vertically.
+- **W6 A region cannot be collapsed**, only closed, and closing loses what was
+  in it. PhpStorm collapses and remembers.
+- **W7 No maximise.** No zen mode, no "make this panel big".
+- **W8 Floating has no way home.** "Dock" guesses a lane instead of returning
+  the panel to the region it came from.
+- **W9 Where a panel goes is my rule, not his choice.** Once he moves a panel,
+  that choice must stick for that view.
+- **W10 Tab overflow is unsolved.** Many editors and the strip only scrolls —
+  no most-recently-used, no quick switch, no overflow list.
+- **W11 Drag and drop does not respect regions.** Dockview's own edge drops can
+  break the four-region shape.
+- **W12 Region sizes are not remembered** across close and reopen.
+
+### N — the menu and navigation
+
+- **N1 The rail is a flat list of ten nouns.** Nobody presses "Search". An
+  activity bar carries five or six things and each is a place you live in.
+- **N2 Places and commands are mixed.** Search, Review and Changes are
+  commands; Overview, Folders and Archive are places; "New shell" is a
+  command. Places belong on the stripe, commands in the palette and the keys.
+- **N3 The most important object is at the bottom.** The running sessions sit
+  under ten view buttons.
+- **N4 Every click opens a tab.** In the side regions one view at a time
+  belongs there, not a growing stack.
+- **N5 There is no file-first navigation.** No go-to-file, no find-in-project
+  from the keyboard, no go-to-symbol, no back and forward through history.
+- **N6 There is no go-to-anything.** Files, sessions, commands, settings and
+  symbols in one box, the way double-shift works in PhpStorm.
+- **N7 The keys are numbered.** view1 to view10 by rail order, which nobody
+  remembers. The familiar VS Code chords are what a replacement must answer to.
+- **N8 The badges are on the wrong things.** Inbox, ports and archive carry
+  counts; sessions waiting for an answer have no priority in the ordering.
+- **N9 The rail cannot shrink to icons.** It always eats its full width.
+- **N10 Settings is a floating window**, so it cannot be docked or put beside
+  what it changes.
+- **N11 The header MENU duplicates the rail** without sharing its model.
+- **N12 No recently closed, no recent files.**
+- **N13 No editor breadcrumb**, so a file gives no sense of where it sits.
+
+### D — how it should look: the three references he sent (13.09.2026)
+
+"Make it beautiful. The current tab rubbish is not beautiful. There are so
+many great IDE concepts." Three shots of modern editors followed. What is in
+them, and what plxr has to take from them:
+
+- **D1 An icon activity bar, then the tool panel.** The far left is a narrow
+  column of icons only, the active one marked with a bar on its outer edge.
+  The tool panel is a second column beside it with its own heading — "Project",
+  "WORKSPACE", "Explorer · Search · Git". plxr's rail mixes both jobs in one
+  wide column of words.
+- **D2 Every region has a head.** A title, and the two or three buttons that
+  belong to that tool, not to the window. plxr's regions are bare tab strips.
+- **D3 Document tabs carry an icon and a mark.** A file-type glyph in the
+  file's own colour, the name, a close that appears on hover, and the tab in
+  front marked with a line in the accent along the edge it meets the content.
+  A count sits on the tab when there is something to count.
+- **D4 A status line along the bottom** with the breadcrumb of what is open:
+  project, folder, folder, file. plxr has no breadcrumb anywhere.
+- **D5 A search field in the middle of the top bar**, labelled with its own
+  chord, not a hidden palette.
+- **D6 Air.** Rounded corners, real padding, hairline separators instead of
+  boxes around everything, and type that is not all one weight.
+- **D7 Colour used to mean something.** File kinds, states and counts carry
+  it; everything else is two greys and the accent.
+- **D8 The bottom region is part of the work**, tabbed — tests, console,
+  output — rather than an afterthought.
+
+### U — usage: the wrong number, and only one of it (13.09.2026)
+
+He has three Claude accounts in plxr and the usage view shows him one total.
+His words: "ich habe hier 3 claude accounts angelegt. und sehe overall usage
+oder was? was mich daneben noch viel mehr interessiert ist doch die aktuelle
+usage." He showed Claude Code's own /usage screen as the reference.
+
+- **U1 Usage is not split by account.** Three accounts, one number. Every
+  figure must be per account first, with a total underneath, not instead.
+- **U2 The interesting number is missing: what is left right now.** The
+  reference screen leads with the current session (percent used, when it
+  resets) and the current week (percent used, when it resets, per model
+  family). plxr leads with a cost total for a period nobody asked about.
+- **U3 Resets are not shown.** A percentage without the time it goes back to
+  zero cannot be planned around — and planning around it is the whole reason
+  he watches it, because a run that hits the limit costs him an evening.
+- **U4 It does not say where the numbers come from or how fresh they are.**
+  The reference screen says it is approximate and local-only; plxr says
+  nothing.
+- **U5 Per model, not just per account.** The reference breaks the spend down
+  by model with cache reads and writes; that is the line that explains a bill.
+- **U6 No warning before the wall.** He lost a whole wave of work to "you have
+  hit your weekly limit" with no notice. plxr knows the numbers and must say
+  so — a mark on the account in the rail, a notification at the threshold he
+  sets, and a refusal to start a wave on an account that cannot finish it.
+- **U7 It must be reachable where it matters**, not only in a view: the
+  account picker on a session should show what that account has left.
+
+### V — classic IDE features: deliberately NOT wanted (13.09.2026)
+
+He read this list and answered: "den ganzen scheiß braucht man mit ki
+programmierung nicht mehr. merks dir, aber das kommt aktuell nicht dran."
+So none of it is work. It stays written down because it is the reason plxr is
+not an IDE: the agent reads the code, so the tooling that exists to help a
+human read code is not the product. Do not start any of it without him asking.
+
+#### Written down, not planned
+
+- **V1 No language server.** No go-to-definition, no hover types, no rename, no
+  find references, no completion.
+- **V2 No problems panel, no output panel, no run or debug.**
+- **V3 No search and replace across files.** There is find, not replace.
+- **V4 No git graph and no inline blame.** That is the GitLens half he asked
+  for.
+- **V5 No task runner.** npm scripts and make targets from the folder.
+- **V6 No extension model.** He wants VS Code *including its plugins*
+  replaced.
+- **V7 Editor basics unaudited:** minimap, folding, multiple cursors, bracket
+  matching, breadcrumb.
+- **V8 No split of the same file twice**, no per-panel zoom.
+
 ## Details behind the decisions
 
 The night shift's two readings, spelled out, because the difference is the whole

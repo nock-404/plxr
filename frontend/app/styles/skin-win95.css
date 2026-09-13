@@ -411,3 +411,5 @@
 [data-skin="win95"] .endedOverlay { background: color-mix(in srgb, var(--panel) 82%, transparent); }
 [data-skin="win95"] .pane[data-bell="yes"] .pterm { border-color: var(--blocked); box-shadow: inset 0 0 0 var(--bevel) var(--blocked); }
 [data-skin="win95"] .sessionTabBell { background: var(--blocked); border-radius: 0; border: var(--hair) solid var(--dk); }
+
+[data-skin="win95"] .panelTabIcon { color: var(--dk); text-shadow: none; }

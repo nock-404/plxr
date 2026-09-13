@@ -487,6 +487,11 @@ claim("a fault reaches the daemon's log", after.length > before && after.include
   `${after.length - before} bytes appended`);
 
 // ---- settings, and a skin change that takes effect ------------------------
+/* The settings are a panel in the dock, not a window on the body. They were a
+   window, and a window is the one thing in this interface that cannot be
+   docked anywhere — "why can I grab the settings and dock them nowhere?". As a
+   panel they are tabbed, split, moved between the regions and floated like
+   everything else, which is what the float-and-dock claims below prove. */
 const settings = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
   document.querySelectorAll('.railhome')[0].click();
@@ -494,14 +499,13 @@ const settings = await run(`
   const before = document.documentElement.getAttribute('data-skin');
   // The gear, by its glyph — not by index: buttons come and go in that row.
   [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || b.title || '')).click();
-  await wait(500);
-  const opened = !!document.querySelector('body > .window');
-  // A window of its own over the work, not a column that squeezes it: the
-  // window it changes stays on screen at full width.
+  await wait(700);
+  const opened = !!document.querySelector('.settingsPanel');
+  // A panel among the others, and the work keeps a usable width beside it.
   const contentWidth = Math.round(document.querySelector('.content')?.getBoundingClientRect().width ?? -1);
   const windowStillThere = contentWidth > 100;
-  const tabs = document.querySelectorAll('.tab').length;
-  const sel = [...document.querySelectorAll('.select')][0];
+  const tabs = document.querySelectorAll('.settingsPanel .tab').length;
+  const sel = [...document.querySelectorAll('.settingsPanel .select')][0];
   sel.querySelector('.selectButton').click();
   await wait(300);
   // The list hangs in the body while open, so that a scrolling card cannot cut
@@ -512,69 +516,54 @@ const settings = await run(`
   if (other) other.click();
   await wait(500);
   const after = document.documentElement.getAttribute('data-skin');
-  [...document.querySelectorAll('.btn')].find(b => b.textContent.trim() === 'DONE')?.click();
-  await wait(400);
-  return { opened, windowStillThere, contentWidth, tabs, rows: rows.length, before, after, wanted, closed: !document.querySelector('body > .window') };
+  return { opened, windowStillThere, contentWidth, tabs, rows: rows.length, before, after, wanted };
 `);
-claim("settings open as a window of their own", settings.opened);
+claim("settings open as a panel in the dock", settings.opened);
 claim("settings have their tabs", settings.tabs >= 9, `${settings.tabs} tabs`);
-// A window over the work, not a column beside it: every control in there
-// changes how the window looks, and the work keeps its whole width under it.
-claim("the work keeps its width under the settings window", settings.windowStillThere,
+// Beside the work, not over it: every control in there changes how the window
+// looks, and the work has to stay readable under the change.
+claim("the work keeps a usable width beside the settings", settings.windowStillThere,
   `${settings.contentWidth}px for the work`);
 
-/* And it can be resized and moved.
-   A window whose size or place is wrong for somebody is a window in the way,
-   so the grip and the title bar are part of it working rather than a comfort. */
+/* And the panel can be lifted out and put back.
+   A panel whose place is wrong for somebody is a panel in the way, so float
+   and dock are part of it working rather than a comfort. */
 const sized = await run(`
-  // The block above closes the window when it is done with it, so this opens
-  // it again rather than measuring a window that is not on screen.
-  if (!document.querySelector('body > .window')) {
-    const gear = [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || ''));
-    gear?.click();
-    await new Promise(r => setTimeout(r, 900));
-  }
-  const win = () => document.querySelector('body > .window');
-  const grip = document.querySelector('.windowGrip');
-  const head = document.querySelector('.windowHead');
-  if (!grip || !head) return { why: 'no grip or title bar on the window' };
-  const box = () => { const r = win().getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
-  const before = box();
-  const g = grip.getBoundingClientRect();
-  const at = (x, y) => ({ bubbles: true, clientX: x, clientY: y, buttons: 1, pointerId: 1, button: 0 });
-  // Narrower first, so the test does not depend on there being room to grow.
-  grip.dispatchEvent(new PointerEvent('pointerdown', at(g.left + 4, g.top + 4)));
-  grip.dispatchEvent(new PointerEvent('pointermove', at(g.left - 116, g.top - 56)));
-  await new Promise(r => setTimeout(r, 300));
-  const narrower = box();
-  grip.dispatchEvent(new PointerEvent('pointermove', at(g.left + 44, g.top - 56)));
-  await new Promise(r => setTimeout(r, 300));
-  const after = box();
-  grip.dispatchEvent(new PointerEvent('pointerup', at(g.left + 44, g.top - 56)));
-  // Then moved by the title bar, leftwards and up.
-  const h = head.getBoundingClientRect();
-  head.dispatchEvent(new PointerEvent('pointerdown', at(h.left + h.width / 2, h.top + h.height / 2)));
-  head.dispatchEvent(new PointerEvent('pointermove', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
-  await new Promise(r => setTimeout(r, 300));
-  const moved = box();
-  head.dispatchEvent(new PointerEvent('pointerup', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
-  // And it cannot be pushed off the screen by its title bar.
-  head.dispatchEvent(new PointerEvent('pointerdown', at(h.left + h.width / 2 - 200, h.top + h.height / 2 - 30)));
-  head.dispatchEvent(new PointerEvent('pointermove', at(-9000, -9000)));
-  await new Promise(r => setTimeout(r, 300));
-  const shoved = box();
-  head.dispatchEvent(new PointerEvent('pointerup', at(-9000, -9000)));
-  return { before, narrower, after, moved, shoved };
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const tab = [...document.querySelectorAll('.panelTabName')].find(t => /settings/i.test(t.textContent || ''));
+  if (!tab) return { why: 'the settings panel has no tab' };
+  const host = tab.closest('.panelTab');
+  const r = host.getBoundingClientRect();
+  const menu = async (label) => {
+    host.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + 8, clientY: r.top + 8 }));
+    await wait(300);
+    const row = [...document.querySelectorAll('.menuItem')].find(m => new RegExp(label, 'i').test(m.textContent || ''));
+    if (!row) { document.body.click(); return false; }
+    row.click();
+    await wait(600);
+    return true;
+  };
+  const floated = await menu('float');
+  const isFloating = !!document.querySelector('.dv-resize-container .settingsPanel, .dv-floating-group .settingsPanel');
+  const docked = await menu('dock');
+  await wait(400);
+  const backInGrid = !!document.querySelector('.dv-grid-view .settingsPanel');
+  return { floated, isFloating, docked, backInGrid };
 `);
-claim("the settings window can be made narrower and wider by its grip", !sized.why && sized.narrower.w < sized.before.w && sized.after.w > sized.narrower.w,
-  sized.why ?? `${sized.before.w} → ${sized.narrower.w} → ${sized.after.w}px wide`);
-claim("and moved by its title bar", !sized.why && sized.moved.x === sized.after.x - 200 && sized.moved.y === sized.after.y - 30,
-  sized.why ?? `${sized.after.x},${sized.after.y} → ${sized.moved.x},${sized.moved.y}`);
-claim("and it stays on screen when dragged off it", !sized.why && sized.shoved.x >= 0 && sized.shoved.y >= 0, sized.why ?? `${sized.shoved.x},${sized.shoved.y}`);
+claim("the settings panel floats out of the grid", !sized.why && sized.floated && sized.isFloating,
+  sized.why ?? `floated=${sized.floated} floating=${sized.isFloating}`);
+claim("and docks back into it", !sized.why && sized.docked && sized.backInGrid,
+  sized.why ?? `docked=${sized.docked} inGrid=${sized.backInGrid}`);
 claim("the skin list opens outside the panel", settings.rows > 1, `${settings.rows} rows`);
 claim("a skin change takes effect", settings.after && settings.after !== settings.before,
   `${settings.before} → ${settings.after}`);
-claim("settings close again", settings.closed);
+const closed = await run(`
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  [...document.querySelectorAll('.settingsPanel .btn')].find(b => b.textContent.trim() === 'DONE')?.click();
+  await wait(500);
+  return !document.querySelector('.settingsPanel');
+`);
+claim("settings close again", closed);
 
 /* And the window asks about versions more than once.
  *
@@ -763,7 +752,16 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   const prefs = await api("/api/prefs").catch(() => ({}));
   const saved = Boolean(prefs && prefs.dock);
   claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
-  claim("the rail is always on screen as a panel", dock.many.includes("plxr"), dock.many.join(", "));
+  /* The menu is the window's frame, beside the grid rather than a column in
+     it — so it never appears among the dock's tabs, and it is always there. */
+  const menuThere = await run(`
+    const host = document.querySelector('.railHost');
+    const items = document.querySelectorAll('.railHost .railhome').length;
+    const inGrid = [...document.querySelectorAll('.dv-tab')].some(t => /^\\s*plxr\\s*$/.test((t.textContent || '').replace(/✕|×/g, '')));
+    return { there: Boolean(host) && items > 0, width: host ? Math.round(host.getBoundingClientRect().width) : -1, inGrid };
+  `);
+  claim("the menu stands beside the dock, not in it", menuThere.there && !menuThere.inGrid,
+    `${menuThere.width}px wide, among the tabs: ${menuThere.inGrid}`);
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   /* A reset rebuilds the arrangement for the activity that was chosen last —
      'focus' (rail and overview alone) unless somebody picked another from the

@@ -169,3 +169,5 @@
 [data-skin="crt"] .endedOverlay { background: color-mix(in srgb, var(--bg) 70%, transparent); -webkit-backdrop-filter: blur(.06rem); backdrop-filter: blur(.06rem); }
 [data-skin="crt"] .pane[data-bell="yes"] .pterm { border-color: var(--accent); box-shadow: 0 0 var(--glow) var(--accent), 0 0 0 .2rem color-mix(in srgb, var(--accent) 35%, transparent); }
 [data-skin="crt"] .sessionTabBell { background: var(--accent); box-shadow: 0 0 .35rem var(--accent); }
+
+[data-skin="crt"] .panelTabIcon { text-shadow: 0 0 var(--glow) currentColor; }

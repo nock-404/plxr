@@ -25,13 +25,15 @@ import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
-import Rail, { type View } from "@/components/Rail";
+import Rail, { VIEW_GLYPHS, type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
 import ChangesPanel from "@/components/ChangesPanel";
 import ReviewPanel from "@/components/ReviewPanel";
 import SearchPanel from "@/components/SearchPanel";
 import Difference from "@/components/Difference";
 import Files from "@/components/Files";
+import Settings from "@/components/Settings";
+import { type LayoutControls } from "@/components/LayoutSettings";
 import Viewer from "@/components/Viewer";
 import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
@@ -117,6 +119,9 @@ type DockData = {
   openPanelFresh: (view: string) => void;
   /* The shell's own verbs, for the menus on the board and the rail. */
   shell?: ShellActions;
+  /* What the settings' layouts page can do — the shell owns the dialogs
+     behind it, the dock only hands it to the panel that draws it. */
+  layouts: LayoutControls;
   /* An editor for one file, as a panel beside the session — one panel per
      path, so every file keeps its own undo history. `path` is the path the
      tree reports for the file, which is what the file API reads. */
@@ -388,6 +393,30 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
  * window's own menu with what a tab can do: close, close the others, close the
  * group, float or dock, cross to the other lane, copy the title. The middle
  * button closes, the way tabs close everywhere else. */
+/* The mark a tab wears.
+ *
+ * A view carries the rail's own glyph, so one thing is one glyph wherever it
+ * is met; a session the state square it wears on the board and in the rail; a
+ * document the mark of what it is. The kind travels beside it as an
+ * attribute, because the colour of a mark is the skin's business. */
+const FILE_GLYPHS: Record<string, string> = {
+  ts: "\u25C8", tsx: "\u25C8", js: "\u25C7", jsx: "\u25C7", json: "\u2263",
+  go: "\u25B7", py: "\u25B3", rs: "\u25B6", sh: "\u276F", css: "\u25A7",
+  html: "\u25A4", md: "\u2261", yml: "\u2263", yaml: "\u2263", sql: "\u25A6",
+};
+
+function tabMark(id: string): { glyph: string; kind: string } {
+  if (id.startsWith("session:")) return { glyph: "\u25A3", kind: "session" };
+  if (id.startsWith("diff:")) return { glyph: "\u00B1", kind: "diff" };
+  if (id.startsWith("preview:")) return { glyph: "\u25F1", kind: "preview" };
+  if (id.startsWith("files:")) return { glyph: VIEW_GLYPHS.folders, kind: "view" };
+  if (id.startsWith("editor:")) {
+    const ext = id.slice(id.lastIndexOf(".") + 1).toLowerCase();
+    return { glyph: FILE_GLYPHS[ext] ?? "\u25A1", kind: FILE_GLYPHS[ext] ? ext : "plain" };
+  }
+  return { glyph: VIEW_GLYPHS[id] ?? "\u25A1", kind: "view" };
+}
+
 function PanelTab(props: IDockviewPanelHeaderProps) {
   const d = useDock();
   const ctx = useContextMenu();
@@ -415,16 +444,32 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       { label: tr("tab.closeGroup", "Close group"), onClick: () => d.closeMany([...p.group.panels]) },
       { separator: true },
       shape,
-      { label: tr("tab.toOtherLane", "Move to the other lane"), onClick: () => crossLane(dv, p), disabled: floating },
+      { separator: true },
+      /* Where it lives, as four rows with the one it is in ticked — and the
+         choice sticks: a panel moved into the bottom region opens there the
+         next time, because where a panel goes is his and not a rule of mine. */
+      { header: true, label: tr("tab.moveTo", "Move to") },
+      ...REGIONS.map((r) => ({
+        label: REGION_TITLES[r](),
+        checked: !floating && regionOfGroup(p.group) === r,
+        disabled: floating,
+        onClick: () => moveToRegion(dv, p, r),
+      })),
+      { separator: true },
+      { label: tr("tab.splitRight", "Split to the right"), onClick: () => splitPanel(dv, p, "right"), disabled: floating || p.group.panels.length < 2 },
+      { label: tr("tab.splitDown", "Split downwards"), onClick: () => splitPanel(dv, p, "bottom"), disabled: floating || p.group.panels.length < 2 },
       { separator: true },
       { label: tr("tab.copyTitle", "Copy title"), onClick: () => void navigator.clipboard?.writeText(title).catch(() => undefined) },
     ];
   };
 
+  const mark = tabMark(id);
   return (
     <div
       className="panelTab"
       data-bell={bell ? "yes" : "no"}
+      data-kind={mark.kind}
+      data-dirty={d.isDirty(id) ? "yes" : "no"}
       onContextMenu={(e) => ctx(items())(e)}
       onAuxClick={(e) => {
         if (e.button !== 1 || isRail) return;
@@ -433,6 +478,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
         if (p) void d.requestClose(p);
       }}
     >
+      {isRail ? null : <span className="panelTabIcon" aria-hidden="true">{mark.glyph}</span>}
       <span className="panelTabName">{title}</span>
       {/* The mark itself stays out of the title text: nothing that reads tab
           titles finds a dot appended to it. */}
@@ -491,6 +537,14 @@ function useBellMark(panelId: string, api: IDockviewPanelHeaderProps["api"]): bo
 
 /* The file tree of one root, as a panel. A row opens its file as an editor
    panel beside whatever is on screen — the terminal stays where it is. */
+/* The settings, as a panel. Its DONE closes the panel it is in, so the one
+   button means the same thing wherever the settings are — in a floating group
+   it closes the floating window, docked it closes the tab. */
+function SettingsPanel(props: IDockviewPanelProps) {
+  const d = useDock();
+  return <Settings framed={false} layouts={d.layouts} onClose={() => props.api.close()} />;
+}
+
 function FilesPanel(props: IDockviewPanelProps<{ rootId: string; root: string }>) {
   const d = useDock();
   const p = props.params;
@@ -523,7 +577,6 @@ function RailPanel() {
 }
 
 const components = {
-  rail: RailPanel,
   overview: OverviewPanel,
   preview: PreviewPanel,
   changes: ChangesDockPanel,
@@ -532,6 +585,7 @@ const components = {
   diff: DiffPanel,
   editor: EditorPanel,
   files: FilesPanel,
+  settings: SettingsPanel,
   inbox: InboxPanel,
   folders: FoldersPanel,
   ports: PortsPanel,
@@ -541,7 +595,17 @@ const components = {
   notes: NotesPanel,
 };
 
+/* What the four regions are called where he has to pick one. Built when the
+   menu is opened, not once at load, so a language change reaches them. */
+export const REGION_TITLES: Record<Region, () => string> = {
+  main: () => tr("region.main", "Main"),
+  left: () => tr("region.left", "Left"),
+  right: () => tr("region.right", "Right"),
+  bottom: () => tr("region.bottom", "Bottom"),
+};
+
 export const VIEW_TITLES: Record<string, string> = {
+  settings: "Settings",
   overview: "Overview",
   inbox: "Inbox",
   folders: "Folders",
@@ -611,6 +675,7 @@ export default function Dock({
   openSession,
   onReplaced,
   shell,
+  layouts,
   focus,
   layoutAction,
   onLayoutSaved,
@@ -659,13 +724,13 @@ export default function Dock({
   const openPreview = useCallback((url: string, title: string) => {
     const dv = apiRef.current;
     if (!dv) return;
-    openOrFocus(dv, `preview:${url}`, "preview", title, { url }, "companion");
+    openOrFocus(dv, `preview:${url}`, "preview", title, { url });
   }, []);
 
   const openDiff = useCallback((rootId: string, path: string, staged: boolean, title: string, base = "") => {
     const dv = apiRef.current;
     if (!dv) return;
-    openOrFocus(dv, diffId(rootId, path, staged, base), "diff", title, { rootId, path, staged, base }, "companion");
+    openOrFocus(dv, diffId(rootId, path, staged, base), "diff", title, { rootId, path, staged, base });
     setShownDiff({ rootId, path, staged, base });
   }, []);
 
@@ -678,7 +743,7 @@ export default function Dock({
   const openPanel = useCallback((view: string) => {
     const dv = apiRef.current;
     if (!dv) return;
-    openOrFocus(dv, view, view, VIEW_TITLES[view] ?? view, {}, "view");
+    openView(dv, view);
   }, []);
 
   const openPanelFresh = useCallback((view: string) => {
@@ -802,7 +867,7 @@ export default function Dock({
     if (rootDir && (rawPath === rootDir || rawPath.startsWith(rootDir + "/"))) path = rawPath.slice(rootDir.length + 1);
     const id = `editor:${rootId}:${path}`;
     const name = title || path.split("/").pop() || path;
-    const made = openOrFocus(dv, id, "editor", name, { rootId, path, line }, "companion");
+    const made = openOrFocus(dv, id, "editor", name, { rootId, path, line });
     // A panel that was already there keeps its frozen params; the line it is
     // asked for now goes through the context instead.
     if (!made && line) setEditorTarget((t) => ({ id, line, nonce: (t?.nonce ?? 0) + 1 }));
@@ -811,7 +876,7 @@ export default function Dock({
   const openFiles = useCallback((rootId: string, root: string, title: string) => {
     const dv = apiRef.current;
     if (!dv) return;
-    openOrFocus(dv, `files:${rootId}`, "files", title, { rootId, root }, "companion");
+    openOrFocus(dv, `files:${rootId}`, "files", title, { rootId, root });
   }, []);
 
   /* New shell here.
@@ -833,7 +898,7 @@ export default function Dock({
       .then((s) => {
         const dv = apiRef.current;
         if (!dv) return;
-        openOrFocus(dv, `session:${s.id}`, "session", s.name || s.cwd.split("/").pop() || s.id, { id: s.id }, "session");
+        openOrFocus(dv, `session:${s.id}`, "session", s.name || s.cwd.split("/").pop() || s.id, { id: s.id });
       })
       .catch(() => undefined);
   }, []);
@@ -841,12 +906,12 @@ export default function Dock({
   const data = useMemo<DockData>(
     () => ({
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
+      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell,
     }),
     [
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell,
+      openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell,
     ],
   );
@@ -943,9 +1008,9 @@ export default function Dock({
     const dv = apiRef.current;
     if (!dv || !focus) return;
     if (focus.kind === "view") {
-      openOrFocus(dv, focus.view, focus.view, VIEW_TITLES[focus.view] ?? focus.view, {}, "view");
+      openView(dv, focus.view);
     } else {
-      openOrFocus(dv, `session:${focus.id}`, "session", focus.name || focus.id, { id: focus.id }, "session");
+      openOrFocus(dv, `session:${focus.id}`, "session", focus.name || focus.id, { id: focus.id });
     }
   }, [focus]);
 
@@ -967,6 +1032,7 @@ export default function Dock({
     api
       .prefs()
       .then((p) => {
+        readRegions(p as Record<string, unknown>);
         const chosen = (p as { dockActivity?: string }).dockActivity;
         if (chosen && (ACTIVITIES as string[]).includes(chosen)) activity.current = chosen as Activity;
         const saved = (p as { dock?: object }).dock;
@@ -982,12 +1048,31 @@ export default function Dock({
       })
       .catch(() => settle(event.api, activity.current));
 
+    /* The frame's bounds are re-asserted whenever a group comes or goes —
+       a drag that makes a new group, a column that is closed. Guarded against
+       its own echo: setting a size is itself a layout change. */
+    let holding = false;
+    const reassert = () => {
+      if (holding) return;
+      holding = true;
+      try {
+        hold(event.api);
+      } finally {
+        window.setTimeout(() => {
+          holding = false;
+        }, 0);
+      }
+    };
+    event.api.onDidAddGroup(reassert);
+    event.api.onDidRemoveGroup(reassert);
+
     // Save the arrangement whenever it changes — debounced, because a drag
     // fires many times.
     let timer: number | undefined;
     event.api.onDidLayoutChange(() => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
+        note(event.api);
         try {
           void api.setPrefs({ dock: event.api.toJSON() });
         } catch {
@@ -1000,13 +1085,24 @@ export default function Dock({
   return (
     <Ctx.Provider value={data}>
       <InlineStrip.Provider value={true}>
-        <DockviewReact
-          className="plxrDock"
-          components={components}
-          tabComponents={tabComponents}
-          defaultTabComponent={PanelTab}
-          onReady={onReady}
-        />
+        {/* The menu is the window's frame, not one of its columns.
+            It was a panel in the grid, so it could be tabbed into, closed,
+            dragged away — and above all it took its share when a column was
+            closed, which is how the menu ended up half the window. Beside the
+            grid it keeps the width the frame declares and the three regions
+            are the only columns there are. */}
+        <div className="dockShell">
+          <aside className="railHost">
+            <RailPanel />
+          </aside>
+          <DockviewReact
+            className="plxrDock"
+            components={components}
+            tabComponents={tabComponents}
+            defaultTabComponent={PanelTab}
+            onReady={onReady}
+          />
+        </div>
       </InlineStrip.Provider>
       {paletteOpen ? <CommandPalette commands={commands} onClose={onClosePalette} /> : null}
       {closeAsk ? (
@@ -1031,50 +1127,39 @@ export default function Dock({
    'focus' is the bare slate: rail and overview, and what a first start shows. */
 const LAYOUTS: Record<Activity, (dv: DockviewApi) => void> = {
   focus(dv) {
-    addRail(dv);
-    addView(dv, "overview", { referencePanel: "rail", direction: "right" });
+    openView(dv, "overview");
   },
   code(dv) {
-    addRail(dv);
-    addView(dv, "overview", { referencePanel: "rail", direction: "right" });
-    addView(dv, "folders", { referencePanel: "overview", direction: "right" });
+    openView(dv, "overview");
+    openView(dv, "folders");
     dv.getPanel("overview")?.api.setActive();
   },
   review(dv) {
-    addRail(dv);
-    addView(dv, "overview", { referencePanel: "rail", direction: "right" });
-    addView(dv, "changes", { referencePanel: "overview", direction: "right" });
+    openView(dv, "overview");
+    openView(dv, "changes");
     dv.getPanel("overview")?.api.setActive();
   },
   monitor(dv) {
-    addRail(dv);
-    addView(dv, "overview", { referencePanel: "rail", direction: "right" });
-    addView(dv, "inbox", { referencePanel: "overview", direction: "right" });
-    addView(dv, "usage", { referencePanel: "inbox", direction: "below" });
+    openView(dv, "overview");
+    openView(dv, "inbox");
+    addSplit(dv, "usage", "right", "below");
     dv.getPanel("overview")?.api.setActive();
   },
 };
-
-function addView(dv: DockviewApi, view: string, position: AddPanelPositionOptions) {
-  dv.addPanel({ id: view, component: view, title: VIEW_TITLES[view] ?? view, ...sized(dv, position) });
-}
 
 // rebuild drops everything and arranges for the activity — a reset.
 function rebuild(dv: DockviewApi, which: Activity) {
   dv.clear();
   LAYOUTS[which](dv);
-  sizeRail(dv);
+  hold(dv);
 }
 
 // settle is what happens after a load: whatever came back, or nothing, the
 // window ends up with a rail of the right width and something on stage.
 function settle(dv: DockviewApi, which: Activity) {
-  if (dv.panels.length === 0) {
-    LAYOUTS[which](dv);
-  } else {
-    ensureRail(dv);
-  }
-  sizeRail(dv);
+  stripRail(dv);
+  if (dv.panels.length === 0) LAYOUTS[which](dv);
+  hold(dv);
 }
 
 /* applyLayout brings a saved preset up in place of what is on screen. A preset
@@ -1098,120 +1183,181 @@ function remToPx(rem: string): number {
   return parseFloat(rem) * parseFloat(getComputedStyle(document.documentElement).fontSize || "16");
 }
 
-// railPx is the rail's width as the layout declares it, in dockview's unit.
-function railPx(): number {
-  const declared = getComputedStyle(document.documentElement).getPropertyValue("--rail-w").trim();
-  return Math.round(remToPx(declared || "12.1875rem"));
+/* stripRail takes the menu out of an arrangement saved when it was still a
+   panel in the grid. Anyone who upgrades has one in their saved layout; left
+   in, it would render as an empty panel called "plxr" beside the real menu. */
+function stripRail(dv: DockviewApi) {
+  dv.getPanel("rail")?.api.close();
 }
 
-// addRail puts the rail panel at the left edge, as wide as --rail-w says.
-function addRail(dv: DockviewApi) {
-  dv.addPanel({ id: "rail", component: "rail", title: "plxr", position: { direction: "left" }, initialWidth: railPx() });
-}
+/* ---------- the four regions ---------- */
 
-/* sizeRail re-asserts the declared width on a rail that is already there.
-   A saved layout carries the rail in pixels, frozen at whatever the font size
-   was when it was saved; the stylesheet's rem is the truth, so it wins on load. */
-function sizeRail(dv: DockviewApi) {
-  dv.getPanel("rail")?.api.setSize({ width: railPx() });
-}
-
-/* ensureRail guarantees the launcher is on screen.
+/* Where a panel lives.
  *
- * A layout saved before the rail was a panel — anyone who upgrades — comes back
- * without it, and then there is no menu and no obvious way to reach one. So on
- * every load, if the restored arrangement has no rail, one is put back at the
- * left. The rail is the way to everything else; it is allowed to be moved, not
- * to be lost. */
-function ensureRail(dv: DockviewApi) {
-  if (!dv.getPanel("rail")) {
-    addRail(dv);
+ * There used to be three lanes that grew. Any panel could invent a column, so
+ * opening the inbox beside an overview made a third one and the next view
+ * joined that — "why does a third column open at all instead of using the
+ * second". A window manager has regions, not lanes, and this is the shape
+ * every editor settles on and the one he asked for:
+ *
+ *     [ rail ][ left ][      main      ][ right ]
+ *     [                bottom                   ]
+ *
+ * left, right and bottom hold the tools; main holds what is worked on — the
+ * terminals, the editors, the diffs. There is never a fifth column: a region
+ * that is already on screen takes the panel as a tab, and one that is not is
+ * opened at its own edge. */
+export type Region = "left" | "main" | "right" | "bottom";
+export const REGIONS: Region[] = ["main", "left", "right", "bottom"];
+
+const isRegion = (v: unknown): v is Region => typeof v === "string" && (REGIONS as string[]).includes(v);
+
+/* A document or a terminal: it belongs to main whatever else is open. */
+const isMainPanel = (id: string) =>
+  id.startsWith("session:") ||
+  id.startsWith("editor:") ||
+  id.startsWith("diff:") ||
+  id.startsWith("preview:") ||
+  id === "overview" ||
+  id === "settings";
+
+/* Where each view goes when nobody has said otherwise. What is read beside the
+   work goes left; what is watched while it runs goes right. */
+const HOME_REGION: Record<string, Region> = {
+  overview: "main",
+  settings: "main",
+  notes: "main",
+  folders: "left",
+  changes: "left",
+  review: "left",
+  search: "left",
+  archive: "left",
+  inbox: "right",
+  usage: "right",
+  ports: "right",
+};
+
+/* What he moved, kept.
+ *
+ * Where a panel goes was my rule and not his choice: a panel dragged into the
+ * bottom region came back on the left the next time it was opened. It is kept
+ * by the kind of panel rather than by the panel's id — "editor:" and not
+ * "editor:abc:lib/x.ts" — so moving one file's editor moves editors, not that
+ * one file for ever. */
+const moved = new Map<string, Region>();
+
+const kindKey = (id: string) => (id.includes(":") ? id.slice(0, id.indexOf(":") + 1) : id);
+
+function regionOf(id: string): Region {
+  const his = moved.get(kindKey(id));
+  if (his) return his;
+  if (isMainPanel(id)) return "main";
+  return HOME_REGION[id] ?? "left";
+}
+
+/* readRegions takes his choices back out of the settings on load. */
+export function readRegions(prefs: Record<string, unknown>): void {
+  moved.clear();
+  const saved = prefs.dockRegions;
+  if (!saved || typeof saved !== "object") return;
+  for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
+    if (isRegion(v)) moved.set(k, v);
   }
 }
 
-/* ---------- placing panels ---------- */
-
-/* What a panel is for decides where it goes.
-   session   — a terminal; lives on the stage.
-   view      — a rail view; the overview joins the stage, the rest go aside.
-   companion — something that belongs beside the work. The tree and the
-               changes list go aside with the utilities; a document — an
-               editor, a diff, a preview — goes on the desk, a group of its
-               own beside the aside, so it never covers the list it was
-               opened from. */
-export type Role = "session" | "view" | "companion";
-type Lane = "stage" | "aside" | "desk";
-
-const isStagePanel = (id: string) => id.startsWith("session:") || id === "overview";
-const isDocument = (id: string) => id.startsWith("editor:") || id.startsWith("diff:") || id.startsWith("preview:");
-const isAsidePanel = (id: string) => id !== "rail" && !isStagePanel(id) && !isDocument(id);
-
-function laneOf(role: Role, id: string): Lane {
-  if (role === "session") return "stage";
-  if (role === "view" && id === "overview") return "stage";
-  if (isDocument(id)) return "desk";
-  return "aside";
+function rememberRegion(id: string, region: Region): void {
+  moved.set(kindKey(id), region);
+  void api.setPrefs({ dockRegions: Object.fromEntries(moved) }).catch(() => undefined);
 }
 
-// The group a lane lives in, if one exists: the active group when it
-// qualifies, else the first that does. A group that holds a stage panel is
-// never an aside or a desk, whatever else was tabbed into it — the user put
-// something over a terminal on purpose, and the lanes must not grow into it.
-function groupOf(dv: DockviewApi, lane: Lane, except?: { id: string }): DockviewGroupPanel | undefined {
-  const holds = (g: DockviewGroupPanel) => {
-    // A floating group is a window of its own, not a lane: nothing tabs into
-    // it by placement, and a panel docking back never lands in one.
-    if (g.id === except?.id || g.api.location.type !== "grid") return false;
-    if (lane === "stage") return g.panels.some((p) => isStagePanel(p.id));
-    if (g.panels.some((p) => isStagePanel(p.id))) return false;
-    return lane === "aside" ? g.panels.some((p) => isAsidePanel(p.id)) : g.panels.some((p) => isDocument(p.id));
-  };
+/* Which region a group is: the one most of its panels belong to, main winning
+   a tie. A group holding a terminal is main whatever was tabbed over it, so
+   the tool regions can never grow into the work. */
+function regionOfGroup(g: DockviewGroupPanel): Region | undefined {
+  const votes = new Map<Region, number>();
+  for (const p of g.panels) {
+    if (p.id === "rail") continue;
+    const r = regionOf(p.id);
+    votes.set(r, (votes.get(r) ?? 0) + 1);
+  }
+  let best: Region | undefined;
+  let most = 0;
+  for (const r of REGIONS) {
+    const n = votes.get(r) ?? 0;
+    if (n > most) {
+      best = r;
+      most = n;
+    }
+  }
+  return best;
+}
+
+/* The group a region lives in, if it is on screen. The active group wins when
+   it qualifies, so a second panel joins the one being looked at. A floating
+   group is a window of its own and belongs to no region. */
+function groupOfRegion(dv: DockviewApi, region: Region, except?: { id: string }): DockviewGroupPanel | undefined {
+  const holds = (g: DockviewGroupPanel) =>
+    g.id !== except?.id &&
+    g.api.location.type === "grid" &&
+    !g.panels.some((p) => p.id === "rail") &&
+    regionOfGroup(g) === region;
   const active = dv.activeGroup;
   if (active && holds(active)) return active;
   return dv.groups.find(holds);
 }
 
-/* place decides where a new panel of this lane goes.
+/* place decides where a panel of this region goes.
  *
- * The stage is where the terminals are, right of the rail; the aside is a
- * group to the right of the stage where everything that is looked at beside a
- * terminal collects; the desk is right of the aside, for what those lists
- * open. A new panel tabs into its lane's group, or opens that group beside
- * the lane before it when there is none yet. Nothing ever tabs over the
- * terminal because it happened to be the active group, and a file never
- * tabs over the tree it was picked from. */
-function place(dv: DockviewApi, lane: Lane, except?: { id: string }): AddPanelPositionOptions {
-  const stage = groupOf(dv, "stage", except);
-  const aside = groupOf(dv, "aside", except);
-  const desk = groupOf(dv, "desk", except);
-  if (lane === "stage") {
-    if (stage) return { referenceGroup: stage };
-    if (aside) return { referenceGroup: aside, direction: "left" };
-    if (desk) return { referenceGroup: desk, direction: "left" };
-    if (dv.getPanel("rail")) return { referencePanel: "rail", direction: "right" };
+ * A region already on screen takes it as a tab. One that is not is opened
+ * against the region beside it, so the four always keep their order however
+ * the window was built up — and the bottom one against the grid itself, so it
+ * spans the whole width rather than the group it was split from. */
+function place(dv: DockviewApi, region: Region, except?: { id: string }): AddPanelPositionOptions {
+  const at = (r: Region) => groupOfRegion(dv, r, except);
+  const here = at(region);
+  if (here) return { referenceGroup: here };
+  const main = at("main");
+  const left = at("left");
+  const right = at("right");
+  if (region === "left") {
+    if (main) return { referenceGroup: main, direction: "left" };
+    if (right) return { referenceGroup: right, direction: "left" };
+    return { direction: "left" };
+  }
+  if (region === "right") {
+    if (main) return { referenceGroup: main, direction: "right" };
+    if (left) return { referenceGroup: left, direction: "right" };
     return { direction: "right" };
   }
-  if (lane === "aside") {
-    if (aside) return { referenceGroup: aside };
-    if (desk) return { referenceGroup: desk, direction: "left" };
-    if (stage) return { referenceGroup: stage, direction: "right" };
-    return { direction: "right" };
-  }
-  if (desk) return { referenceGroup: desk };
-  if (aside) return { referenceGroup: aside, direction: "right" };
-  if (stage) return { referenceGroup: stage, direction: "right" };
+  if (region === "bottom") return { direction: "below" };
+  if (left) return { referenceGroup: left, direction: "right" };
+  if (right) return { referenceGroup: right, direction: "left" };
   return { direction: "right" };
 }
 
-/* sized gives a split its size: half of the group it splits off from.
+/* cssPx reads a length the stylesheet declares and hands dockview the pixels
+   it counts in. Sizes stay in the frame, in rem, like every other measurement
+   — see remToPx, which this leans on. */
+function cssPx(name: string, fallback: string): number {
+  const declared = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return Math.round(remToPx(declared || fallback));
+}
+
+/* How big a region opens.
  *
- * Without one, dockview hands the new group an equal share of the whole row —
- * a third group made the rail, the stage and itself 480px each, the rail
- * included. With a size, the space comes out of the group being split and its
- * neighbours keep theirs, the way a drop onto a group's edge behaves. */
-function sized(dv: DockviewApi, position: AddPanelPositionOptions): { position: AddPanelPositionOptions; initialWidth?: number; initialHeight?: number } {
+ * A tool region opens at the width the frame declares, never more than its
+ * share of the window; the bottom one at its declared height. Main is given a
+ * size only when it is splitting off the rail — then it takes everything the
+ * rail does not need, rather than half the window. */
+function sizedFor(dv: DockviewApi, region: Region, position: AddPanelPositionOptions) {
   const direction = position.direction;
   if (!direction || direction === "within") return { position };
+  if (region === "bottom") {
+    return { position, initialHeight: Math.min(Math.round(dv.height * 0.45), cssPx("--bottom-h", "18rem")) };
+  }
+  if (region === "left" || region === "right") {
+    return { position, initialWidth: Math.min(Math.round(dv.width * 0.4), cssPx("--side-w", "20rem")) };
+  }
   const ref =
     "referenceGroup" in position
       ? typeof position.referenceGroup === "string"
@@ -1223,16 +1369,79 @@ function sized(dv: DockviewApi, position: AddPanelPositionOptions): { position: 
           : position.referencePanel.group
         : undefined;
   if (!ref) return { position };
-  if (direction === "left" || direction === "right") {
-    // Splitting off the rail — the first panel of a fresh arrangement — takes
-    // everything but the rail's own width, not half the window.
-    const offRail = ref.panels.some((p) => p.id === "rail");
-    return { position, initialWidth: offRail ? Math.max(1, ref.api.width - railPx()) : Math.floor(ref.api.width / 2) };
-  }
+  if (direction === "left" || direction === "right") return { position, initialWidth: Math.floor(ref.api.width / 2) };
   return { position, initialHeight: Math.floor(ref.api.height / 2) };
 }
 
-// openOrFocus makes the panel where its role says if it is not there, and
+/* hold keeps the frame's shape.
+ *
+ * Dockview shares a closed column's width out among the survivors in
+ * proportion, which is why closing a third column made the menu half the
+ * window — "why doesn't the first stay as it is and the second take the space
+ * back?". So every region is given the bounds the frame declares: the rail
+ * keeps its width, a tool region may never take more than its share, and main
+ * has no upper bound at all. What a closed region leaves then goes to the
+ * work, because main is the only one that can grow into it. */
+function hold(dv: DockviewApi): void {
+  const sideMin = cssPx("--side-min", "11rem");
+  const sideMax = Math.max(sideMin, Math.round(dv.width * 0.45));
+  const bottomMin = cssPx("--bottom-min", "5rem");
+  for (const g of dv.groups) {
+    if (g.api.location.type !== "grid") continue;
+    const region = regionOfGroup(g);
+    if (region === "left" || region === "right") {
+      g.api.setConstraints({ minimumWidth: sideMin, maximumWidth: sideMax });
+      const want = sizes.get(region) ?? Math.min(Math.round(dv.width * 0.3), cssPx("--side-w", "20rem"));
+      if (Math.abs(g.api.width - want) > 1) g.api.setSize({ width: want });
+    } else if (region === "bottom") {
+      g.api.setConstraints({ minimumHeight: bottomMin });
+      const want = sizes.get("bottom") ?? Math.min(Math.round(dv.height * 0.4), cssPx("--bottom-h", "18rem"));
+      if (Math.abs(g.api.height - want) > 1) g.api.setSize({ height: want });
+    } else {
+      g.api.setConstraints({ minimumWidth: cssPx("--main-min", "16rem") });
+    }
+  }
+}
+
+/* What each region is currently sized to, so that a region opening or closing
+   does not resize the ones that were not touched.
+ *
+ * Dockview shares a closed column's space out in proportion, which is how
+ * closing one column made the other two take half the window each. Here the
+ * side regions are put back to the size they were last at and main simply
+ * takes what is left — "why doesn't the first stay as it is and the second
+ * take the space back?". A drag is what changes a remembered size: note() is
+ * called once the layout has settled, hold() when a group comes or goes. */
+const sizes = new Map<Region, number>();
+
+function note(dv: DockviewApi): void {
+  for (const g of dv.groups) {
+    if (g.api.location.type !== "grid") continue;
+    const region = regionOfGroup(g);
+    if (region === "left" || region === "right") sizes.set(region, g.api.width);
+    else if (region === "bottom") sizes.set("bottom", g.api.height);
+  }
+}
+
+/* One tool at a time in a side region.
+ *
+ * "It is just as annoying that a tab always opens — that is not how a menu
+ * works." It is not: a menu swaps what the side shows, it does not stack a
+ * tab on every click until nothing can be found again. So opening a tool in
+ * left, right or bottom clears the tools that were there. Documents and
+ * terminals are never thrown away by a menu click, wherever they sit, and a
+ * second tool side by side is still reachable — through the tab's own menu,
+ * or by dragging it there. */
+function clearTools(dv: DockviewApi, region: Region, except: string): void {
+  const g = groupOfRegion(dv, region);
+  if (!g) return;
+  for (const p of [...g.panels]) {
+    if (p.id === except || p.id === "rail" || isMainPanel(p.id)) continue;
+    p.api.close();
+  }
+}
+
+// openOrFocus makes the panel where its region says if it is not there, and
 // brings it to the front. Returns whether it was made now.
 function openOrFocus(
   dv: DockviewApi,
@@ -1240,31 +1449,65 @@ function openOrFocus(
   component: string,
   title: string,
   params: object,
-  role: Role,
+  region?: Region,
 ): boolean {
+  const where = region ?? regionOf(id);
   const existing = dv.getPanel(id);
   if (existing) {
     existing.api.setActive();
     return false;
   }
-  dv.addPanel({ id, component, title, params, ...sized(dv, place(dv, laneOf(role, id))) });
+  if (where !== "main") clearTools(dv, where, id);
+  dv.addPanel({ id, component, title, params, ...sizedFor(dv, where, place(dv, where)) });
+  hold(dv);
   return true;
 }
 
-/* openFresh puts the panel in a group of its own, right of the group that is
- * active — the way to see a view beside the one it would otherwise tab into.
- * A panel already on screen moves there; one that is not is made there. The
- * rail's group is never the reference: a fresh group right of the rail would
- * push the whole stage aside, so then the stage stands in for it. */
+/* addSplit puts a view into a region beside one that is already there —
+   stacked, not tabbed. The arrangements use it where two tools are meant to
+   be read at once; a click in the menu never does. */
+function addSplit(dv: DockviewApi, view: string, region: Region, direction: "right" | "below"): void {
+  const g = groupOfRegion(dv, region);
+  if (!g) {
+    openView(dv, view);
+    return;
+  }
+  const position: AddPanelPositionOptions = { referenceGroup: g, direction };
+  const size =
+    direction === "below"
+      ? { initialHeight: Math.floor(g.api.height / 2) }
+      : { initialWidth: Math.floor(g.api.width / 2) };
+  dv.addPanel({ id: view, component: view, title: VIEW_TITLES[view] ?? view, position, ...size });
+  hold(dv);
+}
+
+/* openView is what a click in the menu does.
+ *
+ * A tool that is already in front goes away again — the same click that
+ * opened it, the way a tool window's button works everywhere else. A tool
+ * that is open but behind comes to the front. Anything in main is never
+ * toggled shut: closing the terminal you are working in because you clicked
+ * its name would be its own bug. */
+function openView(dv: DockviewApi, view: string): void {
+  const region = regionOf(view);
+  const existing = dv.getPanel(view);
+  if (existing && region !== "main" && dv.activePanel?.id === view) {
+    existing.api.close();
+    hold(dv);
+    return;
+  }
+  openOrFocus(dv, view, view, VIEW_TITLES[view] ?? view, {}, region);
+}
+
+/* openFresh splits the panel off beside the one that is active — the way to
+ * see two things at once without leaving the region. A panel already alone in
+ * its group is as fresh as it can be. */
 function openFresh(dv: DockviewApi, id: string, component: string, title: string, params: object): void {
   const active = dv.activeGroup;
-  const beside =
-    active && !active.panels.some((p) => p.id === "rail")
-      ? active
-      : (groupOf(dv, "stage") ?? groupOf(dv, "aside") ?? groupOf(dv, "desk"));
+  const where = regionOf(id);
+  const beside = active && !active.panels.some((p) => p.id === "rail") ? active : groupOfRegion(dv, where);
   const existing = dv.getPanel(id);
   if (existing) {
-    // Alone in its group already: there is nothing fresher to move it to.
     if (existing.group.panels.length === 1) {
       existing.api.setActive();
       return;
@@ -1275,18 +1518,11 @@ function openFresh(dv: DockviewApi, id: string, component: string, title: string
     return;
   }
   const position: AddPanelPositionOptions = beside ? { referenceGroup: beside, direction: "right" } : { direction: "right" };
-  dv.addPanel({ id, component, title, params, ...sized(dv, position) });
+  dv.addPanel({ id, component, title, params, ...sizedFor(dv, where, position) });
+  hold(dv);
 }
 
-/* ---------- moving panels: float, dock, the other lane ---------- */
-
-// roleOf reads a panel's role back off its id, for a panel that is already
-// there and is being moved rather than made.
-function roleOf(id: string): Role {
-  if (id.startsWith("session:")) return "session";
-  if (id in VIEW_TITLES) return "view";
-  return "companion";
-}
+/* ---------- moving panels: float, dock, between regions ---------- */
 
 /* floatPanel lifts a panel out of the grid into a floating group of its own —
    a window inside the window, dragged and resized by its title bar. Sized to
@@ -1303,21 +1539,28 @@ function floatPanel(dv: DockviewApi, panel: IDockviewPanel) {
   });
 }
 
-// dockPanel puts a floating panel back into the grid, where its role says.
+/* dockPanel puts a floating panel back where it belongs — its own region, not
+   whichever lane was nearest. */
 function dockPanel(dv: DockviewApi, panel: IDockviewPanel) {
-  moveInto(dv, panel, place(dv, laneOf(roleOf(panel.id), panel.id), panel.group));
+  moveInto(dv, panel, place(dv, regionOf(panel.id), panel.group));
+  hold(dv);
 }
 
-/* crossLane moves a panel between the stage and the aside.
- *
- * Which lane a panel is in is read off the group it sits in, not its id: a
- * group holding a terminal is the stage, whatever else was tabbed into it. So
- * a usage panel tabbed over a terminal crosses to the aside, and the same
- * panel in the aside crosses onto the stage beside the terminal. The panel's
- * own group is left out of the search, so it never "moves" onto itself. */
-function crossLane(dv: DockviewApi, panel: IDockviewPanel) {
-  const onStage = panel.group.panels.some((p) => isStagePanel(p.id));
-  moveInto(dv, panel, place(dv, onStage ? "aside" : "stage", panel.group));
+/* moveToRegion carries a panel into one of the four and remembers that this
+   is where its kind goes from now on. */
+function moveToRegion(dv: DockviewApi, panel: IDockviewPanel, region: Region) {
+  rememberRegion(panel.id, region);
+  moveInto(dv, panel, place(dv, region, panel.group));
+  hold(dv);
+}
+
+/* splitPanel puts the panel beside or below what it is in, inside the region
+   it is already in — two editors side by side, a diff under the file it is
+   about. Alone in its group there is nothing to split off from. */
+function splitPanel(dv: DockviewApi, panel: IDockviewPanel, position: Position) {
+  if (panel.group.panels.length < 2) return;
+  panel.api.moveTo({ group: panel.group, position });
+  hold(dv);
 }
 
 // toPosition writes a placement direction the way moveTo reads it.

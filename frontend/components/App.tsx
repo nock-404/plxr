@@ -12,7 +12,6 @@ import NewSession from "@/components/NewSession";
 import Meter from "@/components/Meter";
 import Pace from "@/components/Pace";
 import Folders from "@/components/views/Folders";
-import Settings from "@/components/Settings";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
 import Workbench, { startCapture } from "@/components/Workbench";
@@ -112,7 +111,11 @@ export default function App() {
     if (p) api.openWorkspace(p).catch(() => {/* not a folder, or not there: the overview still filters by it */});
   }, []);
   const [creating, setCreating] = useState(false);
-  const [settings, setSettings] = useState(false);
+  /* The settings used to be a window of its own on the body, which is why it
+     could not be docked anywhere — "why can I grab the settings and dock them
+     nowhere?". It is a panel in the dock like everything else now, and the
+     shell only asks for it. */
+  const openSettings = useCallback(() => setFocus({ kind: "view", view: "settings" }), []);
   // The readout is off unless somebody asked for it: a frame loop that is
   // always running is a measuring instrument that changes what it measures.
   const [meter, setMeter] = useState(false);
@@ -290,7 +293,7 @@ export default function App() {
         else if (templates) setTemplates(false);
         else if (creating) setCreating(false);
         else if (document.querySelector(".backdrop, .paletteScrim")) return;
-        else setSettings(false);
+        else return;
         return;
       }
       if (typing) return;
@@ -307,7 +310,7 @@ export default function App() {
       if (fire("workshop", () => setShop((v) => !v))) return;
       if (fire("newSession", () => setCreating(true))) return;
       if (fire("newShell", () => direct({ type: "newShell" }))) return;
-      if (fire("settings", () => setSettings((v) => !v))) return;
+      if (fire("settings", openSettings)) return;
       for (let i = 0; i < VIEW_ACTIONS.length; i++) {
         const view = VIEW_ORDER[i];
         if (fire(VIEW_ACTIONS[i], () => setFocus({ kind: "view", view }))) return;
@@ -476,7 +479,7 @@ export default function App() {
       { label: tr("palette.newShell", "New shell here"), hint: caption(bindingOf("newShell")), onClick: () => direct({ type: "newShell" }) },
       { label: tr("palette.sessionGrid", "Session grid"), onClick: () => direct({ type: "grid" }) },
       { label: tr("palette.templates", "Templates"), onClick: () => setTemplates(true) },
-      { label: tr("palette.settings", "Settings"), hint: caption(bindingOf("settings")), onClick: () => setSettings(true) },
+      { label: tr("palette.settings", "Settings"), hint: caption(bindingOf("settings")), onClick: openSettings },
       {
         label: herd.halted ? tr("header.brakeRelease", "RESUME ALL") : tr("header.brake", "PAUSE ALL"),
         onClick: () => void (herd.halted ? api.releaseBrake() : api.emergencyBrake()).catch(() => undefined),
@@ -538,7 +541,7 @@ export default function App() {
       { id: "cmd:new", group: tr("palette.action", "Action"), label: tr("palette.newSession", "New session"), run: () => setCreating(true) },
       { id: "cmd:newshell", group: tr("palette.action", "Action"), label: tr("palette.newShell", "New shell here"), hint: caption(bindingOf("newShell")), run: () => direct({ type: "newShell" }) },
       { id: "cmd:grid", group: tr("palette.action", "Action"), label: tr("palette.sessionGrid", "Session grid"), run: () => direct({ type: "grid" }) },
-      { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: () => setSettings(true) },
+      { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: openSettings },
       { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
       { id: "cmd:reset", group: tr("palette.action", "Action"), label: tr("palette.resetLayout", "Reset the panel layout"), run: () => direct({ type: "reset" }) },
       {
@@ -679,7 +682,7 @@ export default function App() {
               way back out was the DONE button at the bottom of a panel long
               enough to have scrolled it off the screen. */}
           <Tooltip text={tr("header.settingsTip", "Settings")}>
-            <Button icon on={settings} aria-pressed={settings} onClick={() => setSettings((open) => !open)}>
+            <Button icon onClick={openSettings}>
               ⚙
             </Button>
           </Tooltip>
@@ -744,6 +747,7 @@ export default function App() {
             openSession={openSession}
             onReplaced={openSession}
             shell={shell}
+            layouts={layoutControls}
             focus={focus}
             layoutAction={layoutAction}
             onLayoutSaved={savePreset}
@@ -764,7 +768,6 @@ export default function App() {
 
       {/* A window of its own on the body — see ui/Window — not a column
           beside the work: it is dragged where it is not in the way. */}
-      {settings ? <Settings onClose={() => setSettings(false)} layouts={layoutControls} /> : null}
       {keys ? <Keys onClose={() => setKeys(false)} /> : null}
       {templates ? <Templates onClose={() => setTemplates(false)} /> : null}
 

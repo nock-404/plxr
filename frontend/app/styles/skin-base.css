@@ -816,20 +816,71 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
   --dv-separator-border: var(--line);
   --dv-tab-divider-color: var(--line);
   --dv-paneview-active-outline-color: var(--accent);
+  --dv-paneview-header-border-color: var(--line);
   --dv-active-sash-color: var(--accent);
   --dv-sash-color: transparent;
   --dv-icon-hover-background-color: var(--line);
   --dv-tab-group-color: var(--dim);
   --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 22%, transparent);
   --dv-drag-over-border-color: var(--accent);
+  --dv-drag-over-border: var(--hair) solid var(--accent);
   --dv-floating-titlebar-background-color: var(--panel);
   --dv-floating-group-border: var(--line);
+  --dv-floating-border: var(--hair) solid var(--line);
+  --dv-floating-titlebar-border-bottom: var(--hair) solid var(--line);
+  --dv-floating-box-shadow: 0 1rem 3rem var(--shadow);
   --dv-context-menu-background-color: var(--panel);
   --dv-context-menu-color: var(--fg);
   --dv-scrollbar-background-color: var(--line);
   --dv-tabs-container-scrollbar-color: var(--line);
+
+  /* Everything dockview would otherwise draw in its own blue: the compass it
+     shows while a panel is dragged, the guides it snaps to, the edge it
+     offers to dock against, and the chips it colours a tab group with. A
+     window manager that is one colour is one colour all the way down — this
+     was the blue that turned up on a tab and belonged to nothing here. */
+  --dv-dnd-compass-color: var(--accent);
+  --dv-dnd-compass-cell-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  --dv-dnd-compass-edge-cell-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  --dv-dnd-compass-active-cell-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  --dv-smart-guides-color: var(--accent);
+  --dv-smart-guides-preview-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  --dv-edge-dock-indicator-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  --dv-tab-group-color-grey: var(--dim);
+  --dv-tab-group-color-blue: var(--accent);
+  --dv-tab-group-color-red: var(--blocked);
+  --dv-tab-group-color-yellow: var(--waiting);
+  --dv-tab-group-color-green: var(--working);
+  --dv-tab-group-color-pink: var(--accent);
+  --dv-tab-group-color-purple: var(--accent);
+  --dv-tab-group-color-cyan: var(--accent);
+  --dv-tab-group-color-orange: var(--waiting);
 }
-.plxrDock .dv-tab { font: inherit; }
+
+/* ---- the tab strip ----------------------------------------------------
+   The tab in front carries the panel's own background, so the tab and what
+   is under it read as one surface and the strip falls away behind it — the
+   way every editor draws it. It is marked with a bar along its top edge:
+   in the accent while that group has the keyboard, dim while another group
+   has it, so at a glance the window says where typing goes. The others sit
+   back on the strip in the dim colour and come forward on hover. */
+.plxrDock .dv-tab { font: inherit; color: var(--dim); background: var(--panel); }
+.plxrDock .dv-tab + .dv-tab { border-left: var(--hair) solid var(--line); }
+.plxrDock .dv-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.plxrDock .dv-tab.dv-active-tab { color: var(--fg); background: var(--bg); }
+.plxrDock .dv-tab.dv-active-tab::before { background: var(--dim); }
+.plxrDock .dv-active-group .dv-tab.dv-active-tab { color: var(--accent); }
+.plxrDock .dv-active-group .dv-tab.dv-active-tab::before { background: var(--accent); }
+.plxrDock .dv-tabs-and-actions-container { border-bottom: var(--hair) solid var(--line); }
+/* The group that has the keyboard is outlined on the side it meets its
+   neighbour, not around the whole box: a frame around every group turns the
+   window into a grid of boxes. */
+.plxrDock .dv-groupview { background: var(--bg); }
+
+/* An editor with unsaved work says so where it is read — on its tab, as a
+   dot in place of the close, which is what the close would throw away. */
+.panelTab[data-dirty="yes"] .panelTabClose::after { content: "●"; color: var(--waiting); }
+.panelTab[data-dirty="yes"]:hover .panelTabClose::after { content: "✕"; color: inherit; }
 
 /* The context menu on the panel surface, the picked item in the accent. */
 .menu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); }
@@ -885,3 +936,25 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .pane[data-bell="yes"] .pterm { border-color: var(--waiting); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--waiting) 45%, transparent); }
 /* The mark on a session's tab while its bell has not been looked at. */
 .sessionTabBell { background: var(--waiting); border-radius: 50%; }
+
+/* The mark on a tab carries the colour of what it is: the file kinds pick up
+   the tree's own palette, a session its state, a view the dim the tab's text
+   has until it is the one in front. */
+.panelTabIcon { color: var(--dim); opacity: .9; }
+.dv-active-tab .panelTabIcon { color: inherit; opacity: 1; }
+.panelTab[data-kind="session"] .panelTabIcon { color: var(--working); }
+.panelTab[data-kind="diff"] .panelTabIcon { color: var(--waiting); }
+.panelTab[data-kind="preview"] .panelTabIcon { color: var(--accent); }
+.panelTab[data-kind="ts"] .panelTabIcon, .panelTab[data-kind="tsx"] .panelTabIcon { color: var(--accent); }
+.panelTab[data-kind="go"] .panelTabIcon { color: var(--working); }
+.panelTab[data-kind="md"] .panelTabIcon { color: var(--fg); }
+
+/* The strip the tabs sit in, and the settings filling a panel: both take the
+   panel's own surface, so a region reads as one box rather than two. */
+.plxrDock .dv-tabs-container { background: var(--panel); }
+.settingsPanel { background: var(--panel); color: var(--fg); }
+
+/* The menu column at the left edge of the window: the panel surface, with a
+   hairline where it meets the work. */
+.dockShell { background: transparent; }
+.railHost { background: var(--panel); border-right: var(--hair) solid var(--line); }
