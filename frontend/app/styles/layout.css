@@ -416,12 +416,24 @@ body {
 .uwinNote { grid-column: 1 / -1; display: block; padding: 0.25rem 1rem 0.25rem 0; max-width: 46rem; line-height: 1.45; }
 .uacct .uwinNote { padding-left: 0; }
 
-/* The spend by model: a header row and one row per model, five columns that
-   collapse to two when the panel is narrow. */
-.umodels { padding: 0.75rem 1rem 0.5rem; }
-.umodelRow { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; padding: 0.15rem 0; }
-.umodelName { flex: 1 1 10rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.umodelCell { flex: 0 0 5rem; text-align: right; }
+/* The spend by model: a header row and one row per model.
+ *
+ * It was a wrapping flex row, so in the one-column region on the right the
+ * four figures broke onto whatever line they happened to fit on and the header
+ * broke differently from the rows under it — "input output" over "cache read
+ * cache written" over numbers that belonged to neither. A table has to keep
+ * its columns, so it is a grid measured against its own width: wide, the name
+ * and four figures on one line; narrow, the name on a line of its own and the
+ * four figures under it in the same four columns as the header. */
+.umodels { padding: 0.75rem 1rem 0.5rem; container-type: inline-size; container-name: umodels; }
+.umodelRow { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, minmax(3.5rem, 5.5rem)); align-items: baseline; gap: 0.1rem 0.5rem; padding: 0.15rem 0; }
+.umodelName { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.umodelCell { min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container umodels (max-width: 30rem) {
+  .umodelRow { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0.3rem 0 0.15rem; }
+  .umodelName { grid-column: 1 / -1; }
+  .umodelHead .umodelName { display: none; }
+}
 
 /* Where the numbers come from, at the foot of the view. */
 .ufoot { display: block; padding: 0.75rem 1rem 1.25rem; max-width: 52rem; line-height: 1.5; }
