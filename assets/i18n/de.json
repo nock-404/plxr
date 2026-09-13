@@ -630,7 +630,7 @@
   "keys.tookFrom": "{key} war {action} — diese Zeile ist jetzt ohne Taste",
   "keys.view1": "Übersicht",
   "keys.view2": "Eingang",
-  "keys.view3": "Ordner",
+  "keys.view3": "Dateien",
   "keys.view4": "Änderungen",
   "keys.view5": "Ports",
   "keys.view6": "Verbrauch",
@@ -1317,9 +1317,9 @@
   "region.left": "Links",
   "region.right": "Rechts",
   "region.bottom": "Unten",
-  "keys.toggleLeft": "Linken Bereich zeigen oder ausblenden",
-  "keys.toggleRight": "Rechten Bereich zeigen oder ausblenden",
-  "keys.toggleBottom": "Unteren Bereich zeigen oder ausblenden",
+  "keys.toggleLeft": "Linkes Werkzeugfenster zeigen oder ausblenden",
+  "keys.toggleRight": "Rechtes Werkzeugfenster zeigen oder ausblenden",
+  "keys.toggleBottom": "Unteres Werkzeugfenster zeigen oder ausblenden",
   "accounts.addedNoSession": "{name} hinzugefügt. Starte claude darunter, um dich anzumelden.",
   "accounts.hookOff": "kein Hook",
   "accounts.hookOffTip": "Sessions unter diesem Konto melden plxr nichts. Einstellungen › Status › EINRICHTEN trägt den Hook in jedes Konto ein.",
@@ -1368,5 +1368,9 @@
   "limits.noReadingLong": "Claude Code hat für diesen Account noch keinen Wert hinterlegt",
   "tool.hide": "Ausblenden",
   "tool.more": "Mehr",
-  "tool.noFolder": "Kein Ordner zum Zeigen: Öffne eine Session oder gib oben im Pfadfeld einen Ordner an."
+  "tool.noFolder": "Kein Ordner zum Zeigen: Öffne eine Session oder gib oben im Pfadfeld einen Ordner an.",
+  "keys.hideTool": "Das Werkzeugfenster ausblenden, in dem die Tastatur ist",
+  "keys.toolReview": "Review",
+  "menu.toolWindows": "Werkzeugfenster",
+  "menu.documents": "Dokumente"
 }

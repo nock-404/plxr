@@ -16,6 +16,10 @@
  *   a tool window has no ×, the middle button closes nothing in it, ⌘W from
  *     inside it hides it and ⇧⌘T does not bring it back as a tab; its header
  *     names it, its — hides it, its ⋮ offers Hide with the edge's chord;
+ *   ⌘B ⌥⌘B ⌘J show and hide their edge and an empty edge changes nothing;
+ *     ⌘2 shows the Inbox with the keyboard in it, gives the keyboard back to
+ *     it, and puts it away from inside it; ⇧⎋ hides the window the keyboard
+ *     is in and nothing else;
  *   a file clicked in the Files tool opens in main, and a document dragged
  *     onto a tool window, its edges or the grid's outer edge stays in main;
  *   main's splits keep their proportions whatever order the edges go in;
@@ -468,6 +472,91 @@ const header = await run(`${HELPERS}
   claim("⌘W with the keyboard in the window hides it, and its icon stays", h.focused && !h.afterW.lit && !h.afterW.box && h.afterW.icon, JSON.stringify({ focused: h.focused, ...h.afterW }));
   claim("⇧⌘T does not bring the tool back, as a window or as a tab of main", !h.afterReopen.lit && !h.afterReopen.box && !h.afterReopen.gridTabs.includes(h.title), JSON.stringify(h.afterReopen));
   claim("the — in the header hides the window", h.shownAgain && !h.afterHideButton.lit && !h.afterHideButton.box, JSON.stringify(h.afterHideButton));
+}
+
+// ---- the keys -------------------------------------------------------------------
+/* The edge chords, with the stripes still to come: the frame beside the dock
+   keeps its width, main takes and gives the room, and an edge with nothing on
+   it changes nothing at all. Keys are keydown events on whatever has focus,
+   read by the same window listeners a real key reaches. */
+const edges = await run(`${HELPERS}
+  await hideAll();
+  document.activeElement?.blur?.();
+  const rail = () => box(document.querySelector('.railHost')).w;
+  const g0 = grid(); const r0 = rail();
+  const step = async (k, mods) => { await key(k, mods); await wait(300); return { showing: showing(), grid: grid(), rail: rail(),
+    left: edgeBox('files') || edgeBox('changes'), right: edgeBox('inbox') || edgeBox('usage') }; };
+  document.activeElement?.blur?.();
+  const leftOn = await step('b', { metaKey: true });
+  document.activeElement?.blur?.();
+  const leftOff = await step('b', { metaKey: true });
+  const rightOn = await step('b', { metaKey: true, altKey: true });
+  document.activeElement?.blur?.();
+  const rightOff = await step('b', { metaKey: true, altKey: true });
+  const bottom = await step('j', { metaKey: true });
+  return { g0, r0, leftOn, leftOff, rightOn, rightOff, bottom };
+`);
+{
+  const e = edges;
+  claim(
+    "⌘B shows the left edge and main gives up its width; ⌘B again hides it and main takes it back",
+    e.leftOn.left && near(e.leftOn.grid.x, e.g0.x + e.leftOn.left.w, 2) && e.leftOff.showing.length === 0 && boxNear(e.leftOff.grid, e.g0),
+    `showing ${e.leftOn.showing.join(", ")} ${show(e.leftOn.left)} · main ${show(e.g0)} → ${show(e.leftOn.grid)} → ${show(e.leftOff.grid)}`,
+  );
+  claim(
+    "⌥⌘B does the same for the right edge",
+    e.rightOn.right && near(e.rightOn.grid.x + e.rightOn.grid.w, e.g0.x + e.g0.w - e.rightOn.right.w, 2) && e.rightOff.showing.length === 0 && boxNear(e.rightOff.grid, e.g0),
+    `showing ${e.rightOn.showing.join(", ")} ${show(e.rightOn.right)} · main ${show(e.rightOn.grid)} → ${show(e.rightOff.grid)}`,
+  );
+  claim(
+    "⌘J on the empty bottom edge changes no box, and the frame beside the dock keeps its width throughout",
+    e.bottom.showing.length === 0 && boxNear(e.bottom.grid, e.g0) && [e.leftOn, e.leftOff, e.rightOn, e.rightOff, e.bottom].every((s) => s.rail === e.r0),
+    `showing ${e.bottom.showing.join(", ") || "none"} · main ${show(e.bottom.grid)} · frame ${[e.r0, e.leftOn.rail, e.rightOn.rail, e.bottom.rail].join("/")}`,
+  );
+}
+
+/* A tool's chord, the JetBrains way: the first press shows it and puts the
+   keyboard in it, a press from inside it puts it away, and a press while it
+   shows with the keyboard elsewhere gives the keyboard back to it. */
+const chord = await run(`${HELPERS}
+  await hideAll();
+  document.activeElement?.blur?.();
+  const inside = id => Boolean(document.activeElement?.closest?.('.toolWindow[data-tool="' + id + '"]'));
+  const settle = () => wait(700);
+  await key('2', { metaKey: true }); await settle();
+  const first = { lit: toolLit('inbox'), shown: Boolean(edgeBox('inbox')), inside: inside('inbox') };
+  await key('2', { metaKey: true }); await settle();
+  const second = { lit: toolLit('inbox'), shown: Boolean(edgeBox('inbox')) };
+  await key('2', { metaKey: true }); await settle();
+  document.activeElement?.blur?.();
+  const away = { inside: inside('inbox') };
+  await key('2', { metaKey: true }); await settle();
+  const back = { lit: toolLit('inbox'), shown: Boolean(edgeBox('inbox')), inside: inside('inbox') };
+  await key('2', { metaKey: true }); await settle();
+  const last = { lit: toolLit('inbox'), shown: Boolean(edgeBox('inbox')) };
+  // ⌘3 is the file tree.
+  document.activeElement?.blur?.();
+  await key('3', { metaKey: true }); await settle();
+  const files = { lit: toolLit('files'), shown: Boolean(edgeBox('files')), inside: inside('files') };
+  // ⇧⎋ from inside it puts it away; from outside a window it hides nothing.
+  await key('Escape', { shiftKey: true }); await settle();
+  const escaped = { lit: toolLit('files'), shown: Boolean(edgeBox('files')), icon: Boolean(stripeIcon('files')) };
+  await click('usage', 900);
+  document.activeElement?.blur?.();
+  await key('Escape', { shiftKey: true }); await settle();
+  const outside = { lit: toolLit('usage'), shown: Boolean(edgeBox('usage')) };
+  await click('usage', 500);
+  return { first, second, away, back, last, files, escaped, outside };
+`);
+{
+  const c = chord;
+  claim("⌘2 shows the Inbox and puts the keyboard in it", c.first.lit && c.first.shown && c.first.inside, JSON.stringify(c.first));
+  claim("⌘2 again, from inside it, puts it away", !c.second.lit && !c.second.shown, JSON.stringify(c.second));
+  claim("⌘2 while it shows with the keyboard elsewhere gives it the keyboard and leaves it showing", !c.away.inside && c.back.lit && c.back.shown && c.back.inside, JSON.stringify({ away: c.away, back: c.back }));
+  claim("and ⌘2 from inside it again puts it away", !c.last.lit && !c.last.shown, JSON.stringify(c.last));
+  claim("⌘3 shows the Files tool with the keyboard in it", c.files.lit && c.files.shown && c.files.inside, JSON.stringify(c.files));
+  claim("⇧⎋ with the keyboard in a tool window hides it and its icon stays", !c.escaped.lit && !c.escaped.shown && c.escaped.icon, JSON.stringify(c.escaped));
+  claim("⇧⎋ with the keyboard outside every tool window hides nothing", c.outside.lit && c.outside.shown, JSON.stringify(c.outside));
 }
 
 // ---- documents open in main, and stay there -----------------------------------

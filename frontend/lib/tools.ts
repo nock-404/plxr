@@ -64,10 +64,10 @@ export type DocId = keyof typeof DOCS;
 export type ToolLayout = { v: 1; order: Record<Edge, ToolId[]> };
 
 /* What ⌘1…9 reach, in that order. Search came last, so the seven keys people
-   already knew kept their views, and the notes came after it. The third key
-   still reaches the folders: it moves to the file tree when the keys are
-   given to the tools, not before. */
-export const CHORD_ORDER = ["overview", "inbox", "folders", "changes", "ports", "usage", "archive", "search", "notes"] as const;
+   already knew kept their places, and the notes came after it. The third key
+   reaches the file tree: the folders are the project overview now, a document
+   opened from the project switch, and a tree is what a key beside ⌘2 is for. */
+export const CHORD_ORDER = ["overview", "inbox", "files", "changes", "ports", "usage", "archive", "search", "notes"] as const;
 
 const byId = new Map<string, ToolDef>(TOOLS.map((t) => [t.id, t]));
 

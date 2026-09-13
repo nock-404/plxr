@@ -28,7 +28,7 @@ import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
 import Rail from "@/components/Rail";
 import ToolWindow from "@/components/stripes/ToolWindow";
-import { edgeHost, type ToolHost } from "@/components/dock/toolHost";
+import { edgeHost, focusedTool, type ToolHost } from "@/components/dock/toolHost";
 import { toolOps } from "@/components/dock/tools";
 import { migrateLayout } from "@/lib/layoutMigrate";
 import {
@@ -786,6 +786,7 @@ export default function Dock({
   appCommands,
   paletteOpen,
   onClosePalette,
+  onToolsChanged,
 }: Omit<
   DockData,
   | "openPreview"
@@ -820,6 +821,9 @@ export default function Dock({
      typed in. The dock only builds the commands and draws it. */
   paletteOpen: boolean;
   onClosePalette: () => void;
+  /* Which tool shows at each edge, whenever that changes — for the shell's
+     MENU to tick the ones that show. */
+  onToolsChanged?: (shown: ShownTools) => void;
 }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const hostRef = useRef<ToolHost | null>(null);
@@ -849,6 +853,11 @@ export default function Dock({
      are still to come. */
   const ops = useMemo(() => toolOps(() => hostRef.current, () => layoutRef.current, () => undefined), []);
   const hideEdge = useCallback((edge: Edge) => hostRef.current?.hide(edge), []);
+  const toolsChangedRef = useRef(onToolsChanged);
+  toolsChangedRef.current = onToolsChanged;
+  useEffect(() => {
+    toolsChangedRef.current?.(shownTools);
+  }, [shownTools]);
 
   const openPreview = useCallback((url: string, title: string) => {
     const dv = apiRef.current;
@@ -1033,14 +1042,24 @@ export default function Dock({
      own: ⌘W closes the active panel through the guard, ⌥⌘←/→ walk the panels
      of the active group, ⌥⌘↑/↓ walk the groups of main, ⌘B ⌥⌘B ⌘J show or
      hide an edge. A field being typed in keeps its keys, and a dialog on
-     screen has the keyboard to itself. */
+     screen has the keyboard to itself.
+   *
+   * With the keyboard in a tool window, ⇧⎋ and ⌘W put that window away and
+   * its mark stays — from a field in it too, because that is where the
+   * keyboard is in a tool. Anywhere else ⇧⎋ is not the dock's: a terminal
+   * keeps it. */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const dv = apiRef.current;
       if (!dv) return;
+      if (document.querySelector(".backdrop, .paletteScrim")) return;
+      if (focusedTool() && (matches(e, "hideTool") || matches(e, "closePanel"))) {
+        e.preventDefault();
+        ops.hideFocusedTool();
+        return;
+      }
       const target = e.target as HTMLElement | null;
       if (target?.tagName === "INPUT") return;
-      if (document.querySelector(".backdrop, .paletteScrim")) return;
       const editing = target?.tagName === "TEXTAREA" || Boolean(target?.isContentEditable);
       const fire = (action: Action, run: () => void) => {
         if (!matches(e, action)) return false;
@@ -1893,13 +1912,14 @@ function stepPanel(dv: DockviewApi, by: -1 | 1) {
   list[(i + by + list.length) % list.length]?.api.setActive();
 }
 
-/* stepGroup makes the previous or next group of main active, in reading order
-   — left to right, then top to bottom, as the groups sit on screen rather than
-   in the order they were made. The tool windows are not groups of main and
-   are skipped; floating groups take their turn where they sit. */
+/* stepGroup makes the previous or next group of main's grid active, in
+   reading order — left to right, then top to bottom, as the groups sit on
+   screen rather than in the order they were made. The tool windows are not
+   groups of main and are skipped, and so is a floating window: the walk is
+   through the grid he split. */
 function stepGroup(dv: DockviewApi, by: -1 | 1) {
   const ordered = dv.groups
-    .filter((g) => g.api.location.type !== "edge")
+    .filter((g) => g.api.location.type === "grid")
     .map((g) => ({ g, r: g.element.getBoundingClientRect() }))
     .sort((a, b) => a.r.left - b.r.left || a.r.top - b.r.top)
     .map((x) => x.g);

@@ -54,6 +54,8 @@ export type Action =
   | "toggleLeft"
   | "toggleRight"
   | "toggleBottom"
+  | "hideTool"
+  | "toolReview"
   | "reopenPanel"
   | "historyBack"
   | "historyForward";
@@ -68,7 +70,7 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "find", chord: "Mod+F", key: "keys.find", fallback: "Find in the terminal" },
   { id: "view1", chord: "Mod+1", key: "keys.view1", fallback: "Overview" },
   { id: "view2", chord: "Mod+2", key: "keys.view2", fallback: "Inbox" },
-  { id: "view3", chord: "Mod+3", key: "keys.view3", fallback: "Folders" },
+  { id: "view3", chord: "Mod+3", key: "keys.view3", fallback: "Files" },
   { id: "view4", chord: "Mod+4", key: "keys.view4", fallback: "Changes" },
   { id: "view5", chord: "Mod+5", key: "keys.view5", fallback: "Ports" },
   { id: "view6", chord: "Mod+6", key: "keys.view6", fallback: "Usage" },
@@ -102,13 +104,19 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
      itself rather than by the window: several trees can be open at once, and
      the one being walked through is the one with the keyboard. */
   { id: "filesUp", chord: "Mod+ArrowUp", key: "keys.filesUp", fallback: "Up one folder in the file tree" },
-  /* The three tool regions, folded away and brought back — the chords every
-     editor has, because a region that can only be closed loses what was in
-     it and a window with no way to clear the sides is a window with no room
-     to work in. */
-  { id: "toggleLeft", chord: "Mod+B", key: "keys.toggleLeft", fallback: "Show or hide the left region" },
-  { id: "toggleRight", chord: "Mod+Option+B", key: "keys.toggleRight", fallback: "Show or hide the right region" },
-  { id: "toggleBottom", chord: "Mod+J", key: "keys.toggleBottom", fallback: "Show or hide the bottom region" },
+  /* The three tool windows, hidden and brought back — the chords every editor
+     has, because a window with no way to clear the sides is a window with no
+     room to work in. What was showing at the edge comes back. */
+  { id: "toggleLeft", chord: "Mod+B", key: "keys.toggleLeft", fallback: "Show or hide the left tool window" },
+  { id: "toggleRight", chord: "Mod+Option+B", key: "keys.toggleRight", fallback: "Show or hide the right tool window" },
+  { id: "toggleBottom", chord: "Mod+J", key: "keys.toggleBottom", fallback: "Show or hide the bottom tool window" },
+  /* The tool window the keyboard is in, put away, the way JetBrains does it.
+     Only there: anywhere else ⇧⎋ belongs to whatever has the keyboard, and a
+     terminal keeps it. */
+  { id: "hideTool", chord: "Shift+Escape", key: "keys.hideTool", fallback: "Hide the tool window the keyboard is in" },
+  /* The review has no number: ⌘1…9 were taken before it came. It is in the
+     list all the same, so a key can be given to it. */
+  { id: "toolReview", chord: "", key: "keys.toolReview", fallback: "Review" },
 ];
 
 const shipped: Record<string, string> = Object.fromEntries(ACTIONS.map((a) => [a.id, a.chord]));
@@ -243,6 +251,8 @@ export function caption(chord: string): string {
     key = UNSHIFTED[key];
   }
   key = ARROWS[key] ?? key;
+  // The escape key the way each platform's menus write it.
+  if (key === "Escape") key = isMac() ? "⎋" : "Esc";
   if (isMac()) {
     return MAC_MODIFIERS.filter(([name]) => held.has(name)).map(([, glyph]) => glyph).join("") + key;
   }

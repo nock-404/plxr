@@ -20,7 +20,7 @@ import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
 import ProjectSwitch from "@/components/topbar/ProjectSwitch";
 import SessionSwitch from "@/components/topbar/SessionSwitch";
-import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions } from "@/components/Dock";
+import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
 import { titleOf } from "@/lib/state";
@@ -37,16 +37,14 @@ import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
-import { CHORD_ORDER, isTool, viewDef } from "@/lib/tools";
+import { CHORD_ORDER, DOCS, TOOLS, chordOf, isTool } from "@/lib/tools";
 import { adoptPrefs } from "@/lib/prefs";
 import { NO_PROJECT, type Project } from "@/lib/project";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
 
-/* The views as the header menu and ⌘1…9 name them, in the order the shortcuts
-   count them — read from the registry, so they are the words the rail uses. */
-const VIEW_LABELS = CHORD_ORDER.map((view) => ({ view, ...viewDef(view) }));
+/* What ⌘1…9 are bound to, in the order CHORD_ORDER counts them. */
 const VIEW_ACTIONS: Action[] = ["view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8", "view9"];
 
 // What each activity is called in the menu and the palette.
@@ -320,7 +318,6 @@ export default function App() {
         else return;
         return;
       }
-      if (typing) return;
       const fire = (action: Action, run: () => void) => {
         if (!matches(e, action)) return false;
         if (editing && !hasModifier(bindingOf(action))) return false;
@@ -328,6 +325,22 @@ export default function App() {
         run();
         return true;
       };
+      /* ⌘1…9 and the review's key: the board by the first, a tool by each
+         other — shown and given the keyboard, given the keyboard back, or put
+         away when it already has it. From a field inside a tool window they
+         still reach the tools: the press that puts a window away is made from
+         inside it. Every other key stays the field's. */
+      const chords = () => {
+        for (let i = 0; i < VIEW_ACTIONS.length; i++) {
+          const id = CHORD_ORDER[i];
+          if (fire(VIEW_ACTIONS[i], () => setFocus(isTool(id) ? { kind: "tool", id, how: "chord" } : { kind: "doc", id }))) return true;
+        }
+        return fire("toolReview", () => setFocus({ kind: "tool", id: "review", how: "chord" }));
+      };
+      if (typing) {
+        if (target?.closest?.(".toolWindow")) chords();
+        return;
+      }
       if (fire("help", () => setKeys(true))) return;
       if (fire("palette", () => setPaletteOpen((v) => !v))) return;
       if (fire("workbench", () => setBench((b) => !b))) return;
@@ -338,10 +351,7 @@ export default function App() {
       // Not from a text area being written in; the terminal reads its keys
       // through one too, and from there the switch is wanted most.
       if (!(target?.tagName === "TEXTAREA" && !fromTerminal(e)) && fire("sessionSwitch", () => setSessionAsk((n) => n + 1))) return;
-      for (let i = 0; i < VIEW_ACTIONS.length; i++) {
-        const id = CHORD_ORDER[i];
-        if (fire(VIEW_ACTIONS[i], () => setFocus(isTool(id) ? { kind: "tool", id, how: "reveal" } : { kind: "doc", id }))) return;
-      }
+      if (chords()) return;
     }
     // On window, where the palette's ⌘K always listened: a key pressed
     // anywhere reaches it, and the checks that dispatch to window reach it too.
@@ -394,6 +404,8 @@ export default function App() {
   }, [tiles]);
 
   const [focus, setFocus] = useState<Focus>(null);
+  // Which tool shows at each edge, as the dock reports it, for the MENU's ticks.
+  const [openTools, setOpenTools] = useState<ShownTools>({ left: null, right: null, bottom: null });
   /* What the dock is asked to do with its arrangement. One channel, one
      request at a time, each new by its seq — a reset, a preset to apply, a
      name to save under, an activity to arrange for. */
@@ -518,19 +530,27 @@ export default function App() {
       { label: tr("workshop.title", "Workshop"), hint: caption(bindingOf("workshop")), checked: shop, onClick: () => setShop((v) => !v) },
       { label: tr("meter.show", "frame-rate readout"), checked: meter, onClick: toggleMeter },
       { separator: true },
-      { header: true, label: tr("menu.views", "Views") },
-      ...VIEW_LABELS.map((v, i) => ({
-        label: tr(v.key, v.fallback),
-        hint: caption(bindingOf(VIEW_ACTIONS[i])),
-        onClick: () => setFocus(isTool(v.view) ? { kind: "tool", id: v.view, how: "reveal" } : { kind: "doc", id: v.view }),
+      /* The tools and the documents are two groups, because they are two
+         things: a tool is shown and hidden — ticked while it shows, and the
+         same row puts it away — and a document is opened in main. */
+      { header: true, label: tr("menu.toolWindows", "Tool windows") },
+      ...TOOLS.map((t) => ({
+        label: tr(t.key, t.fallback),
+        hint: (t.id === "review" ? (bindingOf("toolReview") ? caption(bindingOf("toolReview")) : "") : chordOf(t.id)) || undefined,
+        checked: Object.values(openTools).includes(t.id),
+        onClick: () => setFocus({ kind: "tool", id: t.id, how: "toggle" }),
       })),
-      { label: tr("rail.review", "Review"), onClick: () => setFocus({ kind: "tool", id: "review", how: "reveal" }) },
+      { separator: true },
+      { header: true, label: tr("menu.documents", "Documents") },
+      { label: tr(DOCS.overview.key, DOCS.overview.fallback), hint: chordOf("overview") || undefined, onClick: () => setFocus({ kind: "doc", id: "overview" }) },
+      { label: tr("switch.overview", "Project overview"), onClick: () => setFocus({ kind: "doc", id: "folders" }) },
+      { label: tr(DOCS.settings.key, DOCS.settings.fallback), hint: caption(bindingOf("settings")), onClick: openSettings },
       { separator: true },
       { header: true, label: tr("menu.help", "Help") },
       { label: tr("keys.title", "Keyboard"), hint: caption(bindingOf("help")), onClick: () => setKeys(true) },
     ];
     return items;
-  }, [herd.halted, bench, shop, meter, direct, toggleMeter]);
+  }, [herd.halted, bench, shop, meter, direct, toggleMeter, openTools, openSettings]);
 
   // The actions that belong to the shell, not to any panel — offered in the
   // command palette (⌘K) alongside the views and sessions.
@@ -777,6 +797,7 @@ export default function App() {
             here={here}
             project={project}
             onSessionFront={sessionFront}
+            onToolsChanged={setOpenTools}
             connected={connected}
             counts={{ inbox: needsAnswer, ports, archive }}
             openSession={openSession}

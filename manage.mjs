@@ -474,11 +474,19 @@ const reach = await run(`${HELPERS}
   await wait(300);
   document.querySelector('.btn[data-do="menu"]')?.click(); await wait(300);
   const menu = [...document.querySelectorAll('.menu .menuItem')].map(i => i.querySelector('.menuLabel')?.textContent.trim() ?? i.textContent.trim());
+  // The rows under the tool windows' heading, up to the next rule.
+  let under = '';
+  const tools = [];
+  for (const e of document.querySelectorAll('body > .menu > *')) {
+    if (e.classList.contains('menuHeader')) under = e.textContent.trim();
+    else if (e.classList.contains('menuSep')) under = '';
+    else if (under === 'Tool windows') tools.push(e.querySelector('.menuLabel')?.textContent.trim() ?? '');
+  }
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-  return { rows, menu };
+  return { rows, menu, tools };
 `);
 claim("⌘K offers Open Search", (reach.rows ?? []).includes("Open Search"), (reach.rows ?? []).join(", "));
-claim("the header MENU lists Search under Views", (reach.menu ?? []).includes("Search"), (reach.menu ?? []).join(", "));
+claim("the header MENU lists Search under Tool windows", (reach.tools ?? []).includes("Search"), `tool windows: ${(reach.tools ?? []).join(", ")} · all rows: ${(reach.menu ?? []).join(", ")}`);
 
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);

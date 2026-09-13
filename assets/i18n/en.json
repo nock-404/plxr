@@ -631,7 +631,7 @@
   "keys.tookFrom": "{key} was {action} — that row is unbound now",
   "keys.view1": "Overview",
   "keys.view2": "Inbox",
-  "keys.view3": "Folders",
+  "keys.view3": "Files",
   "keys.view4": "Changes",
   "keys.view5": "Ports",
   "keys.view6": "Usage",
@@ -1319,9 +1319,9 @@
   "region.left": "Left",
   "region.right": "Right",
   "region.bottom": "Bottom",
-  "keys.toggleLeft": "Show or hide the left region",
-  "keys.toggleRight": "Show or hide the right region",
-  "keys.toggleBottom": "Show or hide the bottom region",
+  "keys.toggleLeft": "Show or hide the left tool window",
+  "keys.toggleRight": "Show or hide the right tool window",
+  "keys.toggleBottom": "Show or hide the bottom tool window",
   "accounts.addedNoSession": "{name} added. Start claude under it to sign in.",
   "accounts.hookOff": "no hook",
   "accounts.hookOffTip": "Sessions under this account report nothing to plxr. Settings › status › INSTALL puts the hook into every account.",
@@ -1370,5 +1370,9 @@
   "limits.noReadingLong": "Claude Code has left no reading for this account yet",
   "tool.hide": "Hide",
   "tool.more": "More",
-  "tool.noFolder": "No folder to show: open a session, or name a folder in the path field above."
+  "tool.noFolder": "No folder to show: open a session, or name a folder in the path field above.",
+  "keys.hideTool": "Hide the tool window the keyboard is in",
+  "keys.toolReview": "Review",
+  "menu.toolWindows": "Tool windows",
+  "menu.documents": "Documents"
 }

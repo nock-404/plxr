@@ -245,15 +245,23 @@ const menu = await tab.run(`${HELPERS}
   const m = got.v;
   return m ? { heads: menuHeads(), rows: menuRows(), alpha: alphaOf(m), onBody: m.parentElement === document.body,
     z: getComputedStyle(m).zIndex, checks: [...m.querySelectorAll('.menuCheck')].length,
-    hints: [...m.querySelectorAll('.menuHint')].map(h => h.textContent.trim()), rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(m.getBoundingClientRect()) } : null;
+    hints: [...m.querySelectorAll('.menuHint')].map(h => h.textContent.trim()), rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(m.getBoundingClientRect()), vh: innerHeight } : null;
 `);
-claim("MENU opens the one context menu on <body>, under the button", menu && menu.onBody && Math.abs(menu.rect.x - menuBtn.x) < 3 && menu.rect.y >= menuBtn.y + menuBtn.h,
-  menu ? `menu at ${Math.round(menu.rect.x)},${Math.round(menu.rect.y)} · button bottom ${Math.round(menuBtn.y + menuBtn.h)} · z ${menu.z}` : "no menu");
+/* Under the button — unless the list is taller than the room under it: the
+   menu keeps itself on the screen and moves up only as far as that takes, its
+   last row never below the window's edge. The MENU grew by the tool windows
+   and the documents, and at 1000 px it no longer fits under its button. */
+const menuRoom = menu ? menu.vh - (menuBtn.y + menuBtn.h) : 0;
+claim("MENU opens the one context menu on <body>, under the button, or lifted only as far as a list taller than the room under it needs",
+  menu && menu.onBody && Math.abs(menu.rect.x - menuBtn.x) < 3 &&
+    (menu.rect.y >= menuBtn.y + menuBtn.h || (menu.rect.h > menuRoom - 8 && menu.rect.y + menu.rect.h <= menu.vh)),
+  menu ? `menu at ${Math.round(menu.rect.x)},${Math.round(menu.rect.y)}, ${Math.round(menu.rect.h)} px high · button bottom ${Math.round(menuBtn.y + menuBtn.h)} · room under it ${Math.round(menuRoom)} of ${menu.vh} · z ${menu.z}` : "no menu");
 claim("the menu is opaque (background alpha 1)", menu && menu.alpha === 1, menu ? `alpha ${menu.alpha}` : "");
-claim("every group is there: Actions, Tools, Views, Help", menu && ["Actions", "Tools", "Views", "Help"].every((h) => menu.heads.includes(h)), menu ? menu.heads.join(" · ") : "");
-const wantRows = ["Search commands…", "New session", "Templates", "Settings", "PAUSE ALL", "Reset the panel layout", "Workbench", "Workshop", "frame-rate readout", "Overview", "Inbox", "Folders", "Changes", "Ports", "Usage", "Archive", "Keyboard"];
+claim("every group is there: Actions, Tools, Tool windows, Documents, Help", menu && ["Actions", "Tools", "Tool windows", "Documents", "Help"].every((h) => menu.heads.includes(h)), menu ? menu.heads.join(" · ") : "");
+const wantRows = ["Search commands…", "New session", "Templates", "Settings", "PAUSE ALL", "Reset the panel layout", "Workbench", "Workshop", "frame-rate readout", "Files", "Inbox", "Changes", "Ports", "Usage", "Archive", "Overview", "Project overview", "Keyboard"];
 claim("every action row is there (" + wantRows.length + ")", menu && wantRows.every((r) => menu.rows.includes(r)), menu ? `${menu.rows.length} rows: ${menu.rows.join(" · ")}` : "");
-claim("the tools carry a check cell and the rows their keys", menu && menu.checks === 3 && menu.hints.includes("⌘K") && menu.hints.includes("⌘1"), menu ? `${menu.checks} checks · hints ${menu.hints.join(" ")}` : "");
+// The three tools of the window and the nine tool windows are switches, each with its tick cell.
+claim("the tools and the tool windows carry a check cell and the rows their keys", menu && menu.checks === 12 && menu.hints.includes("⌘K") && menu.hints.includes("⌘1") && menu.hints.includes("⌘3"), menu ? `${menu.checks} checks · hints ${menu.hints.join(" ")}` : "");
 
 // Workbench from the menu, by the pointer alone.
 const wbRow = await tab.run(`${HELPERS} const b = menuRow(/^Workbench$/); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
@@ -633,7 +641,8 @@ const rebound = await tab.run(`${HELPERS}
 claim("REBIND takes the next key: the palette row goes ⌘K → ⌘P and prefs.keymap holds it", rebound.before === "⌘K" && rebound.waiting === "yes" && rebound.after === "⌘P" && rebound.saved && rebound.saved.palette === "Mod+P",
   `${rebound.before} → ${rebound.after} · prefs.keymap ${JSON.stringify(rebound.saved)}`);
 claim("the rebound key fires (⌘P opens the palette) and the old one no longer does", rebound.pOpens && !rebound.kOpens, `⌘K opens ${rebound.kOpens} · ⌘P opens ${rebound.pOpens}`);
-claim("the keyboard list reflects the rebinding and has no phantom ⌘1…5 row", rebound.rows.some((r) => r.startsWith("⌘P ")) && !rebound.phantom && rebound.rows.some((r) => r.startsWith("⌘7 Archive")),
+// ⌘3 is the file tree now; the folders are reached from the project switch and have no key.
+claim("the keyboard list reflects the rebinding, has no phantom ⌘1…5 row, names ⌘3 Files and ⌘7 Archive and no Folders row", rebound.rows.some((r) => r.startsWith("⌘P ")) && !rebound.phantom && rebound.rows.some((r) => r.startsWith("⌘7 Archive")) && rebound.rows.some((r) => r.startsWith("⌘3 Files")) && !rebound.rows.some((r) => / Folders$/.test(r)),
   `${rebound.rows.length} rows after ${rebound.listMs} ms: ${rebound.rows.slice(0, 6).join(" | ")} …`);
 claim("RESET puts the shipped key back", rebound.restored === "⌘K", `now ${rebound.restored}`);
 
@@ -859,13 +868,14 @@ const keyGroups = [...keysSource.matchAll(/fallback: "([^"]+)",\s*entries: \[([^
 // layout; the modifiers in the order the Mac's menus write them.
 const SHIFTED_FROM = { "~": "`", "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/" };
 const macCaption = (chord) => {
+  if (!chord) return "—";
   const plus = chord === "+" || chord.endsWith("++");
   const parts = (plus ? chord.slice(0, -1) : chord).split("+").filter(Boolean);
   let key = plus ? "+" : parts.pop();
   const held = new Set(parts);
   if (Object.hasOwn(SHIFTED_FROM, key)) { held.add("Shift"); key = SHIFTED_FROM[key]; }
   const glyph = { Ctrl: "⌃", Option: "⌥", Shift: "⇧", Mod: "⌘" };
-  return ["Ctrl", "Option", "Shift", "Mod"].filter((m) => held.has(m)).map((m) => glyph[m]).join("") + ({ ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" }[key] ?? key);
+  return ["Ctrl", "Option", "Shift", "Mod"].filter((m) => held.has(m)).map((m) => glyph[m]).join("") + ({ ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Escape: "⎋" }[key] ?? key);
 };
 const placedKeys = new Set(keyGroups.flatMap((g) => g.ids));
 const shippedById = Object.fromEntries(shippedKeys.map((a) => [a.id, a]));
@@ -981,7 +991,7 @@ for (const skin of KEYS_SKINS) {
 }
 await tab.cdp.send("Emulation.clearDeviceMetricsOverride");
 // Spelled out, not computed: the chords that were printed wrong, or could be.
-const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", workshop: "⇧F12", workbench: "F12", newShell: "⇧⌘N", reopenPanel: "⇧⌘T", panelPrev: "⌥⌘←", groupNext: "⌥⌘↓", toggleRight: "⌥⌘B", filesUp: "⌘↑", settings: "⌘," };
+const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", workshop: "⇧F12", workbench: "F12", newShell: "⇧⌘N", reopenPanel: "⇧⌘T", panelPrev: "⌥⌘←", groupNext: "⌥⌘↓", toggleRight: "⌥⌘B", filesUp: "⌘↑", settings: "⌘,", hideTool: "⇧⎋", toolReview: "—" };
 const spotted = keysSpot ? Object.entries(SPOT).map(([id, want]) => ({ id, want, got: keysSpot.rows.find((r) => r.id === id)?.cap })) : [];
 claim("the captions read the way a Mac writes them: ⌃⇧- for Ctrl+_, ⇧/ for ?, ⌥⌘← with ⌥ before ⌘",
   spotted.length && spotted.every((s) => s.got === s.want), spotted.map((s) => `${s.id} ${s.got}${s.got === s.want ? "" : ` (want ${s.want})`}`).join(" · "));
