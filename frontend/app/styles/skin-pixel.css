@@ -391,6 +391,15 @@
 [data-skin="pixel"] .sessionTabBell { background: var(--accent); border-radius: 0; }
 
 [data-skin="pixel"] .panelTabIcon { color: var(--accent); text-shadow: none; }
+/* A tab's close in eight bits: under the pointer a hard block of the frame
+   colour behind the cross, pressed the block turns to the accent, and the
+   keyboard's ring is a solid two-pixel frame. Nothing rounded, nothing soft;
+   the dot for unsaved work is a square. */
+[data-skin="pixel"] .panelTabClose { border-radius: 0; }
+[data-skin="pixel"] .panelTabClose:hover { color: var(--fg); background: var(--line); }
+[data-skin="pixel"] .panelTabClose:active { color: var(--onAccent); background: var(--accent); }
+[data-skin="pixel"] .panelTabClose:focus-visible { outline: calc(var(--px) / 2) solid var(--accent); outline-offset: 0; }
+[data-skin="pixel"] .panelTab[data-dirty="yes"] .panelTabClose::after { border-radius: 0; }
 /* ---- the folder's standing, in eight bits ----
    PressStart is wide and there is no room for tracking on top of it, so the
    letter-spacing goes and the size comes down. The count wears the console

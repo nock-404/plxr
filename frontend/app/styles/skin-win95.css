@@ -414,6 +414,19 @@
 [data-skin="win95"] .sessionTabBell { background: var(--blocked); border-radius: 0; border: var(--hair) solid var(--dk); }
 
 [data-skin="win95"] .panelTabIcon { color: var(--dk); text-shadow: none; }
+/* A tab's close in grey plastic: a plain black cross — the skin's grey is
+   unreadable on the teal of the tab in front — and under the pointer the small
+   raised button Windows put in every title bar. Pressed, the bevel turns in and
+   the cross moves down and right with it; the keyboard gets the dotted
+   rectangle inside. Square everywhere, the dot for unsaved work too. */
+[data-skin="win95"] .panelTabClose { color: var(--dk); border-radius: 0; }
+[data-skin="win95"] .panelTabClose:hover,
+[data-skin="win95"] .panelTabClose:active { color: var(--dk); background: var(--panel); }
+[data-skin="win95"] .panelTabClose:hover { box-shadow: inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--dk), inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -2) calc(var(--hair) * -2) 0 var(--sh); }
+[data-skin="win95"] .panelTabClose:active { box-shadow: inset var(--hair) var(--hair) 0 var(--dk), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--hi), inset calc(var(--hair) * 2) calc(var(--hair) * 2) 0 var(--sh); }
+[data-skin="win95"] .panelTabClose:active .uiIcon { transform: translate(var(--hair), var(--hair)); }
+[data-skin="win95"] .panelTabClose:focus-visible { outline: var(--hair) dotted var(--dk); outline-offset: calc(var(--hair) * -3); }
+[data-skin="win95"] .panelTab[data-dirty="yes"] .panelTabClose::after { background: var(--dk); border-radius: 0; }
 /* ---- the folder's standing, in grey plastic ----
    This skin writes plainly: no capitals, no letter-spacing, and emphasis is
    weight rather than a colour. Never a bevel — a bevel here would say "press

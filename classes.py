@@ -115,9 +115,10 @@ LAYOUT_ONLY = {
     # belong to .pterm around it, and this one carries nothing at all — which
     # is the whole point of it, not an oversight.
     "ptermbox",
-    # Every panel's tab (title + guarded close + menu): arrangement only, it
-    # wears the tab's colours.
-    "panelTab", "panelTabName", "panelTabClose",
+    # Every panel's tab and its title: arrangement only, both wear the tab's
+    # colours. The close is not here: it is a control with a hover, a press
+    # and a focus of its own, and every skin dresses it.
+    "panelTab", "panelTabName",
     # The windows he asked for: the notes panel's column, the inbox's group
     # and heading rows (the .uhead and .meta inside carry the colour), and
     # the overview's column above its grid — arrangement only.

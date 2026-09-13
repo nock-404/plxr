@@ -47,6 +47,10 @@
      edges — the frame of the tab strip; its colours are the skin's. */
   --tabmark-h: 0.125rem;
   --tab-pad-x: 0.625rem;
+  /* The square a tab's close sits in, and the dot that takes its place while
+     an editor holds unsaved work. */
+  --tabclose: 1.25rem;
+  --tabdot: 0.5rem;
 
   /* An icon from the chosen pack, and the smaller one a tree row folds with.
      Each sits in the slot the glyph it replaced had, so the text beside a mark
@@ -1094,7 +1098,32 @@ button.diffline { cursor: pointer; }
    the box that knows which tab is active. */
 .panelTab { display: flex; align-items: center; gap: 0.5rem; height: 100%; padding: 0 var(--tab-pad-x); white-space: nowrap; min-width: 0; max-width: 18rem; }
 .panelTabName { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.panelTabClose { padding: 0 0.125rem; line-height: 1; flex: 0 0 auto; }
+/* The close: a square of its own that the tab keeps whether anything is drawn
+   in it or not, so a title stands exactly where it stood when the close comes
+   up under the pointer. None of it is the browser's — left to itself a bare
+   <button> is the system's grey pill, and that is what sat on every tab. The
+   icon keeps its pack's size: the pixel pack's 24px mark on a plain screen
+   overhangs the square, its ink does not. */
+.panelTabClose { position: relative; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: var(--tabclose); height: var(--tabclose); margin: 0; padding: 0; background: none; border: 0; font: inherit; line-height: 1; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.panelTabClose .uiIcon { margin: 0; }
+/* Drawn on the tab in front and on the tab under the pointer, the way editors
+   do it; on every other tab the square is there and empty. Keyboard focus
+   brings it up wherever it is. A screen with no pointer to hover with shows
+   it everywhere. Not scoped to .plxrDock: dockview renders a floating group
+   outside it, and scoped the close never came up on a floating tab. */
+.panelTabClose .uiIcon { visibility: hidden; }
+.dv-active-tab .panelTabClose .uiIcon,
+.dv-tab:hover .panelTabClose .uiIcon,
+.panelTabClose:focus-visible .uiIcon { visibility: visible; }
+@media (hover: none) { .panelTabClose .uiIcon { visibility: visible; } }
+/* An editor with unsaved work: a dot in the close's square on every tab, in
+   front or not, and the close back in its place under the pointer. */
+.panelTab[data-dirty="yes"] .panelTabClose .uiIcon { visibility: hidden; }
+.panelTab[data-dirty="yes"] .panelTabClose::after { content: ""; position: absolute; inset: 0; margin: auto; width: var(--tabdot); height: var(--tabdot); }
+.dv-tab:hover .panelTab[data-dirty="yes"] .panelTabClose .uiIcon,
+.panelTab[data-dirty="yes"] .panelTabClose:focus-visible .uiIcon { visibility: visible; }
+.dv-tab:hover .panelTab[data-dirty="yes"] .panelTabClose::after,
+.panelTab[data-dirty="yes"] .panelTabClose:focus-visible::after { content: none; }
 .plxrDock .dv-tab { position: relative; }
 /* The bar that marks the tab in front sits on the edge where the tab meets
    its content, so the two read as one surface — the way every reference he
