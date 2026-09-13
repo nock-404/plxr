@@ -19,6 +19,7 @@ import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -239,6 +240,24 @@ const evaluate = async (expression) => {
   return r.result?.value;
 };
 
+/* The boxes are the frame's and the overview's, so the overview is brought to
+   the front first. Measured on whatever arrangement was saved last, a window
+   left with another tab in front of the overview has no tiles to measure, and
+   a missing box fails below. */
+for (let i = 0; i < 80; i++) {
+  if (await evaluate(`(() => { ${GATEKIT} return appUp(); })()`).catch(() => 0)) break;
+  await sleep(250);
+}
+await evaluate(`(() => { ${GATEKIT} return openDoc("overview"); })()`).catch(() => false);
+
+/* Waited for until every box is on the page, for twenty seconds at most, so a
+   page still arriving does not read as a page without one. */
+for (let i = 0; i < 80; i++) {
+  const all = await evaluate(`Object.values(${JSON.stringify(BOXES)}).every((sel) => document.querySelector(sel))`).catch(() => false);
+  if (all) break;
+  await sleep(250);
+}
+
 /* A skin's border thickness is its own business: a hairline in one, a four
    pixel block frame in another. That shifts the content inside a box without
    moving the box, so the comparison allows the widest frame any skin draws —
@@ -276,8 +295,18 @@ if (seen.length === 0) {
   console.log("  nothing on screen to measure — the window did not load");
   stop(1);
 }
-const differing = seen.filter((n) => {
-  const rows = SKINS.map((s) => measured[s][n]).filter(Boolean);
+/* An expected box that is not on the page is a failure. It used to be left
+   out of the comparison: a box missing in one skin was compared across the
+   other three, and one missing in all four was not compared at all — so a
+   selector that matched nothing still reported one layout. */
+const missing = names.flatMap((n) => SKINS.filter((s) => !measured[s]?.[n]).map((s) => `${n} (${BOXES[n]}) in ${s}`));
+if (missing.length) {
+  console.log(`  ${missing.length} expected boxes are not on the page:`);
+  for (const m of missing) console.log(`      ${m}`);
+  stop(1);
+}
+const differing = names.filter((n) => {
+  const rows = SKINS.map((s) => measured[s][n]);
   return [0, 1, 2, 3].some((i) => {
     const values = rows.map((r) => r[i]);
     return Math.max(...values) - Math.min(...values) > SLACK;
@@ -291,5 +320,5 @@ if (differing.length) {
   }
   stop(1);
 }
-console.log(`  one layout in all skins — ${seen.length} boxes, ${SKINS.length} skins`);
+console.log(`  one layout in all skins — ${names.length} boxes, ${SKINS.length} skins`);
 stop(0);

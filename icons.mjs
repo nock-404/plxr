@@ -16,6 +16,10 @@
  *   - picking a pack changes the window at once, without a reload, and the
  *     choice is still there after one
  *   - nothing moves: every box measured is where it was in the other packs
+ *   - a new browser profile, with no look stored anywhere, comes up in Pixel
+ *   - every name the tool stripes draw, laid out in a row of its own because
+ *     most of them wear nothing on screen yet, has ink, is not a filled box and
+ *     keeps no colour of its own, in every pack, skin and density
  *   - the licences page shows each vendored licence whole, with its copyright
  *
  * Screenshots are written to $ICON_SHOTS when it is set. No dependencies: the
@@ -26,6 +30,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 import { inflateSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -44,6 +49,15 @@ const PACKS = [
   ["pixel", "Pixel"],
 ];
 const RATIOS = [1, 2];
+// The pack a window draws with until somebody picks one.
+const DEFAULT_PACK = ["pixel", "Pixel"];
+// The names the tool stripes draw (spec 2026-09-13 §9, his picks of
+// 13.09.2026): the tools, the header's hide, more and move, the three edge
+// toggles, and the project and session switchers with their opener.
+const STRIPE_NAMES = [
+  "files", "changes", "search", "review", "inbox", "usage", "ports", "archive", "notes",
+  "hide", "more", "move", "panel-left", "panel-right", "panel-bottom", "folder", "terminal", "chevron-down",
+];
 
 // The copyright lines each shipped licence has to carry, read off the files at
 // the pinned commits. A licence page that shows a text without them has
@@ -371,7 +385,7 @@ const run = async (body) => {
 
 // Everything the page side needs, in one place. Nothing is found by a word
 // that changes with the language: packs and skins have names that are names.
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const settingsOpen = () => !!document.querySelector('.settingsbody');
   const gear = () => document.querySelector('.tools [data-do="settings"]');
@@ -414,7 +428,7 @@ async function load() {
   for (let i = 0; i < 40; i++) {
     await cdp.send("Page.navigate", { url: `${base}/?token=${info.token}` });
     await sleep(900);
-    const up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+    const up = await run("return appUp();").catch(() => 0);
     if (up) return true;
   }
   return false;
@@ -428,9 +442,9 @@ async function arrange() {
     const row = (name) => [...document.querySelectorAll('.frow')].find((r) => r.querySelector('.fname')?.textContent === name);
     // A file opens in a tab of its own in front of the tree, so the tree's tab
     // is brought back to the front after each one — the way a person would.
-    document.querySelector('.railitem:has(.rsub)')?.click();
+    sessionRows()[0]?.click();
     await wait(1500);
-    document.querySelector('.railhome[data-view="folders"]')?.click();
+    openDoc('folders');
     await wait(2000);
     // This check's own folder, by its name — other folders may be open.
     [...document.querySelectorAll('.folderTab')].find((b) => b.textContent.trim() === ${JSON.stringify(basename(FIXTURE))})?.click();
@@ -455,12 +469,19 @@ async function arrange() {
 const MEASURE = `
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return [Math.round(r.x * 10) / 10, Math.round(r.y * 10) / 10, Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; };
   const q = (s) => document.querySelector(s);
+  // A tab strip with more tabs than room scrolls to keep the tab in front in
+  // view, and the pixel pack's wider tabs scroll it further. Measured in the
+  // pixel skin at 1x: 98px under Tabler, 114px under Pixel, each tab exactly
+  // where it was along the strip. So a tab is measured along its strip, and a
+  // scroll is not read as a move.
+  const strip = q('.panelTab')?.closest('.dv-tabs-container');
+  const along = (b) => b && strip ? [Math.round((b[0] + strip.scrollLeft) * 10) / 10, b[1], b[2], b[3]] : b;
   return {
     bar: box(q('.bar')), statusrow: box(q('.statusrow')), rail: box(q('.rail')),
     railHome: box(q('.railhome')), railHomeName: box(q('.railhome .rname')),
     railSession: box(q('.railitem:has(.rsub)')),
     frow: box(q('.frow')), frowName: box(q('.frow .fname')), frowCount: document.querySelectorAll('.frow').length,
-    tab: box(q('.panelTab')), tabName: box(q('.panelTab .panelTabName')),
+    tab: along(box(q('.panelTab'))), tabName: along(box(q('.panelTab .panelTabName'))),
     toolIcon: box(q('.tools [data-do="settings"]')), toolReset: box(q('.tools [data-do="reset-layout"]')),
   };
 `;
@@ -476,7 +497,7 @@ async function iconsOnScreen() {
       // by a menu or a panel.
       const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
       const covered = !top || !(svg === top || svg.contains(top) || top.contains(svg));
-      return { name: svg.dataset.icon, href: svg.querySelector('use')?.getAttribute('href') || '', x: r.x, y: r.y, w: r.width, h: r.height,
+      return { name: svg.dataset.icon, specimen: svg.dataset.specimen === 'yes', href: svg.querySelector('use')?.getAttribute('href') || '', x: r.x, y: r.y, w: r.width, h: r.height,
         colour: c.slice(0, 3), alpha: c.length > 3 ? c[3] : 1, hidden, covered,
         where: svg.closest('.railitem') ? 'rail' : svg.closest('.panelTab') ? 'tab' : svg.closest('.fchev') ? 'chevron' : svg.closest('.frow') ? 'tree' : svg.closest('.tools') ? 'toolbar' : 'other' };
     });
@@ -498,11 +519,61 @@ for (const [pack] of PACKS) {
 if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 const geometry = {};
 
+/* The pack nobody picked. This browser profile is new, and the service's
+   stored look is set aside until the end, when the prefs are put back whole —
+   so the first window below starts from nothing stored anywhere. */
+if (prefsBefore?.theme !== undefined) {
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ theme: null }) }).catch(() => undefined);
+}
+
+// One row of every tool-stripe name, drawn the way Icon.tsx draws a mark — an
+// svg.uiIcon using the chosen pack's symbol — in a panel's text colour on a
+// panel's ground, clear of every other mark so the ring around each reads
+// ground.
+const LAY_OUT_STRIPE_NAMES = `
+  document.getElementById('stripeSpecimen')?.remove();
+  const sprite = (document.querySelector('.railhome .uiIcon use')?.getAttribute('href') ?? '').split('#')[0];
+  const row = document.createElement('div');
+  row.id = 'stripeSpecimen';
+  row.style.cssText = 'position:fixed;left:22rem;top:10rem;z-index:2147483647;display:flex;gap:1rem;padding:1rem;background:var(--panel);color:var(--fg)';
+  for (const name of ${JSON.stringify(STRIPE_NAMES)}) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'uiIcon');
+    svg.setAttribute('data-icon', name);
+    svg.setAttribute('data-specimen', 'yes');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', sprite + '#' + name);
+    svg.appendChild(use);
+    row.appendChild(svg);
+  }
+  document.body.appendChild(row);
+  await wait(500);
+  const r = row.getBoundingClientRect();
+  return { sprite, box: { x: r.x, y: r.y, width: r.width, height: r.height } };
+`;
+
 for (const ratio of RATIOS) {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: ratio, mobile: false });
   if (!(await load())) {
     console.log("  the interface did not render");
     stop(1);
+  }
+  if (ratio === RATIOS[0]) {
+    const fresh = await run(`
+      await wait(1500);
+      await openSettings();
+      const shown = document.querySelector('[data-field="icons"] .selectButton span')?.textContent.trim();
+      const closed = await closeSettings();
+      return { icons: document.documentElement.dataset.icons, shown, closed,
+        hrefs: [...document.querySelectorAll('.uiIcon use')].map((u) => u.getAttribute('href') || '') };
+    `);
+    const kept = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
+    const elsewhere = fresh.hrefs.filter((h) => !h.startsWith(`/icons/${DEFAULT_PACK[0]}.svg`));
+    claim(`a new profile with no stored look comes up in the ${DEFAULT_PACK[1]} pack`,
+      kept?.theme === undefined && fresh.icons === DEFAULT_PACK[0] && fresh.shown === DEFAULT_PACK[1] && fresh.closed
+        && fresh.hrefs.length > 0 && elsewhere.length === 0,
+      `service keeps ${kept?.theme === undefined ? "no look" : `a look with ${kept.theme.icons}`} · data-icons=${fresh.icons} · picker says ${fresh.shown}`
+        + ` · ${fresh.hrefs.length} marks, ${elsewhere.length} drawn from another pack${elsewhere.length ? `: ${elsewhere[0]}` : ""}`);
   }
   await arrange();
   for (const [skin, skinLabel] of SKINS) {
@@ -588,6 +659,51 @@ for (const ratio of RATIOS) {
         record[`between ${tag}`] = worst;
       }
       if (pack !== "pixel" && skin !== "crt" && skin !== "sketch") record[`between ${tag}`] = Math.max(0, ...judged.map((r) => r.between));
+
+      // The tool-stripe names, read the same way as the marks above.
+      const laid = await run(LAY_OUT_STRIPE_NAMES);
+      const specimens = (await iconsOnScreen()).filter((i) => i.specimen);
+      const stripeShot = readPng(Buffer.from((await cdp.send("Page.captureScreenshot", { format: "png" })).data, "base64"));
+      if (SHOTS) {
+        const clip = { ...laid.box, scale: 1 };
+        const close = await cdp.send("Page.captureScreenshot", { format: "png", clip });
+        writeFileSync(join(SHOTS, `${ratio}x-${skin}-${pack}-stripes.png`), Buffer.from(close.data, "base64"));
+      }
+      await run("document.getElementById('stripeSpecimen')?.remove();");
+      const drawn = specimens.map((i) => ({
+        ...i,
+        ...readIcon(stripeShot, {
+          x: Math.round(i.x * ratio),
+          y: Math.round(i.y * ratio),
+          w: Math.max(1, Math.round(i.w * ratio)),
+          h: Math.max(1, Math.round(i.h * ratio)),
+        }, i.colour),
+      }));
+      const absent = STRIPE_NAMES.filter((n) => !sprites[pack].has(n));
+      const unseen = STRIPE_NAMES.filter((n) => !drawn.some((d) => d.name === n && !d.hidden && !d.covered));
+      const unjudged = drawn.filter((d) => d.reach < 60);
+      const bare = drawn.filter((d) => d.coverage < 0.015);
+      const filled = drawn.filter((d) => d.coverage > 0.8);
+      const own = drawn.filter((d) => d.foreign > 0.25);
+      const wrongSprite = drawn.filter((d) => !d.href.startsWith(`/icons/${pack}.svg`));
+      claim(`${tag}: every tool-stripe name has ink from the ${pack} sprite and none is a filled box`,
+        absent.length === 0 && unseen.length === 0 && unjudged.length === 0 && bare.length === 0 && filled.length === 0 && wrongSprite.length === 0,
+        `${drawn.length} of ${STRIPE_NAMES.length} laid out · coverage ${Math.min(...drawn.map((d) => d.coverage)).toFixed(2)}–${Math.max(...drawn.map((d) => d.coverage)).toFixed(2)}`
+          + (absent.length ? ` · not in the sprite: ${absent.join(", ")}` : "")
+          + (unseen.length ? ` · not on screen: ${unseen.join(", ")}` : "")
+          + (unjudged.length ? ` · too close to its ground to judge: ${unjudged.map((d) => d.name).join(", ")}` : "")
+          + (bare.length ? ` · empty: ${bare.map((d) => `${d.name} ${d.coverage.toFixed(3)}`).join(", ")}` : "")
+          + (filled.length ? ` · filled: ${filled.map((d) => d.name).join(", ")}` : "")
+          + (wrongSprite.length ? ` · drawn from ${wrongSprite[0].href}` : ""));
+      claim(`${tag}: no tool-stripe name keeps a colour of its own`, drawn.length === STRIPE_NAMES.length && own.length === 0,
+        `worst ${Math.max(0, ...drawn.map((d) => d.foreign)).toFixed(2)} of its ink off the skin's colour`
+          + (own.length ? ` · ${own.map((d) => `${d.name} ${d.foreign.toFixed(2)}`).join(", ")}` : ""));
+      if (pack === "pixel" && skin !== "crt" && skin !== "sketch") {
+        const soft = drawn.filter((d) => d.between > 0.12);
+        claim(`${tag}: the tool-stripe names in the pixel pack are crisp`, drawn.length === STRIPE_NAMES.length && soft.length === 0,
+          `worst ${Math.max(0, ...drawn.map((d) => d.between)).toFixed(2)} of ink half-toned`
+            + (soft.length ? ` · soft: ${soft.map((d) => `${d.name} ${d.between.toFixed(2)}`).join(", ")}` : ""));
+      }
     }
   }
 }

@@ -139,27 +139,68 @@ PACKS = {
     "pixel": {"label": "Pixel", "set": "pixelarticons"},
 }
 PACK_ORDER = ["tabler", "phosphor", "lucide", "pixel"]
-DEFAULT_PACK = "tabler"
+# The pack a window draws with until somebody picks one. He chose Pixel on
+# 13.09.2026. A look that was saved keeps the pack it was saved with.
+DEFAULT_PACK = "pixel"
 
 # ---------------------------------------------------------------------------
-# Drawn for plxr. Pixelarticons has no diff and no network port, so these two
-# are drawn in its house style: a 24-unit grid, integer coordinates, bars two
-# units thick (one pixel of the 12-cell art), axis-aligned, corners left open,
-# no curves.
+# Drawn for plxr, per pack, where the pack's set has no shape for a name. Each
+# drawing sits on its pack's grid, in currentColor, in that pack's house style:
+#
+#   pixel     Pixelarticons has no diff, no network port and no window with a
+#             panel. A 24-unit grid, integer coordinates, bars two units thick
+#             (one pixel of the 12-cell art), axis-aligned, corners left open,
+#             no curves. The panels are the frame of its own terminal icon
+#             with a two-unit bar across it.
+#   phosphor  The regular weight has sidebar-simple, which faces left, and
+#             nothing that faces right or down. Its 256-unit grid, a 16-unit
+#             outline with 16-unit corner arcs, holes cut by winding. The two
+#             panels are sidebar-simple's own frame with its column moved; the
+#             build stops if that frame no longer opens the file at the pin.
 # ---------------------------------------------------------------------------
+PIXEL_FRAME = "M4 2h16v2H4zM4 20h16v2H4zM2 4h2v16H2zM20 4h2v16h-2z"
+PHOSPHOR_FRAME = (
+    "M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Z"
+)
 OWN = {
-    "diff": {
-        "viewBox": "0 0 24 24",
-        "body": '<path d="M11 4h2v10h-2zM6 8h12v2H6zM6 18h12v2H6z"/>',
-        "what": "plus over minus",
+    "phosphor": {
+        "panel-right": {
+            "body": f'<path d="{PHOSPHOR_FRAME}M40,56H160V200H40ZM176,56H216V200H176Z"/>',
+            "what": "sidebar-simple mirrored: the column on the right",
+            "after": "sidebar-simple",
+            "frame": PHOSPHOR_FRAME,
+        },
+        "panel-bottom": {
+            "body": f'<path d="{PHOSPHOR_FRAME}M40,56H216V144H40ZM40,160H216V200H40Z"/>',
+            "what": "sidebar-simple's frame with its column laid along the bottom",
+            "after": "sidebar-simple",
+            "frame": PHOSPHOR_FRAME,
+        },
     },
-    "ports": {
-        "viewBox": "0 0 24 24",
-        "body": (
-            '<path d="M4 2h16v2H4zM2 4h2v12H2zM20 4h2v12h-2zM4 16h6v2H4zM14 16h6v2h-6z'
-            'M8 18h2v2H8zM14 18h2v2h-2zM10 20h4v2h-4zM7 7h2v4H7zM11 7h2v4h-2zM15 7h2v4h-2z"/>'
-        ),
-        "what": "a network socket with three contacts and its latch",
+    "pixel": {
+        "diff": {
+            "body": '<path d="M11 4h2v10h-2zM6 8h12v2H6zM6 18h12v2H6z"/>',
+            "what": "plus over minus",
+        },
+        "ports": {
+            "body": (
+                '<path d="M4 2h16v2H4zM2 4h2v12H2zM20 4h2v12h-2zM4 16h6v2H4zM14 16h6v2h-6z'
+                'M8 18h2v2H8zM14 18h2v2h-2zM10 20h4v2h-4zM7 7h2v4H7zM11 7h2v4h-2zM15 7h2v4h-2z"/>'
+            ),
+            "what": "a network socket with three contacts and its latch",
+        },
+        "panel-left": {
+            "body": f'<path d="{PIXEL_FRAME}M8 4h2v16H8z"/>',
+            "what": "a window with a column along its left side",
+        },
+        "panel-right": {
+            "body": f'<path d="{PIXEL_FRAME}M14 4h2v16h-2z"/>',
+            "what": "a window with a column along its right side",
+        },
+        "panel-bottom": {
+            "body": f'<path d="{PIXEL_FRAME}M4 14h16v2H4z"/>',
+            "what": "a window with a row along its bottom",
+        },
     },
 }
 
@@ -175,11 +216,11 @@ UI = {
     "overview":      ("layout-dashboard",   "squares-four",            "layout-dashboard",        "grid-2x2-2"),
     "inbox":         ("inbox",              "tray",                    "inbox",                   "inbox"),
     "folder":        ("folder",             "folder",                  "folder",                  "folder"),
-    "changes":       ("git-compare",        "git-diff",                "git-compare",             "git-commit"),
+    "changes":       ("git-compare",        "git-diff",                "git-compare",             "plxr:diff"),
     "review":        ("git-pull-request",   "git-pull-request",        "git-pull-request",        "git-pull-request"),
     "search":        ("search",             "magnifying-glass",        "search",                  "search"),
     "ports":         ("plug-connected",     "plugs-connected",         "ethernet-port",           "plxr:ports"),
-    "usage":         ("chart-bar",          "chart-bar",               "chart-column",            "chart-bar-big"),
+    "usage":         ("gauge",              "gauge",                   "gauge",                   "chart-bar-big"),
     "archive":       ("archive",            "archive",                 "archive",                 "archive"),
     "notes":         ("notes",              "note-pencil",             "notebook-pen",            "notes"),
     "settings":      ("settings",           "gear-six",                "settings",                "settings-cog"),
@@ -199,6 +240,15 @@ UI = {
     "reset":         ("restore",            "arrow-counter-clockwise", "rotate-ccw",              "reload"),
     "plus":          ("plus",               "plus",                    "plus",                    "plus"),
     "preview":       ("app-window",         "browser",                 "app-window",              "monitor"),
+    # The tool stripes (spec 2026-09-13 §9), as he picked them on 13.09.2026.
+    # The tools themselves and the two switchers keep the names above.
+    "files":         ("list-tree",          "tree-view",               "folder-tree",             "files"),
+    "hide":          ("minus",              "minus",                   "minus",                   "minus"),
+    "more":          ("dots-vertical",      "dots-three-outline-vertical", "ellipsis-vertical",   "more-vertical"),
+    "move":          ("grip-vertical",      "arrows-out-cardinal",     "grip-vertical",           "move"),
+    "panel-left":    ("layout-sidebar",     "sidebar-simple",          "panel-left",              "plxr:panel-left"),
+    "panel-right":   ("layout-sidebar-right", "plxr:panel-right",      "panel-right",             "plxr:panel-right"),
+    "panel-bottom":  ("layout-bottombar",   "plxr:panel-bottom",       "panel-bottom",            "plxr:panel-bottom"),
 }
 
 S = "seti-ui:"
@@ -462,9 +512,26 @@ def resolve(pack, name, spec, fetched):
     refusals = []
     for set_id, icon in candidates(spec, pack):
         if set_id == "plxr":
-            own = OWN[icon]
-            symbol = {"fill": "currentColor", "shape-rendering": "crispEdges"}
-            return {"set": "plxr", "what": own["what"]}, own["viewBox"], symbol, own["body"], refusals
+            own = OWN.get(pack, {}).get(icon)
+            if own is None:
+                refusals.append({"set": "plxr", "path": icon, "why": f"not drawn for the {pack} pack"})
+                continue
+            base_id = PACKS[pack]["set"]
+            base = SETS[base_id]
+            origin = {"set": "plxr", "what": own["what"]}
+            if "after" in own:
+                path = f"{base['dir']}/{own['after']}.svg"
+                upstream = fetched.get((base_id, path))
+                first = next((n for n in parse(upstream) if local(n.tag) == "path"), None) if upstream else None
+                if first is None or not first.attrib.get("d", "").startswith(own["frame"]):
+                    raise SystemExit(f"  {pack}: plxr:{icon} is drawn after {path}, whose frame is not the one it copies")
+                if not own["body"].startswith(f'<path d="{own["frame"]}'):
+                    raise SystemExit(f"  {pack}: plxr:{icon} does not start from the frame it names")
+                origin["after"] = {"set": base_id, "path": path}
+            symbol = {"fill": "currentColor"}
+            if base.get("crisp"):
+                symbol["shape-rendering"] = "crispEdges"
+            return origin, base["viewBox"], symbol, own["body"], refusals
         path = f"{SETS[set_id]['dir']}/{icon}.svg"
         data = fetched.get((set_id, path))
         if data is None:
@@ -487,6 +554,11 @@ def main():
             for set_id, icon in candidates(spec, pack):
                 if set_id != "plxr":
                     wanted.add((set_id, f"{SETS[set_id]['dir']}/{icon}.svg"))
+    for pack, drawings in OWN.items():
+        for own in drawings.values():
+            if "after" in own:
+                set_id = PACKS[pack]["set"]
+                wanted.add((set_id, f"{SETS[set_id]['dir']}/{own['after']}.svg"))
     for set_id, spec in SETS.items():
         wanted.add((set_id, spec["licence_file"]))
 
@@ -556,7 +628,8 @@ def main():
     with open(os.path.join(ICONS_OUT, "sources.json"), "w", encoding="utf-8") as fh:
         json.dump(sources, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
-    write_ts(versions, third_party)
+    drawn = [(pack, [n for n in NAMES if sources["packs"][pack][n]["set"] == "plxr"]) for pack in PACK_ORDER]
+    write_ts(versions, third_party, [(pack, names) for pack, names in drawn if names])
 
     for pack in PACK_ORDER:
         fell_back = {n: r for n, r in sources["packs"][pack].items() if r.get("refused")}
@@ -582,7 +655,7 @@ def check_sprite(pack, sprite):
         raise SystemExit(f"  {pack}: a symbol keeps a width or height")
 
 
-def write_ts(versions, third_party):
+def write_ts(versions, third_party, drawn):
     q = json.dumps
     out = [
         "/* Generated by tools/icons/build.py. Do not edit by hand: change the script",
@@ -638,7 +711,7 @@ def write_ts(versions, third_party):
         "",
         "/* Icons no set had, drawn for plxr in the style of the pack they sit in. */",
         "export const DRAWN_FOR_PLXR: { pack: IconPack; names: IconName[] }[] = [",
-        f"  {{ pack: \"pixel\", names: [{', '.join(q(n) for n in OWN)}] }},",
+        *[f"  {{ pack: {q(pack)}, names: [{', '.join(q(n) for n in names)}] }}," for pack, names in drawn],
         "];",
         "",
     ]

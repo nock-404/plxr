@@ -3,7 +3,7 @@
 
 export const ICON_PACKS = ["tabler", "phosphor", "lucide", "pixel"] as const;
 export type IconPack = (typeof ICON_PACKS)[number];
-export const DEFAULT_ICON_PACK: IconPack = "tabler";
+export const DEFAULT_ICON_PACK: IconPack = "pixel";
 
 /* A pack's name is a name, the same in every language. */
 export const PACK_LABELS: Record<IconPack, string> = {
@@ -16,10 +16,10 @@ export const PACK_LABELS: Record<IconPack, string> = {
 /* Changes whenever a sprite does, so a window never draws from a copy the
    web view kept from before an update. */
 export const SPRITE_VERSIONS: Record<IconPack, string> = {
-  tabler: "0f6f81dfe7fc",
-  phosphor: "828eb3d68b60",
-  lucide: "22b9e0aba113",
-  pixel: "d9dbd1b06115",
+  tabler: "80fa352aac1e",
+  phosphor: "1a34b70241d5",
+  lucide: "c676da178629",
+  pixel: "fadae5e80db8",
 };
 
 export const ICON_NAMES = [
@@ -50,6 +50,13 @@ export const ICON_NAMES = [
   "reset",
   "plus",
   "preview",
+  "files",
+  "hide",
+  "more",
+  "move",
+  "panel-left",
+  "panel-right",
+  "panel-bottom",
   "file-code",
   "file-ts",
   "file-tsx",
@@ -151,5 +158,6 @@ export const THIRD_PARTY: ThirdPartySet[] = [
 
 /* Icons no set had, drawn for plxr in the style of the pack they sit in. */
 export const DRAWN_FOR_PLXR: { pack: IconPack; names: IconName[] }[] = [
-  { pack: "pixel", names: ["diff", "ports"] },
+  { pack: "phosphor", names: ["panel-right", "panel-bottom"] },
+  { pack: "pixel", names: ["changes", "ports", "diff", "panel-left", "panel-right", "panel-bottom"] },
 ];

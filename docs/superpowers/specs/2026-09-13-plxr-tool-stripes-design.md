@@ -754,16 +754,61 @@ every skin") [read, classes.py:205-220].
 Change `tools/icons/build.py` and regenerate `frontend/lib/icons.ts` and `frontend/public/icons/*.svg`.
 Never hand-edit the generated files.
 
-| Name | Used by | Candidates (tabler · phosphor · lucide · pixel), **unverified at the pinned commits** |
-|---|---|---|
-| `files` | Files tool | list-tree · tree-structure · folder-tree · `plxr:files` |
-| `more` | ⋮ | dots-vertical · dots-three-vertical · ellipsis-vertical · more-vertical |
-| `hide` | — button | minus · minus · minus · minus |
-| `panel-left` | EdgeToggles | layout-sidebar · sidebar-simple · panel-left · `plxr:panel-left` |
-| `panel-right` | EdgeToggles | layout-sidebar-right · `plxr:panel-right` · panel-right · `plxr:panel-right` |
-| `panel-bottom` | EdgeToggles | layout-bottombar · `plxr:panel-bottom` · panel-bottom · `plxr:panel-bottom` |
+**Default pack: Pixel** (his decision, 13.09.2026). It is `DEFAULT_PACK` in build.py, so
+`DEFAULT_ICON_PACK` in icons.ts and `icons` in theme.ts's `DEFAULTS`. A window with no look stored
+anywhere draws in Pixel; a look that was stored keeps the pack stored in it (see "Stored looks" below).
 
-He sees the 6 shapes in all 4 packs before the commit. Icon shapes are his call.
+**His picks** (13.09.2026), chosen from a candidate sheet drawn through build.py's `normalise()` at
+the pinned commits. Every name is built for all four packs; `sources.json` records the upstream file
+of each, or `set: "plxr"` with what was drawn.
+
+| Name | Used by | Tabler | Phosphor | Lucide | Pixel |
+|---|---|---|---|---|---|
+| `files` | Files tool | list-tree | tree-view | folder-tree | files |
+| `changes` | Changes tool | git-compare | git-diff | git-compare | `plxr:diff` (was git-commit) |
+| `search` | Search tool | search | magnifying-glass | search | search |
+| `review` | Review tool | git-pull-request | git-pull-request | git-pull-request | git-pull-request |
+| `inbox` | Inbox tool | inbox | tray | inbox | inbox |
+| `usage` | Usage tool | gauge (was chart-bar) | gauge (was chart-bar) | gauge (was chart-column) | chart-bar-big |
+| `ports` | Ports tool | plug-connected | plugs-connected | ethernet-port | `plxr:ports` |
+| `archive` | Archive tool | archive | archive | archive | archive |
+| `notes` | Notes tool | notes | note-pencil | notebook-pen | notes |
+| `hide` | — button | minus | minus | minus | minus |
+| `more` | ⋮ | dots-vertical | dots-three-outline-vertical | ellipsis-vertical | more-vertical |
+| `move` | icon drag, Move to | grip-vertical | arrows-out-cardinal | grip-vertical | move |
+| `panel-left` | EdgeToggles | layout-sidebar | sidebar-simple | panel-left | `plxr:panel-left` |
+| `panel-right` | EdgeToggles | layout-sidebar-right | `plxr:panel-right` | panel-right | `plxr:panel-right` |
+| `panel-bottom` | EdgeToggles | layout-bottombar | `plxr:panel-bottom` | panel-bottom | `plxr:panel-bottom` |
+| `folder` | ProjectSwitch | folder | folder | folder | folder |
+| `terminal` | SessionSwitch rows | terminal-2 | terminal-window | square-terminal | terminal |
+| `chevron-down` | switch opener | chevron-down | caret-down | chevron-down | chevron-down |
+
+New names: `files`, `hide`, `more`, `move`, `panel-left`, `panel-right`, `panel-bottom`. Every other
+name was in use already and keeps working; `changes` (Pixel) and `usage` (Tabler, Phosphor, Lucide)
+draw the new shapes wherever they are shown today. The Files tool uses `files`; `folder` stays the
+project and folder mark.
+
+**Drawn for plxr** (build.py `OWN`, per pack, `DRAWN_FOR_PLXR` in icons.ts, named on the licences page):
+- Phosphor `panel-right`, `panel-bottom`: sidebar-simple's own frame on the 256 grid (16-unit outline,
+  16-unit corner arcs), its 40-unit column moved to the right, or laid along the bottom. The build stops
+  if that frame no longer opens `assets/regular/sidebar-simple.svg` at the pin; `sources.json` names the
+  file under `after`.
+- Pixel `panel-left`, `panel-right`, `panel-bottom`: the frame of Pixelarticons' own terminal icon
+  (2-unit bars on the 24 grid, corners left open) with a 2-unit bar 4 units in from that edge.
+  Axis-aligned, integer coordinates, no curves, `crispEdges` like the rest of the pack.
+
+**Stored looks.** `save()` writes the whole `ThemeState` — to localStorage and, through `persistVia`,
+to the service's `prefs.theme` — from Settings and from the Folders splitter, whatever field changed,
+and `adopt()` writes the merged state into localStorage whenever the service answers. So every look
+stored since the packs existed carries `icons`, and a Tabler that was picked cannot be told apart from a
+Tabler that was only the default at the time. Nothing rewrites a stored pack. A look stored before the
+packs existed has no `icons` and comes up in Pixel. Telling the two apart from now on would need
+`save()` to keep only what differs from `DEFAULTS`, or the picker to mark its choice; looks already
+stored would still hold no such mark.
+
+icons.mjs lays every name above out in a row of its own in every pack, skin and density, because most
+of them wear nothing on screen until step 9, and reads ink, fill and colour off the screenshot. It also
+holds that a new profile with no stored look comes up in Pixel.
 
 ---
 
@@ -963,6 +1008,51 @@ the results are written into OFFEN.md under this spec's name.
 
 ---
 
+### 12.1 Result (13.09.2026): GO on dockview 8.3.1's edge groups
+
+Measured in the real plxr window, a service of the spike build (branch
+spike/edge-groups, commit 3fc5249), headless Chrome at 1600×913. All six
+must-pass items pass; item 11 (not a must) fails, so plxr's own clamp is needed.
+
+- **Header hidden and body filling:** `group.model.header.hidden = true` takes
+  the header from 35 to 0 px on all three edges. A tool body filled only 19 px
+  until the fill rule was scoped to `.dv-shell` instead of `.plxrDock`.
+- **Hide and show keep the size:** main moves 0 px; after sash drags to
+  400/400/300, hide and show give exactly 400/400/300. A `setSize` while hidden
+  is applied on the next show.
+- **Serialization:** toJSON/fromJSON keep size, visibility, panels and the active
+  view in every path tried.
+- **Drops locked:** `api.locked = 'no-drop-target'` refuses 9 of 9 drops;
+  `dndEdges={false}` removes the outer-edge overlays.
+- **Documents:** `addPanel` with no position lands in the edge group when a tool
+  is active, so every document must go through `placeDocument`, which lands in
+  the last grid group.
+- **Emptied edges:** collapse to a 35 px strip; `expand()` then show restores the
+  size.
+- **Counting:** `dv.groups`/`dv.panels` include tools; filter on
+  `location.type === 'grid'`.
+- **Main floor (item 11, FAIL on its own):** dockview lets main overflow up to
+  156 px under the right tool window; with plxr's clamp main keeps 256 px with 0
+  overlap wherever there is room.
+
+#### Corrections to this spec from the spike
+1. `.plxrDock` lands on the centre grid inside `.dv-shell`, not on the whole dock;
+   the edge groups sit beside it. Every `.plxrDock …` rule that must reach tool
+   windows is rescoped, and §8.1's placement needs a wrapper element.
+2. `dv.width` is the centre width. The 45% cap measures `.dv-shell`; the main
+   floor reads `.plxrDock`'s width.
+3. The main-floor clamp is required, not optional.
+4. `ensure` re-applies `header.hidden` and `locked` after every load: fromJSON
+   restores neither.
+5. Every fromJSON and `clear()` remounts tool bodies, so `toolMemory` covers
+   Files and Notes as well; `keepMounted` does not survive a load.
+6. An emptied edge that stays visible shows a blank 35 px strip; reconcile hides
+   edges that end up empty.
+7. No pointerup fallback for saving sizes: `onDidDimensionsChange` fires on sash
+   drags (`onDidLayoutChange` does not, for drags or visibility).
+8. `setEdgeGroupVisible(true)` on a collapsed edge stays 35 px; call `expand()`
+   first.
+
 ## 13. Implementation plan
 
 Rules for every step:
@@ -1057,6 +1147,26 @@ Rules for every step:
    moving `overview` from `DOCS` to `TOOLS`.
 
 ---
+
+### 14.1 His answers (13.09.2026)
+
+Asked all seven with a proposal each, he answered, translated, "what are you
+waiting for?" — so the proposals stand:
+
+1. Bottom stripe: empty, a drop target only, for now.
+2. One visible tool per side and one width per side; split mode later.
+3. The Folders view stays, as the project overview document in main.
+4. Project rule as written in §6.1.
+5. German tool names in the German interface. Icon shapes: shown to him first, as a sheet of every
+   candidate in all four packs drawn through build.py at the pinned commits; he picked one per name per
+   pack (the table in §9), with `plxr:panel-left`, `plxr:panel-right` and `plxr:panel-bottom` drawn
+   for Pixel and `plxr:panel-right` and `plxr:panel-bottom` for Phosphor. `changes` in Pixel becomes
+   `plxr:diff`; `usage` becomes gauge in Tabler, Phosphor and Lucide.
+6. Keys as written: ⌘E, ⌘3 for Files, ⇧⎋ to hide.
+7. The overview stays a document in main.
+8. The default icon pack is Pixel ("pixel icons as the default; otherwise top"). A look already stored
+   keeps its pack: a pick and a default cannot be told apart in what `save()` stored (§9, "Stored
+   looks"), so nothing rewrites it.
 
 ## 15. Risks
 

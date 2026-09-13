@@ -235,7 +235,11 @@ body {
    header, and all four skins measure the same; a narrow window takes the room
    back from them before it takes it from the buttons on the right. */
 :root { --switch-project-w: 13rem; --switch-session-w: 19rem; --badge-h: 0.875rem; }
-.switch { display: inline-flex; align-items: center; gap: 0.375rem; flex: 0 1 auto; min-width: 0; height: 1.875rem; padding: 0 0.5rem; font: inherit; text-align: left; cursor: pointer; }
+/* The height grows only through --icon-slot, like every slot: a pack drawn
+   larger than the glyph it replaced — the pixel pack's 24 px on a plain screen —
+   gets room around its mark, rather than a mark touching the frame. At 1.875rem
+   a 24 px icon stood 3 px off the edge, 1 px inside Sketch's ink border. */
+.switch { display: inline-flex; align-items: center; gap: 0.375rem; flex: 0 1 auto; min-width: 0; height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; font: inherit; text-align: left; cursor: pointer; }
 /* A project's name is short and a session's title is long: when the header is
    short of room, the session switch gives up most of it. */
 .switch[data-switch="project"] { width: var(--switch-project-w); flex-shrink: 0.25; }
@@ -1010,6 +1014,26 @@ button.diffline { cursor: pointer; }
 .windowClose { flex: 0 0 auto; padding: 0 0.35rem; background: none; border: 0; font: inherit; cursor: pointer; }
 .windowBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1rem 1.375rem 1.25rem; display: flex; flex-direction: column; }
 .windowGrip { position: absolute; right: 0; bottom: 0; width: 1.1rem; height: 1.1rem; cursor: nwse-resize; touch-action: none; }
+/* A fitted window — the keyboard list — until it is dragged: centred by the
+   stylesheet, as big as what it holds and never past the screen less a
+   margin, the body scrolling the rest. Moved or resized, it carries numbers
+   of its own like any other window. */
+.window[data-fit="yes"] { inset: 0; margin: auto; width: max-content; height: max-content; max-width: calc(100vw - 2rem); max-height: calc(100vh - 2rem); }
+
+/* ---------- the keyboard list ---------- */
+/* Two columns every row shares: the keys as wide as the widest keycap, the
+   words taking the rest. The key column was a fixed 8.75rem, three keycaps
+   wide, and folded the words onto a second line in a window with room to
+   spare. Each keycap is as wide as its own text; a heading spans the row.
+   The words' track is 1fr, not auto: with auto the headings that span both
+   columns handed part of their width to the key column — 141px for keycaps
+   of 53 — and a fraction takes no share of a spanning item. */
+.keysList { display: grid; grid-template-columns: max-content 1fr; column-gap: 1rem; }
+.keysGroup { grid-column: 1 / -1; padding: 1rem 0.5rem 0.35rem; }
+.keysGroup:first-child { padding-top: 0.25rem; }
+.keysRow { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: baseline; padding: 0.375rem 0.5rem; }
+.keysRow .keyCap { justify-self: start; min-width: 0; white-space: nowrap; }
+.keysText { min-width: 0; }
 
 /* ---------- workbench ---------- */
 /* Docked beside the interface, not on top of it: the whole point is watching the

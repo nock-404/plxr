@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -196,7 +197,7 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await tab.cdp.send("Page.navigate", { url: PAGE });
   await sleep(700);
-  up = await tab.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await tab.run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
@@ -204,7 +205,7 @@ if (!up) {
 }
 await sleep(1500);
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(50); } return { v: null, ms: Math.round(performance.now() - t0) }; };
@@ -319,7 +320,7 @@ claim("⌘K with the keydown targeted at an <input> does NOT toggle the palette"
 
 // ---- right-click the terminal ---------------------------------------------------
 const opened = await tab.run(`${HELPERS}
-  byText('.railitem .rname', /^shell$/).closest('.railitem').click();
+  openSession('shell');
   const got = await until(() => document.querySelector('.ptermbox .xterm'), 6000);
   await wait(800);
   return { ok: Boolean(got.v), ms: got.ms };
@@ -379,7 +380,7 @@ const paste = await tab.run(`${HELPERS}
 claim("a refused Paste is said in the pane (not silent)", paste.note.length > 0, paste.note ? `"${paste.note}" after ${paste.ms} ms · alpha ${paste.alpha}` : "no notice — clipboard read was allowed here");
 
 // ---- right-click a rail session -------------------------------------------------
-const railItem = await rectOf(".railitem[data-status]");
+const railItem = await tab.run(`${GATEKIT} const r = sessionRows()[0]?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
 await mouse("mousePressed", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
 await mouse("mouseReleased", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
 const railMenu = await tab.run(`${HELPERS}
@@ -441,7 +442,7 @@ claim("right-click on a session switch row offers Open / Pause / Terminate / COP
   `${switchRowMenu.rows.join(" · ")} · danger: ${switchRowMenu.danger.join(",")}`);
 
 // From the keyboard: the board in front, the keyboard on the rail.
-await tab.run(`${HELPERS} byText('.railitem .rname', /^Overview$/).closest('.railitem').click(); await wait(600);`);
+await tab.run(`${HELPERS} openDoc('overview'); await wait(600);`);
 await pressKey("e", "KeyE", 69, 4);
 const keyOpen = await tab.run(`${HELPERS}
   const got = await until(() => document.querySelector('body > .menu'), 1500);
@@ -481,7 +482,7 @@ claim("right-click on the session title offers the session's actions", ["FILES",
 
 // ---- right-click a folder tab ------------------------------------------------------
 const folderTab = await tab.run(`${HELPERS}
-  byText('.railitem .rname', /^Folders$/).closest('.railitem').click();
+  openDoc('folders');
   const got = await until(() => document.querySelector('.folderTab'), 4000);
   const r = got.v?.getBoundingClientRect();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, ms: got.ms } : null;
@@ -617,8 +618,8 @@ const rebound = await tab.run(`${HELPERS}
   await wait(150);
   // The keyboard list under "?" prints the new key.
   key(document.body, { key: '?', shiftKey: true });
-  const list = await until(() => document.querySelector('.card .ruleslist'), 1500);
-  const rows = [...document.querySelectorAll('.card .rrow')].map(r => r.querySelector('.keyCap').textContent.trim() + ' ' + r.querySelector('.rtitle').textContent.trim());
+  const list = await until(() => document.querySelector('.window[data-window="keys"] .keysList'), 1500);
+  const rows = [...document.querySelectorAll('.window[data-window="keys"] .keysRow')].map(r => r.querySelector('.keyCap').textContent.trim() + ' ' + r.querySelector('.keysText').textContent.trim());
   const phantom = rows.some(r => /⌘1…5/.test(r));
   key(document.body, { key: 'Escape' });
   await wait(150);
@@ -710,7 +711,7 @@ const editor = await tab.run(`${HELPERS}
      brought forward first: the folders and the editor open there, and the
      settings keep the group they were split into, on screen beside them. */
   await front(shellTab());
-  byText('.railitem .rname', /^Folders$/).closest('.railitem').click();
+  openDoc('folders');
   await until(() => document.querySelector('.frow'), 4000);
   byText('.frow .fname', /^a\\.txt$/)?.closest('.frow').click();
   const cm = await until(() => document.querySelector('.editorPanel .cm-content'), 4000);
@@ -763,7 +764,7 @@ const projectRule = await tab.run(`${HELPERS}
     return [...document.querySelectorAll('body > .menu .menuItem')];
   };
   const search = async want => {
-    byText('.railitem .rname', /^Search$/).closest('.railitem').click();
+    openTool('search');
     return (await until(() => want.test(notice()) ? notice() : null, 4000)).v ?? notice();
   };
   const out = {};
@@ -834,6 +835,149 @@ await pressKey("Enter", "Enter", 13);
 const projectPicked = await tab.run(`${HELPERS} await wait(1000); return { label: document.querySelector('.switch[data-switch="project"] .switchLabel')?.firstChild?.textContent.trim() ?? '', closed: !document.querySelector('body > .menu') };`);
 claim("the project switch works from the keyboard: Enter opens it on the ticked row, the arrows and Enter pick", projectKeys.on === "scratch" && projectKeys.ticked === "true" && projectNext && projectNext !== "scratch" && projectPicked.closed && projectPicked.label === projectNext,
   `on "${projectKeys.on}" (ticked ${projectKeys.ticked}) → ArrowDown "${projectNext}" → Enter → "${projectPicked.label}"`);
+
+// ---- the keyboard list: a window that fits, scrolls, closes and names the keys right ----
+/* It was a card on a backdrop as tall as its rows — 1275 px on a 900 px
+   screen, the region toggles under the bottom edge and nothing to scroll them
+   up — with no title bar, a key column three keycaps wide that folded the
+   words onto two lines, and "Forward again" printed ^_ for ⌃⇧-. Measured in
+   every skin at two screen sizes, and held against a table worked out here
+   from the source of ACTIONS and of the groups, not from the function that
+   prints the captions. */
+const keymapSource = readFileSync(join(HERE, "frontend", "lib", "keymap.ts"), "utf8");
+const keysSource = readFileSync(join(HERE, "frontend", "components", "Keys.tsx"), "utf8");
+const shippedKeys = [...keymapSource.matchAll(/\{ id: "(\w+)", chord: "([^"]*)", key: "[^"]+", fallback: "([^"]*)" \}/g)].map((m) => ({ id: m[1], chord: m[2], text: m[3] }));
+const keyGroups = [...keysSource.matchAll(/fallback: "([^"]+)",\s*entries: \[([^\]]*)\]/g)].map((m) => ({ heading: m[1], ids: [...m[2].matchAll(/"(\w+)"/g)].map((x) => x[1]) }));
+// A shifted character is written as ⇧ and the key it is typed on, on the US
+// layout; the modifiers in the order the Mac's menus write them.
+const SHIFTED_FROM = { "~": "`", "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0", "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/" };
+const macCaption = (chord) => {
+  const plus = chord === "+" || chord.endsWith("++");
+  const parts = (plus ? chord.slice(0, -1) : chord).split("+").filter(Boolean);
+  let key = plus ? "+" : parts.pop();
+  const held = new Set(parts);
+  if (Object.hasOwn(SHIFTED_FROM, key)) { held.add("Shift"); key = SHIFTED_FROM[key]; }
+  const glyph = { Ctrl: "⌃", Option: "⌥", Shift: "⇧", Mod: "⌘" };
+  return ["Ctrl", "Option", "Shift", "Mod"].filter((m) => held.has(m)).map((m) => glyph[m]).join("") + ({ ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" }[key] ?? key);
+};
+const placedKeys = new Set(keyGroups.flatMap((g) => g.ids));
+const shippedById = Object.fromEntries(shippedKeys.map((a) => [a.id, a]));
+const keyTable = keyGroups
+  .flatMap((g, i) => [...g.ids, ...(i === keyGroups.length - 1 ? shippedKeys.filter((a) => !placedKeys.has(a.id)).map((a) => a.id) : [])])
+  .map((id) => (id === "escape" ? { id, cap: "Esc", text: "Close the dialog, leave the session" } : shippedById[id] ? { id, cap: macCaption(shippedById[id].chord), text: shippedById[id].text } : null))
+  .filter(Boolean);
+claim("the table is read: every action in ACTIONS has one row, the groups come from Keys.tsx",
+  shippedKeys.length > 25 && keyGroups.length === 4 && shippedKeys.every((a) => keyTable.filter((r) => r.id === a.id).length === 1),
+  `${shippedKeys.length} actions · ${keyGroups.map((g) => `${g.heading} ${g.ids.length}`).join(" · ")} · last row ${keyTable.at(-1)?.id}`);
+
+const KEYS_SKINS = ["crt", "win95", "sketch", "pixel"];
+const KEYS_SIZES = [[1440, 900], [1600, 1000]];
+let keysSpot = null;
+for (const skin of KEYS_SKINS) {
+  // The skin through the service, the way a second window's change arrives,
+  // then a fresh page so nothing of the last skin is left in the measurement.
+  await tab.run(`
+    const theme = JSON.parse(localStorage.getItem('plxr.theme') || '{}');
+    theme.skin = ${JSON.stringify(skin)};
+    localStorage.setItem('plxr.theme', JSON.stringify(theme));
+    await fetch('/api/prefs', { method: 'PUT', headers: { 'X-Plxr-Token': ${JSON.stringify(info.token)}, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+    return true;
+  `);
+  let skinned = null;
+  for (let i = 0; i < 20 && skinned !== skin; i++) {
+    await tab.cdp.send("Page.navigate", { url: PAGE });
+    await sleep(900);
+    skinned = await tab.run(`${GATEKIT} if (!appUp()) return null; await document.fonts.ready; return document.documentElement.getAttribute('data-skin');`).catch(() => null);
+  }
+  await sleep(800);
+  if (skinned !== skin) {
+    claim(`${skin}: the page comes up in the skin`, false, `data-skin ${skinned}`);
+    continue;
+  }
+  for (const [w, h] of KEYS_SIZES) {
+    const tag = `keys · ${skin} ${w}×${h}`;
+    await tab.cdp.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false });
+    await sleep(500);
+    const m = await tab.run(`${HELPERS}
+      key(document.body, { key: '?', shiftKey: true });
+      const win = (await until(() => document.querySelector('.window[data-window="keys"]'), 2000)).v;
+      if (!win) return { open: false };
+      await document.fonts.ready;
+      await wait(300);
+      const r = win.getBoundingClientRect();
+      const body = win.querySelector('.windowBody');
+      const list = win.querySelector('.keysList');
+      const rows = [...win.querySelectorAll('.keysRow')].map(row => {
+        const cap = row.querySelector('.keyCap');
+        const text = row.querySelector('.keysText');
+        const ink = document.createRange(); ink.selectNodeContents(cap);
+        const cs = getComputedStyle(cap);
+        const frame = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+        const words = document.createRange(); words.selectNodeContents(text);
+        const lines = new Set([...words.getClientRects()].map(q => Math.round(q.top))).size;
+        return { id: row.dataset.action, cap: cap.textContent, text: text.textContent.trim(), capW: cap.getBoundingClientRect().width, inkW: ink.getBoundingClientRect().width + frame, lines };
+      });
+      const heads = [...win.querySelectorAll('.keysGroup')].map(g => g.textContent.trim());
+      const keyColumn = parseFloat(getComputedStyle(list).gridTemplateColumns.split(' ')[0]);
+      // A row is a subgrid, so its left padding is part of the key column.
+      const rowPad = parseFloat(getComputedStyle(win.querySelector('.keysRow')).paddingLeft);
+      const overflow = { scrollH: body.scrollHeight, clientH: body.clientHeight };
+      body.scrollTop = body.scrollHeight;
+      await wait(150);
+      const all = win.querySelectorAll('.keysRow');
+      const last = all[all.length - 1];
+      const lr = last.getBoundingClientRect();
+      const br = body.getBoundingClientRect();
+      const lastShown = lr.top >= br.top - 1 && lr.bottom <= br.bottom + 1 && lr.bottom <= innerHeight;
+      const head = win.querySelector('.windowHead');
+      const title = win.querySelector('.windowTitle')?.textContent.trim() ?? null;
+      const closeButton = win.querySelector('.windowClose');
+      // Pulled by its title bar far past the bottom right corner.
+      const hr = head.getBoundingClientRect();
+      const px = hr.left + 30, py = hr.top + hr.height / 2;
+      const pointer = (type, dx) => head.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 7, clientX: px + dx, clientY: py + dx }));
+      pointer('pointerdown', 0); pointer('pointermove', 3000); pointer('pointerup', 3000);
+      await wait(200);
+      const dr = win.getBoundingClientRect();
+      const dragged = { moved: Math.round(dr.left) !== Math.round(r.left) || Math.round(dr.top) !== Math.round(r.top), inside: dr.left >= 0 && dr.top >= 0 && dr.right <= innerWidth + 0.5 && dr.bottom <= innerHeight + 0.5, box: [dr.left, dr.top, dr.right, dr.bottom].map(Math.round) };
+      closeButton.click();
+      const closed = await until(() => document.querySelector('.window[data-window="keys"]') ? null : true, 1500);
+      key(document.body, { key: '?', shiftKey: true });
+      const again = await until(() => document.querySelector('.window[data-window="keys"]'), 1500);
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      const escaped = await until(() => document.querySelector('.window[data-window="keys"]') ? null : true, 1500);
+      return { open: true, vw: innerWidth, vh: innerHeight, top: r.top, bottom: r.bottom, title, hasClose: Boolean(closeButton), rows, heads, keyColumn, rowPad, overflow, lastShown, lastId: last.dataset.action, lastText: last.querySelector('.keysText').textContent.trim(), dragged, closed: Boolean(closed.v), reopened: Boolean(again.v), escaped: Boolean(escaped.v) };
+    `);
+    if (!m.open) {
+      claim(`${tag}: ? opens the keyboard list as a window`, false, "no .window[data-window=keys] on the page");
+      continue;
+    }
+    if (skin === "crt" && w === 1440) keysSpot = m;
+    claim(`${tag}: a window with a title bar and a close button, inside the screen, and still inside after a drag past the corner`,
+      /keyboard/i.test(m.title ?? "") && m.hasClose && m.top >= 0 && m.bottom <= m.vh && m.dragged.moved && m.dragged.inside,
+      `"${m.title}" · top ${m.top.toFixed(1)} bottom ${m.bottom.toFixed(1)} of ${m.vh} · dragged to ${m.dragged.box.join(",")}`);
+    claim(`${tag}: the list scrolls to its last row, and that row is the table's last`,
+      m.overflow.scrollH > m.overflow.clientH && m.lastShown && m.lastId === keyTable.at(-1)?.id && m.lastText === keyTable.at(-1)?.text,
+      `body ${m.overflow.clientH} of ${m.overflow.scrollH} px · last row ${m.lastId} "${m.lastText}" shown ${m.lastShown}`);
+    const widest = Math.max(...m.rows.map((r) => r.capW));
+    const loose = m.rows.filter((r) => r.capW > r.inkW + 1);
+    const wrapped = w === 1600 ? m.rows.filter((r) => r.lines > 1) : [];
+    claim(`${tag}: every keycap as wide as its text and padding, the key column as wide as the widest${w === 1600 ? ", no description on two lines" : ""}`,
+      !loose.length && m.keyColumn <= widest + m.rowPad + 1 && !wrapped.length,
+      `${loose.map((r) => `${r.cap} ${r.capW.toFixed(1)}>${r.inkW.toFixed(1)}`).join(" ") || "caps tight"} · column ${m.keyColumn.toFixed(1)} = widest ${widest.toFixed(1)} + row padding ${m.rowPad}${w === 1600 ? ` · ${wrapped.map((r) => r.text).join(" | ") || "every description on one line"}` : ""}`);
+    const wrong = keyTable.map((want, i) => ({ want, got: m.rows[i] })).filter(({ want, got }) => !got || got.id !== want.id || got.cap !== want.cap || got.text !== want.text);
+    claim(`${tag}: the rows in group order, each with the caption worked out from ACTIONS, under the four headings`,
+      m.rows.length === keyTable.length && !wrong.length && JSON.stringify(m.heads) === JSON.stringify(keyGroups.map((g) => g.heading)),
+      wrong.length ? wrong.slice(0, 4).map(({ want, got }) => `${want.id}: want ${want.cap} "${want.text}", got ${got ? `${got.cap} "${got.text}"` : "nothing"}`).join(" · ") : `${m.rows.length} rows · ${m.heads.join(" / ")}`);
+    claim(`${tag}: the close button closes it, and Esc closes it`, m.closed && m.reopened && m.escaped, `close ${m.closed} · opened again ${m.reopened} · Esc ${m.escaped}`);
+  }
+}
+await tab.cdp.send("Emulation.clearDeviceMetricsOverride");
+// Spelled out, not computed: the chords that were printed wrong, or could be.
+const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", workshop: "⇧F12", workbench: "F12", newShell: "⇧⌘N", reopenPanel: "⇧⌘T", panelPrev: "⌥⌘←", groupNext: "⌥⌘↓", toggleRight: "⌥⌘B", filesUp: "⌘↑", settings: "⌘," };
+const spotted = keysSpot ? Object.entries(SPOT).map(([id, want]) => ({ id, want, got: keysSpot.rows.find((r) => r.id === id)?.cap })) : [];
+claim("the captions read the way a Mac writes them: ⌃⇧- for Ctrl+_, ⇧/ for ?, ⌥⌘← with ⌥ before ⌘",
+  spotted.length && spotted.every((s) => s.got === s.want), spotted.map((s) => `${s.id} ${s.got}${s.got === s.want ? "" : ` (want ${s.want})`}`).join(" · "));
 
 // ---- report --------------------------------------------------------------------------
 report();

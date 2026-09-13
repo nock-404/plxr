@@ -489,6 +489,10 @@
 [data-skin="sketch"] .switchBadge { border-radius: 50%; }
 [data-skin="sketch"] .switchBadge[data-waiting="yes"] { background: transparent; color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent); }
 
+/* The keyboard list: headings written in, underlined in ink. */
+[data-skin="sketch"] .keysGroup { color: var(--dim); font-style: italic; text-transform: none; letter-spacing: 0; font-size: .9em; border-bottom: var(--ink) solid var(--fg); }
+[data-skin="sketch"] .keysText { color: var(--accent); }
+
 /* ---- terminal: ink palette, ended overlay, bell ------------------------ */
 /* Inks on the slate: the same reds, greens and blues the interface writes in. */
 [data-skin="sketch"] {

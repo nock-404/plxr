@@ -405,6 +405,13 @@
 [data-skin="win95"] .switchBadge { border-radius: 0; }
 [data-skin="win95"] .switchBadge[data-waiting="yes"] { background: var(--accent); color: var(--onAccent); }
 
+/* The keyboard list: bold black headings over an etched line, and the row
+   under the pointer in the selection colour. */
+[data-skin="win95"] .keysGroup { color: var(--dk); font-weight: bold; text-transform: none; letter-spacing: 0; font-size: 1em; border-bottom: var(--hair) solid var(--sh); }
+[data-skin="win95"] .keysText { color: var(--dk); }
+[data-skin="win95"] .keysRow:hover { background: var(--accent); }
+[data-skin="win95"] .keysRow:hover .keysText { color: var(--onAccent); }
+
 /* ---- terminal: VGA palette, ended overlay, bell ------------------------ */
 /* The sixteen colours of the text mode this look comes from, exactly. */
 [data-skin="win95"] {

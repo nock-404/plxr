@@ -92,6 +92,14 @@ step "gutter diff" node --experimental-strip-types frontend/components/ui/editor
 # The page's half of a click on a notification: a new seq in the settings
 # opens the session, the same seq seen again — a reload — does not.
 step "click to focus" node --experimental-strip-types frontend/lib/focus.test.mjs
+# Which tool stands on which edge, in which order: every tool exactly once
+# whatever was saved, the old region choices read across once, and an icon let
+# go between two others landing between them.
+step "tool layout" node --experimental-strip-types frontend/lib/tools.test.mjs
+# An arrangement the old window saved, with tools where tools no longer go: out
+# of the grid, the ones that were in front named, the documents kept where they
+# were, and a second run changing nothing.
+step "layout migration" node --experimental-strip-types frontend/lib/layoutMigrate.test.mjs
 
 printf '  %-22s ' "typescript"
 if out=$(cd frontend && npx tsc --noEmit 2>&1); then echo "ok"; else echo "FAILED"; echo "$out" | head -20; fail=1; fi
