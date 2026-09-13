@@ -366,6 +366,11 @@
               calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
 }
 [data-skin="pixel"] .menuHeader { color: var(--accent); letter-spacing: 0; }
+/* The keyboard list as blocks: accent headings on a hard line, the row under
+   the pointer on the panel colour. */
+[data-skin="pixel"] .keysGroup { color: var(--accent); letter-spacing: 0; border-bottom: var(--px) solid var(--line); }
+[data-skin="pixel"] .keysText { color: var(--fg); }
+[data-skin="pixel"] .keysRow:hover { background: var(--panel); }
 
 /* ---- terminal: arcade palette, ended overlay, bell --------------------- */
 /* Saturated and bright, the way a cabinet draws them. */

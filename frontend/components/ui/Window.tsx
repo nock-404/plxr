@@ -21,6 +21,14 @@ import { remToPx, rootToken } from "@/lib/units";
  * edge, as tall as the work area — so somebody who knew the old place finds
  * the new one there. Where it is then put is remembered for this window's
  * life, so closing and reopening it does not snap it back.
+ *
+ * A window that is read rather than worked in — the keyboard list — opens
+ * fitted instead: centred, as big as what it holds and never bigger than the
+ * screen less a margin, the body scrolling what does not fit. The stylesheet
+ * does that sizing, so a skin with a wider typeface or a longer language gets
+ * a window to match. It takes numbers of its own only once it is dragged or
+ * resized, and forgets them when it closes: it opens fitted to whatever it
+ * holds the next time.
  */
 type Geometry = { x: number; y: number; w: number; h: number };
 
@@ -42,15 +50,16 @@ function firstPlace(width?: number): Geometry {
   };
 }
 
-// Keep the window inside the viewport — the title bar must stay reachable, or
-// a window dragged off the top can never be dragged back.
+// Keep the whole window inside the viewport. Only the title bar used to be
+// kept reachable, so a window could be dragged until most of it hung below
+// the bottom edge, where nothing in it could be read or reached.
 function clamp(g: Geometry): Geometry {
   const minW = remToPx(18);
   const minH = remToPx(12);
   const w = Math.max(minW, Math.min(g.w, window.innerWidth));
   const h = Math.max(minH, Math.min(g.h, window.innerHeight));
   const x = Math.max(0, Math.min(g.x, window.innerWidth - w));
-  const y = Math.max(0, Math.min(g.y, window.innerHeight - remToPx(2)));
+  const y = Math.max(0, Math.min(g.y, window.innerHeight - h));
   return { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
 }
 
@@ -60,6 +69,7 @@ export default function Window({
   onClose,
   children,
   width,
+  fit = false,
 }: {
   /* Names the window, so its place is remembered across open and close. */
   id: string;
@@ -71,19 +81,23 @@ export default function Window({
   /* A first width in px, computed by the caller; without one the settings
      column's width is used. */
   width?: number;
+  /* Centred and sized by what it holds, up to the screen less a margin. */
+  fit?: boolean;
 }) {
-  const [geo, setGeo] = useState<Geometry>(() => remembered.get(id) ?? clamp(firstPlace(width)));
+  // null while a fitted window is still placed and sized by the stylesheet.
+  const [geo, setGeo] = useState<Geometry | null>(() => (fit ? null : (remembered.get(id) ?? clamp(firstPlace(width)))));
+  const box = useRef<HTMLElement | null>(null);
   const drag = useRef<{ kind: "move" | "size"; px: number; py: number; from: Geometry } | null>(null);
 
   useEffect(() => {
-    remembered.set(id, geo);
-  }, [id, geo]);
+    if (geo && !fit) remembered.set(id, geo);
+  }, [id, geo, fit]);
 
   // A window that is made smaller must not leave this one stranded outside.
   useEffect(() => {
-    const fit = () => setGeo((g) => clamp(g));
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
+    const fitIn = () => setGeo((g) => (g ? clamp(g) : g));
+    window.addEventListener("resize", fitIn);
+    return () => window.removeEventListener("resize", fitIn);
   }, []);
 
   const start = useCallback(
@@ -91,13 +105,19 @@ export default function Window({
       // The close button lives in the title bar; a press on it is not a drag.
       if ((e.target as HTMLElement).closest("button")) return;
       if (e.button !== 0) return;
+      // A fitted window has no numbers yet: it starts from where the
+      // stylesheet put it, rounded up so no line of it wraps on the way.
+      const r = box.current?.getBoundingClientRect();
+      const from = geo ?? (r ? { x: r.left, y: r.top, w: Math.ceil(r.width), h: Math.ceil(r.height) } : null);
+      if (!from) return;
       e.preventDefault();
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
         /* a pointer the browser does not hold — the moves still arrive while it stays over the bar */
       }
-      drag.current = { kind, px: e.clientX, py: e.clientY, from: geo };
+      drag.current = { kind, px: e.clientX, py: e.clientY, from };
+      if (!geo) setGeo(clamp(from));
     },
     [geo],
   );
@@ -108,7 +128,9 @@ export default function Window({
     const dx = e.clientX - d.px;
     const dy = e.clientY - d.py;
     if (d.kind === "move") setGeo(clamp({ ...d.from, x: d.from.x + dx, y: d.from.y + dy }));
-    else setGeo(clamp({ ...d.from, w: d.from.w + dx, h: d.from.h + dy }));
+    // A corner pulled past the screen's edge stops there, rather than pushing
+    // the window off the other side.
+    else setGeo(clamp({ ...d.from, w: Math.min(d.from.w + dx, window.innerWidth - d.from.x), h: Math.min(d.from.h + dy, window.innerHeight - d.from.y) }));
   }, []);
 
   const end = useCallback((e: ReactPointerEvent<HTMLElement>) => {
@@ -125,11 +147,13 @@ export default function Window({
 
   return createPortal(
     <section
+      ref={box}
       className="window"
       role="dialog"
       aria-label={heading}
       data-window={id}
-      style={{ left: `${geo.x}px`, top: `${geo.y}px`, width: `${geo.w}px`, height: `${geo.h}px` }}
+      data-fit={geo ? "no" : "yes"}
+      style={geo ? { left: `${geo.x}px`, top: `${geo.y}px`, width: `${geo.w}px`, height: `${geo.h}px` } : undefined}
     >
       <header
         className="windowHead"
