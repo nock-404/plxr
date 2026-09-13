@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -218,14 +219,14 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
   await sleep(700);
-  up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
   stop(1);
 }
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true })); };
@@ -269,8 +270,8 @@ const listing = async (dir = "") => (await (await api(`/api/files/${folder.id}?d
 
 // ---- the tree, in the folders view ----------------------------------------
 const opened = await run(`${HELPERS}
-  byText('.railitem .rname', /^project$/)?.closest('.railitem')?.click(); await wait(1500);
-  byText('.railhome', /folders/i).click(); await wait(2500);
+  openSession('project'); await wait(1500);
+  openDoc('folders'); await wait(2500);
   return { names: [...document.querySelectorAll('.fname')].map(n => n.textContent.trim()),
            menu: (await menuOf(row(/^a\\.go$/))).map(i => i.textContent.trim()) };
 `);
@@ -348,14 +349,14 @@ claim("the service no longer lists it", !(await listing("inner")).includes("inne
 
 // ---- the search panel, following the session -------------------------------
 const searched = await run(`${HELPERS}
-  byText('.railhome', /search/i)?.click();
+  openTool('search');
   // Wait for the panel, not for a fixed moment: under the load of the whole
   // suite the panel took longer than the old 1.5 s and the claim flipped.
   let panel = null;
   for (let i = 0; i < 32 && !panel; i++) { await wait(250); panel = document.querySelector('.searchPanel'); }
   if (!panel) return { err: 'no search panel',
     tabs: [...document.querySelectorAll('.plxrDock .panelTabName')].map(e => e.textContent.trim()),
-    rail: [...document.querySelectorAll('.railhome .rname')].map(e => e.textContent.trim()) };
+    rail: stripeIcons().map(e => e.dataset.view) };
   const following = panel.querySelector('.notice')?.textContent.trim() ?? '';
   /* The folders opened at the start are a tab of main, in front of the
      session, and the dock renders only the tab in front — so the session is

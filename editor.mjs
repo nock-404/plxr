@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -231,14 +232,14 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
   await sleep(700);
-  up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
   stop(1);
 }
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true })); };
@@ -258,7 +259,7 @@ const HELPERS = `
 
 // ---- the view opens, with the folder in it ---------------------------------
 const opened = await run(`${HELPERS}
-  byText('.railhome', /folders/i).click();
+  openDoc('folders');
   await wait(2500);
   return {
     tabs: [...document.querySelectorAll('.folderTab')].map(t => t.textContent.trim()),
@@ -293,12 +294,12 @@ const reload = async () => {
   await cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
   for (let i = 0; i < 40; i++) {
     await sleep(400);
-    if (await run("return document.querySelectorAll('.railhome').length").catch(() => 0)) return;
+    if (await run(`${GATEKIT} return appUp();`).catch(() => 0)) return;
   }
 };
 await reload();
 const bar = await run(`${HELPERS}
-  byText('.railhome', /folders/i).click(); await wait(2000);
+  openDoc('folders'); await wait(2000);
   const box = document.querySelector('.folderbar').getBoundingClientRect();
   const visible = e => e.offsetParent !== null && !e.closest('.obarMeasureBox');
   const out = [...document.querySelectorAll('.folderbar *')]

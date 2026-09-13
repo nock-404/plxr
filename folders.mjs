@@ -25,6 +25,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -263,7 +264,7 @@ const reload = async () => {
   for (let i = 0; i < 40; i++) {
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
     await sleep(700);
-    if (await run("return document.querySelectorAll('.railhome').length").catch(() => 0)) return true;
+    if (await run(`${GATEKIT} return appUp();`).catch(() => 0)) return true;
   }
   return false;
 };
@@ -274,7 +275,7 @@ if (!up) {
   stop(1);
 }
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(60); } return { v: null, ms: Math.round(performance.now() - t0) }; };
@@ -284,7 +285,7 @@ const HELPERS = `
 
 // ---- the view opens, and the wide half has something to say -----------------
 const overview = await run(`${HELPERS}
-  byText('.railhome', /folders/i).click();
+  openDoc('folders');
   /* Waited for, not slept through — and for the last thing to arrive, not the
      first. The overview draws as soon as its own answer is in; the changes
      list inside it asks git separately and lands a moment later, so reading
@@ -496,7 +497,7 @@ await api("/api/workspaces", { method: "POST", body: JSON.stringify({ path: clon
 // rather than being expected to notice a folder added behind its back.
 await reload();
 const distance = await run(`${HELPERS}
-  byText('.railhome', /folders/i).click();
+  openDoc('folders');
   const found = await until(() => byText('.folderTab', /^clone$/), 10000);
   if (!found.v) return { there: false };
   found.v.click();

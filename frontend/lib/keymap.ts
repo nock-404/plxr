@@ -104,10 +104,6 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "toggleBottom", chord: "Mod+J", key: "keys.toggleBottom", fallback: "Show or hide the bottom region" },
 ];
 
-// The rail views, in the order ⌘1…9 reaches them. Search came last, so the
-// seven keys people already know keep their views; the notes came after that.
-export const VIEW_ORDER = ["overview", "inbox", "folders", "changes", "ports", "usage", "archive", "search", "notes"] as const;
-
 const shipped: Record<string, string> = Object.fromEntries(ACTIONS.map((a) => [a.id, a.chord]));
 
 // What was rebound, by action: only the rows that differ from the shipped

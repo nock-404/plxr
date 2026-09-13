@@ -21,6 +21,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { GATEKIT } from "./gatekit.mjs";
 
 const BROWSERS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -260,15 +261,15 @@ async function enter(w) {
   for (let i = 0; i < 40 && !up; i++) {
     await w.cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
     await sleep(700);
-    up = await w.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+    up = await w.run(`${GATEKIT} return appUp();`).catch(() => 0);
   }
   if (!up) {
     console.log(`  the ${w.label} window did not render`);
     stop(1);
   }
-  const got = await w.run(`
+  const got = await w.run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    document.querySelectorAll('.railhome')[0].click();
+    openDoc('overview');
     await wait(600);
     const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'orphaned' && t.dataset.status !== 'dead');
     if (!tile) return { none: true };

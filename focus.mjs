@@ -24,6 +24,7 @@ import { readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BROWSERS = [
@@ -198,7 +199,7 @@ const open = async () => {
   for (let i = 0; i < 40 && !up; i++) {
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${info.port}/?token=${info.token}` });
     await sleep(700);
-    up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+    up = await run(`${GATEKIT} return appUp();`).catch(() => 0);
   }
   if (!up) {
     console.log("  the interface did not render");

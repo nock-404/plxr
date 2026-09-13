@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -196,7 +197,7 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await tab.cdp.send("Page.navigate", { url: PAGE });
   await sleep(700);
-  up = await tab.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await tab.run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
@@ -204,7 +205,7 @@ if (!up) {
 }
 await sleep(1500);
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(50); } return { v: null, ms: Math.round(performance.now() - t0) }; };
@@ -316,7 +317,7 @@ claim("⌘K with the keydown targeted at an <input> does NOT toggle the palette"
 
 // ---- right-click the terminal ---------------------------------------------------
 const opened = await tab.run(`${HELPERS}
-  byText('.railitem .rname', /^shell$/).closest('.railitem').click();
+  openSession('shell');
   const got = await until(() => document.querySelector('.ptermbox .xterm'), 6000);
   await wait(800);
   return { ok: Boolean(got.v), ms: got.ms };
@@ -376,7 +377,7 @@ const paste = await tab.run(`${HELPERS}
 claim("a refused Paste is said in the pane (not silent)", paste.note.length > 0, paste.note ? `"${paste.note}" after ${paste.ms} ms · alpha ${paste.alpha}` : "no notice — clipboard read was allowed here");
 
 // ---- right-click a rail session -------------------------------------------------
-const railItem = await rectOf(".railitem[data-status]");
+const railItem = await tab.run(`${GATEKIT} const r = sessionRows()[0]?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
 await mouse("mousePressed", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
 await mouse("mouseReleased", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
 const railMenu = await tab.run(`${HELPERS}
@@ -405,7 +406,7 @@ claim("right-click on the session title offers the session's actions", ["FILES",
 
 // ---- right-click a folder tab ------------------------------------------------------
 const folderTab = await tab.run(`${HELPERS}
-  byText('.railitem .rname', /^Folders$/).closest('.railitem').click();
+  openDoc('folders');
   const got = await until(() => document.querySelector('.folderTab'), 4000);
   const r = got.v?.getBoundingClientRect();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, ms: got.ms } : null;
@@ -634,7 +635,7 @@ const editor = await tab.run(`${HELPERS}
      brought forward first: the folders and the editor open there, and the
      settings keep the group they were split into, on screen beside them. */
   await front(shellTab());
-  byText('.railitem .rname', /^Folders$/).closest('.railitem').click();
+  openDoc('folders');
   await until(() => document.querySelector('.frow'), 4000);
   byText('.frow .fname', /^a\\.txt$/)?.closest('.frow').click();
   const cm = await until(() => document.querySelector('.editorPanel .cm-content'), 4000);

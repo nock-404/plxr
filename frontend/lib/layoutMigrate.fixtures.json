@@ -1,0 +1,251 @@
+{
+  "tabbedInMain": {
+    "activeGroup": "1",
+    "grid": {
+      "height": 726,
+      "orientation": "HORIZONTAL",
+      "root": {
+        "data": [
+          {
+            "data": {
+              "activeView": "inbox",
+              "id": "1",
+              "views": [
+                "overview",
+                "inbox",
+                "changes",
+                "archive"
+              ]
+            },
+            "size": 1245,
+            "type": "leaf"
+          }
+        ],
+        "size": 726,
+        "type": "branch"
+      },
+      "width": 1245
+    },
+    "panels": {
+      "archive": {
+        "contentComponent": "archive",
+        "id": "archive",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Archive"
+      },
+      "changes": {
+        "contentComponent": "changes",
+        "id": "changes",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Changes"
+      },
+      "inbox": {
+        "contentComponent": "inbox",
+        "id": "inbox",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Inbox"
+      },
+      "overview": {
+        "contentComponent": "overview",
+        "id": "overview",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Overview"
+      }
+    }
+  },
+  "filesOnTheLeft": {
+    "activeGroup": "3",
+    "grid": {
+      "height": 726,
+      "orientation": "HORIZONTAL",
+      "root": {
+        "data": [
+          {
+            "data": {
+              "activeView": "files:fd8d9e191b249f4a",
+              "id": "3",
+              "views": [
+                "files:fd8d9e191b249f4a"
+              ]
+            },
+            "size": 249,
+            "type": "leaf"
+          },
+          {
+            "data": {
+              "activeView": "overview",
+              "id": "1",
+              "views": [
+                "overview"
+              ]
+            },
+            "size": 996,
+            "type": "leaf"
+          }
+        ],
+        "size": 726,
+        "type": "branch"
+      },
+      "width": 1245
+    },
+    "panels": {
+      "files:fd8d9e191b249f4a": {
+        "contentComponent": "files",
+        "id": "files:fd8d9e191b249f4a",
+        "params": {
+          "root": "/work/plxr",
+          "rootId": "fd8d9e191b249f4a"
+        },
+        "tabComponent": "props.defaultTabComponent",
+        "title": "foundation"
+      },
+      "overview": {
+        "contentComponent": "overview",
+        "id": "overview",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Overview"
+      }
+    }
+  },
+  "usageUnderInbox": {
+    "activeGroup": "1",
+    "grid": {
+      "height": 726,
+      "orientation": "HORIZONTAL",
+      "root": {
+        "data": [
+          {
+            "data": {
+              "activeView": "overview",
+              "id": "1",
+              "views": [
+                "overview"
+              ]
+            },
+            "size": 1069,
+            "type": "leaf"
+          },
+          {
+            "data": [
+              {
+                "data": {
+                  "activeView": "inbox",
+                  "id": "2",
+                  "views": [
+                    "inbox"
+                  ]
+                },
+                "size": 363,
+                "type": "leaf"
+              },
+              {
+                "data": {
+                  "activeView": "usage",
+                  "id": "3",
+                  "views": [
+                    "usage"
+                  ]
+                },
+                "size": 363,
+                "type": "leaf"
+              }
+            ],
+            "size": 176,
+            "type": "branch"
+          }
+        ],
+        "size": 726,
+        "type": "branch"
+      },
+      "width": 1245
+    },
+    "panels": {
+      "inbox": {
+        "contentComponent": "inbox",
+        "id": "inbox",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Inbox"
+      },
+      "overview": {
+        "contentComponent": "overview",
+        "id": "overview",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Overview"
+      },
+      "usage": {
+        "contentComponent": "usage",
+        "id": "usage",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Usage"
+      }
+    }
+  },
+  "editorOnTheLeft": {
+    "activeGroup": "2",
+    "grid": {
+      "height": 726,
+      "orientation": "HORIZONTAL",
+      "root": {
+        "data": [
+          {
+            "data": {
+              "activeView": "editor:w-a46999ed96f8b19a:/work/plxr/BUILD.md",
+              "id": "2",
+              "views": [
+                "changes",
+                "editor:w-a46999ed96f8b19a:/work/plxr/BUILD.md"
+              ]
+            },
+            "size": 176,
+            "type": "leaf"
+          },
+          {
+            "data": {
+              "activeView": "folders",
+              "id": "1",
+              "views": [
+                "overview",
+                "folders"
+              ]
+            },
+            "size": 256,
+            "type": "leaf"
+          }
+        ],
+        "size": 726,
+        "type": "branch"
+      },
+      "width": 176
+    },
+    "panels": {
+      "changes": {
+        "contentComponent": "changes",
+        "id": "changes",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Changes"
+      },
+      "editor:w-a46999ed96f8b19a:/work/plxr/BUILD.md": {
+        "contentComponent": "editor",
+        "id": "editor:w-a46999ed96f8b19a:/work/plxr/BUILD.md",
+        "params": {
+          "path": "/work/plxr/BUILD.md",
+          "rootId": "w-a46999ed96f8b19a"
+        },
+        "tabComponent": "props.defaultTabComponent",
+        "title": "BUILD.md"
+      },
+      "folders": {
+        "contentComponent": "folders",
+        "id": "folders",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Folders"
+      },
+      "overview": {
+        "contentComponent": "overview",
+        "id": "overview",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Overview"
+      }
+    }
+  }
+}

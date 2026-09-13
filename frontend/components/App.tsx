@@ -35,26 +35,16 @@ import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
-import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
+import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
+import { CHORD_ORDER, viewDef } from "@/lib/tools";
 import { adoptPrefs } from "@/lib/prefs";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
 
-/* The rail views as the header menu and ⌘1…8 name them — the same words the
-   rail uses, spelled out so the table can be checked. In the order the
-   shortcuts count them. */
-const VIEW_LABELS: { view: (typeof VIEW_ORDER)[number]; key: string; fallback: string }[] = [
-  { view: "overview", key: "rail.overview", fallback: "Overview" },
-  { view: "inbox", key: "rail.inbox", fallback: "Inbox" },
-  { view: "folders", key: "rail.folders", fallback: "Folders" },
-  { view: "changes", key: "rail.changes", fallback: "Changes" },
-  { view: "ports", key: "rail.ports", fallback: "Ports" },
-  { view: "usage", key: "rail.usage", fallback: "Usage" },
-  { view: "archive", key: "rail.archive", fallback: "Archive" },
-  { view: "search", key: "rail.search", fallback: "Search" },
-  { view: "notes", key: "rail.notes", fallback: "Notes" },
-];
+/* The views as the header menu and ⌘1…9 name them, in the order the shortcuts
+   count them — read from the registry, so they are the words the rail uses. */
+const VIEW_LABELS = CHORD_ORDER.map((view) => ({ view, ...viewDef(view) }));
 const VIEW_ACTIONS: Action[] = ["view1", "view2", "view3", "view4", "view5", "view6", "view7", "view8", "view9"];
 
 // What each activity is called in the menu and the palette.
@@ -315,7 +305,7 @@ export default function App() {
       if (fire("newShell", () => direct({ type: "newShell" }))) return;
       if (fire("settings", openSettings)) return;
       for (let i = 0; i < VIEW_ACTIONS.length; i++) {
-        const view = VIEW_ORDER[i];
+        const view = CHORD_ORDER[i];
         if (fire(VIEW_ACTIONS[i], () => setFocus({ kind: "view", view }))) return;
       }
     }

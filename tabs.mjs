@@ -40,6 +40,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -294,7 +295,7 @@ async function load() {
   await cdp.send("Page.navigate", { url: `${base}/?token=${info.token}` });
   for (let i = 0; i < 40; i++) {
     await sleep(400);
-    const up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+    const up = await run(`${GATEKIT} return appUp();`).catch(() => 0);
     if (up) {
       // The arrangement settles a beat after the panels appear.
       await sleep(900);
@@ -319,7 +320,7 @@ if (!(await load())) {
  * the contextmenu event on the tab's own element, and keys are keydown events
  * on whatever has focus, read by the same window listener a real key reaches.
  */
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const box = el => { const r = el.getBoundingClientRect();
     return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }; };
@@ -342,9 +343,11 @@ const HELPERS = `
   const declaredRail = () => remPx(getComputedStyle(document.documentElement).getPropertyValue('--rail-w').trim());
   const floatingGroups = () => document.querySelectorAll('.dv-resize-container:not(.dv-hidden) .dv-groupview').length;
   const isFloating = n => { const t = tabNamed(n); return Boolean(t && t.closest('.dv-resize-container')); };
-  const railRow = n => [...document.querySelectorAll('.railitem')].find(e =>
+  /* A row of the menu, through the gate kit: a view by the id of the view it
+     opens, a session by its title. */
+  const railRow = n => stripeIcon(n.toLowerCase()) || sessionRows().find(e =>
     ((e.querySelector('.rname') || { textContent: '' }).textContent.trim() === n));
-  const railLike = re => [...document.querySelectorAll('.railitem')].find(e => re.test(e.textContent || ''));
+  const railLike = re => sessionRows().find(e => re.test(e.textContent || ''));
   /* A click in the menu, the way he clicks it — nothing else. What it does is
      the window's business and is measured afterwards. */
   const clickMenu = async (n, ms) => { const row = railRow(n) || railLike(new RegExp(n)); if (!row) throw new Error('no menu row ' + n); row.click(); await wait(ms || 900); };
@@ -423,8 +426,8 @@ const frame = await run(`${HELPERS}
   const dock = dockBox();
   return {
     rail, dock,
-    items: document.querySelectorAll('.railHost .railitem').length,
-    inGrid: document.querySelectorAll('.plxrDock .railhome').length,
+    items: [...stripeIcons(), ...sessionRows()].filter(e => e.closest('.railHost')).length,
+    inGrid: stripeIcons().filter(e => e.closest('.plxrDock')).length,
     railTab: names().filter(n => /^plxr$/i.test(n)).length,
     leftmost: Math.min(...groups().map(g => Math.round(g.getBoundingClientRect().left))),
     declared: declaredRail(),
@@ -1295,8 +1298,8 @@ if (!injected) {
     return {
       tabs: names(),
       railTab: names().filter(n => /^plxr$/i.test(n)).length,
-      beside: document.querySelectorAll('.railHost .railitem').length,
-      inGrid: document.querySelectorAll('.plxrDock .railhome').length,
+      beside: [...stripeIcons(), ...sessionRows()].filter(e => e.closest('.railHost')).length,
+      inGrid: stripeIcons().filter(e => e.closest('.plxrDock')).length,
       panels: groups().length,
     };
   `);

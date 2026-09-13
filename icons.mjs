@@ -26,6 +26,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 import { inflateSync } from "node:zlib";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -371,7 +372,7 @@ const run = async (body) => {
 
 // Everything the page side needs, in one place. Nothing is found by a word
 // that changes with the language: packs and skins have names that are names.
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const settingsOpen = () => !!document.querySelector('.settingsbody');
   const gear = () => document.querySelector('.tools [data-do="settings"]');
@@ -414,7 +415,7 @@ async function load() {
   for (let i = 0; i < 40; i++) {
     await cdp.send("Page.navigate", { url: `${base}/?token=${info.token}` });
     await sleep(900);
-    const up = await run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+    const up = await run("return appUp();").catch(() => 0);
     if (up) return true;
   }
   return false;
@@ -428,9 +429,9 @@ async function arrange() {
     const row = (name) => [...document.querySelectorAll('.frow')].find((r) => r.querySelector('.fname')?.textContent === name);
     // A file opens in a tab of its own in front of the tree, so the tree's tab
     // is brought back to the front after each one — the way a person would.
-    document.querySelector('.railitem:has(.rsub)')?.click();
+    sessionRows()[0]?.click();
     await wait(1500);
-    document.querySelector('.railhome[data-view="folders"]')?.click();
+    openDoc('folders');
     await wait(2000);
     // This check's own folder, by its name — other folders may be open.
     [...document.querySelectorAll('.folderTab')].find((b) => b.textContent.trim() === ${JSON.stringify(basename(FIXTURE))})?.click();
