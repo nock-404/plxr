@@ -832,9 +832,9 @@ them, and what plxr has to take from them:
 ### U — usage: the wrong number, and only one of it (13.09.2026)
 
 He has three Claude accounts in plxr and the usage view shows him one total.
-His words: "ich habe hier 3 claude accounts angelegt. und sehe overall usage
-oder was? was mich daneben noch viel mehr interessiert ist doch die aktuelle
-usage." He showed Claude Code's own /usage screen as the reference.
+His words, translated: "I have three Claude accounts set up here and I see
+overall usage or what? What interests me far more is the CURRENT usage." He
+showed Claude Code's own /usage screen as the reference.
 
 - **U1 Usage is not split by account.** Three accounts, one number. Every
   figure must be per account first, with a total underneath, not instead.
@@ -859,8 +859,8 @@ usage." He showed Claude Code's own /usage screen as the reference.
 
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
-He read this list and answered: "den ganzen scheiß braucht man mit ki
-programmierung nicht mehr. merks dir, aber das kommt aktuell nicht dran."
+He read this list and answered, translated: "you don't need any of that rubbish
+any more with AI programming. Remember it, but it is not up next."
 So none of it is work. It stays written down because it is the reason plxr is
 not an IDE: the agent reads the code, so the tooling that exists to help a
 human read code is not the product. Do not start any of it without him asking.

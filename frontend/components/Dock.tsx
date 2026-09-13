@@ -399,10 +399,23 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
  * is met; a session the state square it wears on the board and in the rail; a
  * document the mark of what it is. The kind travels beside it as an
  * attribute, because the colour of a mark is the skin's business. */
-const FILE_GLYPHS: Record<string, string> = {
-  ts: "\u25C8", tsx: "\u25C8", js: "\u25C7", jsx: "\u25C7", json: "\u2263",
-  go: "\u25B7", py: "\u25B3", rs: "\u25B6", sh: "\u276F", css: "\u25A7",
-  html: "\u25A4", md: "\u2261", yml: "\u2263", yaml: "\u2263", sql: "\u25A6",
+const FILE_GLYPHS: Record<string, { glyph: string; kind: string }> = {
+  ts: { glyph: "\u25C8", kind: "code" },
+  tsx: { glyph: "\u25C8", kind: "code" },
+  js: { glyph: "\u25C7", kind: "code" },
+  jsx: { glyph: "\u25C7", kind: "code" },
+  go: { glyph: "\u25B7", kind: "code" },
+  py: { glyph: "\u25B3", kind: "code" },
+  rs: { glyph: "\u25B6", kind: "code" },
+  sh: { glyph: "\u276F", kind: "code" },
+  css: { glyph: "\u25A7", kind: "style" },
+  html: { glyph: "\u25A4", kind: "style" },
+  json: { glyph: "\u2263", kind: "data" },
+  yml: { glyph: "\u2263", kind: "data" },
+  yaml: { glyph: "\u2263", kind: "data" },
+  sql: { glyph: "\u25A6", kind: "data" },
+  md: { glyph: "\u2261", kind: "text" },
+  txt: { glyph: "\u2261", kind: "text" },
 };
 
 function tabMark(id: string): { glyph: string; kind: string } {
@@ -412,7 +425,7 @@ function tabMark(id: string): { glyph: string; kind: string } {
   if (id.startsWith("files:")) return { glyph: VIEW_GLYPHS.folders, kind: "view" };
   if (id.startsWith("editor:")) {
     const ext = id.slice(id.lastIndexOf(".") + 1).toLowerCase();
-    return { glyph: FILE_GLYPHS[ext] ?? "\u25A1", kind: FILE_GLYPHS[ext] ? ext : "plain" };
+    return FILE_GLYPHS[ext] ?? { glyph: "\u25A1", kind: "plain" };
   }
   return { glyph: VIEW_GLYPHS[id] ?? "\u25A1", kind: "view" };
 }

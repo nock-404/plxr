@@ -946,9 +946,12 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .panelTab[data-kind="session"] .panelTabIcon { color: var(--working); }
 .panelTab[data-kind="diff"] .panelTabIcon { color: var(--waiting); }
 .panelTab[data-kind="preview"] .panelTabIcon { color: var(--accent); }
-.panelTab[data-kind="ts"] .panelTabIcon, .panelTab[data-kind="tsx"] .panelTabIcon { color: var(--accent); }
-.panelTab[data-kind="go"] .panelTabIcon { color: var(--working); }
-.panelTab[data-kind="md"] .panelTabIcon { color: var(--fg); }
+.panelTab[data-kind="code"] .panelTabIcon { color: var(--accent); }
+.panelTab[data-kind="style"] .panelTabIcon { color: var(--working); }
+.panelTab[data-kind="data"] .panelTabIcon { color: var(--waiting); }
+.panelTab[data-kind="text"] .panelTabIcon { color: var(--fg); }
+.panelTab[data-kind="plain"] .panelTabIcon { color: var(--dead); }
+.panelTab[data-kind="view"] .panelTabIcon { color: var(--dim); }
 
 /* The strip the tabs sit in, and the settings filling a panel: both take the
    panel's own surface, so a region reads as one box rather than two. */
