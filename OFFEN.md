@@ -1109,6 +1109,14 @@ Left open, seen while fixing these:
   window.** In the native window that is the frosted backdrop; headless Chrome
   has none, so the screenshots show it light grey.
 
+### Flaky in the full check before 0.79.0 (13.09.2026)
+
+- **tabs.mjs failed inside ./check.sh and passed on its own** against the same
+  build (89fe552, binary from 21:24) on a fresh service. In check.sh it runs on
+  the service the earlier gates already used, so it is most likely the
+  leftover-state problem clicked.mjs had until 80bbce6: tabs.mjs should bring its
+  own session and folder and clean up after itself the same way.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
