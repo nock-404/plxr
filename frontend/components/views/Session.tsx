@@ -21,8 +21,9 @@ import { api } from "@/lib/api";
 import { matches } from "@/lib/keymap";
 import { accountName, shortPath } from "@/lib/format";
 import { barLine, titleOf } from "@/lib/state";
+import { useAccounts } from "@/lib/useAccounts";
 import { isHot, useAccountLimits, worst } from "@/lib/useLimits";
-import type { Account, Tile } from "@/lib/types";
+import type { Tile } from "@/lib/types";
 
 // One open session: the terminal, and the tools that act on it.
 export default function Session({
@@ -48,7 +49,8 @@ export default function Session({
   /* Source control for this session's folder, as a panel beside it. */
   onChanges?: () => void;
 }) {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  // The window's one list, so an account added meanwhile is offered here too.
+  const accounts = useAccounts() ?? [];
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState("");
   const [restarting, setRestarting] = useState(false);
@@ -130,10 +132,6 @@ export default function Session({
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, []);
-
-  useEffect(() => {
-    api.accounts().then((a) => setAccounts(a ?? [])).catch(() => setAccounts([]));
   }, []);
 
   // What is left on each of them, shared with the rail and the usage view.

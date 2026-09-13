@@ -480,29 +480,145 @@ func (c *Core) TemplateDelete(name string) error { return template.Delete(daemon
 
 func (c *Core) Accounts() []accounts.Account { return accounts.Discover() }
 
-// AddAccount takes an existing configuration directory into the list.
-func (c *Core) AddAccount(dir, label string) ([]accounts.Account, error) {
-	return accounts.Add(dir, label)
+// AccountsShown is the list the way the Accounts page shows it: every account
+// with whether it is signed in, hooked up and sharing the history, and how old
+// its usage reading is.
+func (c *Core) AccountsShown() []accounts.Account {
+	return accounts.Describe(accounts.Discover(), hook.Installed)
+}
+
+// accountsForPage hands a changed list back the way the page shows it.
+func accountsForPage(list []accounts.Account, err error) ([]accounts.Account, error) {
+	if err != nil {
+		return nil, err
+	}
+	return accounts.Describe(list, hook.Installed), nil
+}
+
+// AddAccount takes an existing configuration directory into the list. share
+// nil means what the page offers by default: share when the others do.
+func (c *Core) AddAccount(dir, label string, share *bool) ([]accounts.Account, error) {
+	before := accounts.Discover()
+	list, err := accounts.Add(dir, label, shareChoice(before, share))
+	if err != nil {
+		return nil, err
+	}
+	c.welcomeAccounts(before, list)
+	return accountsForPage(list, nil)
 }
 
 // CreateAccount makes a fresh account to log in to.
-func (c *Core) CreateAccount(label string) (accounts.Account, []accounts.Account, error) {
-	return accounts.Create(label)
+func (c *Core) CreateAccount(label string, share *bool) (accounts.Account, []accounts.Account, error) {
+	before := accounts.Discover()
+	acc, list, err := accounts.Create(label, shareChoice(before, share))
+	if err != nil {
+		return accounts.Account{}, nil, err
+	}
+	c.welcomeAccounts(before, list)
+	list, _ = accountsForPage(list, nil)
+	for _, a := range list {
+		if a.Dir == acc.Dir {
+			acc = a
+		}
+	}
+	return acc, list, nil
+}
+
+// ShareAccountHistory joins an account already in the list to the history the
+// others read.
+func (c *Core) ShareAccountHistory(name string) ([]accounts.Account, error) {
+	list, err := accounts.Share(name)
+	if err == nil {
+		c.forgetLimits()
+	}
+	return accountsForPage(list, err)
 }
 
 // RenameAccount changes what an account is called on screen.
 func (c *Core) RenameAccount(name, label string) ([]accounts.Account, error) {
-	return accounts.Rename(name, label)
+	return accountsForPage(accounts.Rename(name, label))
 }
 
 // SetDefaultAccount picks the account a new session starts under.
 func (c *Core) SetDefaultAccount(name string) ([]accounts.Account, error) {
-	return accounts.SetDefault(name)
+	return accountsForPage(accounts.SetDefault(name))
 }
 
 // RemoveAccount takes an account out of the list; its directory stays.
 func (c *Core) RemoveAccount(name string) ([]accounts.Account, error) {
-	return accounts.Remove(name)
+	list, err := accounts.Remove(name)
+	if err == nil {
+		c.forgetLimits()
+	}
+	return accountsForPage(list, err)
+}
+
+/* An account added after the hook was switched on stayed silent.
+ *
+ * HookSet puts the hook into every account there is at the moment it runs, and
+ * nothing ran it again when a fourth one arrived — so its sessions reported no
+ * state, and the Status tab said "not installed" about three accounts that had
+ * it. The hook is now put into a newcomer whenever it is in any of the accounts
+ * already there. Any rather than all: switching it on and off only ever
+ * happens for every account at once, so one account carrying it is proof it
+ * was switched on, and a single account that lost it must not decide for the
+ * next one.
+ *
+ * The usage readout is worked out again as well, so the usage view lists the
+ * newcomer at once rather than fifteen seconds later. */
+func (c *Core) welcomeAccounts(before, after []accounts.Account) {
+	if hookWanted(before, hook.Installed) {
+		for _, a := range newcomers(before, after) {
+			if _, err := hook.Install(a.Dir, false); err != nil {
+				// Not a refusal of the account: the page shows the hook as
+				// missing on its row, which is where somebody looks.
+				log.Printf("account %s: the hook could not be installed: %v", a.Name, err)
+			}
+		}
+	}
+	c.forgetLimits()
+}
+
+// hookWanted reports whether plxr's hook is in any of these accounts.
+func hookWanted(list []accounts.Account, installed func(dir string) bool) bool {
+	for _, a := range list {
+		if installed(a.Dir) {
+			return true
+		}
+	}
+	return false
+}
+
+// newcomers are the accounts in after whose directory was not in before.
+func newcomers(before, after []accounts.Account) []accounts.Account {
+	known := map[string]bool{}
+	for _, a := range before {
+		known[a.Dir] = true
+	}
+	var out []accounts.Account
+	for _, a := range after {
+		if !known[a.Dir] {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// shareChoice is what was asked for, or — when nothing was — whether the
+// accounts already there share one history.
+func shareChoice(list []accounts.Account, share *bool) bool {
+	if share != nil {
+		return *share
+	}
+	_, shared := accounts.Store(list, "")
+	return shared
+}
+
+// forgetLimits makes the next usage readout be worked out afresh.
+func (c *Core) forgetLimits() {
+	c.mu.Lock()
+	c.limitsAt = time.Time{}
+	c.mu.Unlock()
 }
 
 func (c *Core) Archive(pathFilter string) []archive.Entry {

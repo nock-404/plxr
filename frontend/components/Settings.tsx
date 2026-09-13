@@ -60,7 +60,19 @@ function fontOptions(fonts: UserFont[], defaultLabel: string) {
  * about the look had to be found somewhere else. Now it is a window: opened
  * where the column stood, dragged wherever it is not in the way, and holding
  * the terminal, the editor, the keys, the accounts and the layouts as well. */
-export default function Settings({ onClose, layouts, framed = true }: { onClose: () => void; layouts: LayoutControls; framed?: boolean }) {
+export default function Settings({
+  onClose,
+  layouts,
+  framed = true,
+  openSession,
+}: {
+  onClose: () => void;
+  layouts: LayoutControls;
+  framed?: boolean;
+  /* Brings a session to the front of the dock — the accounts tab opens the
+     sign-in session of a new account with it. */
+  openSession?: (id: string) => void;
+}) {
   const [tab, setTab] = useState<Tab>("skins");
   // "en", to match what happens with no setting at all. Showing "System" here
   // while an unset plxr in fact speaks English would be the picker telling one
@@ -335,7 +347,7 @@ export default function Settings({ onClose, layouts, framed = true }: { onClose:
         {tab === "terminal" ? <TerminalSettings state={state} change={change} fonts={fonts} /> : null}
         {tab === "editor" ? <EditorSettings /> : null}
         {tab === "keys" ? <Keybindings /> : null}
-        {tab === "accounts" ? <Accounts /> : null}
+        {tab === "accounts" ? <Accounts openSession={openSession} /> : null}
         {tab === "layouts" ? <LayoutSettings layouts={layouts} /> : null}
         {tab === "notify" ? <Notifications /> : null}
         {tab === "agents" ? <Agents /> : null}

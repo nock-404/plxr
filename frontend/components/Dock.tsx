@@ -555,7 +555,7 @@ function useBellMark(panelId: string, api: IDockviewPanelHeaderProps["api"]): bo
    it closes the floating window, docked it closes the tab. */
 function SettingsPanel(props: IDockviewPanelProps) {
   const d = useDock();
-  return <Settings framed={false} layouts={d.layouts} onClose={() => props.api.close()} />;
+  return <Settings framed={false} layouts={d.layouts} openSession={d.openSession} onClose={() => props.api.close()} />;
 }
 
 function FilesPanel(props: IDockviewPanelProps<{ rootId: string; root: string }>) {
