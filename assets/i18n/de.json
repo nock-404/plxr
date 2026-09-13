@@ -1353,5 +1353,8 @@
   "limits.used": "{pct} verbraucht",
   "limits.noReading": "kein Wert",
   "limits.age": "Wert von {when}",
-  "limits.noReadingLong": "Claude Code hat für diesen Account noch keinen Wert hinterlegt"
+  "limits.noReadingLong": "Claude Code hat für diesen Account noch keinen Wert hinterlegt",
+  "tool.hide": "Ausblenden",
+  "tool.more": "Mehr",
+  "tool.noFolder": "Kein Ordner zum Zeigen: Öffne eine Session oder gib oben im Pfadfeld einen Ordner an."
 }

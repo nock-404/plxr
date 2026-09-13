@@ -401,8 +401,10 @@ const HELPERS = `${GATEKIT}
   };
   // A tab brought to the front by the mark it wears, the way dockview wants it:
   // a pointer going down, then the click.
+  // A tab of main: the tool windows at the edges keep tabs of their own, hidden,
+  // and one of them wears the same folder mark.
   const front = async (icon) => {
-    const tab = document.querySelector('.panelTab .uiIcon[data-icon="' + icon + '"]')?.closest('.dv-tab');
+    const tab = document.querySelector('.plxrDock .panelTab .uiIcon[data-icon="' + icon + '"]')?.closest('.dv-tab');
     if (!tab) return false;
     tab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 }));
     tab.click();
@@ -439,7 +441,8 @@ async function load() {
    unfolded, a file open in a tab of its own, and the toolbar. */
 async function arrange() {
   return run(`
-    const row = (name) => [...document.querySelectorAll('.frow')].find((r) => r.querySelector('.fname')?.textContent === name);
+    // The folders' tree in main, not the file tree the Files tool keeps at its edge.
+    const row = (name) => [...document.querySelectorAll('.plxrDock .frow')].find((r) => r.querySelector('.fname')?.textContent === name);
     // A file opens in a tab of its own in front of the tree, so the tree's tab
     // is brought back to the front after each one — the way a person would.
     sessionRows()[0]?.click();
@@ -458,8 +461,8 @@ async function arrange() {
     await wait(1200);
     return {
       icons: document.querySelectorAll('.uiIcon').length,
-      rows: document.querySelectorAll('.frow').length,
-      tabs: [...document.querySelectorAll('.panelTab .uiIcon')].map((i) => i.dataset.icon),
+      rows: document.querySelectorAll('.plxrDock .frow').length,
+      tabs: [...document.querySelectorAll('.plxrDock .panelTab .uiIcon')].map((i) => i.dataset.icon),
     };
   `);
 }
@@ -474,14 +477,16 @@ const MEASURE = `
   // pixel skin at 1x: 98px under Tabler, 114px under Pixel, each tab exactly
   // where it was along the strip. So a tab is measured along its strip, and a
   // scroll is not read as a move.
-  const strip = q('.panelTab')?.closest('.dv-tabs-container');
+  /* In main: a tool window at an edge keeps a tree and tabs of its own that
+     are not on screen while it is hidden, and they come first in the page. */
+  const strip = q('.plxrDock .panelTab')?.closest('.dv-tabs-container');
   const along = (b) => b && strip ? [Math.round((b[0] + strip.scrollLeft) * 10) / 10, b[1], b[2], b[3]] : b;
   return {
     bar: box(q('.bar')), statusrow: box(q('.statusrow')), rail: box(q('.rail')),
     railHome: box(q('.railhome')), railHomeName: box(q('.railhome .rname')),
     railSession: box(q('.railitem:has(.rsub)')),
-    frow: box(q('.frow')), frowName: box(q('.frow .fname')), frowCount: document.querySelectorAll('.frow').length,
-    tab: along(box(q('.panelTab'))), tabName: along(box(q('.panelTab .panelTabName'))),
+    frow: box(q('.plxrDock .frow')), frowName: box(q('.plxrDock .frow .fname')), frowCount: document.querySelectorAll('.plxrDock .frow').length,
+    tab: along(box(q('.plxrDock .panelTab'))), tabName: along(box(q('.plxrDock .panelTab .panelTabName'))),
     toolIcon: box(q('.tools [data-do="settings"]')), toolReset: box(q('.tools [data-do="reset-layout"]')),
   };
 `;
@@ -591,7 +596,7 @@ for (const ratio of RATIOS) {
         const closed = await closeSettings();
         await front('folder');
         await wait(600);
-        return { skinPicked, packPicked, shown, hrefBefore, closed, rows: document.querySelectorAll('.frow').length,
+        return { skinPicked, packPicked, shown, hrefBefore, closed, rows: document.querySelectorAll('.plxrDock .frow').length,
           hrefAfter: document.querySelector('.railhome .uiIcon use')?.getAttribute('href'),
           skin: document.documentElement.dataset.skin, icons: document.documentElement.dataset.icons,
           live: window.__notReloaded === true };

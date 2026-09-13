@@ -238,6 +238,15 @@ step "surfaces reachable" node surfaces.mjs
 # keys between panels and groups — against the same service as above.
 step "dock tabs" node tabs.mjs
 
+# The tools as windows at the edges of the dock: a click shows one where it
+# belongs and main gives up exactly its width, the same click hides it, a
+# second tool on the edge swaps into the same box, a dragged width that holds
+# through hide, show and a reload, no × and no ⌘W that loses one, files that
+# open in main and documents that cannot be dropped into a tool, main's splits
+# untouched and its floor kept, hidden tools that ask for nothing, and the
+# arrangements the old window saved coming up with their tools on their edges.
+step "tool stripes" node stripes.mjs
+
 # Two windows on ONE session — the kitchen screen and the machine the session
 # runs on. Nothing is synchronised there: one terminal, one process, two
 # windows looking at it. Everything about that only breaks with two attached,

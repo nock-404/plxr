@@ -561,14 +561,17 @@ claim("the keyboard list reflects the rebinding and has no phantom ⌘1…5 row"
   `${rebound.rows.length} rows after ${rebound.listMs} ms: ${rebound.rows.slice(0, 6).join(" | ")} …`);
 claim("RESET puts the shipped key back", rebound.restored === "⌘K", `now ${rebound.restored}`);
 
-// ⌘1…7 really open views now.
+/* ⌘1…9 really reach what they name. ⌘6 is the Usage tool, a window at an
+   edge: it is lit and its window has a size, and it is no tab of main. */
 const viewKey = await tab.run(`${HELPERS}
   const before = tabNames();
   key(document.body, { key: '6', metaKey: true });
-  const got = await until(() => tabNames().includes('Usage') ? true : null, 3000);
-  return { before, opened: Boolean(got.v), ms: got.ms };
+  const up = () => { const r = document.querySelector('.toolWindow[data-tool="usage"]')?.closest('.dv-groupview')?.getBoundingClientRect(); return toolLit('usage') && r && r.width > 0 && r.height > 0 ? true : null; };
+  const got = await until(up, 3000);
+  return { before, opened: Boolean(got.v), ms: got.ms, inMain: tabNames().includes('Usage') };
 `);
-claim("⌘6 opens the Usage view (the ⌘1…7 row is true, not phantom)", viewKey.opened, `Usage tab after ${viewKey.ms} ms · before: ${viewKey.before.join(", ")}`);
+claim("⌘6 lights Usage and shows its window at its edge, not as a tab of main (the ⌘1…9 rows are true, not phantom)", viewKey.opened && !viewKey.inMain,
+  `window up after ${viewKey.ms} ms · a tab of main ${viewKey.inMain} · main before: ${viewKey.before.join(", ")}`);
 
 // ---- save and apply a named layout ------------------------------------------------
 const saved = await tab.run(`${HELPERS}
@@ -600,19 +603,23 @@ const applied = await tab.run(`${HELPERS}
      again to reach APPLY. */
   byText('.settingsPanel [data-do="reset-layout"]', /Reset/).click();
   await until(() => document.querySelectorAll('.plxrDock .dv-tab').length <= 2 ? true : null, 3000);
+  const usageUp = () => { const r = document.querySelector('.toolWindow[data-tool="usage"]')?.closest('.dv-groupview')?.getBoundingClientRect(); return Boolean(r && r.width > 0 && r.height > 0); };
   const afterReset = tabNames();
+  const usageAfterReset = usageUp();
   const settingsGone = !document.querySelector('.settingsPanel');
   document.querySelector('.tools [data-do="settings"]')?.click();
   await until(() => document.querySelector('.settingsPanel'), 2000);
   byText('.settingsPanel .tab', /^layouts$/)?.click();
   const apply = await until(() => byText('.settingsPanel .presetRow [data-do="apply-layout"]', /APPLY/), 2000);
   apply.v?.click();
-  const got = await until(() => tabNames().includes('Usage') ? true : null, 3000);
+  // What was saved: the shell beside the settings in main, and the Usage window showing at its edge.
+  const got = await until(() => tabNames().some((t) => /^shell\b/.test(t)) && usageUp() ? true : null, 3000);
   const afterApply = tabNames();
-  return { afterReset, settingsGone, found: Boolean(apply.v), afterApply, ms: got.ms };
+  return { afterReset, usageAfterReset, settingsGone, found: Boolean(apply.v), afterApply, usageAfterApply: usageUp(), ms: got.ms };
 `);
-claim("Reset clears the arrangement and APPLY brings the saved one back", !applied.afterReset.includes("Usage") && applied.afterApply.includes("Usage") && applied.afterApply.some((t) => /^shell\b/.test(t)),
-  `reset → ${applied.afterReset.join(", ")} (the settings went with it: ${applied.settingsGone}, APPLY found again: ${applied.found}) · apply → ${applied.afterApply.join(", ")} after ${applied.ms} ms`);
+claim("Reset clears the arrangement and APPLY brings the saved one back, the tool window it had showing included",
+  !applied.usageAfterReset && !applied.afterReset.some((t) => /^shell\b/.test(t)) && applied.usageAfterApply && applied.afterApply.some((t) => /^shell\b/.test(t)),
+  `reset → ${applied.afterReset.join(", ")}, Usage showing ${applied.usageAfterReset} (the settings went with it: ${applied.settingsGone}, APPLY found again: ${applied.found}) · apply → ${applied.afterApply.join(", ")}, Usage showing ${applied.usageAfterApply} after ${applied.ms} ms`);
 
 // ---- Esc closes the topmost thing only ----------------------------------------------
 const escLadder = await tab.run(`${HELPERS}

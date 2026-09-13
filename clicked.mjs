@@ -774,21 +774,26 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     // The settings are put away first, so the panels counted are the ones opened here.
     const done = [...document.querySelectorAll('.settingsPanel .btn')].find(b => b.textContent.trim() === 'DONE');
     if (done) { done.click(); await w(400); }
-    openTool('usage'); await w(500);
-    openTool('ports'); await w(500);
+    openTool('changes'); await w(700);
+    openTool('usage'); await w(700);
     /* A tab's text carries its icon beside the title, so a name is read off
-       .panelTabName — read off the whole tab, the overview was "⊞Overview". */
+       .panelTabName — read off the whole tab, the overview was "⊞Overview".
+       Main's tabs are the ones in .plxrDock; a tool is a window at an edge,
+       on screen when the edge it sits in has a size. */
     const tabName = t => (t.querySelector('.panelTabName')?.textContent ?? '').trim();
-    const many = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);
+    const mainTabs = () => [...document.querySelectorAll('.plxrDock .dv-tab')].map(tabName).filter(Boolean);
+    const tools = () => [...document.querySelectorAll('.toolWindow')].filter(t => { const r = t.closest('.dv-groupview')?.getBoundingClientRect(); return r && r.width > 0 && r.height > 0; }).map(t => t.dataset.tool);
+    const many = { main: mainTabs(), tools: tools() };
     const reset = document.querySelector('.tools [data-do="reset-layout"]');
     if (reset) reset.click();
-    await w(700);
-    const afterReset = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);
-    return { many, afterReset };
+    await w(900);
+    return { many, afterReset: mainTabs(), toolsAfterReset: tools() };
   `);
   const prefs = await api("/api/prefs").catch(() => ({}));
   const saved = Boolean(prefs && prefs.dock);
-  claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
+  claim("the content is a dock with several surfaces at once: the board in main, a tool window at each side",
+    dock.many.main.includes("Overview") && dock.many.tools.includes("changes") && dock.many.tools.includes("usage"),
+    `main ${dock.many.main.join(", ")} · tool windows ${dock.many.tools.join(", ")}`);
   /* The menu is the window's frame, beside the grid rather than a column in
      it — so it never appears among the dock's tabs, and it is always there. */
   const menuThere = await run(`${GATEKIT}
@@ -801,12 +806,15 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     `${menuThere.width}px wide, among the tabs: ${menuThere.inGrid}`);
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   /* A reset rebuilds the arrangement for the activity that was chosen last —
-     'focus' (rail and overview alone) unless somebody picked another from the
-     LAYOUTS menu, in which case that one's panels come back and Usage/Ports,
-     which belong to no activity but 'monitor', do not. */
+     'focus' (the board alone) unless somebody picked another from the LAYOUTS
+     menu: the board in main, and the tools that activity shows at their edges
+     — the tree for code, the changes for review, the inbox for monitor — and
+     no other. */
   const activity = typeof prefs.dockActivity === "string" ? prefs.dockActivity : "focus";
-  const bare = activity === "focus" ? dock.afterReset.length <= 2 : !dock.afterReset.includes("Ports");
-  claim(`a reset returns the dock to the ${activity} arrangement`, dock.afterReset.includes("Overview") && bare, dock.afterReset.join(", "));
+  const wanted = { focus: [], code: ["files"], review: ["changes"], monitor: ["inbox"] }[activity] ?? [];
+  const bare = dock.afterReset.length <= 2 && JSON.stringify([...dock.toolsAfterReset].sort()) === JSON.stringify(wanted);
+  claim(`a reset returns the dock to the ${activity} arrangement`, dock.afterReset.includes("Overview") && bare,
+    `main ${dock.afterReset.join(", ")} · tool windows ${dock.toolsAfterReset.join(", ") || "none"}`);
 
   /* A port opens as a web preview panel — a dev server beside its terminal,
      which is the point of the whole dock. */

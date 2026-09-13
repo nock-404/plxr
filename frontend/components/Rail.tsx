@@ -10,38 +10,45 @@ import { accountName } from "@/lib/format";
 import { detailOf, railLine, stateOf, titleOf, unattended } from "@/lib/state";
 import { isHot, useLimits, worst } from "@/lib/useLimits";
 import type { Tile } from "@/lib/types";
-import { chordOf, viewDef } from "@/lib/tools";
+import { chordOf, isTool, viewDef, type DocId, type ToolId } from "@/lib/tools";
 
 // The rail always stays, even inside a session — otherwise looking into one
 // loses sight of the rest of the herd.
-export type View = "overview" | "inbox" | "folders" | "changes" | "review" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
+export type View = "overview" | "inbox" | "folders" | "files" | "changes" | "review" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
 
 /* The views the rail opens, in the order it shows them. What each one is
    called, the mark it wears and the chord that reaches it are read from the
-   registry in lib/tools.ts — the same mark on the rail and on the tab of the
-   panel it opens, so one thing is one icon wherever it is met. */
-type Home = Exclude<View, "session">;
-const HOME: Home[] = ["overview", "inbox", "folders", "changes", "review", "search", "ports", "usage", "archive", "notes"];
+   registry in lib/tools.ts — the same mark on the rail and on the window it
+   opens, so one thing is one icon wherever it is met. A document's row opens
+   it in main; a tool's row shows its window at its edge, and hides it again. */
+type Home = ToolId | DocId;
+const HOME: Home[] = ["overview", "inbox", "folders", "files", "changes", "review", "search", "ports", "usage", "archive", "notes"];
 
 export default function Rail({
-  view,
+  lit,
   tiles,
   openId,
   counts,
   onView,
+  onReveal,
   onViewFresh,
   onResetLayout,
   onOpen,
   onNewShell,
 }: {
-  view: View;
+  /* The rows that are lit: every tool showing at its edge, and the document
+     in front of main. */
+  lit: Set<string>;
   tiles: Tile[];
   openId: string | null;
   counts: { inbox: number; ports: number; archive: number };
-  onView: (v: View) => void;
-  /* The view in a group of its own, beside whatever is active — for when it
+  /* A click on a row: a document opens, a tool shows or hides. */
+  onView: (v: Home) => void;
+  /* Open, from the row's menu: a document opens, a tool shows — never hides. */
+  onReveal?: (v: Home) => void;
+  /* A document in a group of its own, beside whatever is active — for when it
      should not tab into the group it usually joins. */
-  onViewFresh?: (v: View) => void;
+  onViewFresh?: (v: DocId) => void;
   onResetLayout?: () => void;
   onOpen: (id: string) => void;
   /* A plain shell in the focused session's folder, as a new session panel —
@@ -77,11 +84,11 @@ export default function Rail({
     { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(t.cwd).catch(() => undefined) },
   ];
 
-  /* A view under the right button: open it where it usually goes, open it in
-     a group of its own, or put the whole arrangement back. */
+  /* A view under the right button: open it where it usually goes, open a
+     document in a group of its own, or put the whole arrangement back. */
   const homeMenu = (v: Home): MenuItem[] => [
-    { label: tr("tile.menuOpen", "Open"), hint: chordOf(v), onClick: () => onView(v) },
-    ...(onViewFresh ? [{ label: tr("rail.menuNewGroup", "Open in a new group"), onClick: () => onViewFresh(v) }] : []),
+    { label: tr("tile.menuOpen", "Open"), hint: chordOf(v), onClick: () => (onReveal ?? onView)(v) },
+    ...(onViewFresh && !isTool(v) ? [{ label: tr("rail.menuNewGroup", "Open in a new group"), onClick: () => onViewFresh(v) }] : []),
     ...(onResetLayout
       ? [{ separator: true as const }, { label: tr("palette.resetLayout", "Reset the panel layout"), onClick: onResetLayout }]
       : []),
@@ -108,8 +115,10 @@ export default function Rail({
       })
     : "";
 
-  const meta: Record<View, number | undefined> = {
+  const meta: Record<Home, number | undefined> = {
     overview: undefined,
+    settings: undefined,
+    files: undefined,
     changes: undefined,
     review: undefined,
     search: undefined,
@@ -118,7 +127,6 @@ export default function Rail({
     ports: counts.ports || undefined,
     usage: undefined,
     archive: counts.archive || undefined,
-    session: undefined,
     notes: undefined,
   };
 
@@ -131,7 +139,7 @@ export default function Rail({
           <Button
             bare
             key={h}
-            className={`railitem railhome${view === h ? " active" : ""}${hot ? " railhot" : ""}`}
+            className={`railitem railhome${lit.has(h) ? " active" : ""}${hot ? " railhot" : ""}`}
             data-view={h}
             data-nearly-out={hot ? "yes" : undefined}
             onClick={() => onView(h)}

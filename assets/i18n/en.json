@@ -1355,5 +1355,8 @@
   "limits.used": "{pct} used",
   "limits.noReading": "no reading",
   "limits.age": "reading from {when}",
-  "limits.noReadingLong": "Claude Code has left no reading for this account yet"
+  "limits.noReadingLong": "Claude Code has left no reading for this account yet",
+  "tool.hide": "Hide",
+  "tool.more": "More",
+  "tool.noFolder": "No folder to show: open a session, or name a folder in the path field above."
 }

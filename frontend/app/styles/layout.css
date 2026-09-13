@@ -42,6 +42,9 @@
   --main-min: 16rem;
   --bottom-h: 18rem;
   --bottom-min: 5rem;
+  /* The header every tool window has: its mark, its name, its menu and its
+     hide. One height in every skin, so a window's body starts at one line. */
+  --toolhead-h: 2.25rem;
 
   /* The bar on the tab in front, and how far a tab's text sits from its
      edges — the frame of the tab strip; its colours are the skin's. */
@@ -1078,16 +1081,33 @@ button.diffline { cursor: pointer; }
 .railHost > * { flex: 1 1 auto; min-height: 0; }
 
 /* The dock fills what is left of the content area, and its own panels lay
-   themselves out. */
-.plxrDock { flex: 1 1 auto; min-width: 0; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }
+   themselves out. dockview puts the dock's class on main alone — the tool
+   windows sit beside it, inside the same shell — so the box that is sized,
+   and that everything in the dock inherits from, is the wrapper around it. */
+.dockHost { flex: 1 1 auto; min-width: 0; height: 100%; position: relative; --dv-tabs-and-actions-container-height: var(--strip-h); }
 /* Every panel fills its host. Dockview renders a panel into a plain
    height:100% block (.dv-react-part), not a flex parent — so a root that
    grew with flex:1 collapsed to its content and left the panel half empty:
    first the session, then the folders, then whatever came next. This is the
    rule for the class of them: the one element a panel renders at its root
    takes the whole host. (:only-child so a root that is a fragment of several
-   blocks is left alone.) */
-.plxrDock .dv-react-part > :only-child { height: 100%; min-height: 0; box-sizing: border-box; }
+   blocks is left alone.) Scoped to the whole dock, not to main: a tool
+   window's body under a rule that stopped at main was nineteen pixels tall. */
+.dockHost .dv-react-part > :only-child { height: 100%; min-height: 0; box-sizing: border-box; }
+
+/* A tool window: its header, then its body, which scrolls. The body's one
+   child takes the height the way a panel's root does. Its width is the edge's
+   and never its content's: dockview's content box is a flex item that grows
+   to what is inside it, so a file tree of long names made the window 545
+   pixels wide inside a 320 pixel edge, its hide button cut off and its body
+   running under main. Contained, what is inside no longer widens it. */
+.toolWindow { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; contain: inline-size; }
+.toolHead { flex: 0 0 var(--toolhead-h); display: flex; align-items: center; gap: 0.375rem; padding: 0 0.25rem 0 0.625rem; min-width: 0; }
+.toolIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; justify-content: center; }
+.toolTitle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.toolActions { margin-left: auto; display: flex; gap: 0.125rem; }
+.toolBody { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.toolBody > * { flex: 1 1 auto; min-height: 0; }
 
 /* The web preview: a toolbar and an iframe that fills the rest of the panel. */
 .preview { display: flex; flex-direction: column; height: 100%; min-height: 0; }

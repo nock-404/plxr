@@ -83,6 +83,10 @@ LAYOUT_ONLY = {
     "uacctHead", "umodelRow",
     # The inline toolbar strip inside a dock panel: arrangement only.
     "viewstrip",
+    # A tool window's body and the slot for its own actions: a scrolling
+    # column and a flex row. The window around them and its header carry the
+    # dressing; these two only place what sits in them.
+    "toolBody", "toolActions",
     # The web preview: a toolbar row and the iframe box, arrangement only.
     "preview", "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.

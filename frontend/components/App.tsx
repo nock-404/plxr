@@ -36,7 +36,7 @@ import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
-import { CHORD_ORDER, viewDef } from "@/lib/tools";
+import { CHORD_ORDER, isTool, viewDef } from "@/lib/tools";
 import { adoptPrefs } from "@/lib/prefs";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
@@ -108,7 +108,7 @@ export default function App() {
      could not be docked anywhere — "why can I grab the settings and dock them
      nowhere?". It is a panel in the dock like everything else now, and the
      shell only asks for it. */
-  const openSettings = useCallback(() => setFocus({ kind: "view", view: "settings" }), []);
+  const openSettings = useCallback(() => setFocus({ kind: "doc", id: "settings" }), []);
   // The readout is off unless somebody asked for it: a frame loop that is
   // always running is a measuring instrument that changes what it measures.
   const [meter, setMeter] = useState(false);
@@ -305,8 +305,8 @@ export default function App() {
       if (fire("newShell", () => direct({ type: "newShell" }))) return;
       if (fire("settings", openSettings)) return;
       for (let i = 0; i < VIEW_ACTIONS.length; i++) {
-        const view = CHORD_ORDER[i];
-        if (fire(VIEW_ACTIONS[i], () => setFocus({ kind: "view", view }))) return;
+        const id = CHORD_ORDER[i];
+        if (fire(VIEW_ACTIONS[i], () => setFocus(isTool(id) ? { kind: "tool", id, how: "reveal" } : { kind: "doc", id }))) return;
       }
     }
     // On window, where the palette's ⌘K always listened: a key pressed
@@ -488,9 +488,9 @@ export default function App() {
       ...VIEW_LABELS.map((v, i) => ({
         label: tr(v.key, v.fallback),
         hint: caption(bindingOf(VIEW_ACTIONS[i])),
-        onClick: () => setFocus({ kind: "view", view: v.view }),
+        onClick: () => setFocus(isTool(v.view) ? { kind: "tool", id: v.view, how: "reveal" } : { kind: "doc", id: v.view }),
       })),
-      { label: tr("rail.review", "Review"), onClick: () => setFocus({ kind: "view", view: "review" }) },
+      { label: tr("rail.review", "Review"), onClick: () => setFocus({ kind: "tool", id: "review", how: "reveal" }) },
       { separator: true },
       { header: true, label: tr("menu.help", "Help") },
       { label: tr("keys.title", "Keyboard"), hint: caption(bindingOf("help")), onClick: () => setKeys(true) },
@@ -724,7 +724,7 @@ export default function App() {
         {dnd ? <span className="dnd">{tr("notify.dndOn", "do not disturb")}</span> : null}
         {/* The spend, always in view — between the counts and the clock. */}
         {/* Every account's limits, beside the spend. */}
-        <Limits onOpen={() => setFocus({ kind: "view", view: "usage" })} />
+        <Limits onOpen={() => setFocus({ kind: "tool", id: "usage", how: "reveal" })} />
         <Pace />
         <span>{now}</span>
       </div>

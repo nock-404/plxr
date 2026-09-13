@@ -935,8 +935,9 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 
 /* Dockview dressed through its own variables, pointed at plxr's tokens — so the
    dock takes on whichever skin is on, tabs and all, without reaching into
-   another project's classes. */
-.plxrDock {
+   another project's classes. Set on the wrapper around the whole dock, so the
+   sashes and the tool windows at its edges take them as well as main. */
+.dockHost {
   --dv-group-view-background-color: transparent;
   --dv-tabs-and-actions-container-background-color: var(--panel);
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
@@ -1109,6 +1110,15 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    hairline where it meets the work. */
 .dockShell { background: transparent; }
 .railHost { background: var(--panel); border-right: var(--hair) solid var(--line); }
+
+/* A tool window: the panel surface, a hairline under its header, the name in
+   spaced capitals and its mark dim — lit in the accent while the keyboard is
+   in the window, so the window says where typing goes. */
+.toolWindow { background: var(--panel); color: var(--fg); }
+.toolHead { border-bottom: var(--hair) solid var(--line); }
+.toolIcon { color: var(--dim); }
+.toolTitle { font-weight: 600; text-transform: uppercase; letter-spacing: .1em; }
+.toolWindow[data-focus="yes"] .toolIcon { color: var(--accent); }
 
 /* A port row: the number in the accent, because that is what is looked up. */
 .row.port .hitDate { color: var(--accent); }
