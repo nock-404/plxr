@@ -201,6 +201,7 @@
 }
 [data-skin="pixel"] .row { border-bottom: var(--hair) solid var(--line); }
 [data-skin="pixel"] .row:hover { background: var(--panel); }
+[data-skin="pixel"] .hitAction { background: linear-gradient(to right, transparent, var(--panel) var(--row-fade)); }
 [data-skin="pixel"] .hitTitle { color: var(--fg); }
 [data-skin="pixel"] .hitExcerpt, [data-skin="pixel"] .hitProject, [data-skin="pixel"] .hitDate, [data-skin="pixel"] .meta { color: var(--dim); font-size: 0.85em; }
 [data-skin="pixel"] .hitSmall, [data-skin="pixel"] .uhead {
