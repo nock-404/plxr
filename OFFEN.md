@@ -764,7 +764,7 @@ the second.
   Main must split right and down; left and right must stack vertically.
 - **W6 A region cannot be collapsed**, (on main 13.09: ⌘B, ⌥⌘B, ⌘J fold and bring back the same panels) only closed, and closing loses what was
   in it. PhpStorm collapses and remembers.
-- **W7 No maximise.** No zen mode, no "make this panel big".
+- **W7 No maximise.** (on main 13.09: Maximise and Restore size on every tab, double-click toggles; measured 1085 → 1405 → 1085px) No zen mode, no "make this panel big".
 - **W8 Floating has no way home.** (on main 13.09: dock returns to the panel's own region) "Dock" guesses a lane instead of returning
   the panel to the region it came from.
 - **W9 Where a panel goes is my rule, not his choice.** (on main 13.09: Move to sticks per kind of panel) Once he moves a panel,
