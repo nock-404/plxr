@@ -182,6 +182,26 @@ const chrome = spawn(browser, [
   "--window-size=1600,1000",
   "about:blank",
 ], { stdio: "ignore" });
+/* The handlers above end the service on a crash or a signal, but they were
+ * registered before there was a browser, and did not end it: the exit does,
+ * from every way out, stop() included. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+process.on("exit", () => {
+  try { chrome.kill(); browserExited(chrome); } catch { /* already gone */ }
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+});
 
 function stop(code) {
   try { chrome.kill(); } catch { /* gone */ }

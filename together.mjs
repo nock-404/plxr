@@ -17,7 +17,7 @@
  * No dependencies — the browser already on the machine, over its debugging
  * protocol, the way clicked.mjs and editor.mjs do it.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,9 +33,9 @@ if (!browser) {
   process.exit(1);
 }
 
-const APP = "/tmp/plxr3-app";
+const APP = process.env.PLXR_APP || "/tmp/plxr3-app";
 if (!existsSync(APP)) {
-  console.log("  /tmp/plxr3-app is not there — run ./build.sh first");
+  console.log(`  ${APP} is not there — run ./build.sh first`);
   process.exit(1);
 }
 
@@ -48,6 +48,54 @@ const home = mkdtempSync(join(tmpdir(), "plxr-together-home-"));
 const work = join(home, "folder");
 mkdirSync(work, { recursive: true });
 const app = spawn(APP, ["daemon"], { env: { ...process.env, PLXR_HOME: home }, stdio: "ignore" });
+
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash, an unhandled rejection or ^C used to leave the browsers and the
+ * service running: fourteen headless browsers holding 4.6 GB were found on
+ * one machine, most from gates that had crashed before their cleanup. Each
+ * browser is noted the moment it is started — a window only joined `opened`
+ * once it had answered, so one that never did was never ended. The service
+ * detaches itself, so the process that listens is the one named in
+ * daemon.json; this gate used to end only the launcher. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+const spawned = [];
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  for (const b of spawned) {
+    try { b.proc.kill(); } catch { /* gone */ }
+  }
+  for (const b of spawned) browserExited(b.proc);
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (const b of spawned) {
+    for (let i = 0; i < 20; i++) {
+      try { rmSync(b.profile, { recursive: true, force: true }); break; }
+      catch { const until = Date.now() + 100; while (Date.now() < until); }
+    }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
@@ -100,6 +148,7 @@ async function window_(label, width, height) {
     `--window-size=${width},${height}`,
     "about:blank",
   ], { stdio: "ignore" });
+  spawned.push({ proc, profile });
 
   let wsUrl = null;
   for (let i = 0; i < 80 && !wsUrl; i++) {
@@ -201,17 +250,7 @@ async function window_(label, width, height) {
 }
 
 function stop(code) {
-  for (const w of opened) {
-    try { w.proc.kill(); } catch { /* gone */ }
-  }
-  try { app.kill(); } catch { /* gone */ }
-  for (const w of opened) {
-    for (let i = 0; i < 20; i++) {
-      try { rmSync(w.profile, { recursive: true, force: true }); break; }
-      catch { const until = Date.now() + 100; while (Date.now() < until); }
-    }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 

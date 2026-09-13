@@ -2,7 +2,7 @@
  *
  * The header MENU, the ⌘K palette and its typing guard, the right-click menus
  * on the terminal, the rail and the session title, the tooltip on the opaque
- * surface, the settings as a window that can be dragged, a terminal setting
+ * surface, the settings as a dock panel split beside the work, a terminal setting
  * reaching the running xterm, a rebound key that fires, a layout saved and
  * applied. None of that can be seen from the code — it is measured here, in a
  * real browser against a service of its own, the way changes.mjs does it, and
@@ -12,7 +12,7 @@
  * geometry and the clipboard's refusal path are proven here; how the opaque
  * surfaces composite in the real window is Phase 0's capture path.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -44,12 +44,51 @@ const folder = join(home, "scratch");
 mkdirSync(folder, { recursive: true });
 writeFileSync(join(folder, "a.txt"), "one\ntwo\nthree\n");
 
-const APP = "/tmp/plxr3-app";
+const APP = process.env.PLXR_APP || "/tmp/plxr3-app";
 if (!existsSync(APP)) {
-  console.log("  /tmp/plxr3-app is not there — run ./build.sh first");
+  console.log(`  ${APP} is not there — run ./build.sh first`);
   process.exit(1);
 }
 const app = spawn(APP, ["daemon"], { env: { ...process.env, PLXR_HOME: home }, stdio: "ignore" });
+
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash or ^C used to leave the browser and the service running: fourteen
+ * headless browsers holding 4.6 GB were found on one machine, most from gates
+ * that had crashed before their cleanup. The service detaches itself, so the
+ * process that listens is the one named in daemon.json. Registered the moment
+ * there is something to end; the browser and its profile do not exist yet at
+ * first, and reaching for them then throws, which is caught. A crash further
+ * down still goes through report(), which prints what held and then stops. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  try { chrome.kill(); browserExited(chrome); } catch { /* not started yet, or gone */ }
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (let i = 0; i < 20; i++) {
+    try { rmSync(profile, { recursive: true, force: true }); break; }
+    catch (e) { if (e instanceof ReferenceError) break; const until = Date.now() + 100; while (Date.now() < until); }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
@@ -95,17 +134,7 @@ const chrome = spawn(browser, [
 ], { stdio: "ignore" });
 
 function stop(code) {
-  try { chrome.kill(); } catch { /* gone */ }
-  try {
-    const pid = JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid;
-    process.kill(pid);
-  } catch { /* gone */ }
-  try { app.kill(); } catch { /* gone */ }
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(profile, { recursive: true, force: true }); break; }
-    catch { const until = Date.now() + 100; while (Date.now() < until); }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 
@@ -182,6 +211,16 @@ const HELPERS = `
   const menuRows = () => [...document.querySelectorAll('body > .menu .menuItem')].map(b => b.querySelector('.menuLabel').textContent.trim());
   const menuRow = re => byText('body > .menu .menuLabel', re)?.closest('.menuItem');
   const menuHeads = () => [...document.querySelectorAll('body > .menu .menuHeader')].map(h => h.textContent.trim());
+  // A tab's text carries its icon beside the title, so names are read off .panelTabName.
+  const tabNames = () => [...document.querySelectorAll('.plxrDock .panelTabName')].map(e => e.textContent.trim());
+  const shellTab = () => byText('.plxrDock .panelTabName', /^shell\\b/)?.closest('.dv-tab');
+  // Dockview makes a tab active on the pointer, not on a click.
+  const front = async tab => {
+    if (!tab) return;
+    tab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    tab.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    await wait(400);
+  };
   const alphaOf = el => { const bg = getComputedStyle(el).backgroundColor; const m = bg.match(/rgba?\\(([^)]+)\\)/); if (!m) return -1; const parts = m[1].split(',').map(s => parseFloat(s)); return parts.length === 4 ? parts[3] : 1; };
   const key = (el, init) => { const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }); el.dispatchEvent(e); return e.defaultPrevented; };
 `;
@@ -387,7 +426,10 @@ claim("right-click on a folder tab offers Open / COPY PATH / SHOW / Remove folde
   `${folderMenu.rows.join(" · ")} · danger: ${folderMenu.danger.join(",")}`);
 
 // ---- the tooltip ------------------------------------------------------------------
-const gear = await rectOf('[aria-pressed]');
+/* The gear, by its glyph. It was found by aria-pressed while it toggled a
+   window; it brings a panel forward now, presses nothing, and lost the
+   attribute with the window. */
+const gear = await tab.run(`const b = [...document.querySelectorAll('.tools .btn, .tools button')].find(e => /⚙/.test(e.textContent || '')); const r = b?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
 await mouse("mouseMoved", gear.x + gear.w / 2, gear.y + gear.h / 2);
 const tip = await tab.run(`${HELPERS}
   const got = await until(() => { const t = document.querySelector('body > .tooltip'); return t && t.dataset.placed === 'yes' ? t : null; }, 2000);
@@ -401,51 +443,66 @@ claim("the tooltip sits under the button, centred", tip.rect && tip.rect.y >= ge
   tip.rect ? `tip ${Math.round(tip.rect.x)},${Math.round(tip.rect.y)} ${Math.round(tip.rect.w)}×${Math.round(tip.rect.h)} · button bottom ${Math.round(gear.y + gear.h)}` : "");
 claim("no native title= attribute is left inside the app", tip.nativeTitles.length === 0, tip.nativeTitles.length ? tip.nativeTitles.join(", ") : "none");
 
-// ---- Settings as a window ----------------------------------------------------------
+// ---- Settings as a panel in the dock ---------------------------------------------------
+/* The settings were a window on <body>, dragged and sized by hand and docked
+   nowhere. They are a panel now: they open as a tab of main beside the work,
+   and are moved the way every panel is moved — here split off to the right
+   through the tab's own menu, so the terminal they change stays on screen
+   beside them for the claims that follow. */
 await mouse("mousePressed", gear.x + gear.w / 2, gear.y + gear.h / 2, { button: "left", clickCount: 1 });
 await mouse("mouseReleased", gear.x + gear.w / 2, gear.y + gear.h / 2, { button: "left", clickCount: 1 });
 const win = await tab.run(`${HELPERS}
-  const got = await until(() => document.querySelector('body > .window'), 2000);
-  const w = got.v;
-  const tabs = [...document.querySelectorAll('.window .tab')].map(t => t.textContent.trim());
-  const body = document.querySelector('.body').getBoundingClientRect();
-  return w ? { onBody: w.parentElement === document.body, alpha: alphaOf(w), z: getComputedStyle(w).zIndex, tabs, ms: got.ms,
-    rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(w.getBoundingClientRect()), bodyTop: body.top, inner: innerWidth, innerH: innerHeight, aside: document.querySelector('.settingspanel') !== null } : null;
+  const got = await until(() => document.querySelector('.settingsPanel'), 2000);
+  const p = got.v;
+  if (!p) return null;
+  const group = p.closest('.dv-groupview');
+  const g = group ? group.getBoundingClientRect() : null;
+  return { inGrid: Boolean(p.closest('.plxrDock')) && !p.closest('.dv-resize-container'), onBody: Boolean(document.querySelector('body > .window')),
+    mates: group ? [...group.querySelectorAll('.panelTabName')].map(e => e.textContent.trim()) : [],
+    tabs: [...p.querySelectorAll('.tab')].map(t => t.textContent.trim()), ms: got.ms,
+    groupX: g ? Math.round(g.left) : -1, railRight: Math.round(document.querySelector('.railHost').getBoundingClientRect().right) };
 `);
-claim("Settings opens as a .window portalled to <body>, opaque, not a docked column", win && win.onBody && win.alpha === 1 && !win.aside, win ? `alpha ${win.alpha} z ${win.z} after ${win.ms} ms` : "no window");
-claim("it opens snapped to the right edge, below the header, as tall as the work area", win && Math.abs((win.rect.x + win.rect.w) - win.inner) < 12 && Math.abs(win.rect.y - win.bodyTop) < 2 && Math.abs((win.rect.y + win.rect.h) - win.innerH) < 12,
-  win ? `window ${Math.round(win.rect.x)},${Math.round(win.rect.y)} ${Math.round(win.rect.w)}×${Math.round(win.rect.h)} · viewport ${win.inner}×${win.innerH} · body top ${Math.round(win.bodyTop)}` : "");
+claim("Settings open as a panel in the dock's grid, not a window on <body>", win && win.inGrid && !win.onBody,
+  win ? `after ${win.ms} ms · in the grid ${win.inGrid} · a window on <body> ${win.onBody}` : "no settings panel");
+claim("they open in main, as a tab beside the session, right of the menu",
+  win && win.mates.includes("Settings") && win.mates.some((m) => /^shell\b/.test(m)) && win.groupX >= win.railRight - 1,
+  win ? `the group holds ${win.mates.join(", ")}, from x ${win.groupX} · the menu ends at ${win.railRight}` : "");
 claim("it has the nine tabs", win && ["skins & palette", "terminal", "editor", "keys", "accounts", "layouts", "notify", "agents", "status"].every((t) => win.tabs.includes(t)), win ? win.tabs.join(" · ") : "");
 
-// Drag it by the title bar: press, move, release through the protocol.
-const head = await rectOf(".windowHead");
-const before = await rectOf(".window");
-await mouse("mousePressed", head.x + head.w / 2, head.y + head.h / 2, { button: "left", clickCount: 1 });
-await mouse("mouseMoved", head.x + head.w / 2 - 150, head.y + head.h / 2 - 20, { button: "left" });
-await mouse("mouseMoved", head.x + head.w / 2 - 300, head.y + head.h / 2 - 40, { button: "left" });
-await mouse("mouseReleased", head.x + head.w / 2 - 300, head.y + head.h / 2 - 40, { button: "left", clickCount: 1 });
-await sleep(100);
-const after = await rectOf(".window");
-claim("dragging the title bar moves the window by the pointer's travel (−300, −40)", Math.round(after.x - before.x) === -300 && Math.round(after.y - before.y) === -40,
-  `from ${Math.round(before.x)},${Math.round(before.y)} to ${Math.round(after.x)},${Math.round(after.y)} (Δ ${Math.round(after.x - before.x)}, ${Math.round(after.y - before.y)})`);
-// Resize by the corner grip.
-const grip = await rectOf(".windowGrip");
-await mouse("mousePressed", grip.x + grip.w / 2, grip.y + grip.h / 2, { button: "left", clickCount: 1 });
-await mouse("mouseMoved", grip.x + grip.w / 2 + 80, grip.y + grip.h / 2 - 100, { button: "left" });
-await mouse("mouseReleased", grip.x + grip.w / 2 + 80, grip.y + grip.h / 2 - 100, { button: "left", clickCount: 1 });
-await sleep(100);
-const sized = await rectOf(".window");
-claim("dragging the corner grip resizes it (+80, −100)", Math.round(sized.w - after.w) === 80 && Math.round(sized.h - after.h) === -100,
-  `${Math.round(after.w)}×${Math.round(after.h)} → ${Math.round(sized.w)}×${Math.round(sized.h)}`);
+const split = await tab.run(`${HELPERS}
+  const name = byText('.plxrDock .panelTabName', /^Settings$/);
+  if (!name) return { why: 'the settings have no tab' };
+  const host = name.closest('.panelTab');
+  const r = host.getBoundingClientRect();
+  host.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.top + 8, button: 2 }));
+  await until(() => document.querySelector('body > .menu'), 1500);
+  const row = menuRow(/^Split to the right$/);
+  if (!row || row.disabled) {
+    const rows = menuRows();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return { why: (row ? 'Split to the right is disabled: ' : 'no Split to the right in: ') + rows.join(' · ') };
+  }
+  row.click();
+  await wait(700);
+  // The session comes to the front of the group it stayed in.
+  await front(shellTab());
+  const box = el => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: Math.round(b.left), w: Math.round(b.width) }; };
+  const p = document.querySelector('.settingsPanel');
+  const term = document.querySelector('.ptermbox');
+  return { settings: box(p), terminal: box(term), apart: Boolean(p && term) && p.closest('.dv-groupview') !== term.closest('.dv-groupview') };
+`);
+claim("split to the right from the tab's own menu, the settings stand beside the running terminal",
+  !split.why && split.apart && split.settings && split.terminal && split.settings.x >= split.terminal.x + split.terminal.w - 2,
+  split.why ?? `terminal ${split.terminal?.x}+${split.terminal?.w} · settings ${split.settings?.x}+${split.settings?.w}`);
 
 // ---- a terminal setting reaches the running xterm --------------------------------
 const cursor = await tab.run(`${HELPERS}
-  byText('.window .tab', /^terminal$/).click();
+  byText('.settingsPanel .tab', /^terminal$/).click();
   await wait(200);
   const term = document.querySelector('.ptermbox').xterm;
   const was = { style: term.options.cursorStyle, blink: term.options.cursorBlink, scrollback: term.options.scrollback };
   // The cursor picker is the Select in the cursor field; open it and pick BAR.
-  const field = byText('.window .fieldName', /^cursor$/).closest('.field');
+  const field = byText('.settingsPanel .fieldName', /^cursor$/).closest('.field');
   field.querySelector('.selectButton').click();
   await wait(100);
   byText('body > .selectList .selectRow', /^BAR$/).click();
@@ -462,9 +519,9 @@ claim("the blink toggle updates term.options.cursorBlink and both land in prefs.
 
 // ---- a rebound key fires, and the list reflects it ---------------------------------
 const rebound = await tab.run(`${HELPERS}
-  byText('.window .tab', /^keys$/).click();
+  byText('.settingsPanel .tab', /^keys$/).click();
   await wait(200);
-  const row = [...document.querySelectorAll('.window .keyRow')].find(r => /command palette/.test(r.textContent));
+  const row = [...document.querySelectorAll('.settingsPanel .keyRow')].find(r => /command palette/.test(r.textContent));
   const before = row.querySelector('.keyCap').textContent.trim();
   row.querySelector('[data-do="rebind"]').click();
   await wait(100);
@@ -505,60 +562,78 @@ claim("RESET puts the shipped key back", rebound.restored === "⌘K", `now ${reb
 
 // ⌘1…7 really open views now.
 const viewKey = await tab.run(`${HELPERS}
-  const before = [...document.querySelectorAll('.plxrDock .dv-tab')].map(t => t.textContent.trim());
+  const before = tabNames();
   key(document.body, { key: '6', metaKey: true });
-  const got = await until(() => [...document.querySelectorAll('.plxrDock .dv-tab')].some(t => /^Usage$/.test(t.textContent.trim())) ? true : null, 3000);
+  const got = await until(() => tabNames().includes('Usage') ? true : null, 3000);
   return { before, opened: Boolean(got.v), ms: got.ms };
 `);
 claim("⌘6 opens the Usage view (the ⌘1…7 row is true, not phantom)", viewKey.opened, `Usage tab after ${viewKey.ms} ms · before: ${viewKey.before.join(", ")}`);
 
 // ---- save and apply a named layout ------------------------------------------------
 const saved = await tab.run(`${HELPERS}
-  byText('.window .tab', /^layouts$/).click();
+  byText('.settingsPanel .tab', /^layouts$/).click();
   await wait(200);
-  byText('.window [data-do="save-layout"]', /Save current as/).click();
+  byText('.settingsPanel [data-do="save-layout"]', /Save current as/).click();
   const ask = await until(() => document.querySelector('.card.ask input'), 2000);
+  /* Over the settings, measured by what is under the middle of the settings
+     panel while the dialog asks: the dialog's backdrop, not the panel. */
+  const sp = document.querySelector('.settingsPanel').getBoundingClientRect();
+  const under = document.elementFromPoint(sp.left + sp.width / 2, sp.top + sp.height / 2);
+  const over = Boolean(under && under.closest('.backdrop'));
   const askZ = getComputedStyle(document.querySelector('.card.ask').closest('.backdrop')).zIndex;
-  const winZ = getComputedStyle(document.querySelector('.window')).zIndex;
   ask.v.value = 'bench';
   ask.v.dispatchEvent(new Event('input', { bubbles: true }));
   byText('.card.ask button', /^SAVE$/).click();
-  const row = await until(() => byText('.window .presetRow .presetName', /^bench$/), 3000);
+  const row = await until(() => byText('.settingsPanel .presetRow .presetName', /^bench$/), 3000);
   const inUse = row.v && row.v.closest('.presetRow').dataset.current;
   const prefs = await (await fetch('/api/prefs', { headers: { 'X-Plxr-Token': ${JSON.stringify(info.token)} } })).json();
   const names = (prefs.dockPresets?.items ?? []).map(p => p.name);
-  const panels = [...document.querySelectorAll('.plxrDock .dv-tab')].map(t => t.textContent.trim());
-  return { askZ, winZ, listed: Boolean(row.v), inUse, names, panels, ms: row.ms };
+  const panels = tabNames();
+  return { over, under: under ? String(under.className) : '', askZ, listed: Boolean(row.v), inUse, names, panels, ms: row.ms };
 `);
-claim("Save current as… asks in the shell's dialog, which stands over the window", Number(saved.askZ) > Number(saved.winZ), `dialog z ${saved.askZ} · window z ${saved.winZ}`);
+claim("Save current as… asks in the shell's dialog, which stands over the settings", saved.over, `under the middle of the settings: "${saved.under}" · dialog z ${saved.askZ}`);
 claim("the named layout is listed as in use and stored under prefs.dockPresets", saved.listed && saved.inUse === "yes" && saved.names.includes("bench"), `presets ${saved.names.join(",")} after ${saved.ms} ms · panels ${saved.panels.join(", ")}`);
 const applied = await tab.run(`${HELPERS}
-  // Reset the arrangement, then bring the saved one back.
-  byText('.window [data-do="reset-layout"]', /Reset/).click();
-  await until(() => [...document.querySelectorAll('.plxrDock .dv-tab')].length <= 2 ? true : null, 3000);
-  const afterReset = [...document.querySelectorAll('.plxrDock .dv-tab')].map(t => t.textContent.trim());
-  byText('.window .presetRow [data-do="apply-layout"]', /APPLY/).click();
-  const got = await until(() => [...document.querySelectorAll('.plxrDock .dv-tab')].some(t => /^Usage$/.test(t.textContent.trim())) ? true : null, 3000);
-  const afterApply = [...document.querySelectorAll('.plxrDock .dv-tab')].map(t => t.textContent.trim());
-  return { afterReset, afterApply, ms: got.ms };
+  /* Reset the arrangement, then bring the saved one back. The settings are a
+     panel of the arrangement, so the reset takes them with it; they are opened
+     again to reach APPLY. */
+  byText('.settingsPanel [data-do="reset-layout"]', /Reset/).click();
+  await until(() => document.querySelectorAll('.plxrDock .dv-tab').length <= 2 ? true : null, 3000);
+  const afterReset = tabNames();
+  const settingsGone = !document.querySelector('.settingsPanel');
+  [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''))?.click();
+  await until(() => document.querySelector('.settingsPanel'), 2000);
+  byText('.settingsPanel .tab', /^layouts$/)?.click();
+  const apply = await until(() => byText('.settingsPanel .presetRow [data-do="apply-layout"]', /APPLY/), 2000);
+  apply.v?.click();
+  const got = await until(() => tabNames().includes('Usage') ? true : null, 3000);
+  const afterApply = tabNames();
+  return { afterReset, settingsGone, found: Boolean(apply.v), afterApply, ms: got.ms };
 `);
 claim("Reset clears the arrangement and APPLY brings the saved one back", !applied.afterReset.includes("Usage") && applied.afterApply.includes("Usage") && applied.afterApply.some((t) => /^shell\b/.test(t)),
-  `reset → ${applied.afterReset.join(", ")} · apply → ${applied.afterApply.join(", ")} after ${applied.ms} ms`);
+  `reset → ${applied.afterReset.join(", ")} (the settings went with it: ${applied.settingsGone}, APPLY found again: ${applied.found}) · apply → ${applied.afterApply.join(", ")} after ${applied.ms} ms`);
 
 // ---- Esc closes the topmost thing only ----------------------------------------------
 const escLadder = await tab.run(`${HELPERS}
-  byText('.window [data-do="save-layout"]', /Save current as/).click();
+  // The applied arrangement brought the settings back on their first tab.
+  byText('.settingsPanel .tab', /^layouts$/)?.click();
+  await wait(200);
+  byText('.settingsPanel [data-do="save-layout"]', /Save current as/).click();
   await until(() => document.querySelector('.card.ask'), 2000);
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(200);
-  return { askGone: !document.querySelector('.card.ask'), windowStays: Boolean(document.querySelector('body > .window')) };
+  return { askGone: !document.querySelector('.card.ask'), settingsStay: Boolean(document.querySelector('.settingsPanel')) };
 `);
-claim("Esc in a dialog asked from the settings closes the dialog and leaves the window", escLadder.askGone && escLadder.windowStays, `dialog gone ${escLadder.askGone} · window stays ${escLadder.windowStays}`);
+claim("Esc in a dialog asked from the settings closes the dialog and leaves the settings", escLadder.askGone && escLadder.settingsStay, `dialog gone ${escLadder.askGone} · settings stay ${escLadder.settingsStay}`);
 
 // ---- the editor takes its settings live ------------------------------------------
 const editor = await tab.run(`${HELPERS}
-  // Open a file in an editor panel beside the terminal, then change the tab width.
+  /* Open a file in an editor panel, then change the tab width. An editor is a
+     panel of main and lands in the group in front, so the session's group is
+     brought forward first: the folders and the editor open there, and the
+     settings keep the group they were split into, on screen beside them. */
+  await front(shellTab());
   byText('.railitem .rname', /^Folders$/).closest('.railitem').click();
   await until(() => document.querySelector('.frow'), 4000);
   byText('.frow .fname', /^a\\.txt$/)?.closest('.frow').click();
@@ -566,16 +641,16 @@ const editor = await tab.run(`${HELPERS}
   if (!cm.v) return { opened: false };
   const view = cm.v.cmTile?.root?.view ?? cm.v.cmView?.view;
   const before = view.state.tabSize;
-  byText('.window .tab', /^editor$/).click();
+  byText('.settingsPanel .tab', /^editor$/).click();
   await wait(200);
-  const field = byText('.window .fieldName', /^tab width$/).closest('.field');
+  const field = byText('.settingsPanel .fieldName', /^tab width$/).closest('.field');
   field.querySelector('.selectButton').click();
   await wait(100);
   byText('body > .selectList .selectRow', /^8$/).click();
   const got = await until(() => view.state.tabSize === 8 ? true : null, 2000);
   // And wrapping off: CodeMirror marks a wrapping editor with a class.
   const wrapped = cm.v.classList.contains('cm-lineWrapping');
-  byText('.window .fieldName', /^long lines$/).closest('.field').querySelector('.styleToggle').click();
+  byText('.settingsPanel .fieldName', /^long lines$/).closest('.field').querySelector('.styleToggle').click();
   const unwrapped = await until(() => cm.v.classList.contains('cm-lineWrapping') ? null : true, 2000);
   return { opened: true, before, after: view.state.tabSize, ms: got.ms, wrapped, unwrapped: Boolean(unwrapped.v), wrapMs: unwrapped.ms };
 `);

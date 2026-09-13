@@ -14,7 +14,7 @@
  * automation stack for one measurement would be a heavier footprint than the
  * thing being measured.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -135,6 +135,34 @@ const child = spawn(browser, [
   "--window-size=1440,900",
   "about:blank",
 ], { stdio: "ignore" });
+
+/* The browser is ended from wherever this stops — a crash, an unhandled
+ * rejection, ^C — not only from stop(). Fourteen headless browsers holding
+ * 4.6 GB were found on one machine, most from gates that had crashed before
+ * their cleanup. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+const endBrowser = () => {
+  try { child.kill(); browserExited(child); } catch { /* already gone */ }
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+};
+process.on("exit", endBrowser);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

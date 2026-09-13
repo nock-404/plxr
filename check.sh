@@ -216,15 +216,18 @@ step "files and search" node manage.mjs
 # Everything reachable from something you can see: the header MENU with every
 # group, the ⌘K palette and its typing guard, plxr's own right-click menus on
 # the terminal, the rail, a folder tab and the session title, the tooltip on
-# the opaque surface, the settings as a window that is dragged and resized, a
+# the opaque surface, the settings as a dock panel split beside the work, a
 # terminal setting reaching the running xterm, a rebound key that fires, a
 # layout saved and applied. Measured in a real browser against a service of
 # its own.
 step "surfaces reachable" node surfaces.mjs
 
-# Every panel's tab: the six-entry menu, the close that asks while a session
-# is running or an editor is dirty, float and dock, the lane crossing, and
-# the keys between panels and groups — against the same service as above.
+# The four regions and every panel's tab: the menu beside the grid and never a
+# column, the tab menu with the region it is in ticked, move to each region
+# held against the boxes of the others, widths that hold while neighbours come
+# and go, ⌘B ⌥⌘B ⌘J folding a region and bringing it back, the close that asks
+# while a session is running or an editor is dirty, float and dock, and the
+# keys between panels and groups — against the same service as above.
 step "dock tabs" node tabs.mjs
 
 # Two windows on ONE session — the kitchen screen and the machine the session

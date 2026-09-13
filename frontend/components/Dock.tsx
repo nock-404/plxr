@@ -1644,10 +1644,12 @@ function toPosition(direction: AddPanelPositionOptions["direction"]): Position |
   return d === "left" ? "left" : "right";
 }
 
-/* moveInto carries a panel to where place() said a new one would go. With no
-   group to refer to — the panel's own is the only one — it splits off its
-   own group instead; alone in a grid group it already is a lane of its own,
-   and there is nothing to do. */
+/* moveInto carries a panel to where place() said a new one would go. A
+   placement with a direction and no group to refer to is an edge of the grid
+   itself, not an edge of whatever the panel happens to sit in — which is how
+   the bottom region comes out spanning the whole window instead of hanging
+   under the one column the panel was moved out of. Dockview makes the group
+   at the root for us; the panel then moves into it. */
 function moveInto(dv: DockviewApi, panel: IDockviewPanel, pos: AddPanelPositionOptions) {
   const refId =
     "referenceGroup" in pos
@@ -1663,6 +1665,12 @@ function moveInto(dv: DockviewApi, panel: IDockviewPanel, pos: AddPanelPositionO
   const position = toPosition(pos.direction);
   if (ref) {
     panel.api.moveTo({ group: ref, position });
+    return;
+  }
+  const edge = pos.direction;
+  if (edge && edge !== "within") {
+    const made = dv.addGroup({ direction: edge });
+    panel.api.moveTo({ group: made, position: "center" });
     return;
   }
   const own = dv.groups.find((g) => g.id === panel.group.id);

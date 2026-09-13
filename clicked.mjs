@@ -12,7 +12,7 @@
  * No dependencies: the browser already on the machine, driven over its
  * debugging protocol, the same way geometry.mjs does it.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -112,6 +112,34 @@ const child = spawn(browser, [
   "--window-size=1440,900",
   "about:blank",
 ], { stdio: "ignore" });
+
+/* The browser is ended from wherever this stops — a crash, an unhandled
+ * rejection, ^C — not only from stop(). Fourteen headless browsers holding
+ * 4.6 GB were found on one machine, most from gates that had crashed before
+ * their cleanup. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+const endBrowser = () => {
+  try { child.kill(); browserExited(child); } catch { /* already gone */ }
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+};
+process.on("exit", endBrowser);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -407,11 +435,25 @@ if (live.length > 0) {
       coloured = cm ? cm.querySelectorAll('.cm-line').length : 0;
     }
 
-    // and away again, so the gate leaves nothing behind
+    /* and away again, so the gate leaves nothing behind. An editor is a panel
+       of main, so the file opened as a tab over the session and the session's
+       tree went behind it, delete button and all. The session is brought back
+       to the front before the row is looked for and again after it is picked,
+       because picking it brings the editor forward once more. Dockview makes a
+       tab active on the pointer, not on a click. */
+    const front = async () => {
+      const t = document.querySelector('.plxrDock .panelTab[data-kind="session"]')?.closest('.dv-tab');
+      if (!t) return;
+      t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+      t.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+      await wait(600);
+    };
     let gone = false;
+    await front();
     const again = named(/plxr-gate-file/);
     if (again) {
       await press(again);
+      await front();
       const del = document.querySelector('.filesbar .btn[data-do="delete"]');
       if (del) {
         await press(del);
@@ -574,10 +616,13 @@ claim("settings close again", closed);
 const asking = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const gear = () => [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || ''));
-  const panel = () => document.querySelector('body > .window');
+  /* The settings are a dock panel, and the gear brings an open one to the
+     front instead of opening it again — so between the two openings the panel
+     is closed through its own DONE, the way somebody closes it. */
+  const panel = () => document.querySelector('.settingsPanel');
   const close = async () => {
     if (!panel()) return;
-    [...panel().querySelectorAll('.btn.primary')].pop()?.click();
+    [...panel().querySelectorAll('.btn')].find(b => b.textContent.trim() === 'DONE')?.click();
     await wait(600);
   };
 
@@ -700,8 +745,8 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 {
   const accts = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
-    // Open the settings only if they are not already open — the gear toggles.
-    if (!document.querySelector('body > .window')) {
+    // Open the settings only if they are not already open.
+    if (!document.querySelector('.settingsPanel')) {
       const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
       if (gear) gear.click();
       await w(1000);
@@ -734,19 +779,19 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     const w = ms => new Promise(r => setTimeout(r, ms));
     const R = [...document.querySelectorAll('.railitem')];
     const c = re => { const it = R.find(e => re.test(e.textContent || '')); if (it) it.click(); };
-    // Close the settings if they are covering the rail.
-    if (document.querySelector('body > .window')) {
-      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
-      if (gear) gear.click();
-      await w(400);
-    }
+    // The settings are put away first, so the panels counted are the ones opened here.
+    const done = [...document.querySelectorAll('.settingsPanel .btn')].find(b => b.textContent.trim() === 'DONE');
+    if (done) { done.click(); await w(400); }
     c(/USAGE/i); await w(500);
     c(/PORTS/i); await w(500);
-    const many = [...document.querySelectorAll('.dv-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).filter(Boolean);
+    /* A tab's text carries its icon beside the title, so a name is read off
+       .panelTabName — read off the whole tab, the overview was "⊞Overview". */
+    const tabName = t => (t.querySelector('.panelTabName')?.textContent ?? '').trim();
+    const many = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);
     const reset = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⟲/.test(b.textContent || ''));
     if (reset) reset.click();
     await w(700);
-    const afterReset = [...document.querySelectorAll('.dv-tab')].map(t => t.textContent.replace(/✕|×/g, '').trim()).filter(Boolean);
+    const afterReset = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);
     return { many, afterReset };
   `);
   const prefs = await api("/api/prefs").catch(() => ({}));
@@ -757,7 +802,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   const menuThere = await run(`
     const host = document.querySelector('.railHost');
     const items = document.querySelectorAll('.railHost .railhome').length;
-    const inGrid = [...document.querySelectorAll('.dv-tab')].some(t => /^\\s*plxr\\s*$/.test((t.textContent || '').replace(/✕|×/g, '')));
+    const inGrid = [...document.querySelectorAll('.dv-tab')].some(t => /^\\s*plxr\\s*$/.test(t.querySelector('.panelTabName')?.textContent || ''));
     return { there: Boolean(host) && items > 0, width: host ? Math.round(host.getBoundingClientRect().width) : -1, inGrid };
   `);
   claim("the menu stands beside the dock, not in it", menuThere.there && !menuThere.inGrid,
@@ -840,8 +885,18 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     await w(1500);
     const rows = [...document.querySelectorAll('.changesPanel .changepath')];
     if (rows.length === 0) return { nothingChanged: true };
+    /* A tracked file whose lines changed, not simply the first row. The first
+       row was an empty file whose deletion was staged, and the diff of nothing
+       is no lines at all — true, and proof of nothing. A row that can still be
+       opened in the editor is not a deletion. */
+    const editable = [...document.querySelectorAll('.changesPanel .changegroup')]
+      .filter(g => /^not staged/.test(g.querySelector('.uhead')?.textContent.trim() || ''))
+      .flatMap(g => [...g.querySelectorAll('.changerow')])
+      .filter(r => [...r.querySelectorAll('button')].some(b => b.textContent.trim() === 'EDIT'))
+      .map(r => r.querySelector('.changepath'));
+    const picked = editable[0] || rows[0];
     const before = document.querySelectorAll('.dv-tab').length;
-    rows[0].click();
+    picked.click();
     await w(1500);
     const after = document.querySelectorAll('.dv-tab').length;
     const hunks = [...document.querySelectorAll('.diffPanel .hunk')].map(h => { const b = h.getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; });
@@ -850,6 +905,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     for (let i = 1; i < hunks.length; i++) if (hunks[i].top < hunks[i - 1].bottom - 1) stacked = false;
     return {
       rows: rows.length,
+      picked: picked.textContent.trim(),
       openedPanel: after > before,
       diffLines: document.querySelectorAll('.diffPanel .diffline').length,
       hunks: hunks.length,
@@ -857,7 +913,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     };
   `);
   if (!diff.noField && !diff.noRail && !diff.nothingChanged) {
-    claim("a changed file opens as a diff panel", diff.openedPanel && diff.diffLines > 0, `${diff.rows} changed, ${diff.diffLines} diff lines`);
+    claim("a changed file opens as a diff panel", diff.openedPanel && diff.diffLines > 0, `${diff.rows} changed, ${diff.diffLines} diff lines in ${diff.picked}`);
     claim("a diff stacks its hunks, one above the next", diff.stacked, `${diff.hunks} hunks`);
   }
 }
