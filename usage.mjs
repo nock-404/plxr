@@ -343,9 +343,9 @@ const HELPERS = `
 
 const open = await tab.run(`${HELPERS}
   /* By its glyph, not its name: the window may be running in either language.
-     The glyph is the one Rail.tsx gives usage since the four regions (\u2564); the
+     Found by its name, not its glyph: the glyph changed twice in one day and will change again with the icon packs; the
      \u25a4 this looked for before matched nothing, and the view was never opened. */
-  [...document.querySelectorAll('.railhome .rdot')].find(d => d.textContent.trim() === '\u2564')?.closest('.railitem').click();
+  [...document.querySelectorAll('.railhome')].find(b => (b.querySelector('.rname')?.textContent ?? '').trim().toLowerCase() === 'usage')?.click();
   const got = await until(() => document.querySelectorAll('.uacct').length === 3 ? cards() : null, 12000);
   return { cards: got.v, ms: got.ms,
     head: document.querySelector('.listbody .uhead')?.textContent.trim() ?? '',
