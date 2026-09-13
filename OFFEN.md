@@ -971,6 +971,15 @@ that I do not agree with the menu as such."
 - **A clicked row action keeps focus in Chrome**, so its group stays visible
   until focus moves.
 
+### Left open by the tab close rebuild (13.09.2026)
+
+- **No lasting gate for the close's behaviour:** hidden but spaced on inactive
+  tabs, the hover colours, and a title that does not move were measured with a
+  throwaway script. They belong in tabs.mjs.
+- **Touch screens:** the close should show on every tab there; not measured.
+- **Pixel icon pack on a 1x screen:** its 24px icon is wider than the 20px hover
+  square; the hover was not looked at.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
