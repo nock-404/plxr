@@ -34,6 +34,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BROWSERS = [
@@ -423,7 +424,7 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await tab.cdp.send("Page.navigate", { url: PAGE });
   await sleep(700);
-  up = await tab.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await tab.run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
@@ -432,7 +433,7 @@ if (!up) {
 // Set once; still there at the end means the page was never loaded again.
 await tab.run("window.__notReloaded = 'yes'; return true;");
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(50); } return { v: null, ms: Math.round(performance.now() - t0) }; };
   const rows = () => [...document.querySelectorAll('.accountRow')].map(r => ({
@@ -554,7 +555,7 @@ claim("when the account becomes signed in, the page says so without a reload",
 
 // The account switch on the sign-in session.
 const picker = await tab.run(`${HELPERS}
-  [...document.querySelectorAll('.railitem')].find(e => e.textContent.includes('sign in: claude4'))?.click();
+  openSession(/sign in: claude4/);
   await until(() => /sign in: claude4/.test(activeTab()) ? true : null, 3000);
   const got = await until(() => document.querySelector('.plxrDock .dv-active-group .session .selectButton'), 12000);
   if (!got.v) return { options: [], ms: got.ms };
@@ -571,9 +572,9 @@ claim("the account switch on a session offers the new account",
 const usage = await tab.run(`${HELPERS}
   // By the view it opens: its mark is an icon from whichever pack is chosen,
   // and its name is a word in whichever language the window speaks.
-  const views = [...document.querySelectorAll('.railhome')].map(d => d.dataset.view);
-  const item = document.querySelector('.railhome[data-view="usage"]');
-  item?.click();
+  const views = stripeIcons().map(d => d.dataset.view);
+  const item = stripeIcon('usage');
+  openTool('usage');
   const got = await until(() => document.querySelectorAll('.uacct').length === 4 ? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()) : null, 15000);
   return { names: got.v ?? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()), ms: got.ms,
     views: views.join(' '), item: !!item, active: activeTab(), empty: document.querySelector('.emptyNote')?.textContent.trim() ?? '' };

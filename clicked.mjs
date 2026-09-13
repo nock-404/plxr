@@ -17,6 +17,7 @@ import { readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -225,10 +226,10 @@ await sleep(3000);
 
 // Nothing below can mean anything if the interface never rendered. Saying that
 // plainly beats letting the first query throw a stack trace at somebody.
-const loaded = await run(`
+const loaded = await run(`${GATEKIT}
   return {
     app: !!document.querySelector(".app"),
-    rail: document.querySelectorAll(".railhome").length,
+    rail: appUp(),
   };
 `).catch(() => null);
 if (!loaded?.app || !loaded.rail) {
@@ -241,9 +242,9 @@ const sessions = await api("/api/sessions");
 const ports = await api("/api/ports");
 
 // ---- the overview ---------------------------------------------------------
-const overview = await run(`
+const overview = await run(`${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  document.querySelectorAll('.railhome')[0].click();
+  openDoc('overview');
   await wait(600);
   const tiles = [...document.querySelectorAll('.tile')];
   return {
@@ -251,7 +252,7 @@ const overview = await run(`
     withTitle: tiles.filter(t => (t.querySelector('.tname')?.textContent || '').trim()).length,
     withState: tiles.filter(t => (t.querySelector('.act')?.textContent || '').trim()).length,
     withDot: tiles.filter(t => t.querySelector('.dot')).length,
-    railSessions: document.querySelectorAll('.railitem:has(.rsub)').length,
+    railSessions: sessionRows().length,
     strip: (document.querySelector('.statusrow span')?.textContent || '').trim(),
     emptyState: !!document.querySelector('.emptybox'),
   };
@@ -287,10 +288,10 @@ for (const [name, expectRows] of [
   ["Usage", null],
   ["Archive", null],
 ]) {
-  const view = await run(`
+  const view = await run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    const item = [...document.querySelectorAll('.railitem')].find(e => e.textContent.includes(${JSON.stringify(name)}));
-    if (!item) return { missing: true };
+    const id = ${JSON.stringify(name.toLowerCase())};
+    if (!stripeIcon(id)) return { missing: true };
     /* Waited for, not slept through — and for the new view, not the old one.
      *
      * A fixed 900ms was enough on an idle machine and not enough on a busy
@@ -303,7 +304,7 @@ for (const [name, expectRows] of [
      * then wait for that one to have something to say. */
     const seen = () => [...document.querySelectorAll('.list')].find(el => el.offsetParent !== null);
     const before = seen();
-    item.click();
+    openTool(id);
     let view = null;
     for (let i = 0; i < 75; i++) {
       view = seen();
@@ -340,9 +341,9 @@ for (const [name, expectRows] of [
 // ---- a session: the terminal is the whole point ---------------------------
 const live = sessions.filter((s) => s.alive);
 if (live.length > 0) {
-  const session = await run(`
+  const session = await run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    document.querySelectorAll('.railhome')[0].click();
+    openDoc('overview');
     await wait(500);
     const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'orphaned' && t.dataset.status !== 'dead');
     if (!tile) return { noLiveTile: true };
@@ -534,9 +535,9 @@ claim("a fault reaches the daemon's log", after.length > before && after.include
    docked anywhere — "why can I grab the settings and dock them nowhere?". As a
    panel they are tabbed, split, moved between the regions and floated like
    everything else, which is what the float-and-dock claims below prove. */
-const settings = await run(`
+const settings = await run(`${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  document.querySelectorAll('.railhome')[0].click();
+  openDoc('overview');
   await wait(400);
   const before = document.documentElement.getAttribute('data-skin');
   // The gear, by what it does — not by index: buttons come and go in that row,
@@ -668,19 +669,11 @@ claim(
 /* Choosing a folder at the top used to narrow the overview and nothing else:
    + NEW asked for the same folder again, FOLDERS did not know about it. Now a
    folder taken there (Enter) is open in FOLDERS, and is where NEW starts. */
-const place = await run(`
+const place = await run(`${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
-    el.dispatchEvent(new Event('input', { bubbles: true })); };
-  const field = document.querySelector('.filter input');
-  if (!field) return { noField: true };
-  field.focus();
-  set(field, ${JSON.stringify(process.cwd() + "/frontend")});
-  await wait(300);
-  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  if (!(await pickProject(${JSON.stringify(process.cwd() + "/frontend")}))) return { noField: true };
   await wait(1200);
-  const folders = [...document.querySelectorAll('.railitem')].find(e => /FOLDERS/i.test(e.textContent || ''));
-  folders?.click();
+  openDoc('folders');
   await wait(1500);
   const openFolder = (document.querySelector('.folderbar .prompt')?.nextElementSibling?.textContent || '')
     + ' ' + [...document.querySelectorAll('.folderTabs .btn, .folderTabs button')].map(b => b.textContent).join(' ');
@@ -776,15 +769,13 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
    tab and float, the arrangement is saved, and a reset returns it to the
    default. */
 {
-  const dock = await run(`
+  const dock = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const R = [...document.querySelectorAll('.railitem')];
-    const c = re => { const it = R.find(e => re.test(e.textContent || '')); if (it) it.click(); };
     // The settings are put away first, so the panels counted are the ones opened here.
     const done = [...document.querySelectorAll('.settingsPanel .btn')].find(b => b.textContent.trim() === 'DONE');
     if (done) { done.click(); await w(400); }
-    c(/USAGE/i); await w(500);
-    c(/PORTS/i); await w(500);
+    openTool('usage'); await w(500);
+    openTool('ports'); await w(500);
     /* A tab's text carries its icon beside the title, so a name is read off
        .panelTabName — read off the whole tab, the overview was "⊞Overview". */
     const tabName = t => (t.querySelector('.panelTabName')?.textContent ?? '').trim();
@@ -800,9 +791,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   claim("the content is a dock with several panels at once", dock.many.length >= 3, dock.many.join(", "));
   /* The menu is the window's frame, beside the grid rather than a column in
      it — so it never appears among the dock's tabs, and it is always there. */
-  const menuThere = await run(`
+  const menuThere = await run(`${GATEKIT}
     const host = document.querySelector('.railHost');
-    const items = document.querySelectorAll('.railHost .railhome').length;
+    const items = stripeIcons().filter(e => e.closest('.railHost')).length;
     const inGrid = [...document.querySelectorAll('.dv-tab')].some(t => /^\\s*plxr\\s*$/.test(t.querySelector('.panelTabName')?.textContent || ''));
     return { there: Boolean(host) && items > 0, width: host ? Math.round(host.getBoundingClientRect().width) : -1, inGrid };
   `);
@@ -819,10 +810,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 
   /* A port opens as a web preview panel — a dev server beside its terminal,
      which is the point of the whole dock. */
-  const preview = await run(`
+  const preview = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const ports = [...document.querySelectorAll('.railitem')].find(e => /PORTS/i.test(e.textContent || ''));
-    if (ports) ports.click();
+    openTool('ports');
     await w(1200);
     const row = [...document.querySelectorAll('.row')].find(r => /VIEW|ANSEHEN/.test(r.textContent || ''));
     if (!row) return { noPorts: true };
@@ -842,10 +832,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 /* Anything with actions offers them at the pointer. A session tile is the one
    the gate can always reach. */
 {
-  const cm = await run(`
+  const cm = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const rail = [...document.querySelectorAll('.railitem')].find(e => /OVERVIEW/i.test(e.textContent || ''));
-    if (rail) rail.click();
+    openDoc('overview');
     await w(800);
     const tile = document.querySelector('.tile');
     if (!tile) return { noTile: true };
@@ -872,17 +861,12 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
    with something changed, the way the preview claim skips with no port. */
 {
   const cwd = sessions[0]?.cwd || "";
-  const diff = await run(`
+  const diff = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
-    const field = document.querySelector('.filter input');
-    if (!field) return { noField: true };
-    set(field, ${JSON.stringify(cwd)});
-    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    if (!(await pickProject(${JSON.stringify(cwd)}))) return { noField: true };
     await w(1200);
-    const changes = [...document.querySelectorAll('.railitem')].find(e => /CHANGES/i.test(e.textContent || ''));
-    if (!changes) return { noRail: true };
-    changes.click();
+    if (!stripeIcon('changes')) return { noRail: true };
+    openTool('changes');
     await w(1500);
     const rows = [...document.querySelectorAll('.changesPanel .changepath')];
     if (rows.length === 0) return { nothingChanged: true };

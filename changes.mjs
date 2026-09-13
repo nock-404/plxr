@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -215,14 +216,14 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await tab1.cdp.send("Page.navigate", { url: PAGE });
   await sleep(700);
-  up = await tab1.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await tab1.run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
   stop(1);
 }
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(50); } return { v: null, ms: Math.round(performance.now() - t0) }; };
@@ -239,7 +240,7 @@ const HELPERS = `
 
 // ---- the panel follows the session ------------------------------------------
 const followA = await tab1.run(`${HELPERS}
-  byText('.railitem .rname', /^alpha$/).closest('.railitem').click();
+  openSession('alpha');
   await wait(1500);
   byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
   const got = await until(() => branch() === 'main' ? branch() : null, 6000);
@@ -250,7 +251,7 @@ claim("CHANGES in the session bar opens the panel on alpha's folder (main)", fol
 claim("alpha's own change is listed", JSON.stringify(followA.rows).includes('"a.txt"'), JSON.stringify(followA.rows));
 
 const followB = await tab1.run(`${HELPERS}
-  byText('.railitem .rname', /^beta$/).closest('.railitem').click();
+  openSession('beta');
   const got = await until(() => branch() === 'feature/second' ? branch() : null, 6000);
   return { branch: got.v, ms: got.ms, following: document.querySelector('.changesPanel .notice')?.textContent.trim() ?? '', rows: rows(),
     panels: document.querySelectorAll('.changesPanel').length };
@@ -262,7 +263,7 @@ claim("beta's own change is listed, alpha's is not",
 
 // Back to alpha, and it follows back — the editor does not steal the follow.
 const backA = await tab1.run(`${HELPERS}
-  byText('.railitem .rname', /^alpha$/).closest('.railitem').click();
+  openSession('alpha');
   const got = await until(() => branch() === 'main' ? branch() : null, 6000);
   return { branch: got.v, ms: got.ms };
 `);
@@ -407,10 +408,10 @@ const second = await target(PAGE);
 const tab2 = await connect(second);
 for (let i = 0; i < 40; i++) {
   await sleep(400);
-  if (await tab2.run("return document.querySelectorAll('.railhome').length").catch(() => 0)) break;
+  if (await tab2.run(`${GATEKIT} return appUp();`).catch(() => 0)) break;
 }
 const tab2Follow = await tab2.run(`${HELPERS}
-  byText('.railitem .rname', /^alpha$/).closest('.railitem').click();
+  openSession('alpha');
   await wait(800);
   if (!document.querySelector('.changesPanel')) byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
   const got = await until(() => branch() === 'main' ? branch() : null, 8000);

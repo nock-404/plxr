@@ -23,6 +23,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -311,14 +312,14 @@ let up = 0;
 for (let i = 0; i < 40 && !up; i++) {
   await tab.cdp.send("Page.navigate", { url: PAGE });
   await sleep(700);
-  up = await tab.run("return document.querySelectorAll('.railhome').length").catch(() => 0);
+  up = await tab.run(`${GATEKIT} return appUp();`).catch(() => 0);
 }
 if (!up) {
   console.log("  the interface did not render");
   stop(1);
 }
 
-const HELPERS = `
+const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
   const until = async (fn, ms) => { const t0 = performance.now(); while (performance.now() - t0 < ms) { const v = fn(); if (v) return { v, ms: Math.round(performance.now() - t0) }; await wait(60); } return { v: null, ms: Math.round(performance.now() - t0) }; };
@@ -345,7 +346,7 @@ const open = await tab.run(`${HELPERS}
   /* By the view it opens, not by its name or its glyph: the window may be
      running in either language, the glyph changed twice in one day, and the
      icon packs draw every entry differently again. */
-  document.querySelector('.railhome[data-view="usage"]')?.click();
+  openTool('usage');
   const got = await until(() => document.querySelectorAll('.uacct').length === 3 ? cards() : null, 12000);
   return { cards: got.v, ms: got.ms,
     head: document.querySelector('.listbody .uhead')?.textContent.trim() ?? '',
@@ -394,9 +395,9 @@ const rest = await tab.run(`${HELPERS}
     })),
     foot: document.querySelector('.ufoot')?.textContent.trim() ?? '',
     totals: [...document.querySelectorAll('.usum')][0] ? [...document.querySelectorAll('.usum')][0].textContent.trim() : '',
-    railHot: !!document.querySelector('.railhome.railhot'),
-    railMark: document.querySelector('.railhome.railhot .rmeta')?.textContent.trim() ?? '',
-    railName: document.querySelector('.railhome.railhot .rname')?.textContent.trim() ?? '',
+    railHot: stripeIcon('usage')?.dataset.nearlyOut === 'yes',
+    railMark: stripeIcon('usage')?.dataset.nearlyOut === 'yes' ? stripeIcon('usage').querySelector('.rmeta')?.textContent.trim() ?? '' : '',
+    railName: stripeIcon('usage')?.dataset.nearlyOut === 'yes' ? stripeIcon('usage').querySelector('.rname')?.textContent.trim() ?? '' : '',
     overflow: document.querySelector('.listbody')?.scrollWidth <= document.querySelector('.listbody')?.clientWidth,
     // What is too wide, measured, so a failure says where the sideways scroll comes from.
     widths: (() => {
