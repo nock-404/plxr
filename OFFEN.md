@@ -1001,6 +1001,20 @@ that I do not agree with the menu as such."
   because the session tab's title changed from running to working between two
   reads.
 
+### Seen in fresh screenshots of main (13.09.2026, 16:07, commit cc247c6)
+
+Taken for him after he said he believes nothing without seeing it; files in
+~/Downloads/plxr-screenshots-2026-09-13/.
+
+- **After a reload the Files tool is empty and the project reads "No project"**
+  until a session is brought to the front again. The project follows the
+  session in front, and after a reload no session is in front.
+- **The Files tool's empty text still points at "the path field above"**, which
+  the project switch replaced.
+- **In the win95 skin the dock's tab strip and the session bar are dark**, not the
+  skin's grey — most likely the dockview variables moving onto the new
+  `.dockHost` wrapper left the win95 tab rules behind.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
