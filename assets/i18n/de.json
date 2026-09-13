@@ -1309,5 +1309,7 @@
   "err.account.noStore": "Es gibt kein anderes Konto, dessen Verlauf es teilen könnte.",
   "err.account.notLinked": "Der projects-Ordner ließ sich nicht verknüpfen: {detail}",
   "err.account.projectsLinked": "Sein projects-Ordner verweist schon woandershin, deshalb wurde nichts geändert: {detail}",
-  "err.account.projectsNotEmpty": "Sein projects-Ordner enthält schon Dateien, deshalb wurde nichts verknüpft und nichts geändert: {detail}"
+  "err.account.projectsNotEmpty": "Sein projects-Ordner enthält schon Dateien, deshalb wurde nichts verknüpft und nichts geändert: {detail}",
+  "tab.maximize": "Maximieren",
+  "tab.restore": "Normale Größe"
 }

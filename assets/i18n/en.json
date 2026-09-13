@@ -1311,5 +1311,7 @@
   "err.account.noStore": "There is no other account whose history it could share.",
   "err.account.notLinked": "The projects folder could not be linked: {detail}",
   "err.account.projectsLinked": "Its projects folder already links somewhere else, so nothing was changed: {detail}",
-  "err.account.projectsNotEmpty": "Its projects folder already holds files, so it was not linked and nothing was changed: {detail}"
+  "err.account.projectsNotEmpty": "Its projects folder already holds files, so it was not linked and nothing was changed: {detail}",
+  "tab.maximize": "Maximise",
+  "tab.restore": "Restore size"
 }

@@ -473,6 +473,13 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       { label: tr("tab.splitRight", "Split to the right"), onClick: () => splitPanel(dv, p, "right"), disabled: floating || p.group.panels.length < 2 },
       { label: tr("tab.splitDown", "Split downwards"), onClick: () => splitPanel(dv, p, "bottom"), disabled: floating || p.group.panels.length < 2 },
       { separator: true },
+      /* One panel over the whole window and back — for reading a long diff or
+         a terminal that needs the width, without folding every region away by
+         hand and building them up again. Double-clicking the tab does the same. */
+      p.api.isMaximized()
+        ? { label: tr("tab.restore", "Restore size"), onClick: () => toggleMaximize(p) }
+        : { label: tr("tab.maximize", "Maximise"), onClick: () => toggleMaximize(p), disabled: floating },
+      { separator: true },
       { label: tr("tab.copyTitle", "Copy title"), onClick: () => void navigator.clipboard?.writeText(title).catch(() => undefined) },
     ];
   };
@@ -485,6 +492,12 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       data-kind={mark.kind}
       data-dirty={d.isDirty(id) ? "yes" : "no"}
       onContextMenu={(e) => ctx(items())(e)}
+      onDoubleClick={(e) => {
+        if (isRail) return;
+        e.preventDefault();
+        const p = here();
+        if (p && p.api.location.type === "grid") toggleMaximize(p);
+      }}
       onAuxClick={(e) => {
         if (e.button !== 1 || isRail) return;
         e.preventDefault();
@@ -1612,6 +1625,14 @@ function openFresh(dv: DockviewApi, id: string, component: string, title: string
 }
 
 /* ---------- moving panels: float, dock, between regions ---------- */
+
+/* toggleMaximize puts one panel's group over the whole dock, or back where it
+   was. Dockview remembers the arrangement underneath, so restoring gives back
+   every region at the size it had. */
+function toggleMaximize(panel: IDockviewPanel) {
+  if (panel.api.isMaximized()) panel.api.exitMaximized();
+  else panel.api.maximize();
+}
 
 /* floatPanel lifts a panel out of the grid into a floating group of its own —
    a window inside the window, dragged and resized by its title bar. Sized to
