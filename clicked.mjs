@@ -702,7 +702,7 @@ const place = await run(`
   await wait(300);
   field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   await wait(1200);
-  const named = document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '';
+  const named = document.querySelector('.switch[data-switch="project"] .switchLabel')?.firstChild?.textContent.trim() ?? '';
   const menuGone = !document.querySelector('body > .menu');
   const folders = [...document.querySelectorAll('.railitem')].find(e => /FOLDERS/i.test(e.textContent || ''));
   folders?.click();

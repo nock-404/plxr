@@ -746,7 +746,7 @@ mkdirSync(thirdFolder, { recursive: true });
 await api("/api/workspaces", { method: "POST", body: JSON.stringify({ path: thirdFolder }) });
 await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: otherFolder, cmd: [], name: "other", account: "" }) });
 const projectRule = await tab.run(`${HELPERS}
-  const label = () => document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '';
+  const label = () => document.querySelector('.switch[data-switch="project"] .switchLabel')?.firstChild?.textContent.trim() ?? '';
   const name = b => b.querySelector('.menuLabel')?.firstChild?.textContent.trim() ?? '';
   const notice = () => document.querySelector('.searchPanel .notice')?.textContent.trim() ?? '';
   const pickSession = async who => {
@@ -831,7 +831,7 @@ const projectKeys = await tab.run(`${HELPERS}
 await pressKey("ArrowDown", "ArrowDown", 40);
 const projectNext = await tab.run(`const a = document.activeElement; return a?.querySelector?.('.menuLabel')?.firstChild?.textContent.trim() ?? a?.tagName;`);
 await pressKey("Enter", "Enter", 13);
-const projectPicked = await tab.run(`${HELPERS} await wait(1000); return { label: document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '', closed: !document.querySelector('body > .menu') };`);
+const projectPicked = await tab.run(`${HELPERS} await wait(1000); return { label: document.querySelector('.switch[data-switch="project"] .switchLabel')?.firstChild?.textContent.trim() ?? '', closed: !document.querySelector('body > .menu') };`);
 claim("the project switch works from the keyboard: Enter opens it on the ticked row, the arrows and Enter pick", projectKeys.on === "scratch" && projectKeys.ticked === "true" && projectNext && projectNext !== "scratch" && projectPicked.closed && projectPicked.label === projectNext,
   `on "${projectKeys.on}" (ticked ${projectKeys.ticked}) → ArrowDown "${projectNext}" → Enter → "${projectPicked.label}"`);
 

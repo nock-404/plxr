@@ -49,28 +49,26 @@ export default function ProjectSwitch({
      the list shows no folder rows before it has asked (emptylies.py). */
   const known = useRef<Workspace[] | null>(null);
 
-  /* The branch. A session brings its own; a folder picked on its own is asked
-     about once, when it becomes the project. */
+  /* The branch. A session whose hook reports one brings its own; for a plain
+     shell or a folder picked on its own git is asked, once, when it becomes
+     the project. */
   const tile = project.sessionId ? tiles.find((t) => t.id === project.sessionId) : undefined;
-  const [folderBranch, setFolderBranch] = useState<{ path: string; branch: string } | null>(null);
+  const reported = tile?.branch ?? "";
+  const root = rootIdOf(project);
+  const [gitBranch, setGitBranch] = useState<{ root: string; branch: string } | null>(null);
   useEffect(() => {
-    if (project.sessionId || !project.path) return;
+    if (!root || reported) return;
     let dropped = false;
-    const path = project.path;
     api
-      .position(rootIdOf({ path, sessionId: "" }))
-      .then((w) => !dropped && setFolderBranch({ path, branch: w.detached ? "" : w.branch }))
+      .position(root)
+      .then((w) => !dropped && setGitBranch({ root, branch: w.detached ? "" : w.branch }))
       // Not a repository is an ordinary answer: no branch to show.
-      .catch(() => !dropped && setFolderBranch({ path, branch: "" }));
+      .catch(() => !dropped && setGitBranch({ root, branch: "" }));
     return () => {
       dropped = true;
     };
-  }, [project.sessionId, project.path]);
-  const branch = project.sessionId
-    ? (tile?.branch ?? "")
-    : folderBranch && samePath(folderBranch.path, project.path)
-      ? folderBranch.branch
-      : "";
+  }, [root, reported]);
+  const branch = reported || (gitBranch && gitBranch.root === root ? gitBranch.branch : "");
 
   const items = (list: Workspace[] | null): MenuItem[] => {
     // The folders used lately first, then the ones sessions run in that are
@@ -175,8 +173,12 @@ export default function ProjectSwitch({
         <span className="switchIcon">
           <Icon name="folder" />
         </span>
-        <span className="switchLabel">{name || tr("switch.noProject", "No project")}</span>
-        {branch ? <span className="switchBranch">{branch}</span> : null}
+        {/* The branch runs on inside the name's own line, so the ellipsis
+            takes the branch before it takes the name. */}
+        <span className="switchLabel">
+          {name || tr("switch.noProject", "No project")}
+          {branch ? <span className="switchBranch">{branch}</span> : null}
+        </span>
         <span className="switchChevron">
           <Icon name="chevron-down" />
         </span>

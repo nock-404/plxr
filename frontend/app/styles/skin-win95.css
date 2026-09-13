@@ -401,6 +401,7 @@
 [data-skin="win95"] .switch:focus-visible { outline: var(--hair) dotted var(--dk); }
 [data-skin="win95"] .switchIcon, [data-skin="win95"] .switchChevron { color: var(--dk); }
 [data-skin="win95"] .switchBranch { color: var(--sh); }
+[data-skin="win95"] .switch[data-open="yes"] .switchBranch { color: inherit; }
 [data-skin="win95"] .switchBadge { border-radius: 0; }
 [data-skin="win95"] .switchBadge[data-waiting="yes"] { background: var(--accent); color: var(--onAccent); }
 
