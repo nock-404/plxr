@@ -857,6 +857,83 @@ showed Claude Code's own /usage screen as the reference.
 - **U7 It must be reachable where it matters**, (half, on main 13.09: new-session picker proven; the session bar's picker not proven on screen) not only in a view: the
   account picker on a session should show what that account has left.
 
+### P — the windows next to PhpStorm, side by side (13.09.2026, on 0.78.0)
+
+He put PhpStorm's new UI and plxr 0.78.0 side by side, translated: "the windows
+are still not right ... compare them and make a list of what is different".
+Then, on the menu: "you are mixing levels completely. New is already at the top
+right. Some things are project-specific, some are global. And I told you before
+that I do not agree with the menu as such."
+
+#### The frame
+- **P1 The left edge is a wide column of words; PhpStorm's is a stripe of icons.**
+  About 40px, icons only, tooltips with the name and the chord. The tool window
+  opens beside the stripe. plxr's rail is 195px of capitals and takes that width
+  whether anything is open or not.
+- **P2 PhpStorm has stripes on both sides, and icons for the bottom.** Tools that
+  open on the right have their icons on the right stripe (notifications,
+  database); tools that open at the bottom have theirs at the bottom of the left
+  stripe (run, terminal, problems, git). Where an icon sits says where its window
+  opens. plxr's rail says nothing about where a view will land.
+- **P3 A tool window is toggled by its stripe icon, not closed with an ×.** The
+  icon is lit while the window is open. plxr puts an × on every tool tab — Search,
+  Usage — as if a tool were a document.
+- **P4 Only documents have tabs with ×.** In PhpStorm the editor tabs carry file
+  icons and a close; tool windows have none. plxr gives Overview, Archive,
+  Folders and Settings the same closable tab as a file.
+- **P5 Every tool window has a header, not a tab strip.** Its name with a drop-down
+  ("Project ▾"), its own tabs inside the header when it has several ("Git: Log
+  +"), and on the right its actions (⋮) and hide (—). plxr's tool regions show a
+  bare dockview tab strip, and each view repeats its own "search>" / "usage>"
+  prompt bar underneath in another style.
+- **P6 The bottom is used.** Git log sits under the tree and the editor by
+  default, with its own internal panes (branches · commits · changed files).
+  plxr's bottom region exists but nothing opens there on its own.
+- **P7 A status bar along the very bottom**: the project breadcrumb on the left,
+  line endings, encoding, indent and the branch on the right. plxr has its status
+  row at the top, under the toolbar, and no bottom bar.
+- **P8 The top toolbar is project and run, not a text field and word buttons.**
+  Project switcher with its badge, branch switcher, run configuration, run and
+  debug, then search and settings as icons. plxr has "path>" as a free text
+  field and LAYOUTS, MENU, TEMPLATES, + NEW as words.
+- **P9 Empty tool windows do not take a column.** plxr opened Search on the left
+  showing "NO FOLDER" over the whole column height.
+
+#### The menu mixes levels
+- **P10 Global things and project things are in one list.** Overview, Inbox,
+  Ports, Usage, Archive and Notes are about the whole machine; Folders, Changes,
+  Review and Search only mean anything for one project or folder. PhpStorm keeps
+  project tools in the stripe and machine-wide things in the toolbar and
+  settings.
+- **P11 A command sits among the places.** "New shell" is an action, and "+ NEW"
+  already exists at the top right.
+- **P12 Sessions sit inside the menu,** under a project heading, in the same
+  column as the views. In PhpStorm the project is chosen at the top and the
+  stripe is about that project.
+- **P13 He has said before that he does not agree with the menu at all** (N1-N3);
+  this is the same point, now with a reference.
+
+#### His direction for the left side (13.09.2026)
+- **P18 The left column is the file tree.** Translated: "in PhpStorm the left
+  column is really just the file tree. In VS Code there are plugin things too,
+  that is good, things like git." So: the left region belongs to the project —
+  the tree first, and beside it, reachable from an activity stripe, the
+  project's other tools such as source control (changes, review, branches) and
+  search. Global things (inbox, usage, ports, archive) do not belong there.
+
+#### How it reads
+- **P14 PhpStorm writes its chrome in a proportional UI font** at a normal size
+  and case; monospace is for code. plxr writes every label in spaced capitals in
+  a monospace, which is the skin's look but costs reading speed everywhere.
+- **P15 Air and weight.** Rows around 24px, rounded selection, one subtle
+  background step between tool windows and editor, thin overlay scrollbars.
+  plxr: square highlights, hairlines everywhere, a thick scrollbar in CRT.
+- **P16 Proportions.** PhpStorm's tree takes about a third, the bottom tool about a
+  third of the height. plxr's side regions are 320px, too narrow for Usage, whose
+  per-model table wraps.
+- **P17 Hiding a tool is visible.** The — in the header; plxr's fold is only on
+  ⌘B / ⌘J with nothing on screen saying so.
+
 ### Found while building the icon packs (13.09.2026), already on main
 
 - **A long folder name wraps out of its rail heading in the Pixel skin.** (fixed on main 13.09: the heading stays on one line) The
