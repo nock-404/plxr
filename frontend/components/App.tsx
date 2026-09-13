@@ -14,6 +14,7 @@ import Pace from "@/components/Pace";
 import Folders from "@/components/views/Folders";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
+import NotifyAsk from "@/components/NotifyAsk";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
 import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions } from "@/components/Dock";
@@ -705,6 +706,7 @@ export default function App() {
       </header>
 
       <UpdateBar />
+      <NotifyAsk />
 
       <div className="statusrow">
         <span>

@@ -481,28 +481,34 @@ func runWindow(info daemon.Info) {
 	}
 }
 
-/* The window shows the notifications.
+/* The window shows the notifications — and nothing else of plxr's does.
  *
- * The daemon notices — a session stuck, the spend over the line — and it used
- * to do the showing too. Measured, the system will not take one from it: it is
- * started detached, never launched as an application, has no run loop, and its
- * request for permission is never answered. Unbundled it fell back to a script
- * whose notifications belong to Script Editor. This process is the real
- * application — bundled, foreground, launched by the system — so it holds the
- * permission, subscribes to the daemon's /ws/notify, and posts each one itself:
- * with the icon, and with a click that comes back here.
+ * The service notices — a session stuck, the spend over the line — and hands
+ * each notification to one window over its /ws/notify. This process is the
+ * real application: bundled, foreground, launched by the system. It is the
+ * only one that talks to the notification centre, so what it posts carries
+ * plxr's name and icon, and a click comes back here.
+ *
+ * It does not ask for the permission on its own. Measured: the system's
+ * question disappears the moment the process that asked goes away, and a
+ * question that went unanswered stands as a refusal from then on, with every
+ * later request failing silently. So the question is put when somebody
+ * presses ALLOW NOTIFICATIONS, with the reason on screen beside it, and this
+ * window is still open while they answer. See notify_darwin.go.
  *
  * A click brings the window forward and tells the page which session it was
- * about — through the daemon, not into the page. This window loads the
- * daemon's address, so the Wails runtime is not in the page, and a script
- * pushed with ExecJS waits for a ready that never comes — the event went
- * out and nothing heard it. The daemon's settings blob is the one wire
- * every page already listens on, so the request is written there, and the
- * page opens the session on its next look. See notify.RequestFocus.
+ * about — through the service, not into the page. This window loads the
+ * service's address, so the Wails runtime is not in the page, and a script
+ * pushed with ExecJS waits for a ready that never comes. The settings blob is
+ * the one wire every page already listens on, so the request is written
+ * there, and the page opens the session on its next look. See
+ * notify.RequestFocus.
  */
 func followNotifications(win *application.WebviewWindow) {
 	if !notify.WindowCapable() {
-		log.Println("notifications: not bundled, the daemon shows them itself")
+		if runtime.GOOS == "darwin" {
+			log.Println("notifications: this build is not inside an application bundle — it has no name to post under, so it shows none")
+		}
 		return
 	}
 	where := func() (notify.Endpoint, bool) {
@@ -520,15 +526,14 @@ func followNotifications(win *application.WebviewWindow) {
 		}
 		ep, ok := where()
 		if !ok {
-			log.Println("notifications: clicked, but the daemon is not there to open the session")
+			log.Println("notifications: clicked, but the service is not there to open the session")
 			return
 		}
 		if err := notify.RequestFocus(ep, sessionID); err != nil {
 			log.Printf("notifications: the session could not be opened: %v", err)
 		}
 	})
-	notify.WindowAuthorize()
-	notify.FollowService(where, notify.WindowPost, notify.WindowPermission, notify.PermissionChanged(), notify.WindowAuthorize)
+	notify.FollowService(where, notify.WindowPost, notify.WindowReport, notify.PermissionChanged(), notify.WindowAuthorize)
 }
 
 // migrateRecordings moves the scrollback written by earlier versions, which

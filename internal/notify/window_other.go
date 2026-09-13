@@ -21,5 +21,11 @@ func PermissionChanged() <-chan struct{} { return make(chan struct{}) }
 // WindowPermission is unknown where the window does not post.
 func WindowPermission() string { return PermissionUnknown }
 
+// WindowReport is what this window would say about itself: nothing known.
+func WindowReport() Report { return Report{Permission: PermissionUnknown} }
+
 // WindowPost shows nothing here; the service does.
 func WindowPost(Message) {}
+
+// systemLog has nowhere further to go here: the process's own log is it.
+func systemLog(string) {}

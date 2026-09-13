@@ -263,17 +263,23 @@ export const api = {
 
   notify: () => req<NotifyInfo>("/api/notify"),
   setNotify: (s: NotifySettings) => req<void>("/api/notify", { method: "PUT", body: JSON.stringify(s) }),
-  /* Shows the test notification and says where it went: through the plxr
-     window, which posts it with the icon, or from the service itself when no
-     window is open. */
+  /* Shows the test notification and says what became of it: handed to the
+     plxr window, which posts it with the icon; not shown, because no window
+     is open or plxr is not allowed yet; or, on Linux and Windows, shown by the
+     service. */
   trySound: (sound: string) =>
     req<{ via: NotifyVia }>(`/api/notify/try?sound=${encodeURIComponent(sound)}`, { method: "POST" }),
   /* Asks the plxr window to put the system's question about notifications.
      A page cannot ask it; the window can, and reports the answer back. */
   notifyAuthorize: () => req<{ asked: boolean }>("/api/notify/authorize", { method: "POST" }),
-  /* Opens System Settings on the notifications page, where a refused
-     permission is switched back on. */
+  /* Opens System Settings on plxr's own notification switches, where a
+     refused permission is switched back on. */
   openNotifySettings: () => req<void>("/api/notify/system-settings", { method: "POST" }),
+  /* Which session this page has in front and whether it has focus: the
+     service holds back a notification about a session somebody is looking
+     at. See lib/front.ts. */
+  notifyFront: (page: string, session: string, focused: boolean) =>
+    req<void>("/api/notify/front", { method: "PUT", body: JSON.stringify({ page, session, focused }) }),
   /* Two calls, because they are two things. One route with ?an=1 meaning "on"
      read as "off" whenever the flag was left out — which it always was. */
   hookInstall: () => req<HookState>("/api/hook", { method: "POST" }),

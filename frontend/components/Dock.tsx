@@ -16,6 +16,7 @@ import "dockview-react/dist/styles/dockview.css";
 
 import pkg from "@/package.json";
 import { InlineStrip } from "@/components/ui/TopStrip";
+import { showFront } from "@/lib/front";
 
 import Overview from "@/components/views/Overview";
 import Inbox from "@/components/views/Inbox";
@@ -736,6 +737,12 @@ export default function Dock({
   const [lastActiveSessionId, setLastActiveSessionId] = useState("");
   const [editorTarget, setEditorTarget] = useState<EditorTarget>(null);
   const [shownDiff, setShownDiff] = useState<ShownDiff>(null);
+  // The session in the active panel, for the service: a notification about
+  // it is held back while this page has focus. Not the sticky last session —
+  // with the editor in front, the session beside it is not being looked at.
+  useEffect(() => {
+    showFront(activeId.startsWith("session:") ? activeId.slice("session:".length) : "");
+  }, [activeId]);
 
   const openPreview = useCallback((url: string, title: string) => {
     const dv = apiRef.current;

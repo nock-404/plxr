@@ -7,6 +7,13 @@ import (
 	"os/exec"
 )
 
+// serviceRoute shows a notification from the service itself. On Linux that
+// is sound: notify-send names plxr and its icon itself, whoever runs it, and
+// no permission is held by any one process.
+func serviceRoute() func(Message) {
+	return func(m Message) { deliver(esc(m.Title), esc(m.Body), m.Sound) }
+}
+
 // Linux notifies through the desktop bus. `notify-send` is what practically
 // every desktop ships for it; without it there is nothing to post into, and
 // saying nothing is the honest outcome rather than a crash.
@@ -30,7 +37,9 @@ func sounds() []string {
 
 // OpenSystemSettings is a macOS matter: there the permission lives in one
 // panel of the system's; here there is none to open.
-func OpenSystemSettings() error { return errors.New("no notification settings to open on this system") }
+func OpenSystemSettings(string) error {
+	return errors.New("no notification settings to open on this system")
+}
 
 // The sound to start with here.
 func defaultSound() string { return "message" }

@@ -359,12 +359,14 @@ export interface NotifySettings {
 }
 
 /* How the system permission stands, as the plxr window reported it to the
-   service. "unknown" until a window has said. */
-export type NotifyPermission = "unknown" | "granted" | "denied" | "notAsked";
+   service. "unknown" until a window has said; "asking" while the system's
+   question is on screen and not answered. */
+export type NotifyPermission = "unknown" | "granted" | "denied" | "notAsked" | "asking";
 
-/* Who showed a notification: the plxr window, or the service with no window
-   open. */
-export type NotifyVia = "window" | "local";
+/* What became of a notification: handed to the plxr window, which shows it;
+   shown by the service itself (Linux and Windows); not shown because no
+   window is open; not shown because plxr is not allowed yet. */
+export type NotifyVia = "window" | "local" | "none" | "notAllowed";
 
 /* A click on a notification, as the plxr window writes it into the settings
    under focusSession: which session, and a number that changes per click. */
@@ -379,6 +381,9 @@ export interface NotifyInfo {
   permission: NotifyPermission;
   /* How many plxr windows are listening to show notifications. */
   windows: number;
+  /* The service shows them itself: Linux and Windows, where there is no
+     permission to hold. Never on macOS. */
+  serviceShows?: boolean;
 }
 
 /* One file that differs from a mark. */
