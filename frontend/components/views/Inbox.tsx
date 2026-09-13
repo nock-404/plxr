@@ -136,7 +136,6 @@ export default function Inbox({ tiles, onOpen }: { tiles: Tile[]; onOpen: (id: s
     <section className="list">
       <TopStrip>
         <div className="listbar">
-          <span className="prompt">{tr("inbox.prompt", "waiting>")}</span>
           <span className="meta">
             {waiting.length} {tr("inbox.open", "open")}
           </span>

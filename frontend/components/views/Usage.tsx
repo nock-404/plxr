@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Tooltip from "@/components/ui/Tooltip";
 import TopStrip from "@/components/ui/TopStrip";
+import ToolActions from "@/components/stripes/ToolActions";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { accountName, ago, moment, shortNumber as short, until } from "@/lib/format";
 import { tr } from "@/lib/i18n";
@@ -342,7 +345,6 @@ export default function Usage() {
     <section className="list" onContextMenu={ctx(viewMenu())}>
       <TopStrip>
         <div className="listbar">
-          <span className="prompt">{tr("usage.prompt", "usage>")}</span>
           <span className="meta">
             {report ? tr("usage.accountCount", "{n} accounts", { n: report.accounts.length }) : ""}
           </span>
@@ -358,6 +360,23 @@ export default function Usage() {
           />
         </div>
       </TopStrip>
+      {/* Reload stood only in the view's right-click menu; in the Usage tool
+          it is a button in the window's header. */}
+      <ToolActions>
+        <Tooltip text={tr("usage.reloadTip", "Read what is left and what it cost again")}>
+          <Button
+            icon
+            data-do="usage-reload"
+            aria-label={tr("usage.menuReload", "Reload")}
+            onClick={() => {
+              refreshLimits();
+              setAgain((n) => n + 1);
+            }}
+          >
+            <Icon name="reset" />
+          </Button>
+        </Tooltip>
+      </ToolActions>
       <div className="listbody">
         <div className="ublock">
           <span className="uhead">{tr("usage.leftHead", "what is left right now")}</span>

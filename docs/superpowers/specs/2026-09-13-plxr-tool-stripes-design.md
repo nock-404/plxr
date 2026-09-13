@@ -385,6 +385,13 @@ groups now appear in `dv.panels` and `dv.groups`; step 0 confirms this). The pla
 - **Inline strip.** A view's `TopStrip` renders as `.toolBar` directly under the header. `ToolWindow`
   provides a `ToolStrip` context that `TopStrip.tsx` checks before `InlineStrip`. The prompt labels
   "usage>", "search>" and so on are dropped (P5).
+- **As built in step 12.** The view strips stay in their bodies: `.listbody` scrolls under them, so
+  they already stand directly under the header, and usage.mjs reads the count through `.list .listbar`.
+  The prompts are gone. What acts on the whole tool is drawn into `.toolActions` through
+  `components/stripes/ToolActions.tsx` (a portal; nothing outside a tool window): Files' Refresh,
+  Ports' Reload, Usage's Reload. `toolMemory` keeps Files' walk, open folders, listings, marks, filter
+  and scroll per place, Search's fields, hits and scroll per folder, the Archive's field, mode and
+  hits, and the Notes' text and editor scroll.
 - **A project tool with no project** shows an `.emptyNote` with one button, "Choose a project", which
   opens ProjectSwitch.
 

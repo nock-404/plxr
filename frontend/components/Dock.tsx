@@ -420,7 +420,7 @@ function FilesToolPanel() {
   }
   return (
     <div className="filesPanel">
-      <Files rootId={rootId} root={root} onPick={(path, baseId) => d.openEditor(baseId, path, undefined, undefined, "files")} />
+      <Files rootId={rootId} root={root} memory="files" onPick={(path, baseId) => d.openEditor(baseId, path, undefined, undefined, "files")} />
     </div>
   );
 }

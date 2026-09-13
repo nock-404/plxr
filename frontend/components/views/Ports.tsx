@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import TopStrip from "@/components/ui/TopStrip";
 import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import Tooltip from "@/components/ui/Tooltip";
+import ToolActions from "@/components/stripes/ToolActions";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr, errText } from "@/lib/i18n";
 import { api } from "@/lib/api";
@@ -59,12 +61,16 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
     <section className="list">
       <TopStrip>
         <div className="listbar">
-          <span className="prompt">{tr("ports.prompt", "ports>")}</span>
           <span className="meta">{error || `${ports?.length ?? 0} ${tr("ports.open", "listening")}`}</span>
-          <span className="spacer" />
-          <Button onClick={load}>{tr("common.reload", "RELOAD")}</Button>
         </div>
       </TopStrip>
+      <ToolActions>
+        <Tooltip text={tr("ports.reloadTip", "Ask again which process holds which port")}>
+          <Button icon data-do="ports-reload" aria-label={tr("common.reload", "RELOAD")} onClick={load}>
+            <Icon name="reset" />
+          </Button>
+        </Tooltip>
+      </ToolActions>
       <div className="listbody">
         {ports === null ? null : ports.length === 0 ? (
           <div className="emptyNote">
