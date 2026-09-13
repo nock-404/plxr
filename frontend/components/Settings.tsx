@@ -6,6 +6,7 @@ import Agents from "@/components/Agents";
 import EditorSettings from "@/components/EditorSettings";
 import Keybindings from "@/components/Keybindings";
 import LayoutSettings, { type LayoutControls } from "@/components/LayoutSettings";
+import Licences from "@/components/Licences";
 import Notifications from "@/components/Notifications";
 import Status from "@/components/Status";
 import TerminalSettings from "@/components/TerminalSettings";
@@ -20,8 +21,9 @@ import { askVersionNow, watchVersion } from "@/lib/version";
 import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
 import { DEFAULTS, apply, fitPalette, installUserFonts, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
 import type { Theme, UserFont, VersionInfo } from "@/lib/types";
+import { ICON_PACKS, PACK_LABELS, type IconPack } from "@/lib/icons";
 
-type Tab = "skins" | "terminal" | "editor" | "keys" | "accounts" | "layouts" | "notify" | "agents" | "status";
+type Tab = "skins" | "terminal" | "editor" | "keys" | "accounts" | "layouts" | "notify" | "agents" | "status" | "licences";
 
 /* The tabs, with their texts spelled out.
  *
@@ -39,6 +41,7 @@ const TABS: { id: Tab; label: () => string }[] = [
   { id: "notify", label: () => tr("settings.tab.notify", "notify") },
   { id: "agents", label: () => tr("settings.tab.agents", "agents") },
   { id: "status", label: () => tr("settings.tab.status", "status") },
+  { id: "licences", label: () => tr("settings.tab.licences", "licences") },
 ];
 
 // The font choices: the skin's own first, then the shipped monospace family,
@@ -240,6 +243,21 @@ export default function Settings({
                   />
                 </span>
               </div>
+              {/* The pack every mark in the window is drawn from. Applied like
+                  the skin: at once, everywhere, and kept with the rest of the look. */}
+              <div className="field">
+                <span className="fieldName">{tr("settings.icons", "icons")}</span>
+                <span className="rowInline" data-field="icons">
+                  <Select
+                    value={state.icons}
+                    onChange={(icons: IconPack) => change({ icons })}
+                    options={ICON_PACKS.map((pack) => ({ value: pack, label: PACK_LABELS[pack] }))}
+                  />
+                  <span className="notice">
+                    {tr("settings.iconsHint", "Every mark in the window comes from this pack. Pixel is drawn on a pixel grid and suits the tube.")}
+                  </span>
+                </span>
+              </div>
               <div className="field">
                 <span className="fieldName">{tr("settings.language", "language")}</span>
                 <span className="rowInline">
@@ -352,6 +370,7 @@ export default function Settings({
         {tab === "notify" ? <Notifications /> : null}
         {tab === "agents" ? <Agents /> : null}
         {tab === "status" ? <Status /> : null}
+        {tab === "licences" ? <Licences /> : null}
 
         <div className="dialogFoot">
           <span className="notice">{versionLine()}</span>

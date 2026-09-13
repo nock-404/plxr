@@ -122,6 +122,9 @@ LAYOUT_ONLY = {
     # and heading rows (the .uhead and .meta inside carry the colour), and
     # the overview's column above its grid — arrangement only.
     "notesPanel", "inboxGroup", "inboxHead", "inboxSub", "inboxProject", "overviewPanel",
+    # The head row of a licence on the licences page: it places the set's
+    # name beside its licence, and each of the two carries its own colour.
+    "licenceHead",
 }
 
 # What a skin must have an opinion about: anything that carries colour, a

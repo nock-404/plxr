@@ -345,6 +345,9 @@
 .frow.noise { opacity: .4; }
 .fchev,
 .ficon { color: var(--dim); }
+/* An icon is the colour of the mark it stands in: the packs draw in
+   currentColor, so every rule that coloured a glyph colours its icon. */
+.uiIcon { color: inherit; }
 .pterm { border: var(--hair) solid var(--dim); }
 /* No edge on the terminal's scrollbar track.
  *
@@ -1069,6 +1072,15 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .panelTab[data-kind="text"] .panelTabIcon { color: var(--fg); }
 .panelTab[data-kind="plain"] .panelTabIcon { color: var(--dead); }
 .panelTab[data-kind="view"] .panelTabIcon { color: var(--dim); }
+
+/* The licences page: a quiet box per set, its name in the accent, and the
+   text in the terminal's typeface, because that is how licence files are
+   written and read. */
+.licence { border: var(--hair) solid var(--line); }
+.licenceTitle { color: var(--accent); }
+.licenceKind,
+.licenceSource { color: var(--dim); }
+.licenceText { color: var(--fg); font-family: var(--term-font, ui-monospace, Menlo, monospace); font-size: .85em; background: color-mix(in srgb, var(--bg) 60%, transparent); border: var(--hair) solid var(--line); }
 
 /* The strip the tabs sit in, and the settings filling a panel: both take the
    panel's own surface, so a region reads as one box rather than two. */

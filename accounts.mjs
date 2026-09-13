@@ -459,7 +459,7 @@ async function type(selector, text) {
    the front or the settings came back on another tab. */
 async function openAccounts() {
   return tab.run(`${HELPERS}
-    const gear = [...document.querySelectorAll('.bar .btn')].find(b => b.textContent.trim() === '⚙');
+    const gear = document.querySelector('.bar [data-do="settings"]');
     gear?.click();
     const clicked = !!gear;
     await until(() => /Settings/.test(activeTab()) ? true : null, 3000);
@@ -471,7 +471,7 @@ async function openAccounts() {
     return { ...seen, rows: rows().length };
   `);
 }
-const how = (o) => `[⚙ clicked ${o.clicked}, active "${o.active}", settings came back on "${o.settingsOn}"${o.tabs ? `, tabs: ${o.tabs}` : ""}]`;
+const how = (o) => `[settings button clicked ${o.clicked}, active "${o.active}", settings came back on "${o.settingsOn}"${o.tabs ? `, tabs: ${o.tabs}` : ""}]`;
 
 // Settings › accounts
 const opened = await tab.run(`${HELPERS}
@@ -569,15 +569,17 @@ claim("the account switch on a session offers the new account",
 
 // USAGE on the rail.
 const usage = await tab.run(`${HELPERS}
-  const glyphs = [...document.querySelectorAll('.railhome .rdot')].map(d => d.textContent.trim());
+  // By the view it opens: its mark is an icon from whichever pack is chosen,
+  // and its name is a word in whichever language the window speaks.
+  const views = [...document.querySelectorAll('.railhome')].map(d => d.dataset.view);
   const item = document.querySelector('.railhome[data-view="usage"]');
   item?.click();
   const got = await until(() => document.querySelectorAll('.uacct').length === 4 ? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()) : null, 15000);
   return { names: got.v ?? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()), ms: got.ms,
-    glyphs: glyphs.join(' '), item: !!item, active: activeTab(), empty: document.querySelector('.emptyNote')?.textContent.trim() ?? '' };
+    views: views.join(' '), item: !!item, active: activeTab(), empty: document.querySelector('.emptyNote')?.textContent.trim() ?? '' };
 `);
 claim("the usage view lists the new account", usage.names.length === 4 && usage.names.some((n) => /account 4/.test(n)),
-  `${usage.names.join(" | ") || "no cards"} after ${usage.ms} ms · rail glyphs "${usage.glyphs}" · usage item found ${usage.item} · active "${usage.active}"${usage.empty ? ` · "${usage.empty}"` : ""}`);
+  `${usage.names.join(" | ") || "no cards"} after ${usage.ms} ms · rail views "${usage.views}" · usage item found ${usage.item} · active "${usage.active}"${usage.empty ? ` · "${usage.empty}"` : ""}`);
 
 // The new-session dialog.
 const dialog = await tab.run(`${HELPERS}

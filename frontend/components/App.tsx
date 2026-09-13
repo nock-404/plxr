@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import { useMenu, type MenuItem } from "@/components/ui/Menu";
 import Logo from "@/components/ui/Logo";
 import PathField from "@/components/ui/PathField";
@@ -660,8 +661,13 @@ export default function App() {
             </Button>
           ) : null}
           <Tooltip text={tr("header.resetLayout", "Reset the panel layout to the default")}>
-            <Button icon onClick={() => direct({ type: "reset" })}>
-              ⟲
+            <Button
+              icon
+              data-do="reset-layout"
+              aria-label={tr("header.resetLayout", "Reset the panel layout to the default")}
+              onClick={() => direct({ type: "reset" })}
+            >
+              <Icon name="reset" />
             </Button>
           </Tooltip>
           {/* Opens under the button: the pointer is where the eye is, and the
@@ -677,14 +683,16 @@ export default function App() {
             </Button>
           </Tooltip>
           <Tooltip text={tr("keys.tip", "Keyboard shortcuts")}>
-            <Button icon onClick={() => setKeys(true)}>?</Button>
+            <Button icon data-do="keys" aria-label={tr("keys.tip", "Keyboard shortcuts")} onClick={() => setKeys(true)}>
+              <Icon name="help" />
+            </Button>
           </Tooltip>
           {/* The same button both ways. It only ever set the panel open, so the
               way back out was the DONE button at the bottom of a panel long
               enough to have scrolled it off the screen. */}
           <Tooltip text={tr("header.settingsTip", "Settings")}>
-            <Button icon onClick={openSettings}>
-              ⚙
+            <Button icon data-do="settings" aria-label={tr("header.settingsTip", "Settings")} onClick={openSettings}>
+              <Icon name="settings" />
             </Button>
           </Tooltip>
           {/* Everything, under one word. The tools were reachable by F12 and

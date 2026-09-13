@@ -1,6 +1,7 @@
 "use client";
 
 import { crtPalette } from "./crtPalette";
+import { DEFAULT_ICON_PACK, ICON_PACKS, type IconPack } from "./icons";
 
 // Theme state rides on <html>: data-skin picks the structural dressing,
 // data-theme the palette, and a few tokens are tuned live. Persisted per
@@ -61,6 +62,10 @@ export interface ThemeState {
   hue: number;
   brightness: number;
   saturation: number;
+  /* Which icon pack draws the marks: the rail, the tabs, the tree, the
+     toolbar. A choice of its own rather than part of a skin — the pixel pack
+     suits the tube, and the tube is still the tube with Tabler on it. */
+  icons: IconPack;
 }
 
 export const DEFAULTS: ThemeState = {
@@ -77,6 +82,7 @@ export const DEFAULTS: ThemeState = {
   // Brightness is the value of the picked colour now, not a contrast target,
   // so 50 would be a genuinely dim screen. 74 is the tube as it looked before.
   hue: 140, brightness: 74, saturation: 100,
+  icons: DEFAULT_ICON_PACK,
 };
 const KEY = "plxr.theme";
 
@@ -212,6 +218,9 @@ export function apply(state: ThemeState): void {
   root.setAttribute("data-glow", state.glowOn ? "on" : "off");
   root.setAttribute("data-scan", state.scanOn ? "on" : "off");
   root.setAttribute("data-flicker", state.flickerOn ? "on" : "off");
+  // A pack this build does not know — a look kept by an older or a newer
+  // plxr — draws with the default rather than with nothing at all.
+  root.setAttribute("data-icons", ICON_PACKS.includes(state.icons) ? state.icons : DEFAULT_ICON_PACK);
   root.style.setProperty("--tintStrength", String(state.tint));
   root.style.setProperty("--bgSolid", `${state.windowSolid}%`);
   root.style.setProperty("--panelSolid", `${state.panelSolid}%`);

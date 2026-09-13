@@ -245,6 +245,15 @@ step "two windows" node together.mjs
 # runs in a page that loads the service's address, and nothing looked.
 step "click opens session" node focus.mjs
 
+# The icon packs, looked at. Each of the four is picked through the settings in
+# each skin, at a plain and a 2x screen density, and every icon on screen is
+# read off a screenshot: it has ink, it is not a filled box, it carries the
+# skin's colour and none of its own, the pixel pack has hard edges, and no box
+# moved. An icon that is missing or wrong draws nothing and says nothing, in
+# one pack in one skin at a time, which is exactly where nobody looks. It also
+# holds the licences page against the licence files that ship.
+step "icon packs" node icons.mjs
+
 # --- started the way people start it -----------------------------------------
 # Everything above starts plxr from this shell, with a full environment. The
 # faults of one long evening all lived in the gap between that and how an

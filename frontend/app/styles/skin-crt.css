@@ -171,6 +171,9 @@
 [data-skin="crt"] .sessionTabBell { background: var(--accent); box-shadow: 0 0 .35rem var(--accent); }
 
 [data-skin="crt"] .panelTabIcon { text-shadow: 0 0 var(--glow) currentColor; }
+/* An icon is lines, not text, so the halo the tube gives every glyph comes
+   from a filter: the same glow, drawn around the shape. */
+[data-skin="crt"] .uiIcon { filter: drop-shadow(0 0 var(--glow) currentColor); }
 /* ---- the folder's standing, on the tube ----
    A status the tube can carry: the number that changes glows the way every
    live reading in this skin does, and the words beside it stay quiet. It is

@@ -426,10 +426,10 @@ claim("right-click on a folder tab offers Open / COPY PATH / SHOW / Remove folde
   `${folderMenu.rows.join(" · ")} · danger: ${folderMenu.danger.join(",")}`);
 
 // ---- the tooltip ------------------------------------------------------------------
-/* The gear, by its glyph. It was found by aria-pressed while it toggled a
-   window; it brings a panel forward now, presses nothing, and lost the
-   attribute with the window. */
-const gear = await tab.run(`const b = [...document.querySelectorAll('.tools .btn, .tools button')].find(e => /⚙/.test(e.textContent || '')); const r = b?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
+/* The gear, by what it does. It was found by aria-pressed while it toggled a
+   window, and by its glyph after that; it brings a panel forward now,
+   presses nothing, and its mark is an icon from whichever pack is chosen. */
+const gear = await tab.run(`const b = document.querySelector('.tools [data-do="settings"]'); const r = b?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
 await mouse("mouseMoved", gear.x + gear.w / 2, gear.y + gear.h / 2);
 const tip = await tab.run(`${HELPERS}
   const got = await until(() => { const t = document.querySelector('body > .tooltip'); return t && t.dataset.placed === 'yes' ? t : null; }, 2000);
@@ -601,7 +601,7 @@ const applied = await tab.run(`${HELPERS}
   await until(() => document.querySelectorAll('.plxrDock .dv-tab').length <= 2 ? true : null, 3000);
   const afterReset = tabNames();
   const settingsGone = !document.querySelector('.settingsPanel');
-  [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''))?.click();
+  document.querySelector('.tools [data-do="settings"]')?.click();
   await until(() => document.querySelector('.settingsPanel'), 2000);
   byText('.settingsPanel .tab', /^layouts$/)?.click();
   const apply = await until(() => byText('.settingsPanel .presetRow [data-do="apply-layout"]', /APPLY/), 2000);

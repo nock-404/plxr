@@ -26,7 +26,7 @@ import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
-import Rail, { VIEW_GLYPHS, type View } from "@/components/Rail";
+import Rail, { VIEW_ICONS, type View } from "@/components/Rail";
 import Preview from "@/components/Preview";
 import ChangesPanel from "@/components/ChangesPanel";
 import ReviewPanel from "@/components/ReviewPanel";
@@ -38,10 +38,13 @@ import { type LayoutControls } from "@/components/LayoutSettings";
 import Viewer from "@/components/Viewer";
 import CommandPalette, { type Command } from "@/components/CommandPalette";
 import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import Ask from "@/components/ui/Ask";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { fileIcon } from "@/lib/fileIcons";
+import type { IconName } from "@/lib/icons";
 import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/keymap";
 import { setDense } from "@/lib/prefsEvents";
 import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
@@ -402,39 +405,41 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
  * button closes, the way tabs close everywhere else. */
 /* The mark a tab wears.
  *
- * A view carries the rail's own glyph, so one thing is one glyph wherever it
- * is met; a session the state square it wears on the board and in the rail; a
- * document the mark of what it is. The kind travels beside it as an
- * attribute, because the colour of a mark is the skin's business. */
-const FILE_GLYPHS: Record<string, { glyph: string; kind: string }> = {
-  ts: { glyph: "\u25C8", kind: "code" },
-  tsx: { glyph: "\u25C8", kind: "code" },
-  js: { glyph: "\u25C7", kind: "code" },
-  jsx: { glyph: "\u25C7", kind: "code" },
-  go: { glyph: "\u25B7", kind: "code" },
-  py: { glyph: "\u25B3", kind: "code" },
-  rs: { glyph: "\u25B6", kind: "code" },
-  sh: { glyph: "\u276F", kind: "code" },
-  css: { glyph: "\u25A7", kind: "style" },
-  html: { glyph: "\u25A4", kind: "style" },
-  json: { glyph: "\u2263", kind: "data" },
-  yml: { glyph: "\u2263", kind: "data" },
-  yaml: { glyph: "\u2263", kind: "data" },
-  sql: { glyph: "\u25A6", kind: "data" },
-  md: { glyph: "\u2261", kind: "text" },
-  txt: { glyph: "\u2261", kind: "text" },
+ * A view carries the rail's own icon, so one thing is one icon wherever it is
+ * met; a session the terminal it is; a document the icon of what it is, from
+ * the same table the file tree uses. The kind travels beside it as an
+ * attribute, because the colour of a mark is the skin's business — and the
+ * kinds are the values the stylesheets address, so they stay what they were. */
+const FILE_KINDS: Record<string, string> = {
+  ts: "code",
+  tsx: "code",
+  js: "code",
+  jsx: "code",
+  go: "code",
+  py: "code",
+  rs: "code",
+  sh: "code",
+  css: "style",
+  html: "style",
+  json: "data",
+  yml: "data",
+  yaml: "data",
+  sql: "data",
+  md: "text",
+  txt: "text",
 };
 
-function tabMark(id: string): { glyph: string; kind: string } {
-  if (id.startsWith("session:")) return { glyph: "\u25A3", kind: "session" };
-  if (id.startsWith("diff:")) return { glyph: "\u00B1", kind: "diff" };
-  if (id.startsWith("preview:")) return { glyph: "\u25F1", kind: "preview" };
-  if (id.startsWith("files:")) return { glyph: VIEW_GLYPHS.folders, kind: "view" };
+function tabMark(id: string): { icon: IconName; kind: string } {
+  if (id.startsWith("session:")) return { icon: "terminal", kind: "session" };
+  if (id.startsWith("diff:")) return { icon: "diff", kind: "diff" };
+  if (id.startsWith("preview:")) return { icon: "preview", kind: "preview" };
+  if (id.startsWith("files:")) return { icon: VIEW_ICONS.folders, kind: "view" };
   if (id.startsWith("editor:")) {
-    const ext = id.slice(id.lastIndexOf(".") + 1).toLowerCase();
-    return FILE_GLYPHS[ext] ?? { glyph: "\u25A1", kind: "plain" };
+    const path = id.slice("editor:".length);
+    const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+    return { icon: fileIcon(path), kind: FILE_KINDS[ext] ?? "plain" };
   }
-  return { glyph: VIEW_GLYPHS[id] ?? "\u25A1", kind: "view" };
+  return { icon: VIEW_ICONS[id] ?? "file", kind: "view" };
 }
 
 function PanelTab(props: IDockviewPanelHeaderProps) {
@@ -511,7 +516,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
         if (p) void d.requestClose(p);
       }}
     >
-      {isRail ? null : <span className="panelTabIcon" aria-hidden="true">{mark.glyph}</span>}
+      {isRail ? null : <span className="panelTabIcon" aria-hidden="true"><Icon name={mark.icon} /></span>}
       <span className="panelTabName">{title}</span>
       {/* The mark itself stays out of the title text: nothing that reads tab
           titles finds a dot appended to it. */}

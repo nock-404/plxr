@@ -177,9 +177,10 @@ const skinOf = (run) => run(`return document.documentElement.getAttribute("data-
 const started = await skinOf(second);
 
 const changed = await first(`
-  // The gear, by its glyph — not by index or by a title: buttons come and go
-  // in that row, and the hint on it is plxr's own tooltip, not an attribute.
-  const gear = [...document.querySelectorAll(".tools .btn")].find(b => /⚙/.test(b.textContent || ""));
+  // The gear, by what it does — not by index or by a title: buttons come and
+  // go in that row, the hint on it is plxr's own tooltip, and the mark on it
+  // is an icon from whichever pack is chosen.
+  const gear = document.querySelector('.tools [data-do="settings"]');
   if (!gear) return null;
   gear.click();
   await new Promise(r => setTimeout(r, 900));

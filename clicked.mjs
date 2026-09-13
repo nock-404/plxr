@@ -539,8 +539,9 @@ const settings = await run(`
   document.querySelectorAll('.railhome')[0].click();
   await wait(400);
   const before = document.documentElement.getAttribute('data-skin');
-  // The gear, by its glyph — not by index: buttons come and go in that row.
-  [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || b.title || '')).click();
+  // The gear, by what it does — not by index: buttons come and go in that row,
+  // and its mark is an icon from whichever pack is chosen.
+  document.querySelector('.tools [data-do="settings"]').click();
   await wait(700);
   const opened = !!document.querySelector('.settingsPanel');
   // A panel among the others, and the work keeps a usable width beside it.
@@ -615,7 +616,7 @@ claim("settings close again", closed);
  * the right answer the whole time. */
 const asking = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const gear = () => [...document.querySelectorAll('.tools .btn')].find(b => /⚙/.test(b.textContent || ''));
+  const gear = () => document.querySelector('.tools [data-do="settings"]');
   /* The settings are a dock panel, and the gear brings an open one to the
      front instead of opening it again — so between the two openings the panel
      is closed through its own DONE, the way somebody closes it. */
@@ -716,7 +717,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 
   const font = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
+    const gear = document.querySelector('.tools [data-do="settings"]');
     if (gear) gear.click();
     await w(1200);
     const declared = (document.getElementById('plxr-userfonts')?.textContent || '').includes('GateCaveat');
@@ -747,7 +748,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     const w = ms => new Promise(r => setTimeout(r, ms));
     // Open the settings only if they are not already open.
     if (!document.querySelector('.settingsPanel')) {
-      const gear = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⚙/.test(b.textContent || ''));
+      const gear = document.querySelector('.tools [data-do="settings"]');
       if (gear) gear.click();
       await w(1000);
     }
@@ -788,7 +789,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
        .panelTabName — read off the whole tab, the overview was "⊞Overview". */
     const tabName = t => (t.querySelector('.panelTabName')?.textContent ?? '').trim();
     const many = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);
-    const reset = [...document.querySelectorAll('.tools .btn, .tools button')].find(b => /⟲/.test(b.textContent || ''));
+    const reset = document.querySelector('.tools [data-do="reset-layout"]');
     if (reset) reset.click();
     await w(700);
     const afterReset = [...document.querySelectorAll('.dv-tab')].map(tabName).filter(Boolean);

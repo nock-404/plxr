@@ -47,7 +47,44 @@
      edges — the frame of the tab strip; its colours are the skin's. */
   --tabmark-h: 0.125rem;
   --tab-pad-x: 0.625rem;
+
+  /* An icon from the chosen pack, and the smaller one a tree row folds with.
+     Each sits in the slot the glyph it replaced had, so the text beside a mark
+     stands exactly where it stood. A slot only grows — through --icon-slot and
+     --chev-slot — for a pack drawn larger than that glyph was. */
+  --icon: 1rem;
+  --chev: 0.65rem;
+  --icon-slot: 0rem;
+  --chev-slot: 0rem;
+  /* How much of its row's height a mark claims: one line of the row's own
+     type, like the glyph before it — unless a pack is drawn taller than a row
+     can hold without the mark reaching into the next one. */
+  --icon-room: 1em;
+  --chev-room: 1em;
 }
+
+/* Pixel art is only crisp when one unit of its 24-unit grid lands on a whole
+   device pixel, so the pixel pack is sized by the screen rather than to match
+   the other packs: 24 CSS pixels on a plain screen, 12 on a 2x one, and on
+   the densities between whatever makes 24 or 48 device pixels. Never a
+   fraction of a unit — that is the one thing that turns it to mush. */
+[data-icons="pixel"] { --icon: 1.5rem; --chev: 1.5rem; --icon-slot: 1.5rem; --chev-slot: 1.5rem; --icon-room: var(--icon); --chev-room: var(--chev); }
+@media (min-resolution: 1.25dppx) { [data-icons="pixel"] { --icon: 1.2rem; --chev: 1.2rem; --icon-slot: 1.2rem; --chev-slot: 1.2rem; --icon-room: var(--icon); --chev-room: var(--chev); } }
+@media (min-resolution: 1.5dppx) { [data-icons="pixel"] { --icon: 1rem; --chev: 1rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
+@media (min-resolution: 1.75dppx) { [data-icons="pixel"] { --icon: 0.857142857rem; --chev: 0.857142857rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
+@media (min-resolution: 2dppx) { [data-icons="pixel"] { --icon: 0.75rem; --chev: 0.75rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
+@media (min-resolution: 2.5dppx) { [data-icons="pixel"] { --icon: 1.2rem; --chev: 1.2rem; --icon-slot: 1.2rem; --chev-slot: 1.2rem; --icon-room: var(--icon); --chev-room: var(--chev); } }
+@media (min-resolution: 3dppx) { [data-icons="pixel"] { --icon: 1rem; --chev: 1rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
+
+/* An icon takes no more of its row's height than the glyph it replaced did —
+   one line of the row's own type. A little larger than that, it hangs over the
+   row's padding instead of pushing every row below it down; smaller, the row
+   is still as tall as its text. So a row keeps the height it had before there
+   were icons, in every pack. The exception is the pixel pack where its icon
+   has to be 24 CSS pixels to stay crisp: there a tree row grows to hold it,
+   because the other way is icons stacked into each other. */
+.uiIcon { display: block; flex: 0 0 auto; width: var(--icon); height: var(--icon); margin-block: min(0em, calc((var(--icon-room) - var(--icon)) / 2)); overflow: visible; }
+.fchev .uiIcon { width: var(--chev); height: var(--chev); margin-block: min(0em, calc((var(--chev-room) - var(--chev)) / 2)); }
 
 html, body {
   height: 100%;
@@ -234,7 +271,7 @@ body {
 /* Fixed like every other row: a heading that grows with the typeface moves
    every session below it, and the four skins stop lining up. */
 .railgroup { display: flex; align-items: center; height: var(--group-h); padding: 0 0.625rem; }
-.rdot { flex: 0 0 auto; width: 1.1em; text-align: center; line-height: 1; }
+.rdot { flex: 0 0 auto; width: max(1.1em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .rtext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.06rem; }
 .rname, .rsub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rmeta { flex: 0 0 auto; }
@@ -518,8 +555,8 @@ body {
 .filesbar .input { flex: 1; min-width: 0; }
 .filetree { flex: 1; overflow: auto; padding: 0.25rem 0 0.75rem; }
 .frow { display: flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.5rem; cursor: pointer; white-space: nowrap; }
-.fchev { flex: 0 0 auto; width: 0.65rem; text-align: center; line-height: 1; }
-.ficon { flex: 0 0 auto; width: 1em; text-align: center; line-height: 1; }
+.fchev { flex: 0 0 auto; width: max(0.65rem, var(--chev-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.ficon { flex: 0 0 auto; width: max(1em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; padding: 0.625rem 0.75rem 0.75rem; }
@@ -611,6 +648,14 @@ body {
 .tabs { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .tab { cursor: pointer; font: inherit; background: none; }
 .tabbody { display: flex; flex-direction: column; gap: 0.875rem; }
+
+/* The third-party licences: a block per set, and its text as it is written —
+   line breaks kept, long lines wrapped — in a box that scrolls, so six
+   licences do not make the settings a mile long. */
+.licence { display: flex; flex-direction: column; gap: 0.375rem; padding: 0.625rem 0.75rem; }
+.licenceHead { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.75rem; }
+.licenceSource { overflow-wrap: anywhere; }
+.licenceText { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow-y: auto; padding: 0.5rem 0.625rem; }
 
 /* ---------- custom select ---------- */
 
@@ -1043,7 +1088,7 @@ button.diffline { cursor: pointer; }
    sent draws it. */
 .plxrDock .dv-tab::before { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: var(--tabmark-h); pointer-events: none; }
 /* The mark on a tab: one line tall, never squeezed, never wrapped. */
-.panelTabIcon { flex: 0 0 auto; width: 1.15em; text-align: center; line-height: 1; }
+.panelTabIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 /* A tab is only as wide as it needs to be, and the strip scrolls rather than
    squeezing every title into nothing. */
 .plxrDock .dv-tabs-container { min-width: 0; }

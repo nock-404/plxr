@@ -1,6 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
@@ -10,38 +11,40 @@ import { bindingOf, caption, VIEW_ORDER, type Action } from "@/lib/keymap";
 import { detailOf, railLine, stateOf, titleOf, unattended } from "@/lib/state";
 import { isHot, useLimits, worst } from "@/lib/useLimits";
 import type { Tile } from "@/lib/types";
+import type { IconName } from "@/lib/icons";
 
 // The rail always stays, even inside a session — otherwise looking into one
 // loses sight of the rest of the herd.
 export type View = "overview" | "inbox" | "folders" | "changes" | "review" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
 
 /* The mark each view wears — on the rail, and on the tab of the panel it
-   opens, so one thing is one glyph wherever it is met. */
-export const VIEW_GLYPHS: Record<string, string> = {
-  overview: "\u229E",
-  inbox: "\u25C9",
-  folders: "\u25A6",
-  changes: "\u00B1",
-  review: "\u2387",
-  search: "\u2315",
-  ports: "\u21C4",
-  usage: "\u25A4",
-  archive: "\u2338",
-  notes: "\u270E",
-  settings: "\u2699",
+   opens, so one thing is one icon wherever it is met. Names from the icon
+   vocabulary, drawn by whichever pack is chosen. */
+export const VIEW_ICONS: Record<string, IconName> = {
+  overview: "overview",
+  inbox: "inbox",
+  folders: "folder",
+  changes: "changes",
+  review: "review",
+  search: "search",
+  ports: "ports",
+  usage: "usage",
+  archive: "archive",
+  notes: "notes",
+  settings: "settings",
 };
 
-const HOME: { view: View; glyph: string; key: string; fallback: string }[] = [
-  { view: "overview", glyph: VIEW_GLYPHS.overview, key: "rail.overview", fallback: "Overview" },
-  { view: "inbox", glyph: VIEW_GLYPHS.inbox, key: "rail.inbox", fallback: "Inbox" },
-  { view: "folders", glyph: VIEW_GLYPHS.folders, key: "rail.folders", fallback: "Folders" },
-  { view: "changes", glyph: VIEW_GLYPHS.changes, key: "rail.changes", fallback: "Changes" },
-  { view: "review", glyph: VIEW_GLYPHS.review, key: "rail.review", fallback: "Review" },
-  { view: "search", glyph: VIEW_GLYPHS.search, key: "rail.search", fallback: "Search" },
-  { view: "ports", glyph: VIEW_GLYPHS.ports, key: "rail.ports", fallback: "Ports" },
-  { view: "usage", glyph: VIEW_GLYPHS.usage, key: "rail.usage", fallback: "Usage" },
-  { view: "archive", glyph: VIEW_GLYPHS.archive, key: "rail.archive", fallback: "Archive" },
-  { view: "notes", glyph: VIEW_GLYPHS.notes, key: "rail.notes", fallback: "Notes" },
+const HOME: { view: View; key: string; fallback: string }[] = [
+  { view: "overview", key: "rail.overview", fallback: "Overview" },
+  { view: "inbox", key: "rail.inbox", fallback: "Inbox" },
+  { view: "folders", key: "rail.folders", fallback: "Folders" },
+  { view: "changes", key: "rail.changes", fallback: "Changes" },
+  { view: "review", key: "rail.review", fallback: "Review" },
+  { view: "search", key: "rail.search", fallback: "Search" },
+  { view: "ports", key: "rail.ports", fallback: "Ports" },
+  { view: "usage", key: "rail.usage", fallback: "Usage" },
+  { view: "archive", key: "rail.archive", fallback: "Archive" },
+  { view: "notes", key: "rail.notes", fallback: "Notes" },
 ];
 
 // The chord that reaches a view, read off the keymap's own order — never a
@@ -164,7 +167,7 @@ export default function Rail({
             onClick={() => onView(h.view)}
             onContextMenu={ctx(homeMenu(h.view))}
           >
-            <span className="rdot">{h.glyph}</span>
+            <span className="rdot"><Icon name={VIEW_ICONS[h.view]} /></span>
             <span className="rname">{tr(h.key, h.fallback)}</span>
             {hot ? <span className="rmeta">{tr("rail.nearlyOut", "!")}</span> : meta[h.view] ? <span className="rmeta">{meta[h.view]}</span> : null}
           </Button>
@@ -180,7 +183,7 @@ export default function Rail({
       {onNewShell ? (
         <Tooltip text={tr("rail.newShellTip", "A plain shell in the folder of the session you are working in, beside it")}>
           <Button bare className="railitem railhome" data-do="new-shell" onClick={onNewShell}>
-            <span className="rdot">+</span>
+            <span className="rdot"><Icon name="plus" /></span>
             <span className="rname">{tr("rail.newShell", "New shell")}</span>
           </Button>
         </Tooltip>
@@ -199,7 +202,7 @@ export default function Rail({
                 onClick={() => onOpen(t.id)}
                 onContextMenu={ctx(railMenu(t))}
               >
-                <span className={`rdot dot ${stateOf(t)}`}>▣</span>
+                <span className={`rdot dot ${stateOf(t)}`}><Icon name="terminal" /></span>
                 <span className="rtext">
                   <span className="rname">{titleOf(t)}</span>
                   <span className="rsub">{railLine(t)}</span>

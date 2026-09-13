@@ -1,0 +1,1022 @@
+{
+  "generatedBy": "tools/icons/build.py",
+  "sets": {
+    "tabler-icons": {
+      "title": "Tabler Icons",
+      "repo": "https://github.com/tabler/tabler-icons",
+      "commit": "55f87a73f45cf1d9eaf16d7da705065483a9e4f9",
+      "folder": "icons/outline",
+      "licenceFile": "licenses/tabler-icons.txt",
+      "licenceSha256": "b740a1d46122672da62833e97f7e7c8a13fa85cbc7445b584b297cc00dde93db"
+    },
+    "phosphor-core": {
+      "title": "Phosphor Icons",
+      "repo": "https://github.com/phosphor-icons/core",
+      "commit": "2b75f3ad12b420c9504ef05df8d2564a28f8500e",
+      "folder": "assets/regular",
+      "licenceFile": "licenses/phosphor-core.txt",
+      "licenceSha256": "b5b1f1da112d18ea2147decfd48ddc1bf2b5aeb6c265381579340e95b15a2bb2"
+    },
+    "seti-ui": {
+      "title": "Seti UI",
+      "repo": "https://github.com/jesseweed/seti-ui",
+      "commit": "2d6c5e68b4ded73c92dac291845ee44e1182d511",
+      "folder": "icons",
+      "licenceFile": "licenses/seti-ui.txt",
+      "licenceSha256": "d4d2d888c6a0a220a7b0e2d6013cf37539b0e05ef937002b3b33bdb364575b88"
+    },
+    "lucide": {
+      "title": "Lucide",
+      "repo": "https://github.com/lucide-icons/lucide",
+      "commit": "a79b2d131dab2bf20cb224bd0937b439a9c4fa99",
+      "folder": "icons",
+      "licenceFile": "licenses/lucide.txt",
+      "licenceSha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
+    },
+    "catppuccin-vscode-icons": {
+      "title": "Catppuccin VSCode Icons",
+      "repo": "https://github.com/catppuccin/vscode-icons",
+      "commit": "b6915da9f6889b683a110aa747de96c2820a537d",
+      "folder": "icons/css-variables",
+      "licenceFile": "licenses/catppuccin-vscode-icons.txt",
+      "licenceSha256": "dab37945e3097e43c74c08437196152a50f8d5d5e1d0335f469b203e183e21b8"
+    },
+    "pixelarticons": {
+      "title": "Pixelarticons",
+      "repo": "https://github.com/halfmage/pixelarticons",
+      "commit": "8275e0af7c16aa40c54ea2b90b7af83b1fe4eb4c",
+      "folder": "svg",
+      "licenceFile": "licenses/pixelarticons.txt",
+      "licenceSha256": "eb113ac5006542496193a0641f8e90dcaf392e5025540ba45c2ee042af3ae51d"
+    }
+  },
+  "packs": {
+    "tabler": {
+      "overview": {
+        "set": "tabler-icons",
+        "path": "icons/outline/layout-dashboard.svg"
+      },
+      "inbox": {
+        "set": "tabler-icons",
+        "path": "icons/outline/inbox.svg"
+      },
+      "folder": {
+        "set": "tabler-icons",
+        "path": "icons/outline/folder.svg"
+      },
+      "changes": {
+        "set": "tabler-icons",
+        "path": "icons/outline/git-compare.svg"
+      },
+      "review": {
+        "set": "tabler-icons",
+        "path": "icons/outline/git-pull-request.svg"
+      },
+      "search": {
+        "set": "tabler-icons",
+        "path": "icons/outline/search.svg"
+      },
+      "ports": {
+        "set": "tabler-icons",
+        "path": "icons/outline/plug-connected.svg"
+      },
+      "usage": {
+        "set": "tabler-icons",
+        "path": "icons/outline/chart-bar.svg"
+      },
+      "archive": {
+        "set": "tabler-icons",
+        "path": "icons/outline/archive.svg"
+      },
+      "notes": {
+        "set": "tabler-icons",
+        "path": "icons/outline/notes.svg"
+      },
+      "settings": {
+        "set": "tabler-icons",
+        "path": "icons/outline/settings.svg"
+      },
+      "terminal": {
+        "set": "tabler-icons",
+        "path": "icons/outline/terminal-2.svg"
+      },
+      "file": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file.svg"
+      },
+      "close": {
+        "set": "tabler-icons",
+        "path": "icons/outline/x.svg"
+      },
+      "chevron-right": {
+        "set": "tabler-icons",
+        "path": "icons/outline/chevron-right.svg"
+      },
+      "chevron-down": {
+        "set": "tabler-icons",
+        "path": "icons/outline/chevron-down.svg"
+      },
+      "play": {
+        "set": "tabler-icons",
+        "path": "icons/outline/player-play.svg"
+      },
+      "pause": {
+        "set": "tabler-icons",
+        "path": "icons/outline/player-pause.svg"
+      },
+      "stop": {
+        "set": "tabler-icons",
+        "path": "icons/outline/player-stop.svg"
+      },
+      "warning": {
+        "set": "tabler-icons",
+        "path": "icons/outline/alert-triangle.svg"
+      },
+      "check": {
+        "set": "tabler-icons",
+        "path": "icons/outline/check.svg"
+      },
+      "git-branch": {
+        "set": "tabler-icons",
+        "path": "icons/outline/git-branch.svg"
+      },
+      "diff": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-diff.svg"
+      },
+      "help": {
+        "set": "tabler-icons",
+        "path": "icons/outline/help.svg"
+      },
+      "reset": {
+        "set": "tabler-icons",
+        "path": "icons/outline/restore.svg"
+      },
+      "plus": {
+        "set": "tabler-icons",
+        "path": "icons/outline/plus.svg"
+      },
+      "preview": {
+        "set": "tabler-icons",
+        "path": "icons/outline/app-window.svg"
+      },
+      "file-code": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-code.svg"
+      },
+      "file-ts": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-ts.svg"
+      },
+      "file-tsx": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-tsx.svg"
+      },
+      "file-js": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-js.svg"
+      },
+      "file-jsx": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-jsx.svg"
+      },
+      "file-go": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-code.svg"
+      },
+      "file-py": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-code.svg"
+      },
+      "file-rs": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-rs.svg"
+      },
+      "file-php": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-php.svg"
+      },
+      "file-shell": {
+        "set": "tabler-icons",
+        "path": "icons/outline/script.svg"
+      },
+      "file-css": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-css.svg"
+      },
+      "file-html": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-html.svg"
+      },
+      "file-json": {
+        "set": "tabler-icons",
+        "path": "icons/outline/braces.svg"
+      },
+      "file-config": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-settings.svg"
+      },
+      "file-env": {
+        "set": "tabler-icons",
+        "path": "icons/outline/key.svg"
+      },
+      "file-sql": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-sql.svg"
+      },
+      "file-csv": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-csv.svg"
+      },
+      "file-markdown": {
+        "set": "tabler-icons",
+        "path": "icons/outline/markdown.svg"
+      },
+      "file-text": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-txt.svg"
+      },
+      "file-png": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-png.svg"
+      },
+      "file-jpg": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-jpg.svg"
+      },
+      "file-svg": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-svg.svg"
+      },
+      "file-image": {
+        "set": "tabler-icons",
+        "path": "icons/outline/photo.svg"
+      },
+      "file-zip": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-type-zip.svg"
+      },
+      "file-archive": {
+        "set": "tabler-icons",
+        "path": "icons/outline/file-zip.svg"
+      },
+      "file-lock": {
+        "set": "tabler-icons",
+        "path": "icons/outline/lock.svg"
+      },
+      "file-manifest": {
+        "set": "tabler-icons",
+        "path": "icons/outline/package.svg"
+      },
+      "file-build": {
+        "set": "tabler-icons",
+        "path": "icons/outline/tool.svg"
+      },
+      "file-readme": {
+        "set": "tabler-icons",
+        "path": "icons/outline/book.svg"
+      }
+    },
+    "phosphor": {
+      "overview": {
+        "set": "phosphor-core",
+        "path": "assets/regular/squares-four.svg"
+      },
+      "inbox": {
+        "set": "phosphor-core",
+        "path": "assets/regular/tray.svg"
+      },
+      "folder": {
+        "set": "phosphor-core",
+        "path": "assets/regular/folder.svg"
+      },
+      "changes": {
+        "set": "phosphor-core",
+        "path": "assets/regular/git-diff.svg"
+      },
+      "review": {
+        "set": "phosphor-core",
+        "path": "assets/regular/git-pull-request.svg"
+      },
+      "search": {
+        "set": "phosphor-core",
+        "path": "assets/regular/magnifying-glass.svg"
+      },
+      "ports": {
+        "set": "phosphor-core",
+        "path": "assets/regular/plugs-connected.svg"
+      },
+      "usage": {
+        "set": "phosphor-core",
+        "path": "assets/regular/chart-bar.svg"
+      },
+      "archive": {
+        "set": "phosphor-core",
+        "path": "assets/regular/archive.svg"
+      },
+      "notes": {
+        "set": "phosphor-core",
+        "path": "assets/regular/note-pencil.svg"
+      },
+      "settings": {
+        "set": "phosphor-core",
+        "path": "assets/regular/gear-six.svg"
+      },
+      "terminal": {
+        "set": "phosphor-core",
+        "path": "assets/regular/terminal-window.svg"
+      },
+      "file": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file.svg"
+      },
+      "close": {
+        "set": "phosphor-core",
+        "path": "assets/regular/x.svg"
+      },
+      "chevron-right": {
+        "set": "phosphor-core",
+        "path": "assets/regular/caret-right.svg"
+      },
+      "chevron-down": {
+        "set": "phosphor-core",
+        "path": "assets/regular/caret-down.svg"
+      },
+      "play": {
+        "set": "phosphor-core",
+        "path": "assets/regular/play.svg"
+      },
+      "pause": {
+        "set": "phosphor-core",
+        "path": "assets/regular/pause.svg"
+      },
+      "stop": {
+        "set": "phosphor-core",
+        "path": "assets/regular/stop.svg"
+      },
+      "warning": {
+        "set": "phosphor-core",
+        "path": "assets/regular/warning.svg"
+      },
+      "check": {
+        "set": "phosphor-core",
+        "path": "assets/regular/check.svg"
+      },
+      "git-branch": {
+        "set": "phosphor-core",
+        "path": "assets/regular/git-branch.svg"
+      },
+      "diff": {
+        "set": "phosphor-core",
+        "path": "assets/regular/plus-minus.svg"
+      },
+      "help": {
+        "set": "phosphor-core",
+        "path": "assets/regular/question.svg"
+      },
+      "reset": {
+        "set": "phosphor-core",
+        "path": "assets/regular/arrow-counter-clockwise.svg"
+      },
+      "plus": {
+        "set": "phosphor-core",
+        "path": "assets/regular/plus.svg"
+      },
+      "preview": {
+        "set": "phosphor-core",
+        "path": "assets/regular/browser.svg"
+      },
+      "file-code": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-code.svg"
+      },
+      "file-ts": {
+        "set": "seti-ui",
+        "path": "icons/typescript.svg"
+      },
+      "file-tsx": {
+        "set": "seti-ui",
+        "path": "icons/typescript.svg"
+      },
+      "file-js": {
+        "set": "seti-ui",
+        "path": "icons/javascript.svg"
+      },
+      "file-jsx": {
+        "set": "seti-ui",
+        "path": "icons/javascript.svg"
+      },
+      "file-go": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-code.svg"
+      },
+      "file-py": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-py.svg"
+      },
+      "file-rs": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-rs.svg"
+      },
+      "file-php": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-code.svg"
+      },
+      "file-shell": {
+        "set": "seti-ui",
+        "path": "icons/shell.svg"
+      },
+      "file-css": {
+        "set": "seti-ui",
+        "path": "icons/css.svg"
+      },
+      "file-html": {
+        "set": "seti-ui",
+        "path": "icons/html.svg"
+      },
+      "file-json": {
+        "set": "seti-ui",
+        "path": "icons/json.svg"
+      },
+      "file-config": {
+        "set": "seti-ui",
+        "path": "icons/config.svg"
+      },
+      "file-env": {
+        "set": "seti-ui",
+        "path": "icons/settings.svg"
+      },
+      "file-sql": {
+        "set": "seti-ui",
+        "path": "icons/db.svg"
+      },
+      "file-csv": {
+        "set": "seti-ui",
+        "path": "icons/csv.svg"
+      },
+      "file-markdown": {
+        "set": "seti-ui",
+        "path": "icons/markdown.svg"
+      },
+      "file-text": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-text.svg",
+        "refused": [
+          {
+            "set": "seti-ui",
+            "path": "icons/default.svg",
+            "why": "viewBox '0 0 1200 1000', the set's is '0 0 32 32'"
+          }
+        ]
+      },
+      "file-png": {
+        "set": "seti-ui",
+        "path": "icons/image.svg"
+      },
+      "file-jpg": {
+        "set": "seti-ui",
+        "path": "icons/image.svg"
+      },
+      "file-svg": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-svg.svg",
+        "refused": [
+          {
+            "set": "seti-ui",
+            "path": "icons/svg.svg",
+            "why": "uses opacity"
+          }
+        ]
+      },
+      "file-image": {
+        "set": "seti-ui",
+        "path": "icons/image.svg"
+      },
+      "file-zip": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-zip.svg",
+        "refused": [
+          {
+            "set": "seti-ui",
+            "path": "icons/zip.svg",
+            "why": "viewBox '0 0 1200 1000', the set's is '0 0 32 32'"
+          }
+        ]
+      },
+      "file-archive": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-archive.svg",
+        "refused": [
+          {
+            "set": "seti-ui",
+            "path": "icons/zip.svg",
+            "why": "viewBox '0 0 1200 1000', the set's is '0 0 32 32'"
+          }
+        ]
+      },
+      "file-lock": {
+        "set": "phosphor-core",
+        "path": "assets/regular/file-lock.svg",
+        "refused": [
+          {
+            "set": "seti-ui",
+            "path": "icons/lock.svg",
+            "why": "viewBox '0 0 1200 1000', the set's is '0 0 32 32'"
+          }
+        ]
+      },
+      "file-manifest": {
+        "set": "phosphor-core",
+        "path": "assets/regular/package.svg"
+      },
+      "file-build": {
+        "set": "seti-ui",
+        "path": "icons/makefile.svg"
+      },
+      "file-readme": {
+        "set": "seti-ui",
+        "path": "icons/info.svg"
+      }
+    },
+    "lucide": {
+      "overview": {
+        "set": "lucide",
+        "path": "icons/layout-dashboard.svg"
+      },
+      "inbox": {
+        "set": "lucide",
+        "path": "icons/inbox.svg"
+      },
+      "folder": {
+        "set": "lucide",
+        "path": "icons/folder.svg"
+      },
+      "changes": {
+        "set": "lucide",
+        "path": "icons/git-compare.svg"
+      },
+      "review": {
+        "set": "lucide",
+        "path": "icons/git-pull-request.svg"
+      },
+      "search": {
+        "set": "lucide",
+        "path": "icons/search.svg"
+      },
+      "ports": {
+        "set": "lucide",
+        "path": "icons/ethernet-port.svg"
+      },
+      "usage": {
+        "set": "lucide",
+        "path": "icons/chart-column.svg"
+      },
+      "archive": {
+        "set": "lucide",
+        "path": "icons/archive.svg"
+      },
+      "notes": {
+        "set": "lucide",
+        "path": "icons/notebook-pen.svg"
+      },
+      "settings": {
+        "set": "lucide",
+        "path": "icons/settings.svg"
+      },
+      "terminal": {
+        "set": "lucide",
+        "path": "icons/square-terminal.svg"
+      },
+      "file": {
+        "set": "lucide",
+        "path": "icons/file.svg"
+      },
+      "close": {
+        "set": "lucide",
+        "path": "icons/x.svg"
+      },
+      "chevron-right": {
+        "set": "lucide",
+        "path": "icons/chevron-right.svg"
+      },
+      "chevron-down": {
+        "set": "lucide",
+        "path": "icons/chevron-down.svg"
+      },
+      "play": {
+        "set": "lucide",
+        "path": "icons/play.svg"
+      },
+      "pause": {
+        "set": "lucide",
+        "path": "icons/pause.svg"
+      },
+      "stop": {
+        "set": "lucide",
+        "path": "icons/square.svg"
+      },
+      "warning": {
+        "set": "lucide",
+        "path": "icons/triangle-alert.svg"
+      },
+      "check": {
+        "set": "lucide",
+        "path": "icons/check.svg"
+      },
+      "git-branch": {
+        "set": "lucide",
+        "path": "icons/git-branch.svg"
+      },
+      "diff": {
+        "set": "lucide",
+        "path": "icons/diff.svg"
+      },
+      "help": {
+        "set": "lucide",
+        "path": "icons/circle-question-mark.svg"
+      },
+      "reset": {
+        "set": "lucide",
+        "path": "icons/rotate-ccw.svg"
+      },
+      "plus": {
+        "set": "lucide",
+        "path": "icons/plus.svg"
+      },
+      "preview": {
+        "set": "lucide",
+        "path": "icons/app-window.svg"
+      },
+      "file-code": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-ts": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/typescript.svg"
+      },
+      "file-tsx": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/typescript.svg"
+      },
+      "file-js": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/javascript.svg"
+      },
+      "file-jsx": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/javascript.svg"
+      },
+      "file-go": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-py": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-rs": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-php": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-shell": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/bash.svg"
+      },
+      "file-css": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/css.svg"
+      },
+      "file-html": {
+        "set": "lucide",
+        "path": "icons/file-code.svg"
+      },
+      "file-json": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/json.svg"
+      },
+      "file-config": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/config.svg"
+      },
+      "file-env": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/env.svg"
+      },
+      "file-sql": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/database.svg"
+      },
+      "file-csv": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/csv.svg"
+      },
+      "file-markdown": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/markdown.svg"
+      },
+      "file-text": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/text.svg"
+      },
+      "file-png": {
+        "set": "lucide",
+        "path": "icons/file-image.svg",
+        "refused": [
+          {
+            "set": "catppuccin-vscode-icons",
+            "path": "icons/css-variables/image.svg",
+            "why": "needs 3 colours to be read: var(--vscode-ctp-green), var(--vscode-ctp-sapphire), var(--vscode-ctp-yellow)"
+          }
+        ]
+      },
+      "file-jpg": {
+        "set": "lucide",
+        "path": "icons/file-image.svg",
+        "refused": [
+          {
+            "set": "catppuccin-vscode-icons",
+            "path": "icons/css-variables/image.svg",
+            "why": "needs 3 colours to be read: var(--vscode-ctp-green), var(--vscode-ctp-sapphire), var(--vscode-ctp-yellow)"
+          }
+        ]
+      },
+      "file-svg": {
+        "set": "lucide",
+        "path": "icons/file-image.svg"
+      },
+      "file-image": {
+        "set": "lucide",
+        "path": "icons/file-image.svg",
+        "refused": [
+          {
+            "set": "catppuccin-vscode-icons",
+            "path": "icons/css-variables/image.svg",
+            "why": "needs 3 colours to be read: var(--vscode-ctp-green), var(--vscode-ctp-sapphire), var(--vscode-ctp-yellow)"
+          }
+        ]
+      },
+      "file-zip": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/zip.svg"
+      },
+      "file-archive": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/zip.svg"
+      },
+      "file-lock": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/lock.svg"
+      },
+      "file-manifest": {
+        "set": "lucide",
+        "path": "icons/package.svg"
+      },
+      "file-build": {
+        "set": "lucide",
+        "path": "icons/hammer.svg",
+        "refused": [
+          {
+            "set": "catppuccin-vscode-icons",
+            "path": "icons/css-variables/makefile.svg",
+            "why": "needs 2 colours to be read: var(--vscode-ctp-peach), var(--vscode-ctp-text)"
+          }
+        ]
+      },
+      "file-readme": {
+        "set": "catppuccin-vscode-icons",
+        "path": "icons/css-variables/readme.svg"
+      }
+    },
+    "pixel": {
+      "overview": {
+        "set": "pixelarticons",
+        "path": "svg/grid-2x2-2.svg"
+      },
+      "inbox": {
+        "set": "pixelarticons",
+        "path": "svg/inbox.svg"
+      },
+      "folder": {
+        "set": "pixelarticons",
+        "path": "svg/folder.svg"
+      },
+      "changes": {
+        "set": "pixelarticons",
+        "path": "svg/git-commit.svg"
+      },
+      "review": {
+        "set": "pixelarticons",
+        "path": "svg/git-pull-request.svg"
+      },
+      "search": {
+        "set": "pixelarticons",
+        "path": "svg/search.svg"
+      },
+      "ports": {
+        "set": "plxr",
+        "what": "a network socket with three contacts and its latch"
+      },
+      "usage": {
+        "set": "pixelarticons",
+        "path": "svg/chart-bar-big.svg"
+      },
+      "archive": {
+        "set": "pixelarticons",
+        "path": "svg/archive.svg"
+      },
+      "notes": {
+        "set": "pixelarticons",
+        "path": "svg/notes.svg"
+      },
+      "settings": {
+        "set": "pixelarticons",
+        "path": "svg/settings-cog.svg"
+      },
+      "terminal": {
+        "set": "pixelarticons",
+        "path": "svg/terminal.svg"
+      },
+      "file": {
+        "set": "pixelarticons",
+        "path": "svg/file.svg"
+      },
+      "close": {
+        "set": "pixelarticons",
+        "path": "svg/close.svg"
+      },
+      "chevron-right": {
+        "set": "pixelarticons",
+        "path": "svg/chevron-right.svg"
+      },
+      "chevron-down": {
+        "set": "pixelarticons",
+        "path": "svg/chevron-down.svg"
+      },
+      "play": {
+        "set": "pixelarticons",
+        "path": "svg/play.svg"
+      },
+      "pause": {
+        "set": "pixelarticons",
+        "path": "svg/pause.svg"
+      },
+      "stop": {
+        "set": "pixelarticons",
+        "path": "svg/stop.svg"
+      },
+      "warning": {
+        "set": "pixelarticons",
+        "path": "svg/warning-diamond.svg"
+      },
+      "check": {
+        "set": "pixelarticons",
+        "path": "svg/check.svg"
+      },
+      "git-branch": {
+        "set": "pixelarticons",
+        "path": "svg/git-branch.svg"
+      },
+      "diff": {
+        "set": "plxr",
+        "what": "plus over minus"
+      },
+      "help": {
+        "set": "pixelarticons",
+        "path": "svg/circle-question.svg"
+      },
+      "reset": {
+        "set": "pixelarticons",
+        "path": "svg/reload.svg"
+      },
+      "plus": {
+        "set": "pixelarticons",
+        "path": "svg/plus.svg"
+      },
+      "preview": {
+        "set": "pixelarticons",
+        "path": "svg/monitor.svg"
+      },
+      "file-code": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-ts": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-tsx": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-js": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-jsx": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-go": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-py": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-rs": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-php": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-shell": {
+        "set": "pixelarticons",
+        "path": "svg/script.svg"
+      },
+      "file-css": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-html": {
+        "set": "pixelarticons",
+        "path": "svg/code.svg"
+      },
+      "file-json": {
+        "set": "pixelarticons",
+        "path": "svg/braces.svg"
+      },
+      "file-config": {
+        "set": "pixelarticons",
+        "path": "svg/sliders.svg"
+      },
+      "file-env": {
+        "set": "pixelarticons",
+        "path": "svg/key.svg"
+      },
+      "file-sql": {
+        "set": "pixelarticons",
+        "path": "svg/database.svg"
+      },
+      "file-csv": {
+        "set": "pixelarticons",
+        "path": "svg/file-text.svg"
+      },
+      "file-markdown": {
+        "set": "pixelarticons",
+        "path": "svg/article.svg"
+      },
+      "file-text": {
+        "set": "pixelarticons",
+        "path": "svg/file-text.svg"
+      },
+      "file-png": {
+        "set": "pixelarticons",
+        "path": "svg/image.svg"
+      },
+      "file-jpg": {
+        "set": "pixelarticons",
+        "path": "svg/image.svg"
+      },
+      "file-svg": {
+        "set": "pixelarticons",
+        "path": "svg/image.svg"
+      },
+      "file-image": {
+        "set": "pixelarticons",
+        "path": "svg/image.svg"
+      },
+      "file-zip": {
+        "set": "pixelarticons",
+        "path": "svg/archive.svg"
+      },
+      "file-archive": {
+        "set": "pixelarticons",
+        "path": "svg/archive.svg"
+      },
+      "file-lock": {
+        "set": "pixelarticons",
+        "path": "svg/lock.svg"
+      },
+      "file-manifest": {
+        "set": "pixelarticons",
+        "path": "svg/package.svg"
+      },
+      "file-build": {
+        "set": "pixelarticons",
+        "path": "svg/tools.svg"
+      },
+      "file-readme": {
+        "set": "pixelarticons",
+        "path": "svg/book-open.svg"
+      }
+    }
+  }
+}
