@@ -837,6 +837,21 @@ func (s *Server) Routes() *http.ServeMux {
 		}
 		writeJSON(w, report)
 	})
+	/* Go to file: the names under a root that match what is typed, best
+	   first. A GET, because nothing changes and the palette asks again at
+	   every keystroke. */
+	mux.HandleFunc("GET /api/names/{id}", func(w http.ResponseWriter, r *http.Request) {
+		report, err := s.c.Names(r.PathValue("id"), r.URL.Query().Get("q"))
+		if err != nil {
+			code := http.StatusBadRequest
+			if forbidden(err) {
+				code = http.StatusForbidden
+			}
+			http.Error(w, err.Error(), code)
+			return
+		}
+		writeJSON(w, report)
+	})
 	/* Reaching plxr from another machine.
 	 *
 	 * Off unless it is asked for, and asking for it takes a restart: the

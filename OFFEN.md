@@ -786,9 +786,9 @@ the second.
   under ten view buttons.
 - **N4 Every click opens a tab.** (on main 13.09: one tool per side region, a second click puts it away) In the side regions one view at a time
   belongs there, not a growing stack.
-- **N5 There is no file-first navigation.** No go-to-file, no find-in-project
+- **N5 There is no file-first navigation.** (half, on main 13.09: go to file from ⌘K by typing part of a name; symbol jumps and back/forward still open) No go-to-file, no find-in-project
   from the keyboard, no go-to-symbol, no back and forward through history.
-- **N6 There is no go-to-anything.** Files, sessions, commands, settings and
+- **N6 There is no go-to-anything.** (half, on main 13.09: ⌘K reaches commands, views, sessions, recently closed panels and files; settings pages and symbols not yet) Files, sessions, commands, settings and
   symbols in one box, the way double-shift works in PhpStorm.
 - **N7 The keys are numbered.** view1 to view10 by rail order, which nobody
   remembers. The familiar VS Code chords are what a replacement must answer to.

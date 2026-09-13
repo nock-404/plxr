@@ -423,6 +423,15 @@ export interface FindHit {
   ranges: [number, number][];
 }
 
+/* Files whose names match what was typed, best first — go to file. capped
+   names every bound the service reached, the way FindReport does. */
+export interface NamesReport {
+  paths: string[];
+  total: number;
+  capped: string[];
+  took_ms: number;
+}
+
 export interface FindReport {
   hits: FindHit[];
   files: number;

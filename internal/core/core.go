@@ -1732,6 +1732,15 @@ func (c *Core) Find(id string, q find.Query) (find.Report, error) {
 	return find.Search(root, q)
 }
 
+// Names finds files by name under a session's or a folder's root — go to file.
+func (c *Core) Names(id, q string) (find.NamesReport, error) {
+	root, err := c.root(id)
+	if err != nil {
+		return find.NamesReport{}, err
+	}
+	return find.Names(root, q, find.MaxNames)
+}
+
 // Workspaces lists the folders that are open, whether or not anything runs in
 // them.
 func (c *Core) Workspaces() []workspace.Workspace {

@@ -28,6 +28,7 @@ PAIRS = {
     "AccountUsage": ("internal/usage/limits.go", None),
     "UsageWindow": ("internal/usage/limits.go", None),
     "AccountUsageReport": ("internal/usage/limits.go", None),
+    "NamesReport": ("internal/find/names.go", None),
 }
 
 

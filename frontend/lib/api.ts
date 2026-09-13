@@ -1,11 +1,7 @@
 "use client";
 
 import { base, token } from "./token";
-import type {
-  Account, AccountUsageReport, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
-  NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia,
-  FolderReport, GitCommitDetail,
-} from "./types";
+import type { Account, AccountUsageReport, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port, NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia, FolderReport, GitCommitDetail, NamesReport } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
   const { text, headers, ...rest } = opts;
@@ -198,6 +194,9 @@ export const api = {
 
   version: () => req<VersionInfo>("/api/version"),
 
+  // Go to file: names under a session's or a folder's root that match q.
+  names: (id: string, q: string) =>
+    req<NamesReport>(`/api/names/${encodeURIComponent(id)}?q=${encodeURIComponent(q)}`),
   listDir: (id: string, dir = "") =>
     req<FileEntry[]>(`/api/files/${encodeURIComponent(id)}?dir=${encodeURIComponent(dir)}`),
   readFile: (id: string, path: string) =>

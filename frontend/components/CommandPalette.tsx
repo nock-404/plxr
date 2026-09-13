@@ -39,22 +39,50 @@ function score(query: string, text: string): number {
 
 export default function CommandPalette({
   commands,
+  search,
   onClose,
 }: {
   commands: Command[];
+  /* Commands that have to be asked for: the files whose names match what is
+     typed. Asked a moment after typing stops, and an answer that arrives after
+     the query has moved on is thrown away. */
+  search?: (q: string) => Promise<Command[]>;
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+  // null while an answer is on its way, so the list does not say "nothing
+  // matches" about files it has not been told about yet.
+  const [found, setFound] = useState<Command[] | null>(null);
+
+  useEffect(() => {
+    const text = q.trim();
+    if (!search || text.length < 2) {
+      setFound([]);
+      return;
+    }
+    setFound(null);
+    let stale = false;
+    const t = window.setTimeout(() => {
+      void search(text)
+        .then((rows) => !stale && setFound(rows))
+        .catch(() => !stale && setFound([]));
+    }, 150);
+    return () => {
+      stale = true;
+      window.clearTimeout(t);
+    };
+  }, [q, search]);
 
   const matches = useMemo(() => {
     const scored = commands
       .map((c) => ({ c, s: score(q, `${c.group ? c.group + " " : ""}${c.label}`) }))
       .filter((x) => x.s > -1);
     scored.sort((a, b) => b.s - a.s);
-    return scored.map((x) => x.c).slice(0, 50);
-  }, [commands, q]);
+    const own = scored.map((x) => x.c).slice(0, 50);
+    return [...own, ...(found ?? [])].slice(0, 80);
+  }, [commands, q, found]);
 
   useEffect(() => setActive(0), [q]);
 
@@ -97,7 +125,7 @@ export default function CommandPalette({
           }}
         />
         <div className="paletteList" ref={listRef} role="listbox">
-          {matches.length === 0 ? (
+          {matches.length === 0 && found !== null ? (
             <div className="paletteEmpty">{tr("palette.none", "no command matches")}</div>
           ) : (
             matches.map((c, i) => (

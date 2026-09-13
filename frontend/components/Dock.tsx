@@ -830,9 +830,14 @@ export default function Dock({
    * editor or a diff which file it was on, all gone. The last twenty panels
    * closed by hand are remembered with where they were, ⇧⌘T opens the last
    * one again, and the palette lists them. */
-  const [closed, setClosed] = useState<ClosedPanel[]>([]);
-  const closedRef = useRef(closed);
-  closedRef.current = closed;
+  /* Bookkeeping rather than an answer from anywhere, so it lives in a ref and a
+     revision number tells the palette when it changed. */
+  const closedRef = useRef<ClosedPanel[]>([]);
+  const [closedRev, setClosedRev] = useState(0);
+  const setClosed = useCallback((next: (list: ClosedPanel[]) => ClosedPanel[]) => {
+    closedRef.current = next(closedRef.current);
+    setClosedRev((n) => n + 1);
+  }, []);
   const remember = useCallback((panel: IDockviewPanel) => {
     const id = panel.id;
     const entry: ClosedPanel = {
@@ -843,7 +848,7 @@ export default function Dock({
       region: panel.api.location.type === "grid" ? regionOfGroup(panel.group) : undefined,
     };
     setClosed((list) => [entry, ...list.filter((c) => c.id !== id)].slice(0, 20));
-  }, []);
+  }, [setClosed]);
   const reopen = useCallback((id?: string) => {
     const dv = apiRef.current;
     if (!dv) return;
@@ -852,7 +857,7 @@ export default function Dock({
     if (!entry) return;
     openOrFocus(dv, entry.id, entry.component, entry.title, entry.params, entry.region);
     setClosed((l) => l.filter((c) => c.id !== entry.id));
-  }, []);
+  }, [setClosed]);
 
   const [closeAsk, setCloseAsk] = useState<{ name: string; answer: (r: "keep" | "kill" | "cancel") => void } | null>(null);
   const requestClose = useCallback((panel: IDockviewPanel): Promise<CloseResult> => {
@@ -981,6 +986,27 @@ export default function Dock({
       .catch(() => undefined);
   }, []);
 
+  /* Go to file, from the palette: names under the folder of the session worked
+     in last, or the path field's folder when no session has been, opened as an
+     editor beside the work. */
+  const searchFiles = useCallback(
+    async (q: string): Promise<Command[]> => {
+      const { tiles: ts, here: h } = rootDirRef.current;
+      const tile = ts.find((t) => t.id === lastSessionRef.current);
+      const rootId = tile ? tile.id : h ? `dir:${h}` : "";
+      if (!rootId) return [];
+      const report = await api.names(rootId, q).catch(() => null);
+      if (!report) return [];
+      return report.paths.map((path) => ({
+        id: `file:${rootId}:${path}`,
+        group: tr("palette.file", "File"),
+        label: path,
+        run: () => openEditor(rootId, path),
+      }));
+    },
+    [openEditor],
+  );
+
   const data = useMemo<DockData>(
     () => ({
       tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
@@ -1028,7 +1054,7 @@ export default function Dock({
       }
       return rows;
     });
-    const recent: Command[] = closed.slice(0, 10).map((c, i) => ({
+    const recent: Command[] = closedRef.current.slice(0, 10).map((c, i) => ({
       id: `reopen:${c.id}`,
       group: tr("palette.recent", "Recently closed"),
       label: tr("palette.reopen", "Reopen {name}", { name: c.title }),
@@ -1036,7 +1062,9 @@ export default function Dock({
       run: () => reopen(c.id),
     }));
     return [...appCommands, ...recent, ...views, ...sessions];
-  }, [appCommands, tiles, openPanel, openSession, openFiles, closed, reopen]);
+    // closedRev is read for its change, not its value: the list sits in the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appCommands, tiles, openPanel, openSession, openFiles, closedRev, reopen]);
 
   /* What the shell asks for: a reset, a preset to apply, a name to save the
      arrangement under, or an activity to arrange for. Each request is new by
@@ -1190,7 +1218,7 @@ export default function Dock({
           />
         </div>
       </InlineStrip.Provider>
-      {paletteOpen ? <CommandPalette commands={commands} onClose={onClosePalette} /> : null}
+      {paletteOpen ? <CommandPalette commands={commands} search={searchFiles} onClose={onClosePalette} /> : null}
       {closeAsk ? (
         <Ask
           heading={tr("dock.closeLiveHead", "This session is still running")}

@@ -1316,5 +1316,6 @@
   "tab.restore": "Restore size",
   "keys.reopenPanel": "Reopen the panel closed last",
   "palette.recent": "Recently closed",
-  "palette.reopen": "Reopen {name}"
+  "palette.reopen": "Reopen {name}",
+  "palette.file": "File"
 }
