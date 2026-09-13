@@ -259,7 +259,7 @@ const HELPERS = `${GATEKIT}
 
 // ---- the view opens, with the folder in it ---------------------------------
 const opened = await run(`${HELPERS}
-  openDoc('folders');
+  await openDoc('folders');
   await wait(2500);
   return {
     tabs: [...document.querySelectorAll('.folderTab')].map(t => t.textContent.trim()),
@@ -299,7 +299,7 @@ const reload = async () => {
 };
 await reload();
 const bar = await run(`${HELPERS}
-  openDoc('folders'); await wait(2000);
+  await openDoc('folders'); await wait(2000);
   const box = document.querySelector('.folderbar').getBoundingClientRect();
   const visible = e => e.offsetParent !== null && !e.closest('.obarMeasureBox');
   const out = [...document.querySelectorAll('.folderbar *')]

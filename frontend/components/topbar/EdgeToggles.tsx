@@ -1,0 +1,40 @@
+"use client";
+
+import Button from "@/components/ui/Button";
+import Icon from "@/components/ui/Icon";
+import Tooltip from "@/components/ui/Tooltip";
+import { tr } from "@/lib/i18n";
+import { edgeChordOf, type Edge, type ToolId } from "@/lib/tools";
+
+/* The three edges of the dock, each a button in the top bar.
+ *
+ * ⌘B ⌥⌘B ⌘J show and hide a whole edge, and a key nobody can see is a key
+ * nobody finds: every action has a control on screen. A button is pressed
+ * while its edge shows a tool; on an edge with nothing on it the press says so
+ * on that edge's stripe instead of doing nothing without a word. In the order
+ * the edges lie on screen: left, bottom, right. */
+const ORDER: Edge[] = ["left", "bottom", "right"];
+
+export default function EdgeToggles({ shown, onToggle }: { shown: Record<Edge, ToolId | null>; onToggle: (edge: Edge) => void }) {
+  const texts: Record<Edge, string> = {
+    left: tr("keys.toggleLeft", "Show or hide the left tool window"),
+    right: tr("keys.toggleRight", "Show or hide the right tool window"),
+    bottom: tr("keys.toggleBottom", "Show or hide the bottom tool window"),
+  };
+  const icons = { left: "panel-left", right: "panel-right", bottom: "panel-bottom" } as const;
+  return (
+    <span className="edgeToggles">
+      {ORDER.map((edge) => {
+        const on = shown[edge] !== null;
+        const key = edgeChordOf(edge);
+        return (
+          <Tooltip key={edge} text={key ? `${texts[edge]} ${key}` : texts[edge]}>
+            <Button icon on={on} data-do={`toggle-${edge}`} aria-pressed={on} aria-label={texts[edge]} onClick={() => onToggle(edge)}>
+              <Icon name={icons[edge]} />
+            </Button>
+          </Tooltip>
+        );
+      })}
+    </span>
+  );
+}

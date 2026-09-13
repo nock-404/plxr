@@ -20,6 +20,7 @@ import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
 import ProjectSwitch from "@/components/topbar/ProjectSwitch";
 import SessionSwitch from "@/components/topbar/SessionSwitch";
+import EdgeToggles from "@/components/topbar/EdgeToggles";
 import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
@@ -61,13 +62,13 @@ function activityLabel(a: Activity): string {
   }
 }
 
-// The control room. Title bar, status strip, rail, content — the arrangement
-// stays the same in every skin; only the dressing changes.
+// The control room. Title bar, status strip, the dock with its stripes — the
+// arrangement stays the same in every skin; only the dressing changes.
 export default function App() {
   const { tiles, connected } = useTiles();
-  // Navigation lives in the dock now — the rail is a panel like any other and
-  // drives it through the dock's own actions. App keeps only what opens a panel
-  // from outside the dock: a freshly created session.
+  // Navigation lives in the dock: its stripes and its panels drive it through
+  // the dock's own actions. App keeps what reaches the dock from outside it —
+  // the switches, the header, the keys, a freshly created session.
   /* The place you are.
    *
    * It used to be a filter for the overview and nothing else: a folder chosen
@@ -508,7 +509,7 @@ export default function App() {
      the key each answers to. The palette offers the same rows to the
      keyboard; the menu offers them to the pointer, so nothing in plxr is
      reachable only by knowing a key. What acts on one session stays with the
-     session — its tile, its rail entry, its title. */
+     session — its tile, its row in the session switch, its title. */
   const menuItems = useCallback((): MenuItem[] => {
     const items: MenuItem[] = [
       { label: tr("menu.search", "Search commands…"), hint: caption(bindingOf("palette")), onClick: () => setPaletteOpen(true) },
@@ -542,9 +543,9 @@ export default function App() {
       })),
       { separator: true },
       { header: true, label: tr("menu.documents", "Documents") },
-      { label: tr(DOCS.overview.key, DOCS.overview.fallback), hint: chordOf("overview") || undefined, onClick: () => setFocus({ kind: "doc", id: "overview" }) },
-      { label: tr("switch.overview", "Project overview"), onClick: () => setFocus({ kind: "doc", id: "folders" }) },
-      { label: tr(DOCS.settings.key, DOCS.settings.fallback), hint: caption(bindingOf("settings")), onClick: openSettings },
+      { label: tr(DOCS.overview.key, DOCS.overview.fallback), hint: chordOf("overview") || undefined, do: "doc-overview", onClick: () => setFocus({ kind: "doc", id: "overview" }) },
+      { label: tr("switch.overview", "Project overview"), do: "doc-folders", onClick: () => setFocus({ kind: "doc", id: "folders" }) },
+      { label: tr(DOCS.settings.key, DOCS.settings.fallback), hint: caption(bindingOf("settings")), do: "doc-settings", onClick: openSettings },
       { separator: true },
       { header: true, label: tr("menu.help", "Help") },
       { label: tr("keys.title", "Keyboard"), hint: caption(bindingOf("help")), onClick: () => setKeys(true) },
@@ -623,7 +624,7 @@ export default function App() {
     }),
     [presets, currentPreset, direct, applyPreset],
   );
-  /* What the board's and the rail's own menus can ask of the shell: the same
+  /* What the board's and the stripes' own menus can ask of the shell: the same
      verbs the header MENU has. A new shell starts in the project's folder —
      the home folder when there is no project — and lands where a new session
      lands; if the service refuses, the start dialog says why. */
@@ -640,9 +641,9 @@ export default function App() {
     }),
     [project.path, direct],
   );
-  // Opening a session from outside the dock — a new one just created — asks the
-  // dock to bring it up; inside the dock the rail and the tiles call the dock
-  // directly.
+  // Opening a session from outside the dock — a new one just created, a row of
+  // the session switch — asks the dock to bring it up; inside the dock the
+  // tiles call the dock directly.
   function openSession(id: string) {
     const t = tiles.find((x) => x.id === id);
     // Asked for by name, it is the project now — even when its panel is
@@ -701,6 +702,8 @@ export default function App() {
               {herd.halted ? tr("header.brakeRelease", "RESUME ALL") : tr("header.brake", "PAUSE ALL")}
             </Button>
           ) : null}
+          {/* The three edges of the dock, shown and hidden the way ⌘B ⌥⌘B ⌘J do. */}
+          <EdgeToggles shown={openTools} onToggle={(edge) => direct({ type: "toggleEdge", arg: edge })} />
           <Tooltip text={tr("header.resetLayout", "Reset the panel layout to the default")}>
             <Button
               icon
@@ -737,7 +740,7 @@ export default function App() {
             </Button>
           </Tooltip>
           {/* Everything, under one word. The tools were reachable by F12 and
-              nothing else; the views by the rail alone. */}
+              nothing else; the views by one column beside the work. */}
           <Tooltip text={tr("header.menuTip", "Every action and setting, grouped")}>
             <Button
               data-do="menu"
@@ -810,6 +813,7 @@ export default function App() {
             appCommands={appCommands}
             paletteOpen={paletteOpen}
             onClosePalette={() => setPaletteOpen(false)}
+            onOpenPalette={() => setPaletteOpen(true)}
           />
         </main>
           </div>

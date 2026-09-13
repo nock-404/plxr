@@ -44,11 +44,14 @@ export type MenuItem =
          folder's path. */
       sub?: string;
       /* A session's state. It colours the mark the way it colours the dot
-         on the tile and the rail, so a row that needs somebody says so. */
+         on the tile and in the session switch, so a row that needs somebody says so. */
       status?: string;
       /* What the row itself offers under the right button, or on the
          context-menu key: opened in place of this menu. */
       context?: () => MenuItem[];
+      /* The row's verb, as data-do: what the gates find it by, whatever
+         language its label is written in. */
+      do?: string;
     };
 
 /* Who a menu was opened for. A control that opens its own menu passes itself
@@ -259,6 +262,7 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
             role={it.checked === undefined ? "menuitem" : "menuitemcheckbox"}
             aria-checked={it.checked === undefined ? undefined : it.checked}
             className={`menuItem${it.danger ? " danger" : ""}`}
+            data-do={it.do}
             disabled={it.disabled}
             onClick={() => {
               onClose();

@@ -269,7 +269,7 @@ async function enter(w) {
   }
   const got = await w.run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    openDoc('overview');
+    await openDoc('overview');
     await wait(600);
     const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'orphaned' && t.dataset.status !== 'dead');
     if (!tile) return { none: true };

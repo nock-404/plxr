@@ -26,7 +26,7 @@ import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
-import Rail from "@/components/Rail";
+import Stripes from "@/components/stripes/Stripes";
 import ToolWindow from "@/components/stripes/ToolWindow";
 import { edgeHost, focusedTool, type ToolHost } from "@/components/dock/toolHost";
 import { toolOps } from "@/components/dock/tools";
@@ -35,6 +35,7 @@ import {
   DOCS,
   EDGES,
   TOOLS,
+  chordOf,
   defaultToolLayout,
   fromRegions,
   isTool,
@@ -78,8 +79,8 @@ import { errText } from "@/lib/i18n";
  * usage and a terminal can be on screen at once, the way a real editor lays
  * things out. The tools are not among them: each is a window at an edge of the
  * dock, shown and hidden through ToolHost, and the grid in the middle holds
- * documents only. The rail stays as the launcher: a document's row opens or
- * focuses its panel, a tool's row shows or hides its window.
+ * documents only. Around the dock stand the stripes, one icon per tool: a
+ * click shows its window, the same click hides it.
  *
  * The panels render inside DockviewReact, which keeps them in the React tree,
  * so the live data — the tiles, which folder you are in, the callbacks — comes
@@ -106,7 +107,7 @@ const diffId = (rootId: string, path: string, staged: boolean, base = "") =>
   base ? `diff:${rootId}:r:${base}:${path}` : `diff:${rootId}:${staged ? "s" : "u"}:${path}`;
 
 /* What the shell can be asked for from inside a panel's own menu — the board's
-   empty space, the rail's views. The same verbs the header MENU has, so a
+   empty space, a stripe's icon. The same verbs the header MENU has, so a
    right-click on nothing in particular is not a dead end. */
 export type ShellActions = {
   newSession: () => void;
@@ -145,16 +146,15 @@ type DockData = {
   onDiffClosed: (rootId: string, path: string, staged: boolean, base?: string) => void;
   // A document of main, opened or brought forward; opening one never hides it.
   openDoc: (id: DocId) => void;
-  /* The same document in a group of its own beside the active one — moved
-     there when it is already open, made there when it is not. */
-  openDocFresh: (id: DocId) => void;
+  // The ⌘K palette, asked for by main when there is nothing in it.
+  openPalette: () => void;
   /* The tools: which one shows at each edge, and the ways to reach one — a
      click that toggles, a request that only ever shows, a hide for an edge. */
   shownTools: ShownTools;
   toggleTool: (id: ToolId) => void;
   revealTool: (id: ToolId) => void;
   hideEdge: (edge: Edge) => void;
-  /* The shell's own verbs, for the menus on the board and the rail. */
+  /* The shell's own verbs, for the menus on the board and the stripes. */
   shell?: ShellActions;
   /* What the settings' layouts page can do — the shell owns the dialogs
      behind it, the dock only hands it to the panel that draws it. */
@@ -482,7 +482,7 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
  * closes, the way tabs close everywhere else. */
 /* The mark a tab wears.
  *
- * A view carries the rail's own icon, so one thing is one icon wherever it is
+ * A view carries its stripe's icon, so one thing is one icon wherever it is
  * met; a session the terminal it is; a document the icon of what it is, from
  * the same table the file tree uses. The kind travels beside it as an
  * attribute, because the colour of a mark is the skin's business — and the
@@ -650,26 +650,28 @@ function SettingsPanel(props: IDockviewPanelProps) {
   return <Settings framed={false} layouts={d.layouts} openSession={d.openSession} onClose={() => props.api.close()} />;
 }
 
-function RailPanel() {
+/* Main with nothing in it. dockview draws this wherever the grid has no group
+   left — the tool windows at the edges do not count — and a blank area is a
+   dead end, so it offers the three ways to put something there: the board, a
+   new session, and every command. */
+function MainWatermark() {
   const d = useDock();
-  /* What the rail lights: every tool that is showing at its edge, and the
-     document or session in front of main. */
-  const lit = new Set<string>(Object.values(d.shownTools).filter((t): t is ToolId => t !== null));
-  if (d.activeId) lit.add(d.activeId);
-  const activeSession = d.activeId.startsWith("session:") ? d.activeId.slice("session:".length) : null;
+  const said = (label: string, chord: string) => (chord ? `${label} ${chord}` : label);
   return (
-    <Rail
-      lit={lit}
-      tiles={d.tiles}
-      openId={activeSession}
-      counts={d.counts}
-      onView={(v) => (isTool(v) ? d.toggleTool(v) : d.openDoc(v))}
-      onReveal={(v) => (isTool(v) ? d.revealTool(v) : d.openDoc(v))}
-      onViewFresh={(v) => d.openDocFresh(v)}
-      onResetLayout={d.shell?.resetLayout}
-      onOpen={d.openSession}
-      onNewShell={d.newShell}
-    />
+    <div className="emptyNote mainWatermark">
+      <b>{tr("watermark.empty", "Nothing is open here")}</b>
+      <span className="rowInline">
+        <Button data-do="watermark-board" onClick={() => d.openDoc("overview")}>
+          {said(tr("watermark.board", "Board"), chordOf("overview"))}
+        </Button>
+        <Button data-do="watermark-new" onClick={() => d.shell?.newSession()}>
+          {said(tr("watermark.newSession", "New session"), caption(bindingOf("newSession")))}
+        </Button>
+        <Button data-do="watermark-commands" onClick={d.openPalette}>
+          {said(tr("watermark.commands", "Commands"), caption(bindingOf("palette")))}
+        </Button>
+      </span>
+    </div>
   );
 }
 
@@ -759,7 +761,9 @@ export type LayoutRequest =
      which live in the shell while what they need (the focused session, the
      overview panel) lives in the dock. */
   | { type: "newShell" }
-  | { type: "grid" };
+  | { type: "grid" }
+  // An edge shown or hidden from the top bar, the way its key does it.
+  | { type: "toggleEdge"; arg: Edge };
 export type LayoutAction = LayoutRequest & { seq: number };
 
 /* Every tab is the PanelTab. "editorTab" and "sessionTab" stay as names
@@ -787,13 +791,14 @@ export default function Dock({
   paletteOpen,
   onClosePalette,
   onToolsChanged,
+  onOpenPalette,
 }: Omit<
   DockData,
   | "openPreview"
   | "openDiff"
   | "onDiffClosed"
   | "openDoc"
-  | "openDocFresh"
+  | "openPalette"
   | "shownTools"
   | "toggleTool"
   | "revealTool"
@@ -824,11 +829,15 @@ export default function Dock({
   /* Which tool shows at each edge, whenever that changes — for the shell's
      MENU to tick the ones that show. */
   onToolsChanged?: (shown: ShownTools) => void;
+  /* The palette is the shell's; main asks for it when it is empty. */
+  onOpenPalette: () => void;
 }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const hostRef = useRef<ToolHost | null>(null);
-  // His placement of the tools, read once from prefs when the dock comes up.
+  // His placement of the tools, read from prefs when the dock comes up: a ref
+  // for the verbs, which read it when they run, and state for the stripes.
   const layoutRef = useRef<ToolLayout>(defaultToolLayout());
+  const [toolLayout, setToolLayout] = useState<ToolLayout>(layoutRef.current);
   // The element the dock is laid out in: the tool windows and main together.
   const boxRef = useRef<HTMLDivElement | null>(null);
   const saveRef = useRef<() => void>(() => undefined);
@@ -849,9 +858,16 @@ export default function Dock({
   }, [activeId]);
 
   /* The tool verbs, over whatever host the dock has once it is ready. An edge
-     with nothing on it has nothing to flash yet: the stripes that would say so
-     are still to come. */
-  const ops = useMemo(() => toolOps(() => hostRef.current, () => layoutRef.current, () => undefined), []);
+     asked to show with nothing on it says so on its stripe, for a moment. */
+  const [flashing, setFlashing] = useState<Edge | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
+  const flash = useCallback((edge: Edge) => {
+    window.clearTimeout(flashTimer.current);
+    setFlashing(edge);
+    flashTimer.current = window.setTimeout(() => setFlashing(null), 600);
+  }, []);
+  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
+  const ops = useMemo(() => toolOps(() => hostRef.current, () => layoutRef.current, flash), [flash]);
   const hideEdge = useCallback((edge: Edge) => hostRef.current?.hide(edge), []);
   const toolsChangedRef = useRef(onToolsChanged);
   toolsChangedRef.current = onToolsChanged;
@@ -884,11 +900,10 @@ export default function Dock({
     openOrFocus(dv, id, id, VIEW_TITLES[id] ?? id, {});
   }, []);
 
-  const openDocFresh = useCallback((id: DocId) => {
-    const dv = apiRef.current;
-    if (!dv) return;
-    openFresh(dv, id, id, VIEW_TITLES[id] ?? id, {});
-  }, []);
+  // The newest callback, through a ref: the shell hands a new one every render.
+  const paletteRef = useRef(onOpenPalette);
+  paletteRef.current = onOpenPalette;
+  const openPalette = useCallback(() => paletteRef.current(), []);
 
   /* One file, one panel — whichever way it was reached.
    *
@@ -984,7 +999,7 @@ export default function Dock({
   /* The close guard.
    *
    * A session panel whose process is alive is asked about: keep it running
-   * and close only the panel (it stays in the rail), terminate it, or leave
+   * and close only the panel (it stays on the board), terminate it, or leave
    * everything as it is. An editor with unsaved edits is not asked here — it
    * comes to the front, where its own CLOSE says what is at stake and offers
    * SAVE, DISCARD or CANCEL. A tool is never closed: it is hidden, and its mark
@@ -1152,12 +1167,12 @@ export default function Dock({
   const data = useMemo<DockData>(
     () => ({
       tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openDoc, openDocFresh, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
+      openSession, openPreview, openDiff, onDiffClosed, openDoc, openPalette, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell, shownTools, toggleTool: ops.toggleTool, revealTool: ops.revealTool, hideEdge,
     }),
     [
       tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
-      openSession, openPreview, openDiff, onDiffClosed, openDoc, openDocFresh, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
+      openSession, openPreview, openDiff, onDiffClosed, openDoc, openPalette, openEditor, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell, shownTools, ops, hideEdge,
     ],
   );
@@ -1250,6 +1265,9 @@ export default function Dock({
         setDense(true);
         openDoc("overview");
         break;
+      case "toggleEdge":
+        ops.toggleEdge(layoutAction.arg);
+        break;
     }
     // onLayoutSaved is the shell's; only a new action is a reason to act.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1258,7 +1276,7 @@ export default function Dock({
   /* The state on the tab. A session panel's tab is named when it opens and
      never heard from the tiles again; it said "plxr3" while the agent inside
      was waiting for an answer. Kept current here, from every snapshot, so the
-     tab strip reads like the rail does. */
+     tab strip reads like the session switch does. */
   useEffect(() => {
     const dv = apiRef.current;
     if (!dv) return;
@@ -1447,6 +1465,7 @@ export default function Dock({
         const chosen = p.dockActivity;
         if (typeof chosen === "string" && (ACTIVITIES as string[]).includes(chosen)) activity.current = chosen as Activity;
         layoutRef.current = readToolLayout(p);
+        setToolLayout(layoutRef.current);
         if (!restored.current) {
           restored.current = true;
           loadArrangement(dv, host, p.dock, layoutRef.current, activity.current);
@@ -1465,24 +1484,29 @@ export default function Dock({
   return (
     <Ctx.Provider value={data}>
       <InlineStrip.Provider value={true}>
-        {/* The menu is the window's frame, not one of its columns.
-            It was a panel in the grid, so it could be tabbed into, closed,
-            dragged away — and above all it took its share when a column was
-            closed, which is how the menu ended up half the window. Beside the
-            dock it keeps the width the frame declares. The dock holds the tool
-            windows at its edges and main between them; dockview puts the
-            dock's own class on main alone, so the box that holds all of it is
-            a wrapper of its own. */}
+        {/* The stripes are the window's frame, not columns of the dock: a
+            grid puts them at the left, at the right and along the bottom, and
+            the dock between them holds the tool windows at its edges and main
+            in the middle. dockview puts the dock's own class on main alone, so
+            the box that holds all of it is a wrapper of its own. */}
         <div className="dockShell">
-          <aside className="railHost">
-            <RailPanel />
-          </aside>
+          <Stripes
+            layout={toolLayout}
+            shown={shownTools}
+            counts={counts}
+            flash={flashing}
+            onToggle={ops.toggleTool}
+            onReveal={ops.revealTool}
+            onHide={hideEdge}
+            onResetLayout={shell?.resetLayout}
+          />
           <div className="dockHost" ref={boxRef}>
             <DockviewReact
               className="plxrDock"
               components={components}
               tabComponents={tabComponents}
               defaultTabComponent={PanelTab}
+              watermarkComponent={MainWatermark}
               dndEdges={false}
               onReady={onReady}
             />
@@ -1493,7 +1517,7 @@ export default function Dock({
       {closeAsk ? (
         <Ask
           heading={tr("dock.closeLiveHead", "This session is still running")}
-          detail={tr("dock.closeLiveDetail", "{name} keeps running if only the panel is closed — it stays in the rail. Or terminate it now.", { name: closeAsk.name })}
+          detail={tr("dock.closeLiveDetail", "{name} keeps running if only the panel is closed — it stays on the board. Or terminate it now.", { name: closeAsk.name })}
           confirmLabel={tr("dock.keepRunning", "KEEP RUNNING")}
           third={{ label: tr("session.kill", "TERMINATE"), danger: true, onClick: () => closeAsk.answer("kill") }}
           onCancel={() => closeAsk.answer("cancel")}
@@ -1797,28 +1821,6 @@ function shareWidth(dv: DockviewApi, a: DockviewGroupPanel, b: DockviewGroupPane
   for (const { g } of others) g.api.setConstraints({ minimumWidth: g.api.width, maximumWidth: g.api.width });
   b.api.setSize({ width: Math.floor((a.api.width + b.api.width) / 2) });
   for (const { g, min, max } of others) g.api.setConstraints({ minimumWidth: min, maximumWidth: max });
-}
-
-/* openFresh splits a document off beside the group that is active — the way to
- * see two things at once. A panel already alone in its group is as fresh as it
- * can be. */
-function openFresh(dv: DockviewApi, id: string, component: string, title: string, params: object): void {
-  const grid = gridGroupsOf(dv);
-  const beside = dv.activeGroup && grid.includes(dv.activeGroup) ? dv.activeGroup : lastGridGroup(dv);
-  const existing = dv.getPanel(id);
-  if (existing) {
-    if (existing.group.panels.length === 1) {
-      existing.api.setActive();
-      return;
-    }
-    const from = beside && beside !== existing.group ? beside : existing.group;
-    existing.api.moveTo({ group: from, position: "right" });
-    existing.api.setActive();
-    return;
-  }
-  const position: AddPanelPositionOptions = beside ? { referenceGroup: beside, direction: "right" } : { direction: "right" };
-  dv.addPanel({ id, component, title, params, ...sizedFor(dv, position) });
-  hold(dv);
 }
 
 /* ---------- moving panels: float, dock, split ---------- */

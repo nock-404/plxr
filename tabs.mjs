@@ -351,7 +351,7 @@ const HELPERS = `${GATEKIT}
   const showDoc = async (id, n, ms) => {
     const t = tabNamed(n);
     if (t) { await activate(t); return tabNamed(n); }
-    openDoc(id); await wait(ms || 900);
+    await openDoc(id); await wait(ms || 900);
     return tabNamed(n);
   };
   const rightClick = async tab => {
@@ -532,7 +532,7 @@ if (!fromFolders.why) {
     const again = { doc: groupFacts('alpha.txt'), groups: groups().length, count: tabs().filter(t => nameOf(t) === 'alpha.txt').length };
     // Work of main asked for while a document is in front goes to the work.
     await activate(tabNamed('alpha.txt'));
-    openDoc('settings'); await wait(1200);
+    await openDoc('settings'); await wait(1200);
     const settings = { withFolders: groupOf('Settings') === groupOf('Folders'), withDocs: groupOf('Settings') === groupOf('alpha.txt'), docs: groupFacts('alpha.txt') };
     tabNamed('Settings')?.querySelector('.panelTabClose')?.click();
     await wait(500);
@@ -589,7 +589,7 @@ if (fromFolders.why) {
 const fromSession = await run(`${HELPERS}${groupFacts}
   const alpha = tabNamed('alpha.txt');
   if (alpha) { await rightClick(alpha); await pick('Close group', 1100); }
-  if (!openSession(/plxr-tabs-check/)) return { why: 'the check\\u2019s session is not offered' };
+  if (!await openSession(/plxr-tabs-check/)) return { why: 'the check\\u2019s session is not offered' };
   await wait(1800);
   const tab = tabLike(/plxr-tabs-check/);
   if (!tab) return { why: 'the session panel did not open' };
@@ -761,7 +761,7 @@ if (!worn.behindBg) {
 
 // ---- ⌘W through the guard ----------------------------------------------------
 const guarded = await run(`${HELPERS}
-  if (!openSession(/plxr-tabs-check/)) return { noSession: true };
+  if (!await openSession(/plxr-tabs-check/)) return { noSession: true };
   await wait(1800);
   const tab = tabLike(/plxr-tabs-check/);
   if (!tab) return { noTab: true };
@@ -815,7 +815,7 @@ const walked = await run(`${HELPERS}
   /* Two panels in the session's group to walk between, and a second group of
      main made by a split to walk to. */
   await showDoc('overview', 'Overview', 900);
-  if (openSession(/plxr-tabs-check/)) await wait(1500);
+  if (await openSession(/plxr-tabs-check/)) await wait(1500);
   const tab = tabLike(/plxr-tabs-check/);
   if (!tab) return { noSession: true };
   await activate(tab);
@@ -871,7 +871,7 @@ claim(
 );
 
 const ended = await run(`${HELPERS}
-  if (!openSession(/plxr-tabs-check/)) return { noSession: true };
+  if (!await openSession(/plxr-tabs-check/)) return { noSession: true };
   await wait(1600);
   const tab = tabLike(/plxr-tabs-check/);
   if (!tab) return { noTab: true };

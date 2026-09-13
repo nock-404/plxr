@@ -76,7 +76,7 @@ cat <<INFO
       folder  $want
       url     http://127.0.0.1:$port/?token=$token
 
-  Your own plxr is untouched. FOLDERS in the rail has the folder above open.
+  Your own plxr is untouched. The project overview (MENU, Documents) has the folder above open.
   Closing the window leaves the daemon running; to stop it:
 
       kill $(python3 -c "import json;print(json.load(open('$home/daemon.json'))['pid'])")

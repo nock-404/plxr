@@ -134,42 +134,19 @@
 [data-skin="win95"] .pacenow.pace--hot .paceNote { color: var(--blocked); }
 [data-skin="win95"] .updatebar { border-bottom: var(--bevel) solid var(--accent); }
 
-/* ---- rail ---- */
-[data-skin="win95"] .rail {
-  background: var(--panel-glass);
-  border-right: var(--bevel) solid var(--hi);
-  box-shadow: inset calc(var(--hair) * -1) 0 0 var(--sh);
-}
-[data-skin="win95"] .railitem { color: var(--dk); border-left: 0; }
-[data-skin="win95"] .railitem:hover { background: #d4d0c8; }
-[data-skin="win95"] .railitem.active { background: var(--accent); color: var(--onAccent); }
-[data-skin="win95"] .railitem.active .rsub,
-[data-skin="win95"] .railitem.active .rmeta { color: inherit; opacity: 0.8; }
-[data-skin="win95"] .railhome {
-  font-weight: bold;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: 1em;
-  border-bottom: var(--bevel) solid var(--sh);
-  box-shadow: 0 var(--hair) 0 var(--hi);
-}
-[data-skin="win95"] .railgroup {
-  color: var(--dk);
-  font-weight: bold;
-  font-size: 0.95em;
-  background: #d4d0c8;
-  text-transform: none;
-  letter-spacing: 0;
-}
-[data-skin="win95"] .rsub {
-  color: var(--dim);
-  font-size: 0.9em;
-  text-transform: none;
-  letter-spacing: 0;
-}
-/* Not --sh: that is the edge colour of the 3D borders, #808080 on #c0c0c0 —
-   a contrast ratio of 1.01 to 1. */
-[data-skin="win95"] .rmeta { color: var(--dim); }
+/* ---- stripes ---- */
+/* A raised toolbar: light along the top and the left, shadow along the bottom
+   and the right. An icon is flat until the pointer is on it, raised under the
+   pointer, and pressed in while its window shows. */
+[data-skin="win95"] .stripe { background: var(--panel-glass); box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
+[data-skin="win95"] .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 18%, var(--panel)); }
+[data-skin="win95"] .stripeIcon { color: var(--dk); border-radius: 0; }
+[data-skin="win95"] .stripeIcon:hover { color: var(--dk); background: none; box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
+[data-skin="win95"] .stripeIcon[data-lit="yes"] { color: var(--dk); background: color-mix(in srgb, var(--hi) 55%, var(--panel)); box-shadow: inset var(--hair) var(--hair) 0 var(--sh), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--hi); }
+[data-skin="win95"] .stripeIcon[data-lit="yes"]::before { background: transparent; }
+[data-skin="win95"] .stripeIcon[data-nearly-out="yes"] { color: var(--blocked); }
+[data-skin="win95"] .stripeIcon:focus-visible { outline: var(--hair) dotted var(--dk); }
+[data-skin="win95"] .stripeBadge { border-radius: 0; background: var(--blocked); color: var(--onAccent); }
 
 /* ---- tiles: each one is a little window ---- */
 [data-skin="win95"] .tile:hover {
@@ -328,7 +305,6 @@
 [data-skin="win95"] .act { color: var(--dk); }
 [data-skin="win95"] .ctx { color: var(--dim); }
 [data-skin="win95"] .fchev, [data-skin="win95"] .ficon { color: var(--dim); }
-[data-skin="win95"] .rdot { color: var(--dk); }
 [data-skin="win95"] .playbar { background: var(--panel); border-top: var(--bevel) solid var(--hi); }
 [data-skin="win95"] .rart {
   color: var(--dim);
@@ -351,7 +327,6 @@
     color-mix(in srgb, var(--blocked) 16%, transparent) 0 0.375rem,
     transparent 0.375rem 0.875rem);
 }
-[data-skin="win95"] .railitem[data-unattended="yes"] .rdot { color: var(--blocked); }
 [data-skin="win95"] .styleName { color: var(--dk); font-size: .95em; }
 [data-skin="win95"] .styleToggle { background: var(--panel); color: var(--dk); border: var(--bevel) solid; border-color: var(--hi) var(--dk) var(--dk) var(--hi); font-size: .95em; letter-spacing: 0; text-transform: none; }
 [data-skin="win95"] .styleToggle[data-on="yes"] { border-color: var(--dk) var(--hi) var(--hi) var(--dk); font-weight: bold; }

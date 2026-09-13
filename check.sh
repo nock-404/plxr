@@ -199,7 +199,7 @@ step "folder overview" node folders.mjs
 # check: the percentages per account, the reset times in this machine's
 # timezone, the spend counted from the real start of the window, the account
 # with nothing on disk saying so instead of drawing a bar at zero, the pool
-# counted once in the total, and the rail and the account picker marking the
+# counted once in the total, and the usage icon and the account picker marking the
 # one that is nearly out.
 step "usage per account" node usage.mjs
 
@@ -223,23 +223,23 @@ step "files and search" node manage.mjs
 
 # Everything reachable from something you can see: the header MENU with every
 # group, the ⌘K palette and its typing guard, plxr's own right-click menus on
-# the terminal, the rail, a folder tab and the session title, the tooltip on
+# the terminal, a tool icon, a folder tab and the session title, the tooltip on
 # the opaque surface, the settings as a dock panel split beside the work, a
 # terminal setting reaching the running xterm, a rebound key that fires, a
 # layout saved and applied. Measured in a real browser against a service of
 # its own.
 step "surfaces reachable" node surfaces.mjs
 
-# The four regions and every panel's tab: the menu beside the grid and never a
-# column, the tab menu with the region it is in ticked, move to each region
-# held against the boxes of the others, widths that hold while neighbours come
-# and go, ⌘B ⌥⌘B ⌘J folding a region and bringing it back, the close that asks
-# while a session is running or an editor is dirty, float and dock, and the
-# keys between panels and groups — against the same service as above.
+# Main and every panel's tab: the tab menu, widths that hold while neighbours
+# come and go, the close that asks while a session is running or an editor is
+# dirty, float and dock, and the keys between panels and groups — against the
+# same service as above.
 step "dock tabs" node tabs.mjs
 
-# The tools as windows at the edges of the dock: a click shows one where it
-# belongs and main gives up exactly its width, the same click hides it, a
+# The tools as icons on three stripes and windows at the edges of the dock:
+# the stripes at the frame whatever the dock does, a click on an icon shows its
+# window beside its stripe and main gives up exactly its width, the same click
+# hides it, the edge buttons in the top bar, a
 # second tool on the edge swaps into the same box, a dragged width that holds
 # through hide, show and a reload, no × and no ⌘W that loses one, files that
 # open in main and documents that cannot be dropped into a tool, main's splits

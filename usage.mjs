@@ -9,7 +9,7 @@
  * None of that can be checked from the code. Whether the percentages reach
  * the screen, whether a reset time is shown in this machine's timezone,
  * whether an account with nothing on disk says so instead of drawing a bar at
- * zero, and whether the rail marks the account that is nearly out — all of it
+ * zero, and whether the Usage icon marks the account that is nearly out — all of it
  * is only true if it renders. So it is rendered here, in a real browser,
  * against a service with three accounts of its own making: two with a reading
  * Claude Code would have left, one with none, and their transcripts pooled
@@ -352,7 +352,7 @@ const open = await tab.run(`${HELPERS}
     head: document.querySelector('.listbody .uhead')?.textContent.trim() ?? '',
     meta: document.querySelector('.uacct')?.closest('.list')?.querySelector('.listbar .meta')?.textContent.trim() ?? '' };
 `);
-claim("USAGE on the rail opens a section per account, named the way the settings name them",
+claim("the Usage icon opens a section per account, named the way the settings name them",
   open.cards?.length === 3 && open.cards[0].name.length > 0,
   open.cards ? `after ${open.ms} ms · "${open.head}" · ${open.meta} · ${open.cards.map((c) => c.name).join(" | ")}` : `nothing in ${open.ms} ms`);
 
@@ -395,9 +395,9 @@ const rest = await tab.run(`${HELPERS}
     })),
     foot: document.querySelector('.ufoot')?.textContent.trim() ?? '',
     totals: [...document.querySelectorAll('.usum')][0] ? [...document.querySelectorAll('.usum')][0].textContent.trim() : '',
-    railHot: stripeIcon('usage')?.dataset.nearlyOut === 'yes',
-    railMark: stripeIcon('usage')?.dataset.nearlyOut === 'yes' ? stripeIcon('usage').querySelector('.rmeta')?.textContent.trim() ?? '' : '',
-    railName: stripeIcon('usage')?.dataset.nearlyOut === 'yes' ? stripeIcon('usage').querySelector('.rname')?.textContent.trim() ?? '' : '',
+    iconHot: stripeIcon('usage')?.dataset.nearlyOut === 'yes',
+    iconBadge: stripeIcon('usage')?.querySelector('.stripeBadge')?.textContent.trim() ?? '',
+    iconLabel: stripeIcon('usage')?.getAttribute('aria-label') ?? '',
     overflow: document.querySelector('.listbody')?.scrollWidth <= document.querySelector('.listbody')?.clientWidth,
     // What is too wide, measured, so a failure says where the sideways scroll comes from.
     widths: (() => {
@@ -421,8 +421,9 @@ claim("the total is underneath the accounts, not instead of them",
   rest.totals.length > 0 && open.cards?.length === 3, rest.totals.replace(/\s+/g, " ").slice(0, 160));
 claim("the foot says where the numbers come from and how fresh they are",
   /\.claude/.test(rest.foot) && /\d/.test(rest.foot) && rest.foot.length > 80, rest.foot.replace(/\s+/g, " "));
-claim("the rail marks USAGE while an account is nearly out",
-  rest.railHot && rest.railMark.length > 0, `${rest.railName} ${rest.railMark}`);
+claim("the Usage icon is marked while an account is nearly out: its badge shows and it names the account",
+  rest.iconHot && rest.iconBadge.length > 0 && Boolean(open.cards?.some((c) => c.hot && rest.iconLabel.includes(c.name))),
+  `badge "${rest.iconBadge}" · "${rest.iconLabel}"`);
 claim("the view does not scroll sideways", rest.overflow !== false,
   `${rest.overflow === false ? "the body is wider than its panel" : "fits"}: ${JSON.stringify(rest.widths)}`);
 

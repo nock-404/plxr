@@ -120,9 +120,9 @@ const api = (path, opts = {}) =>
 
 /* A folder of its own to look at: one file of every kind the tree knows, and
    a folder inside with a folder inside that, opened as a folder and as a
-   session. So the rail, the tabs and the tree all have their marks on screen
+   session. So the stripes, the tabs and the tree all have their marks on screen
    whatever daemon this runs against, and nothing of anybody's is opened. */
-// A short name: the rail heads its sessions with the folder's name, and a long
+// A short name: the session switch heads its sessions with the folder's name, and a long
 // one wraps out of its row in the wider skins and lies across the entry above.
 const FIXTURE = mkdtempSync(join(tmpdir(), "icons-"));
 const KINDS = [
@@ -211,7 +211,7 @@ function readPng(buffer) {
    how far along it is (a), and how far off the line (off). An icon drawn in
    its own colour stays on that line; a colour the file brought with it does
    not. A filled box is ink nearly everywhere; a missing icon, nowhere. */
-function readIcon(img, box, colour) {
+function readIcon(img, box, colour, fill) {
   const at = (x, y) => {
     const i = (Math.min(img.height - 1, Math.max(0, y)) * img.width + Math.min(img.width - 1, Math.max(0, x))) * 3;
     return [img.rgb[i], img.rgb[i + 1], img.rgb[i + 2]];
@@ -225,7 +225,7 @@ function readIcon(img, box, colour) {
     ring.push(at(box.x - pad, y), at(box.x + box.w + pad, y));
   }
   const middle = (list, k) => list.map((p) => p[k]).sort((p, q) => p - q)[list.length >> 1];
-  const ground = [middle(ring, 0), middle(ring, 1), middle(ring, 2)];
+  const ground = fill ?? [middle(ring, 0), middle(ring, 1), middle(ring, 2)];
   const span = colour.map((c, k) => c - ground[k]);
   const reach = Math.hypot(...span);
   const samples = [];
@@ -240,7 +240,7 @@ function readIcon(img, box, colour) {
     // Trusted only where both sides agree: a ruled line runs across the
     // icon, while a letter or a neighbouring mark sits on one side of it.
     const spread = Math.max(...beside.map((p) => Math.hypot(p[0] - row[0], p[1] - row[1], p[2] - row[2])));
-    const lined = spread < reach * 0.2 ? row : ground;
+    const lined = fill ? ground : spread < reach * 0.2 ? row : ground;
     for (let x = box.x; x < box.x + box.w; x++) {
       const d = at(x, y).map((v, k) => v - lined[k]);
       if (reach < 1) {
@@ -437,7 +437,7 @@ async function load() {
 }
 
 /* What is on screen: the window arranged so every kind of mark is showing —
-   the rail with its views and a session, the folder's tree with a folder
+   the stripes with their icons and the Files window, the folder's tree with a folder
    unfolded, a file open in a tab of its own, and the toolbar. */
 async function arrange() {
   return run(`
@@ -445,9 +445,12 @@ async function arrange() {
     const row = (name) => [...document.querySelectorAll('.plxrDock .frow')].find((r) => r.querySelector('.fname')?.textContent === name);
     // A file opens in a tab of its own in front of the tree, so the tree's tab
     // is brought back to the front after each one — the way a person would.
-    sessionRows()[0]?.click();
+    (await sessionRows())[0]?.click();
     await wait(1500);
-    openDoc('folders');
+    // A tool window, for its header and the lit icon on its stripe.
+    openTool('files');
+    await wait(1500);
+    await openDoc('folders');
     await wait(2000);
     // This check's own folder, by its name — other folders may be open.
     [...document.querySelectorAll('.folderTab')].find((b) => b.textContent.trim() === ${JSON.stringify(basename(FIXTURE))})?.click();
@@ -482,9 +485,9 @@ const MEASURE = `
   const strip = q('.plxrDock .panelTab')?.closest('.dv-tabs-container');
   const along = (b) => b && strip ? [Math.round((b[0] + strip.scrollLeft) * 10) / 10, b[1], b[2], b[3]] : b;
   return {
-    bar: box(q('.bar')), statusrow: box(q('.statusrow')), rail: box(q('.rail')),
-    railHome: box(q('.railhome')), railHomeName: box(q('.railhome .rname')),
-    railSession: box(q('.railitem:has(.rsub)')),
+    bar: box(q('.bar')), statusrow: box(q('.statusrow')), stripeLeft: box(q('.stripe[data-edge="left"]')),
+    stripeIcon: box(q('.stripe .stripeIcon')), toolHead: box(q('.toolWindow[data-tool="files"] .toolHead')),
+    switchProject: box(q('.switch[data-switch="project"]')),
     frow: box(q('.plxrDock .frow')), frowName: box(q('.plxrDock .frow .fname')), frowCount: document.querySelectorAll('.plxrDock .frow').length,
     tab: along(box(q('.plxrDock .panelTab'))), tabName: along(box(q('.plxrDock .panelTab .panelTabName'))),
     toolIcon: box(q('.tools [data-do="settings"]')), toolReset: box(q('.tools [data-do="reset-layout"]')),
@@ -501,10 +504,34 @@ async function iconsOnScreen() {
       // What is drawn on top of the icon's middle, to leave out marks covered
       // by a menu or a panel.
       const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-      const covered = !top || !(svg === top || svg.contains(top) || top.contains(svg));
+      /* A count on a stripe icon lies over a corner of its mark: the pixels
+         there are the count's, not the mark's, so the mark is not judged under
+         it. The same mark is read clean in the row of tool-stripe names. */
+      const badged = [...document.querySelectorAll('.stripeBadge')].some((b) => { const q = b.getBoundingClientRect(); return q.width > 0 && q.right > r.left && q.left < r.right && q.bottom > r.top && q.top < r.bottom; });
+      const covered = badged || !top || !(svg === top || svg.contains(top) || top.contains(svg));
+      /* A mark on a filled button stands on the fill, however tight the fill
+         is around it: the ring the ground is read from can lie on the button's
+         border or beyond it — Windows 95's bevel, a pressed button that Sketch
+         and Pixel fill with the accent. The fill is its ground. Measured: a
+         Windows 95 tool window's ⋮ read 0.48 of its ink half-toned against a
+         ring half on the white bevel, while its pixels sit on whole pixels. */
+      const btn = svg.closest('button');
+      const bs = btn ? getComputedStyle(btn) : null;
+      // A computed colour comes as rgb() in 0–255, or as color(srgb …) in 0–1 when a skin mixed it.
+      const colourOf = (s) => { const n = (s.match(/[0-9.]+/g) || []).map(Number); if (n.length < 3) return null; const scale = s.startsWith('color(') ? 255 : 1; return { rgb: n.slice(0, 3).map((v) => Math.round(v * scale)), alpha: n.length > 3 ? n[3] : 1 }; };
+      const fill = bs ? colourOf(bs.backgroundColor) : null;
+      const onFill = fill && fill.alpha === 1 ? fill.rgb : null;
+      /* A mark as big as its button's inside, in a button that draws its own
+         chrome inside that — Windows 95's bevel draws a grey line on the last
+         row and column of it — has the chrome's pixels in its box. Measured on
+         a tool window's ⋮ at 1x: four colours in all, the mark on whole pixels,
+         and the bevel's grey read as half its ink. Such a mark is not held to
+         crispness here; its name is, in the row of tool-stripe names. */
+      const inside = btn && bs && bs.boxShadow !== 'none' ? (() => { const b = btn.getBoundingClientRect(); const l = parseFloat(bs.borderLeftWidth), t = parseFloat(bs.borderTopWidth); return { w: b.width - l - parseFloat(bs.borderRightWidth), h: b.height - t - parseFloat(bs.borderBottomWidth) }; })() : null;
+      const tight = Boolean(inside && Math.abs(inside.w - r.width) <= 0.5 && Math.abs(inside.h - r.height) <= 0.5);
       return { name: svg.dataset.icon, specimen: svg.dataset.specimen === 'yes', href: svg.querySelector('use')?.getAttribute('href') || '', x: r.x, y: r.y, w: r.width, h: r.height,
-        colour: c.slice(0, 3), alpha: c.length > 3 ? c[3] : 1, hidden, covered,
-        where: svg.closest('.railitem') ? 'rail' : svg.closest('.panelTab') ? 'tab' : svg.closest('.fchev') ? 'chevron' : svg.closest('.frow') ? 'tree' : svg.closest('.tools') ? 'toolbar' : 'other' };
+        colour: c.slice(0, 3), alpha: c.length > 3 ? c[3] : 1, hidden, covered, onFill, tight,
+        where: svg.closest('.stripeIcon') ? 'stripe' : svg.closest('.toolHead') ? 'toolHead' : svg.closest('.switch') ? 'switch' : svg.closest('.panelTab') ? 'tab' : svg.closest('.fchev') ? 'chevron' : svg.closest('.frow') ? 'tree' : svg.closest('.tools') ? 'toolbar' : 'other' };
     });
   `);
 }
@@ -537,7 +564,7 @@ if (prefsBefore?.theme !== undefined) {
 // ground.
 const LAY_OUT_STRIPE_NAMES = `
   document.getElementById('stripeSpecimen')?.remove();
-  const sprite = (document.querySelector('.railhome .uiIcon use')?.getAttribute('href') ?? '').split('#')[0];
+  const sprite = (document.querySelector('.stripe .stripeIcon .uiIcon use')?.getAttribute('href') ?? '').split('#')[0];
   const row = document.createElement('div');
   row.id = 'stripeSpecimen';
   row.style.cssText = 'position:fixed;left:22rem;top:10rem;z-index:2147483647;display:flex;gap:1rem;padding:1rem;background:var(--panel);color:var(--fg)';
@@ -589,7 +616,7 @@ for (const ratio of RATIOS) {
         const skinButton = document.querySelector('.settingsbody .tabbody .field .selectButton');
         const packButton = document.querySelector('[data-field="icons"] .selectButton');
         if (!skinButton || !packButton) return { error: 'the pickers are not in the settings' };
-        const hrefBefore = document.querySelector('.railhome .uiIcon use')?.getAttribute('href');
+        const hrefBefore = document.querySelector('.stripe .stripeIcon .uiIcon use')?.getAttribute('href');
         const skinPicked = await pick(skinButton, ${JSON.stringify(skinLabel)});
         const packPicked = await pick(packButton, ${JSON.stringify(packLabel)});
         const shown = document.querySelector('[data-field="icons"] .selectButton span')?.textContent.trim();
@@ -597,7 +624,7 @@ for (const ratio of RATIOS) {
         await front('folder');
         await wait(600);
         return { skinPicked, packPicked, shown, hrefBefore, closed, rows: document.querySelectorAll('.plxrDock .frow').length,
-          hrefAfter: document.querySelector('.railhome .uiIcon use')?.getAttribute('href'),
+          hrefAfter: document.querySelector('.stripe .stripeIcon .uiIcon use')?.getAttribute('href'),
           skin: document.documentElement.dataset.skin, icons: document.documentElement.dataset.icons,
           live: window.__notReloaded === true };
       `);
@@ -633,7 +660,7 @@ for (const ratio of RATIOS) {
           w: Math.max(1, Math.round(i.w * ratio)),
           h: Math.max(1, Math.round(i.h * ratio)),
         };
-        return { ...i, ...readIcon(img, box, i.colour) };
+        return { ...i, ...readIcon(img, box, i.colour, i.onFill) };
       });
       // A mark in a colour close to its ground cannot be judged by colour —
       // there is no line to stay on. Counted, never silently passed.
@@ -654,12 +681,14 @@ for (const ratio of RATIOS) {
         // Sketch rules its panels like paper and dots its buttons, and those
         // lines cross the icons' boxes, so their pixels read as half-tones of
         // ink that is not there. Looked at in the close-ups instead: crisp.
-        const soft = judged.filter((r) => r.between > 0.12);
-        const worst = Math.max(0, ...judged.map((r) => r.between));
-        const size = icons.find((i) => i.where === "rail")?.w;
+        const crisp = judged.filter((r) => !r.tight);
+        const soft = crisp.filter((r) => r.between > 0.12);
+        const worst = Math.max(0, ...crisp.map((r) => r.between));
+        const size = icons.find((i) => i.where === "stripe")?.w;
         claim(`${tag}: the pixel pack is crisp — one grid unit on whole device pixels`,
           soft.length === 0 && size && Number.isInteger((size * ratio) / 24),
           `icon ${size} CSS px = ${size * ratio} device px = ${(size * ratio) / 24} per unit · worst ${worst.toFixed(2)} of ink half-toned`
+            + (judged.length > crisp.length ? ` · ${judged.length - crisp.length} marks filling a bevelled button's inside read in the row of names instead: ${judged.filter((r) => r.tight).map((r) => `${r.where}/${r.name}`).join(", ")}` : "")
             + (soft.length ? ` · soft: ${soft.map((r) => `${r.where}/${r.name} ${r.between.toFixed(2)}`).join(", ")}` : ""));
         record[`between ${tag}`] = worst;
       }
@@ -740,7 +769,7 @@ for (const ratio of RATIOS) {
         // icon rather than stack icons into each other. Which of x, y, width
         // and height still have to hold, per box, in that one case:
         const loose = pack === "pixel" && ratio === 1
-          ? { railHomeName: [1, 3], tabName: [1, 3], tab: [0, 1, 3], frow: [0, 1], frowName: [3] }[key]
+          ? { switchProject: [0, 2], tabName: [1, 3], tab: [0, 1, 3], frow: [0, 1], frowName: [3] }[key]
           : undefined;
         const checked = loose ?? [0, 1, 2, 3];
         if (checked.some((i) => Math.abs(a[i] - b[i]) > 0.15)) {

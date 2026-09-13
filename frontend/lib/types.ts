@@ -140,7 +140,7 @@ export interface AccountUsageReport {
   total: UsageTotals;
   pools: number;
   /* The percentage at which the service says something, as set in the
-     notification settings. The rail and the pickers mark at the same point,
+     notification settings. The usage icon and the pickers mark at the same point,
      so a colour never disagrees with a notification. */
   threshold: number;
   files: number;

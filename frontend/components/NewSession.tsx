@@ -45,7 +45,7 @@ export default function NewSession({
   const [unattended, setUnattended] = useState(false);
   const unattendable = pick === "claude";
 
-  // What is left on each account, shared with the rail and the usage view.
+  // What is left on each account, shared with the stripes and the usage view.
   const { accounts: limits, at: hotAt } = useAccountLimits();
 
   /* Two agents in one folder edit the same files without knowing about each
@@ -225,7 +225,7 @@ export default function NewSession({
                     <Button
                       bare
                       key={a.name}
-                      className={`choiceButton${hot ? " railhot" : ""}`}
+                      className="choiceButton"
                       data-picked={account === a.name ? "yes" : undefined}
                       data-nearly-out={hot ? "yes" : undefined}
                       onClick={() => setAccount(a.name)}

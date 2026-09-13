@@ -6,7 +6,7 @@ import type { AccountUsage, AccountUsageReport, UsageWindow } from "./types";
 
 /* What is left, per account, polled once for the whole window.
  *
- * The rail marks an account that is close to its window's end, the account
+ * The usage icon marks an account that is close to its window's end, the account
  * picker on a session does the same, and the usage view shows the figures in
  * full. Three readers, one poll — the way the pace is shared in usePace.ts.
  *
@@ -18,7 +18,7 @@ import type { AccountUsage, AccountUsageReport, UsageWindow } from "./types";
  */
 const EVERY = 20000;
 
-/* How full a window has to be before the rail marks it, when the service has
+/* How full a window has to be before the usage icon marks it, when the service has
    not said. The service sends its own threshold with the figures — the one
    the user set for the notification — and that is what is used; this is only
    the value before the first answer, and it is the same default so that a

@@ -9,9 +9,14 @@
  *
  * So the way in lives here, once. A gate says what it wants — the window up,
  * a tool open, a session in front, a document open, a project picked — and
- * what that takes is written in this file. Today it drives the rail. When the
- * rail becomes the tool stripes and the switchers in the top bar, what is
- * inside these functions changes and the gates stay as they are.
+ * what that takes is written in this file. The rail is gone: a tool is an icon
+ * on one of the three stripes around the dock, a session a row in the session
+ * switch at the top, a document a row of the MENU. What is inside these
+ * functions changed with it; the gates stayed as they were.
+ *
+ * Opening a list is a click whose rows are drawn a moment later, so the
+ * functions that go through a list — sessionRows, openSession, openDoc — are
+ * async and are awaited.
  *
  * GATEKIT is page-side source, spliced into the strings a gate hands to
  * Runtime.evaluate. Everything in it is a function declaration: a gate may
@@ -19,23 +24,23 @@
  * a const may not. No gate may declare one of these names in its own helpers.
  */
 export const GATEKIT = `
-  /* Nonzero once the window has rendered its frame: the number of tool icons
-     it shows. */
-  function appUp() { return stripeIcons().length; }
+  /* Nonzero once the window has rendered its frame: all nine tool icons on
+     their stripes. */
+  function appUp() { const n = stripeIcons().length; return n === 9 ? n : 0; }
 
-  /* Every icon on the frame that opens a view, in the order the frame shows
-     them. On the rail the documents stand among the tools. */
-  function stripeIcons() { return [...document.querySelectorAll('.railhome[data-view]')]; }
+  /* Every tool's icon, the left stripe's from the top, then the right one's,
+     then the bottom one's from the left. */
+  function stripeIcons() { return [...document.querySelectorAll('.stripe .stripeIcon[data-tool]')]; }
 
   /* The icon that opens one tool, by the tool's id — never by its word, which
      changes with the language, or its glyph, which changes with the pack. */
-  function stripeIcon(id) { return stripeIcons().find((e) => e.dataset.view === id) || null; }
+  function stripeIcon(id) { return document.querySelector('.stripe .stripeIcon[data-tool="' + id + '"]'); }
 
-  /* Whether the tool's icon says the tool is the one in front. */
-  function toolLit(id) { const icon = stripeIcon(id); return Boolean(icon && icon.classList.contains('active')); }
+  /* Whether the tool's icon says its window is the one showing at its edge. */
+  function toolLit(id) { const icon = stripeIcon(id); return Boolean(icon && icon.dataset.lit === 'yes'); }
 
-  /* Opens a tool or brings it forward, and never puts it away: the same click
-     on a tool that is already in front hides it, so a lit tool is not clicked.
+  /* Opens a tool or leaves it open, and never puts it away: the same click
+     on a tool that is already showing hides it, so a lit tool is not clicked.
      False when the frame has no icon for it. */
   function openTool(id) {
     const icon = stripeIcon(id);
@@ -44,27 +49,64 @@ export const GATEKIT = `
     return true;
   }
 
-  /* The rows that open a session, one per session. */
-  function sessionRows() { return [...document.querySelectorAll('.railitem[data-status]')]; }
+  /* The first truthy answer of fn within ms, or null. */
+  async function kitUntil(fn, ms) {
+    const t0 = Date.now();
+    for (;;) {
+      const v = fn();
+      if (v) return v;
+      if (Date.now() - t0 >= ms) return null;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
+  /* Puts away whatever list or menu is up, the way Escape does. */
+  function closeLists() {
+    if (document.querySelector('body > .menu')) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  }
+
+  /* The rows that open a session, one per session: the session switch's list,
+     opened when it is not up already, and left up. */
+  async function sessionRows() {
+    const toggle = document.querySelector('.switch[data-switch="session"]');
+    if (!toggle) return [];
+    if (toggle.dataset.open !== 'yes') toggle.click();
+    await kitUntil(() => toggle.dataset.open === 'yes' && document.querySelector('body > .menu'), 3000);
+    return [...document.querySelectorAll('body > .menu .menuItem')].filter((b) => b.querySelector('.menuSub'));
+  }
 
   /* Brings a session to the front: a string is its exact title, a RegExp is
-     held against everything its row says. The row clicked, or null. */
-  function openSession(match) {
-    const titleOf = (row) => ((row.querySelector('.rname') || { textContent: '' }).textContent || '').trim();
-    const row = sessionRows().find((r) => (typeof match === 'string' ? titleOf(r) === match : match.test(r.textContent || '')));
+     held against everything its row says. The row clicked, or null — and then
+     the list is put away again. */
+  async function openSession(match) {
+    const titleOf = (row) => ((row.querySelector('.menuLabel') || {}).firstChild?.textContent || '').trim();
+    const rows = await sessionRows();
+    const row = rows.find((r) => (typeof match === 'string' ? titleOf(r) === match : match.test(r.textContent || '')));
     if (row) row.click();
+    else closeLists();
     return row || null;
   }
 
   /* Opens a document of main, or brings it forward: "overview", "folders" or
-     "settings". A document is never put away by opening it again. False when
-     there is nothing to open it with. */
-  function openDoc(id) {
-    const opener = id === 'settings'
-      ? document.querySelector('.bar [data-do="settings"]')
-      : document.querySelector('.railhome[data-view="' + id + '"]');
-    if (!opener) return false;
-    opener.click();
+     "settings" — the settings by their button in the top bar, the other two
+     by their rows under the MENU. A document is never put away by opening it
+     again. False when there is nothing to open it with. */
+  async function openDoc(id) {
+    if (id === 'settings') {
+      const gear = document.querySelector('.bar [data-do="settings"]');
+      if (!gear) return false;
+      gear.click();
+      return true;
+    }
+    const button = document.querySelector('.bar [data-do="menu"]');
+    if (!button) return false;
+    button.click();
+    const row = await kitUntil(() => document.querySelector('body > .menu [data-do="doc-' + id + '"]'), 3000);
+    if (!row) {
+      closeLists();
+      return false;
+    }
+    row.click();
     return true;
   }
 

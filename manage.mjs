@@ -270,8 +270,8 @@ const listing = async (dir = "") => (await (await api(`/api/files/${folder.id}?d
 
 // ---- the tree, in the folders view ----------------------------------------
 const opened = await run(`${HELPERS}
-  openSession('project'); await wait(1500);
-  openDoc('folders'); await wait(2500);
+  await openSession('project'); await wait(1500);
+  await openDoc('folders'); await wait(2500);
   return { names: [...document.querySelectorAll('.fname')].map(n => n.textContent.trim()),
            menu: (await menuOf(row(/^a\\.go$/))).map(i => i.textContent.trim()) };
 `);
@@ -356,7 +356,7 @@ const searched = await run(`${HELPERS}
   for (let i = 0; i < 32 && !panel; i++) { await wait(250); panel = document.querySelector('.searchPanel'); }
   if (!panel) return { err: 'no search panel',
     tabs: [...document.querySelectorAll('.plxrDock .panelTabName')].map(e => e.textContent.trim()),
-    rail: stripeIcons().map(e => e.dataset.view) };
+    icons: stripeIcons().map(e => e.dataset.tool) };
   const following = panel.querySelector('.notice')?.textContent.trim() ?? '';
   /* The folders opened at the start are a tab of main, in front of the
      session, and the dock renders only the tab in front — so the session is
@@ -382,8 +382,8 @@ const searched = await run(`${HELPERS}
   const marks = [...panel.querySelectorAll('.findmark')].map(m => m.textContent);
   return { following, beside, terminalWide, files, marks, count: panel.querySelector('.hitSmall')?.textContent.trim() ?? '' };
 `);
-claim("the SEARCH panel opens from the rail and follows the session", /searching project/.test(searched.following ?? ""),
-  searched.err ? `${searched.err} · tabs ${(searched.tabs ?? []).join(", ")} · rail ${(searched.rail ?? []).join(", ")}` : searched.following);
+claim("SEARCH opens from its stripe icon and follows the session", /searching project/.test(searched.following ?? ""),
+  searched.err ? `${searched.err} · tabs ${(searched.tabs ?? []).join(", ")} · icons ${(searched.icons ?? []).join(", ")}` : searched.following);
 claim("it opens beside the terminal, not over it", searched.beside && searched.terminalWide, JSON.stringify({ beside: searched.beside, wide: searched.terminalWide }));
 const byPath = Object.fromEntries((searched.files ?? []).map((f) => [f.path, f.lines]));
 claim("hits are grouped by file, one group per file that has the word",

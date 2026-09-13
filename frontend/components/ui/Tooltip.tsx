@@ -29,7 +29,14 @@ type Handlers = {
   onBlur?: (e: FocusEvent<HTMLElement>) => void;
 };
 
-export default function Tooltip({ text, children }: { text?: string; children: ReactElement<Handlers> }) {
+/* Where the hint stands against the thing it explains. Under it, unless
+   something beside it would be covered: the icons of a stripe stand one under
+   the other, so their hints go to the side, towards the work. A hint that does
+   not fit on the side it was asked for goes to the other one, and it never
+   leaves the window. */
+export type TipPlace = "below" | "above" | "right" | "left";
+
+export default function Tooltip({ text, place = "below", children }: { text?: string; place?: TipPlace; children: ReactElement<Handlers> }) {
   const [box, setBox] = useState<Box | null>(null);
   const timer = useRef<number | null>(null);
 
@@ -87,29 +94,44 @@ export default function Tooltip({ text, children }: { text?: string; children: R
   return (
     <>
       {trigger}
-      {box ? <TipSurface text={text} at={box} onClose={hide} /> : null}
+      {box ? <TipSurface text={text} at={box} place={place} onClose={hide} /> : null}
     </>
   );
 }
 
-function TipSurface({ text, at, onClose }: { text: string; at: Box; onClose: () => void }) {
+function TipSurface({ text, at, place, onClose }: { text: string; at: Box; place: TipPlace; onClose: () => void }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
 
-  // Under the thing, centred on it; above it when there is no room below, and
-  // never past either edge of the window.
+  // Centred on the thing, on the side asked for; on the other side when there
+  // is no room there, and never past any edge of the window.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const pad = 6;
     const gap = 6;
-    let left = at.x + at.w / 2 - r.width / 2;
-    left = Math.min(Math.max(pad, left), Math.max(pad, window.innerWidth - r.width - pad));
-    let top = at.y + at.h + gap;
-    if (top + r.height > window.innerHeight - pad) top = Math.max(pad, at.y - r.height - gap);
+    const clampX = (v: number) => Math.min(Math.max(pad, v), Math.max(pad, window.innerWidth - r.width - pad));
+    const clampY = (v: number) => Math.min(Math.max(pad, v), Math.max(pad, window.innerHeight - r.height - pad));
+    let left: number;
+    let top: number;
+    if (place === "right" || place === "left") {
+      const right = at.x + at.w + gap;
+      const leftOf = at.x - r.width - gap;
+      const fitsRight = right + r.width <= window.innerWidth - pad;
+      const fitsLeft = leftOf >= pad;
+      left = clampX(place === "right" ? (fitsRight || !fitsLeft ? right : leftOf) : fitsLeft || !fitsRight ? leftOf : right);
+      top = clampY(at.y + at.h / 2 - r.height / 2);
+    } else {
+      const below = at.y + at.h + gap;
+      const above = at.y - r.height - gap;
+      const fitsBelow = below + r.height <= window.innerHeight - pad;
+      const fitsAbove = above >= pad;
+      left = clampX(at.x + at.w / 2 - r.width / 2);
+      top = clampY(place === "above" ? (fitsAbove || !fitsBelow ? above : below) : fitsBelow || !fitsAbove ? below : above);
+    }
     setPos({ left: Math.round(left), top: Math.round(top) });
-  }, [at, text]);
+  }, [at, text, place]);
 
   useEffect(() => {
     const shut = (e: Event) => {

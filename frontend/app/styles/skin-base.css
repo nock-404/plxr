@@ -108,37 +108,6 @@
    that are switched off must not look like notifications that broke. */
 .dnd { color: var(--blocked); }
 .boot { color: var(--dim); }
-.railitem { color: var(--dim); border-left: .125rem solid #0000; }
-.railitem:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 6%, transparent); }
-.railitem.active {
-  color: var(--accent);
-  border-left-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-}
-.railitem[data-status="permission"] { color: var(--blocked); }
-.railitem[data-status="dead"] { opacity: .45; }
-.railhome {
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  border-bottom: var(--hair) solid var(--line);
-  font-size: .8em;
-}
-.railgroup {
-  color: var(--dead);
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  border-bottom: var(--hair) solid var(--line);
-  font-size: .66em;
-}
-.rsub {
-  color: var(--dim);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  font-size: .68em;
-}
-.railitem.active .rsub,
-.railitem.active .rmeta { color: inherit; opacity: .78; }
-.rmeta { color: var(--dead); font-size: .76em; }
 .tile:hover { border-color: var(--accent); transform: translateY(-.125rem); }
 .tile:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: .12rem; }
 .tile[data-status="permission"] { border-color: var(--blocked); }
@@ -320,10 +289,8 @@
    hidden — it is the sentence that says how much to trust the rest. */
 .ufoot { color: var(--dead); font-size: .76em; }
 
-/* The rail entry for a view that has something to warn about. */
-.railhot .rname,
-.railhot .rmeta { color: var(--blocked); }
-.choiceButton.railhot { color: var(--blocked); }
+/* An account nearly out, marked in the account picker. */
+.choiceButton[data-nearly-out="yes"] { color: var(--blocked); }
 .ubox b { color: var(--accent); font-weight: 400; }
 .ubox span {
   color: var(--dead);
@@ -563,7 +530,6 @@
 .memoryHead { color: var(--dim); font-size: .8em; }
 .playbar { border-top: var(--hair) solid var(--line); }
 .ctx { color: var(--dead); }
-.rdot { opacity: .9; }
 .ubig { color: var(--accent); }
 .notice.warn { color: var(--blocked); }
 .queuebar { border-top: var(--hair) solid var(--dim); }
@@ -1110,16 +1076,33 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .plxrDock .dv-tabs-container { background: var(--panel); }
 .settingsPanel { background: var(--panel); color: var(--fg); }
 
-/* The menu column at the left edge of the window: the panel surface, with a
-   hairline where it meets the work. */
+/* The tool stripes: the panel's surface, with the line where each meets the
+   dock drawn inside it, so no skin's line takes a pixel from the icons. An icon
+   is dim until the pointer is on it, and lit in the accent while its window
+   shows, with a bar on the stripe's outer edge. An edge asked to show with
+   nothing on it glows for a moment in the blocked colour. */
 .dockShell { background: transparent; }
-.railHost { background: var(--panel); border-right: var(--hair) solid var(--line); }
+.stripe { background: var(--panel); }
+.stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--line); }
+.stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--line); }
+.stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--line); }
+.stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 12%, var(--panel)); }
+.stripeIcon { color: var(--dim); background: none; border: 0; border-radius: .375rem; cursor: pointer; }
+.stripeIcon:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.stripeIcon[data-lit="yes"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.stripeIcon[data-lit="yes"]::before { background: var(--accent); }
+.stripeIcon[data-nearly-out="yes"] { color: var(--blocked); }
+.stripeIcon:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: calc(var(--hair) * -1); }
+.stripeBadge { background: var(--accent); color: var(--bg); border-radius: 999rem; }
+.stripeIcon[data-nearly-out="yes"] .stripeBadge { background: var(--blocked); }
 
 /* A tool window: the panel surface, a hairline under its header, the name in
    spaced capitals and its mark dim — lit in the accent while the keyboard is
    in the window, so the window says where typing goes. */
 .toolWindow { background: var(--panel); color: var(--fg); }
-.toolHead { border-bottom: var(--hair) solid var(--line); }
+/* The header's line is drawn inside it, like a stripe's: a border took a pixel
+   from its 36 and put its 28 px buttons, and their marks, on half pixels. */
+.toolHead { box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--line); }
 .toolIcon { color: var(--dim); }
 .toolTitle { font-weight: 600; text-transform: uppercase; letter-spacing: .1em; }
 .toolWindow[data-focus="yes"] .toolIcon { color: var(--accent); }

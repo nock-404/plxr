@@ -7,7 +7,7 @@ import type { Tile } from "./types";
 /* One state, one word.
  *
  * A session has exactly one state, and it is named the same in every place it
- * appears: the rail, the tile, the dot's colour and the counter in the status
+ * appears: the session switch, the tile, the dot's colour and the counter in the status
  * strip. Two of those once said "waiting" and "started" about the same session,
  * which reads as a contradiction even when both are technically true.
  *
@@ -81,8 +81,9 @@ export function agentOf(t: Tile): string {
 
 /* The one line each place shows. Every one of them starts with the same word. */
 
-// Rail: the state, and what is doing it — or, once it is over, when.
-export function railLine(t: Tile): string {
+// A session's row in the session switch: the state, and what is doing it —
+// or, once it is over, when.
+export function sessionLine(t: Tile): string {
   return [stateWord(stateOf(t)), endedAt(t) || agentOf(t)].filter(Boolean).join(" · ");
 }
 

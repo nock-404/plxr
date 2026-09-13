@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A skin dresses; it does not measure.
 
-The frame belongs to layout.css: bar height, rail width, row pitch, control
+The frame belongs to layout.css: bar height, stripe thickness, row pitch, control
 metrics. When a skin set its own padding the header grew from 59 pixels to 78 in
 that one skin, and nobody saw it, because nobody had two skins open side by side.
 

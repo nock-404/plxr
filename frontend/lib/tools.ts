@@ -35,10 +35,10 @@ export type ToolDef = {
   keepMounted: boolean;
 };
 
-/* In the order they stand on their edges. The file tree wears the folder's
-   mark until the icon packs draw one of its own. */
+/* In the order they stand on their edges. The file tree wears a mark of its
+   own; the folder's stays the project's. */
 export const TOOLS: readonly ToolDef[] = [
-  { id: "files", icon: "folder", key: "tool.files", fallback: "Files", scope: "project", edge: "left", keepMounted: true },
+  { id: "files", icon: "files", key: "tool.files", fallback: "Files", scope: "project", edge: "left", keepMounted: true },
   { id: "changes", icon: "changes", key: "tool.changes", fallback: "Changes", scope: "project", edge: "left", keepMounted: false },
   { id: "search", icon: "search", key: "tool.search", fallback: "Search", scope: "project", edge: "left", keepMounted: false },
   { id: "review", icon: "review", key: "tool.review", fallback: "Review", scope: "project", edge: "left", keepMounted: false },
@@ -153,11 +153,22 @@ export function dropIndex(centres: number[], pointer: number): number {
   return centres.filter((c) => c < pointer).length;
 }
 
+/* The keys that show or hide an edge, and the chord as the keyboard help
+   prints it — read from the live binding. */
+export const EDGE_ACTIONS: Record<Edge, Action> = { left: "toggleLeft", right: "toggleRight", bottom: "toggleBottom" };
+
+export function edgeChordOf(edge: Edge): string {
+  const chord = bindingOf(EDGE_ACTIONS[edge]);
+  return chord ? caption(chord) : "";
+}
+
 /* The chord that reaches a tool or a document, as the keyboard help prints it
    — read from the live binding, so a rebound key shows. Empty when no key
    reaches it. */
 export function chordOf(id: ToolId | DocId): string {
   if (id === "settings") return caption(bindingOf("settings"));
+  // The review has no number; a key given to it has a row of its own.
+  if (id === "review") return bindingOf("toolReview") ? caption(bindingOf("toolReview")) : "";
   const at = (CHORD_ORDER as readonly string[]).indexOf(id);
   return at < 0 ? "" : caption(bindingOf(`view${at + 1}` as Action));
 }

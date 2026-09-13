@@ -134,7 +134,7 @@ export default function Session({
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // What is left on each of them, shared with the rail and the usage view.
+  // What is left on each of them, shared with the stripes and the usage view.
   const { accounts: limits, at: hotAt } = useAccountLimits();
 
   /* The picker says which account is nearly out of a window before the

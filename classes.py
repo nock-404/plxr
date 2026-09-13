@@ -58,7 +58,7 @@ LAYOUT_ONLY = {
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",
     # Rows, cells and handles: geometry with no surface of their own.
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
-    "hitMain", "draghandle", "brand", "rtext", "rname", "rmain",
+    "hitMain", "draghandle", "brand", "rmain",
     "fname", "style", "styleRow", "pathfield", "colourPicker", "settingsbody",
     # The floating window's body: it scrolls and pads what it holds; the frame,
     # the title bar and the grip carry the dressing. A short numeric field is
@@ -87,6 +87,10 @@ LAYOUT_ONLY = {
     # column and a flex row. The window around them and its header carry the
     # dressing; these two only place what sits in them.
     "toolBody", "toolActions",
+    # The three edge buttons in the top bar and main's empty state: a row and a
+    # centred column. The buttons in them dress themselves, and the note is the
+    # empty note every view draws.
+    "edgeToggles", "mainWatermark",
     # The web preview: a toolbar row and the iframe box, arrangement only.
     "preview", "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.

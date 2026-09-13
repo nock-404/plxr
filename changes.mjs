@@ -240,7 +240,7 @@ const HELPERS = `${GATEKIT}
 
 // ---- the panel follows the session ------------------------------------------
 const followA = await tab1.run(`${HELPERS}
-  openSession('alpha');
+  await openSession('alpha');
   await wait(1500);
   byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
   const got = await until(() => branch() === 'main' ? branch() : null, 6000);
@@ -251,7 +251,7 @@ claim("CHANGES in the session bar opens the panel on alpha's folder (main)", fol
 claim("alpha's own change is listed", JSON.stringify(followA.rows).includes('"a.txt"'), JSON.stringify(followA.rows));
 
 const followB = await tab1.run(`${HELPERS}
-  openSession('beta');
+  await openSession('beta');
   const got = await until(() => branch() === 'feature/second' ? branch() : null, 6000);
   return { branch: got.v, ms: got.ms, following: document.querySelector('.changesPanel .notice')?.textContent.trim() ?? '', rows: rows(),
     panels: document.querySelectorAll('.changesPanel').length };
@@ -263,7 +263,7 @@ claim("beta's own change is listed, alpha's is not",
 
 // Back to alpha, and it follows back — the editor does not steal the follow.
 const backA = await tab1.run(`${HELPERS}
-  openSession('alpha');
+  await openSession('alpha');
   const got = await until(() => branch() === 'main' ? branch() : null, 6000);
   return { branch: got.v, ms: got.ms };
 `);
@@ -411,7 +411,7 @@ for (let i = 0; i < 40; i++) {
   if (await tab2.run(`${GATEKIT} return appUp();`).catch(() => 0)) break;
 }
 const tab2Follow = await tab2.run(`${HELPERS}
-  openSession('alpha');
+  await openSession('alpha');
   await wait(800);
   if (!document.querySelector('.changesPanel')) byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
   const got = await until(() => branch() === 'main' ? branch() : null, 8000);

@@ -9,7 +9,7 @@ import { tr, trN } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { projectLabel, samePath, type Project } from "@/lib/project";
 import { sessionMenu } from "@/lib/sessionMenu";
-import { railLine, stateOf, titleOf } from "@/lib/state";
+import { sessionLine, stateOf, titleOf } from "@/lib/state";
 import type { Tile } from "@/lib/types";
 
 // The name the window menu knows this switch's list by.
@@ -17,8 +17,8 @@ const OWNER = "session-switch";
 
 /* Which session is in front, and every other one a click or ⌘E away.
  *
- * The rail listed the sessions in a wide column of words beside the work, and
- * it was the only way to reach one without the board. This is the same list,
+ * The sessions used to be listed in a wide column of words beside the work,
+ * and that was the only way to reach one without the board. This is the same list,
  * folded into one control at the top: the session in front with its state's
  * dot, how many are waiting for an answer, and under it every session grouped
  * by project, the current project first, each with its state. A pick brings
@@ -56,7 +56,7 @@ export default function SessionSwitch({
   const open = menu.owner === OWNER;
 
   const items = (): MenuItem[] => {
-    // Grouped the way the rail grouped them: by the project the service
+    // Grouped by the project the service
     // names, or the folder's own name when it names none.
     const groups = new Map<string, Tile[]>();
     for (const t of tiles) {
@@ -75,7 +75,7 @@ export default function SessionSwitch({
         rows.push({
           label: titleOf(t),
           icon: "terminal",
-          sub: railLine(t),
+          sub: sessionLine(t),
           status: stateOf(t),
           onClick: () => onOpen(t.id),
           context: () => sessionMenu(t, onOpen),

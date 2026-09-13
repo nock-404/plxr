@@ -7,9 +7,9 @@ import type { Tile } from "@/lib/types";
 
 /* What one session offers under the right button, wherever it is met.
  *
- * The board's tile, the rail's row, a row of the session switcher and the
+ * The board's tile, a row of the session switcher and the
  * switcher itself all offer the same verbs. The list was written out twice —
- * once on the tile, once on the rail — and the two copies had already drifted
+ * once on the tile, once in the old side list — and the two copies had already drifted
  * apart on what an ended session offers. It is written once now.
  *
  * Open it. While it runs: pause or resume it, and terminate it. Once it has

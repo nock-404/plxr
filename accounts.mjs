@@ -555,7 +555,7 @@ claim("when the account becomes signed in, the page says so without a reload",
 
 // The account switch on the sign-in session.
 const picker = await tab.run(`${HELPERS}
-  openSession(/sign in: claude4/);
+  await openSession(/sign in: claude4/);
   await until(() => /sign in: claude4/.test(activeTab()) ? true : null, 3000);
   const got = await until(() => document.querySelector('.plxrDock .dv-active-group .session .selectButton'), 12000);
   if (!got.v) return { options: [], ms: got.ms };
@@ -568,11 +568,11 @@ claim("the account switch on a session offers the new account",
   picker.options.length === 4 && picker.options.some((o) => /account 4/.test(o)),
   picker.options.length ? `on "${picker.current}": ${picker.options.join(" | ")} (picker up after ${picker.ms} ms)` : `no picker after ${picker.ms} ms`);
 
-// USAGE on the rail.
+// USAGE, from its icon.
 const usage = await tab.run(`${HELPERS}
   // By the view it opens: its mark is an icon from whichever pack is chosen,
   // and its name is a word in whichever language the window speaks.
-  const views = stripeIcons().map(d => d.dataset.view);
+  const views = stripeIcons().map(d => d.dataset.tool);
   const item = stripeIcon('usage');
   openTool('usage');
   const got = await until(() => document.querySelectorAll('.uacct').length === 4 ? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()) : null, 15000);
@@ -580,7 +580,7 @@ const usage = await tab.run(`${HELPERS}
     views: views.join(' '), item: !!item, active: activeTab(), empty: document.querySelector('.emptyNote')?.textContent.trim() ?? '' };
 `);
 claim("the usage view lists the new account", usage.names.length === 4 && usage.names.some((n) => /account 4/.test(n)),
-  `${usage.names.join(" | ") || "no cards"} after ${usage.ms} ms · rail views "${usage.views}" · usage item found ${usage.item} · active "${usage.active}"${usage.empty ? ` · "${usage.empty}"` : ""}`);
+  `${usage.names.join(" | ") || "no cards"} after ${usage.ms} ms · tool icons "${usage.views}" · usage icon found ${usage.item} · active "${usage.active}"${usage.empty ? ` · "${usage.empty}"` : ""}`);
 
 // The new-session dialog.
 const dialog = await tab.run(`${HELPERS}

@@ -285,7 +285,7 @@ const HELPERS = `${GATEKIT}
 
 // ---- the view opens, and the wide half has something to say -----------------
 const overview = await run(`${HELPERS}
-  openDoc('folders');
+  await openDoc('folders');
   /* Waited for, not slept through — and for the last thing to arrive, not the
      first. The overview draws as soon as its own answer is in; the changes
      list inside it asks git separately and lands a moment later, so reading
@@ -497,7 +497,7 @@ await api("/api/workspaces", { method: "POST", body: JSON.stringify({ path: clon
 // rather than being expected to notice a folder added behind its back.
 await reload();
 const distance = await run(`${HELPERS}
-  openDoc('folders');
+  await openDoc('folders');
   const found = await until(() => byText('.folderTab', /^clone$/), 10000);
   if (!found.v) return { there: false };
   found.v.click();

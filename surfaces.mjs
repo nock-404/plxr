@@ -328,7 +328,7 @@ claim("⌘K with the keydown targeted at an <input> does NOT toggle the palette"
 
 // ---- right-click the terminal ---------------------------------------------------
 const opened = await tab.run(`${HELPERS}
-  openSession('shell');
+  await openSession('shell');
   const got = await until(() => document.querySelector('.ptermbox .xterm'), 6000);
   await wait(800);
   return { ok: Boolean(got.v), ms: got.ms };
@@ -387,23 +387,26 @@ const paste = await tab.run(`${HELPERS}
 `);
 claim("a refused Paste is said in the pane (not silent)", paste.note.length > 0, paste.note ? `"${paste.note}" after ${paste.ms} ms · alpha ${paste.alpha}` : "no notice — clipboard read was allowed here");
 
-// ---- right-click a rail session -------------------------------------------------
-const railItem = await tab.run(`${GATEKIT} const r = sessionRows()[0]?.getBoundingClientRect(); return r ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;`);
-await mouse("mousePressed", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
-await mouse("mouseReleased", railItem.x + railItem.w / 2, railItem.y + railItem.h / 2, { button: "right", clickCount: 1 });
-const railMenu = await tab.run(`${HELPERS}
+// ---- right-click a tool's icon ----------------------------------------------------
+/* A tool's icon under the right button offers what its click does, said with
+   the key that does it. */
+const inboxIcon = await rectOf('.stripe .stripeIcon[data-tool="inbox"]');
+await mouse("mousePressed", inboxIcon.x + inboxIcon.w / 2, inboxIcon.y + inboxIcon.h / 2, { button: "right", clickCount: 1 });
+await mouse("mouseReleased", inboxIcon.x + inboxIcon.w / 2, inboxIcon.y + inboxIcon.h / 2, { button: "right", clickCount: 1 });
+const iconMenu = await tab.run(`${HELPERS}
   const got = await until(() => document.querySelector('body > .menu'), 2000);
   const rows = menuRows();
-  const danger = [...document.querySelectorAll('body > .menu .menuItem.danger')].map(b => b.textContent.trim());
+  const open = document.querySelector('body > .menu [data-do="tool-open"]');
+  const hint = open?.querySelector('.menuHint')?.textContent.trim() ?? '';
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   await wait(100);
-  return { rows, danger, ms: got.ms };
+  return { rows, open: Boolean(open), hint, ms: got.ms };
 `);
-claim("right-click on a rail session offers Open / Pause / Terminate / COPY PATH", ["Open", "Pause", "Terminate", "COPY PATH"].every((r) => railMenu.rows.includes(r)) && railMenu.danger.includes("Terminate"),
-  `${railMenu.rows.join(" · ")} · danger: ${railMenu.danger.join(",")}`);
+claim("right-click on a tool's icon offers Open, with the key that opens it", iconMenu.open && iconMenu.rows[0] === "Open" && iconMenu.hint === "⌘2",
+  `${iconMenu.rows.join(" · ")} · Open's key ${iconMenu.hint} · after ${iconMenu.ms} ms`);
 
 // ---- the session switch: every session, its menu, and the keyboard ------------------
-/* The list the rail's session rows are becoming, at the top of the window. A
+/* The list of sessions, at the top of the window. A
    click opens it with each session under its project and its state; the right
    button on a row offers the session's actions; ⌘E opens it with the keyboard
    on the first row, the arrows walk it, Enter brings the session forward, and
@@ -449,8 +452,8 @@ const switchRowMenu = await tab.run(`${HELPERS}
 claim("right-click on a session switch row offers Open / Pause / Terminate / COPY PATH", ["Open", "Pause", "Terminate", "COPY PATH"].every((r) => switchRowMenu.rows.includes(r)) && switchRowMenu.danger.includes("Terminate") && switchRowMenu.gone,
   `${switchRowMenu.rows.join(" · ")} · danger: ${switchRowMenu.danger.join(",")}`);
 
-// From the keyboard: the board in front, the keyboard on the rail.
-await tab.run(`${HELPERS} openDoc('overview'); await wait(600);`);
+// From the keyboard: the board in front.
+await tab.run(`${HELPERS} await openDoc('overview'); await wait(600);`);
 await pressKey("e", "KeyE", 69, 4);
 const keyOpen = await tab.run(`${HELPERS}
   const got = await until(() => document.querySelector('body > .menu'), 1500);
@@ -490,7 +493,7 @@ claim("right-click on the session title offers the session's actions", ["FILES",
 
 // ---- right-click a folder tab ------------------------------------------------------
 const folderTab = await tab.run(`${HELPERS}
-  openDoc('folders');
+  await openDoc('folders');
   const got = await until(() => document.querySelector('.folderTab'), 4000);
   const r = got.v?.getBoundingClientRect();
   return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2, ms: got.ms } : null;
@@ -545,13 +548,16 @@ const win = await tab.run(`${HELPERS}
   return { inGrid: Boolean(p.closest('.plxrDock')) && !p.closest('.dv-resize-container'), onBody: Boolean(document.querySelector('body > .window')),
     mates: group ? [...group.querySelectorAll('.panelTabName')].map(e => e.textContent.trim()) : [],
     tabs: [...p.querySelectorAll('.tab')].map(t => t.textContent.trim()), ms: got.ms,
-    groupX: g ? Math.round(g.left) : -1, railRight: Math.round(document.querySelector('.railHost').getBoundingClientRect().right) };
+    groupX: g ? Math.round(g.left) : -1,
+    // Where main starts: right of the left stripe, or of the left tool window when one shows.
+    edgeRight: Math.round(Math.max(document.querySelector('.stripe[data-edge="left"]').getBoundingClientRect().right,
+      ...[...document.querySelectorAll('.toolWindow')].map(t => t.closest('.dv-groupview')?.getBoundingClientRect()).filter(r => r && r.width > 0 && r.right <= innerWidth / 2).map(r => r.right))) };
 `);
 claim("Settings open as a panel in the dock's grid, not a window on <body>", win && win.inGrid && !win.onBody,
   win ? `after ${win.ms} ms · in the grid ${win.inGrid} · a window on <body> ${win.onBody}` : "no settings panel");
-claim("they open in main, as a tab beside the session, right of the menu",
-  win && win.mates.includes("Settings") && win.mates.some((m) => /^shell\b/.test(m)) && win.groupX >= win.railRight - 1,
-  win ? `the group holds ${win.mates.join(", ")}, from x ${win.groupX} · the menu ends at ${win.railRight}` : "");
+claim("they open in main, as a tab beside the session, right of the left stripe and its window",
+  win && win.mates.includes("Settings") && win.mates.some((m) => /^shell\b/.test(m)) && win.groupX >= win.edgeRight - 1,
+  win ? `the group holds ${win.mates.join(", ")}, from x ${win.groupX} · the left edge ends at ${win.edgeRight}` : "");
 claim("it has the nine tabs", win && ["skins & palette", "terminal", "editor", "keys", "accounts", "layouts", "notify", "agents", "status"].every((t) => win.tabs.includes(t)), win ? win.tabs.join(" · ") : "");
 
 const split = await tab.run(`${HELPERS}
@@ -727,7 +733,7 @@ const editor = await tab.run(`${HELPERS}
      brought forward first: the folders and the editor open there, and the
      settings keep the group they were split into, on screen beside them. */
   await front(shellTab());
-  openDoc('folders');
+  await openDoc('folders');
   await until(() => document.querySelector('.frow'), 4000);
   byText('.frow .fname', /^a\\.txt$/)?.closest('.frow').click();
   const cm = await until(() => document.querySelector('.editorPanel .cm-content'), 4000);

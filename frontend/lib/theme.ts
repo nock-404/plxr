@@ -62,7 +62,7 @@ export interface ThemeState {
   hue: number;
   brightness: number;
   saturation: number;
-  /* Which icon pack draws the marks: the rail, the tabs, the tree, the
+  /* Which icon pack draws the marks: the stripes, the tabs, the tree, the
      toolbar. A choice of its own rather than part of a skin — the pixel pack
      suits the tube, and the tube is still the tube with Tabler on it. */
   icons: IconPack;

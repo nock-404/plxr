@@ -6,8 +6,12 @@
  * and hidden, never closed, and main between the edges holds documents only.
  * That is a set of promises about boxes on a screen, and every one of them can
  * be broken without the code saying so. So each is driven the way somebody
- * drives it — through the gate kit, which clicks today's rail — and measured:
+ * drives it — through the gate kit, which clicks the icons on the stripes — and
+ * measured:
  *
+ *   the stripes stand at the frame, left, right and along the bottom, as thick
+ *     as the frame declares, every tool's icon on them once, in his order and
+ *     wearing its mark, and nothing of them inside the dock;
  *   a tool opens at its edge, main gives up exactly its width and nothing else
  *     moves; the same click hides it and main takes the room back;
  *   a second tool on the same edge swaps into the same box;
@@ -16,7 +20,9 @@
  *   a tool window has no ×, the middle button closes nothing in it, ⌘W from
  *     inside it hides it and ⇧⌘T does not bring it back as a tab; its header
  *     names it, its — hides it, its ⋮ offers Hide with the edge's chord;
- *   ⌘B ⌥⌘B ⌘J show and hide their edge and an empty edge changes nothing;
+ *   ⌘B ⌥⌘B ⌘J and the three edge buttons in the top bar show and hide their
+ *     edge, the buttons pressed while it shows, and an empty edge changes no
+ *     box and flashes its stripe; an icon's tooltip names it and its key;
  *     ⌘2 shows the Inbox with the keyboard in it, gives the keyboard back to
  *     it, and puts it away from inside it; ⇧⎋ hides the window the keyboard
  *     is in and nothing else;
@@ -24,6 +30,8 @@
  *     onto a tool window, its edges or the grid's outer edge stays in main;
  *   main's splits keep their proportions whatever order the edges go in;
  *   a hidden tool asks the service for nothing;
+ *   main with every document closed offers the board, a new session and the
+ *     commands, and each opens what it names;
  *   main is never narrower than its floor, nor under a tool window, while the
  *     window is wide enough for both;
  *   an arrangement saved by the old window comes up with its tools on their
@@ -42,6 +50,8 @@ import { GATEKIT } from "./gatekit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const HOME = process.env.PLXR_HOME || join(process.env.HOME, ".plxr");
+// Screenshots of the moments worth looking at, when a folder is named.
+const SHOTS = process.env.STRIPES_SHOTS || "";
 const BROWSERS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
@@ -271,6 +281,12 @@ const mouse = (type, x, y, extra = {}) => cdp.send("Input.dispatchMouseEvent", {
 
 const claims = [];
 const claim = (what, ok, detail = "") => claims.push({ what, ok: Boolean(ok), detail });
+async function snap(name) {
+  if (!SHOTS) return;
+  mkdirSync(SHOTS, { recursive: true });
+  const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
+  writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(shot.data, "base64"));
+}
 const unmeasured = (what, why) => claims.push({ what, ok: false, detail: `could not be measured: ${why}` });
 
 made = await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: work, cmd: [], name: "plxr-stripes-check", account: "" }) }).catch(() => null);
@@ -316,7 +332,7 @@ const HELPERS = `${GATEKIT}
   const gridTabs = () => [...document.querySelectorAll('.plxrDock .panelTabName')].map(e => e.textContent.trim());
   const tabNamed = n => [...document.querySelectorAll('.plxrDock .dv-tab')].find(t => (t.querySelector('.panelTabName') || {}).textContent?.trim() === n);
   const groupOfTab = n => tabNamed(n)?.closest('.dv-groupview') || null;
-  const railName = id => (stripeIcon(id)?.querySelector('.rname') || {}).textContent?.trim() || '';
+  const iconName = id => (stripeIcon(id)?.getAttribute('aria-label') || '').split(' · ')[0].trim();
   const click = async (id, ms) => { stripeIcon(id).click(); await wait(ms || 700); };
   const key = async (k, mods) => { const t = document.activeElement || document.body; t.dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: k, bubbles: true, cancelable: true }, mods || {}))); await wait(450); };
   const hideAll = async () => { for (const t of showing()) { if (toolLit(t)) await click(t, 500); } };
@@ -332,7 +348,7 @@ const show = (b) => (b ? `${b.x},${b.y} ${b.w}×${b.h}` : "none");
 
 // ---- a fresh window: every tool a window of its own, none of them showing ----
 const start = await run(`${HELPERS}
-  return { showing: showing(), gridTabs: gridTabs(), names: TOOL_IDS.map(railName), grid: grid(), host: host() };
+  return { showing: showing(), gridTabs: gridTabs(), names: TOOL_IDS.map(iconName), grid: grid(), host: host() };
 `);
 const startPlaced = placed((await api("/api/prefs")).dock);
 claim(
@@ -342,28 +358,64 @@ claim(
 );
 claim("a fresh window shows no tool window, and main fills the dock", start.showing.length === 0 && boxNear(start.grid, start.host), `showing ${start.showing.join(", ") || "none"} · main ${show(start.grid)} · dock ${show(start.host)}`);
 
+// ---- the stripes stand at the frame ---------------------------------------------
+/* Three stripes around the dock: the left and the right one as wide as the
+   frame declares, the bottom one as high and under all of it, flush with the
+   shell's edges, the dock inside them and nothing of theirs inside the dock. */
+const frame = await run(`${HELPERS}
+  const stripe = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
+  const px = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
+  return {
+    shell: box(document.querySelector('.dockShell')), left: stripe('left'), right: stripe('right'), bottom: stripe('bottom'), grid: grid(), thick: px('--stripe-w'),
+    icons: stripeIcons().map(e => ({ tool: e.dataset.tool, edge: e.closest('.stripe').dataset.edge, mark: (e.querySelector('.uiIcon use')?.getAttribute('href') || '').split('#')[1] || '', inDock: Boolean(e.closest('.dockHost')) })),
+    rail: document.querySelectorAll('.rail, .railHost, .railitem, .railhome').length,
+  };
+`);
+{
+  const f = frame;
+  claim(
+    "the left stripe stands at the shell's left edge and the right one flush with its right edge, each as wide as --stripe-w",
+    f.shell && f.left && f.right && near(f.left.x, f.shell.x) && near(f.left.w, f.thick) && near(f.right.x + f.right.w, f.shell.x + f.shell.w) && near(f.right.w, f.thick),
+    `shell ${show(f.shell)} · left ${show(f.left)} · right ${show(f.right)} · --stripe-w ${f.thick}px`,
+  );
+  claim(
+    "the bottom stripe is as high as --stripe-w and spans the whole shell under the dock",
+    f.bottom && near(f.bottom.h, f.thick) && near(f.bottom.x, f.shell.x) && near(f.bottom.w, f.shell.w) && near(f.bottom.y + f.bottom.h, f.shell.y + f.shell.h),
+    `bottom ${show(f.bottom)} · shell ${show(f.shell)}`,
+  );
+  const inside = f.grid && f.left && f.right && f.bottom && f.grid.x >= f.left.x + f.left.w - 1 && f.grid.x + f.grid.w <= f.right.x + 1 && f.grid.y + f.grid.h <= f.bottom.y + 1;
+  claim("main sits inside all three stripes, no icon is inside the dock, and no rail is left", inside && f.icons.every((i) => !i.inDock) && f.rail === 0,
+    `main ${show(f.grid)} · icons inside the dock ${f.icons.filter((i) => i.inDock).length} · rail elements ${f.rail}`);
+  const order = f.icons.map((i) => `${i.edge}:${i.tool}`).join(" ");
+  claim("every tool is an icon exactly once, in the default order, wearing its registry mark",
+    order === "left:files left:changes left:search left:review right:inbox right:usage right:ports right:archive right:notes" && f.icons.every((i) => i.mark === i.tool),
+    `${order} · marks ${f.icons.map((i) => i.mark).join(",")}`);
+}
+
 // ---- open, hide, swap --------------------------------------------------------
 const opened = await run(`${HELPERS}
   const g0 = grid();
   await click('files');
   const lit = toolLit('files');
+  const pressed = stripeIcon('files').getAttribute('aria-pressed');
+  const stripe = box(stripeIcon('files').closest('.stripe'));
   const files = edgeBox('files');
   const g1 = grid();
   const others = { changes: edgeBox('changes'), inbox: edgeBox('inbox') };
   await click('files');
-  const hidden = { lit: toolLit('files'), box: edgeBox('files'), icon: Boolean(stripeIcon('files')), grid: grid() };
+  const hidden = { lit: toolLit('files'), pressed: stripeIcon('files').getAttribute('aria-pressed'), box: edgeBox('files'), icon: Boolean(stripeIcon('files')), grid: grid() };
   await click('files');
   const beforeSwap = { files: edgeBox('files'), grid: grid() };
   await click('changes');
   const swapped = { changes: edgeBox('changes'), files: edgeBox('files'), filesLit: toolLit('files'), changesLit: toolLit('changes'), grid: grid(), showing: showing() };
-  return { g0, lit, files, g1, others, host: host(), hidden, beforeSwap, swapped };
+  return { g0, lit, pressed, stripe, files, g1, others, host: host(), hidden, beforeSwap, swapped };
 `);
 {
   const o = opened;
   claim(
-    "clicking Files lights it and shows its window at the left of the dock",
-    o.lit && o.files && near(o.files.x, o.host.x) && near(o.files.y, o.g0.y) && near(o.files.h, o.g0.h),
-    `lit ${o.lit} · window ${show(o.files)} · dock from x ${o.host.x}`,
+    "clicking Files lights and presses its icon and shows its window with its left edge on the left stripe's right edge",
+    o.lit && o.pressed === "true" && o.files && near(o.files.x, o.stripe.x + o.stripe.w) && near(o.files.y, o.g0.y) && near(o.files.h, o.g0.h),
+    `lit ${o.lit} · aria-pressed ${o.pressed} · window ${show(o.files)} · left stripe ${show(o.stripe)}`,
   );
   claim(
     "main gives up exactly the window's width and nothing else moves",
@@ -372,7 +424,7 @@ const opened = await run(`${HELPERS}
   );
   claim(
     "clicking the lit icon hides the window, the icon stays and goes dark, and main is back where it was",
-    !o.hidden.lit && !o.hidden.box && o.hidden.icon && boxNear(o.hidden.grid, o.g0),
+    !o.hidden.lit && o.hidden.pressed === "false" && !o.hidden.box && o.hidden.icon && boxNear(o.hidden.grid, o.g0),
     `lit ${o.hidden.lit} · window ${show(o.hidden.box)} · icon there ${o.hidden.icon} · main ${show(o.hidden.grid)} against ${show(o.g0)}`,
   );
   claim(
@@ -432,7 +484,7 @@ claim(
 
 // ---- the window's header, its hide and its menu; nothing closes a tool -------
 const header = await run(`${HELPERS}
-  openSession(/plxr-stripes-check/);
+  await openSession(/plxr-stripes-check/);
   await wait(1500);
   await click('files', 900);
   const w = win('files');
@@ -460,12 +512,12 @@ const header = await run(`${HELPERS}
   const shownAgain = Boolean(edgeBox('files'));
   win('files').querySelector('[data-do="tool-hide"]').click();
   await wait(600);
-  return { title, rail: railName('files'), closes, hideLabel, rows, afterMiddle, focused, afterW, afterReopen, shownAgain, afterHideButton: { lit: toolLit('files'), box: edgeBox('files') } };
+  return { title, icon: iconName('files'), closes, hideLabel, rows, afterMiddle, focused, afterW, afterReopen, shownAgain, afterHideButton: { lit: toolLit('files'), box: edgeBox('files') } };
 `);
 {
   const h = header;
   const chord = process.platform === "darwin" ? "⌘B" : "Ctrl+B";
-  claim("the header names the tool the way its icon does", h.title !== "" && h.title.toLowerCase() === h.rail.toLowerCase(), `header "${h.title}" · rail "${h.rail}"`);
+  claim("the header names the tool the way its icon does", h.title !== "" && h.title.toLowerCase() === h.icon.toLowerCase(), `header "${h.title}" · icon "${h.icon}"`);
   claim("there is no × anywhere in a tool window", h.closes === 0, `${h.closes} closes in the edges`);
   claim(`⋮ offers Hide with the edge's chord, and nothing else`, JSON.stringify(h.rows) === JSON.stringify([`${h.hideLabel} [${chord}]`]), h.rows.join(" | "));
   claim("the middle button inside a tool window closes nothing", h.afterMiddle.lit && Boolean(h.afterMiddle.box), JSON.stringify(h.afterMiddle));
@@ -475,17 +527,17 @@ const header = await run(`${HELPERS}
 }
 
 // ---- the keys -------------------------------------------------------------------
-/* The edge chords, with the stripes still to come: the frame beside the dock
-   keeps its width, main takes and gives the room, and an edge with nothing on
-   it changes nothing at all. Keys are keydown events on whatever has focus,
-   read by the same window listeners a real key reaches. */
+/* The edge chords: the stripes keep their thickness, main takes and gives the
+   room, and an edge with nothing on it changes no box and says so on its
+   stripe for a moment. Keys are keydown events on whatever has focus, read by
+   the same window listeners a real key reaches. */
 const edges = await run(`${HELPERS}
   await hideAll();
   document.activeElement?.blur?.();
-  const rail = () => box(document.querySelector('.railHost')).w;
-  const g0 = grid(); const r0 = rail();
-  const step = async (k, mods) => { await key(k, mods); await wait(300); return { showing: showing(), grid: grid(), rail: rail(),
-    left: edgeBox('files') || edgeBox('changes'), right: edgeBox('inbox') || edgeBox('usage') }; };
+  const thick = () => ['left', 'right', 'bottom'].map(e => { const b = box(document.querySelector('.stripe[data-edge="' + e + '"]')); return e === 'bottom' ? b.h : b.w; }).join('/');
+  const g0 = grid(); const f0 = thick();
+  const step = async (k, mods) => { await key(k, mods); const flash = document.querySelector('.stripe[data-edge="bottom"]').dataset.flash === 'yes'; await wait(300);
+    return { showing: showing(), grid: grid(), thick: thick(), flash, left: edgeBox('files') || edgeBox('changes'), right: edgeBox('inbox') || edgeBox('usage') }; };
   document.activeElement?.blur?.();
   const leftOn = await step('b', { metaKey: true });
   document.activeElement?.blur?.();
@@ -494,7 +546,9 @@ const edges = await run(`${HELPERS}
   document.activeElement?.blur?.();
   const rightOff = await step('b', { metaKey: true, altKey: true });
   const bottom = await step('j', { metaKey: true });
-  return { g0, r0, leftOn, leftOff, rightOn, rightOff, bottom };
+  await wait(700);
+  const afterFlash = document.querySelector('.stripe[data-edge="bottom"]').dataset.flash === 'yes';
+  return { g0, f0, leftOn, leftOff, rightOn, rightOff, bottom, afterFlash };
 `);
 {
   const e = edges;
@@ -509,11 +563,78 @@ const edges = await run(`${HELPERS}
     `showing ${e.rightOn.showing.join(", ")} ${show(e.rightOn.right)} · main ${show(e.rightOn.grid)} → ${show(e.rightOff.grid)}`,
   );
   claim(
-    "⌘J on the empty bottom edge changes no box, and the frame beside the dock keeps its width throughout",
-    e.bottom.showing.length === 0 && boxNear(e.bottom.grid, e.g0) && [e.leftOn, e.leftOff, e.rightOn, e.rightOff, e.bottom].every((s) => s.rail === e.r0),
-    `showing ${e.bottom.showing.join(", ") || "none"} · main ${show(e.bottom.grid)} · frame ${[e.r0, e.leftOn.rail, e.rightOn.rail, e.bottom.rail].join("/")}`,
+    "⌘J on the empty bottom edge changes no box and flashes the bottom stripe for a moment, and the stripes keep their thickness throughout",
+    e.bottom.showing.length === 0 && boxNear(e.bottom.grid, e.g0) && e.bottom.flash && !e.afterFlash && [e.leftOn, e.leftOff, e.rightOn, e.rightOff, e.bottom].every((s) => s.thick === e.f0),
+    `showing ${e.bottom.showing.join(", ") || "none"} · main ${show(e.bottom.grid)} · data-flash ${e.bottom.flash}, still set after 700 ms ${e.afterFlash} · stripes ${[e.f0, e.leftOn.thick, e.rightOn.thick, e.bottom.thick].join(" | ")}`,
   );
 }
+
+// ---- the edge buttons in the top bar ------------------------------------------------
+/* The same three edges from the top bar: each button shows and hides its edge
+   the way its key does, is pressed while its edge shows — whichever way the
+   edge came to show — and on an empty edge flashes that edge's stripe. */
+const toggles = await run(`${HELPERS}
+  await hideAll();
+  document.activeElement?.blur?.();
+  const button = e => document.querySelector('.bar [data-do="toggle-' + e + '"]');
+  const pressed = () => ['left', 'bottom', 'right'].map(e => button(e)?.getAttribute('aria-pressed') ?? 'none').join(' ');
+  const g0 = grid();
+  const snap = async () => { await wait(700); return { showing: showing(), grid: grid(), pressed: pressed(), left: edgeBox('files') || edgeBox('changes'), right: edgeBox('inbox') || edgeBox('usage') }; };
+  const start = pressed();
+  button('left').click(); const leftOn = await snap();
+  button('left').click(); const leftOff = await snap();
+  button('right').click(); const rightOn = await snap();
+  button('right').click(); const rightOff = await snap();
+  // Read after the click has been drawn, and well inside the flash's 600 ms.
+  button('bottom').click(); await wait(200); const flash = document.querySelector('.stripe[data-edge="bottom"]').dataset.flash === 'yes'; const bottom = await snap();
+  await click('files', 900); const byIcon = pressed();
+  document.activeElement?.blur?.();
+  await key('b', { metaKey: true }); await wait(300); const byChord = pressed();
+  return { g0, start, leftOn, leftOff, rightOn, rightOff, flash, bottom, byIcon, byChord };
+`);
+{
+  const t = toggles;
+  claim(
+    "the top bar's left edge button shows the left edge, is pressed while it shows and hides it again, main giving and taking the width",
+    t.start === "false false false" && t.leftOn.left && near(t.leftOn.grid.x, t.g0.x + t.leftOn.left.w, 2) && t.leftOn.pressed === "true false false" && t.leftOff.showing.length === 0 && boxNear(t.leftOff.grid, t.g0) && t.leftOff.pressed === "false false false",
+    `pressed ${t.start} → ${t.leftOn.pressed} → ${t.leftOff.pressed} · main ${show(t.g0)} → ${show(t.leftOn.grid)} → ${show(t.leftOff.grid)}`,
+  );
+  claim(
+    "the right edge button does the same for the right edge",
+    t.rightOn.right && near(t.rightOn.grid.x + t.rightOn.grid.w, t.g0.x + t.g0.w - t.rightOn.right.w, 2) && t.rightOn.pressed === "false false true" && t.rightOff.showing.length === 0 && boxNear(t.rightOff.grid, t.g0) && t.rightOff.pressed === "false false false",
+    `pressed ${t.rightOn.pressed} → ${t.rightOff.pressed} · main ${show(t.rightOn.grid)} → ${show(t.rightOff.grid)}`,
+  );
+  claim(
+    "the bottom edge button on the empty bottom edge changes no box, stays unpressed and flashes the bottom stripe",
+    t.flash && t.bottom.showing.length === 0 && boxNear(t.bottom.grid, t.g0) && t.bottom.pressed === "false false false",
+    `data-flash ${t.flash} · main ${show(t.bottom.grid)} · pressed ${t.bottom.pressed}`,
+  );
+  claim("the buttons' pressed state follows a click on an icon and ⌘B", t.byIcon === "true false false" && t.byChord === "false false false", `after the Files icon ${t.byIcon} · after ⌘B ${t.byChord}`);
+}
+
+/* Hints, under a real pointer: an icon on the left stripe says its name and
+   key to the right of itself, one on the right stripe to its left, and an edge
+   button says what it does and its key. */
+async function hint(selector) {
+  const at = await run(`${HELPERS} const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2, b: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } } : null;`);
+  if (!at) return null;
+  await mouse("mouseMoved", at.x, at.y);
+  await sleep(900);
+  const tip = await run(`${HELPERS} const t = document.querySelector('.tooltip'); return t ? { text: t.textContent.trim(), b: box(t) } : null;`);
+  await mouse("mouseMoved", 800, 600);
+  await sleep(300);
+  return { at: at.b, tip };
+}
+await run(`${HELPERS} await hideAll(); document.activeElement?.blur?.();`);
+const tipFiles = await hint('.stripe .stripeIcon[data-tool="files"]');
+const tipInbox = await hint('.stripe .stripeIcon[data-tool="inbox"]');
+const tipEdge = await hint('.bar [data-do="toggle-left"]');
+claim(
+  "an icon's tooltip names the tool and its key beside the icon, towards the work: Files ⌘3 right of the left stripe's icon, Inbox ⌘2 left of the right stripe's",
+  tipFiles?.tip?.text === "Files ⌘3" && tipFiles.tip.b.x >= tipFiles.at.x + tipFiles.at.w && tipInbox?.tip?.text === "Inbox ⌘2" && tipInbox.tip.b.x + tipInbox.tip.b.w <= tipInbox.at.x,
+  `"${tipFiles?.tip?.text}" at ${show(tipFiles?.tip?.b)} for the icon at ${show(tipFiles?.at)} · "${tipInbox?.tip?.text}" at ${show(tipInbox?.tip?.b)} for ${show(tipInbox?.at)}`,
+);
+claim("an edge button's tooltip says what it does and its key", tipEdge?.tip?.text === "Show or hide the left tool window ⌘B", `"${tipEdge?.tip?.text}"`);
 
 /* A tool's chord, the JetBrains way: the first press shows it and puts the
    keyboard in it, a press from inside it puts it away, and a press while it
@@ -725,7 +846,7 @@ if (splitSetup.why || splitSetup.groups.length < 3) {
 }
 
 // ---- a hidden tool asks for nothing --------------------------------------------
-await run(`${HELPERS} await hideAll(); openSession(/plxr-stripes-check/); await wait(1200);`);
+await run(`${HELPERS} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1200);`);
 const openChanges = () => {
   const open = new Map();
   for (const t of traffic) {
@@ -753,6 +874,53 @@ claim(
 claim("with Changes, Ports and Usage showing, each asks again", busy.usage > 0 && busy.ports > 0 && busy.changes > 0, JSON.stringify(busy));
 await run(`${HELPERS} await hideAll();`);
 await sleep(900);
+
+// ---- main with nothing in it ------------------------------------------------------
+/* Every document closed by its tab's close — a running session kept running
+   when it asks — and main offers the board, a new session and the commands.
+   Each opens what it names. */
+const emptied = await run(`${HELPERS}
+  await hideAll();
+  for (let i = 0; i < 40; i++) {
+    const close = document.querySelector('.dockHost .panelTabClose');
+    if (!close) break;
+    close.click();
+    await wait(450);
+    const keep = [...document.querySelectorAll('.ask .cardButtons .btn')].find(b => b.textContent.trim() === 'KEEP RUNNING');
+    if (keep) { keep.click(); await wait(450); }
+  }
+  const mark = await until(() => document.querySelector('.dockHost .mainWatermark'), 3000);
+  return { tabs: gridTabs(), mark: box(mark), host: host(),
+    buttons: mark ? [...mark.querySelectorAll('[data-do^="watermark-"]')].map(b => b.dataset.do + ' ' + b.textContent.trim()) : [] };
+`);
+await snap("main-empty");
+const fromMark = (which) => run(`${HELPERS}
+  for (let i = 0; i < 6; i++) { const close = document.querySelector('.dockHost .panelTabClose'); if (!close) break; close.click(); await wait(450); }
+  const mark = await until(() => document.querySelector('.dockHost .mainWatermark'), 3000);
+  mark?.querySelector('[data-do="${which}"]')?.click();
+  await wait(1000);
+  const out = { tabs: gridTabs(), dialog: Boolean(document.querySelector('.backdrop .card .cardTitle')), palette: Boolean(document.querySelector('.paletteScrim .palette')), mark: Boolean(document.querySelector('.dockHost .mainWatermark')) };
+  (document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(500);
+  return out;
+`);
+const boardFrom = await fromMark("watermark-board");
+const sessionFrom = await fromMark("watermark-new");
+const commandsFrom = await fromMark("watermark-commands");
+await fromMark("watermark-board");
+{
+  const inside = emptied.mark && emptied.host && emptied.mark.x >= emptied.host.x - 1 && emptied.mark.x + emptied.mark.w <= emptied.host.x + emptied.host.w + 1;
+  claim(
+    "with every document closed main shows its empty state, with three buttons: Board ⌘1, New session ⌘N, Commands ⌘K",
+    emptied.tabs.length === 0 && inside && emptied.buttons.join(" | ") === "watermark-board Board ⌘1 | watermark-new New session ⌘N | watermark-commands Commands ⌘K",
+    `main's tabs ${emptied.tabs.join(", ") || "none"} · ${emptied.buttons.join(" | ") || "no buttons"} · note ${show(emptied.mark)} in the dock ${show(emptied.host)}`,
+  );
+  claim(
+    "each opens what it names: the board in main, the new-session dialog, the command palette",
+    boardFrom.tabs.includes("Overview") && !boardFrom.mark && sessionFrom.dialog && commandsFrom.palette,
+    `board: tabs ${boardFrom.tabs.join(", ")}, empty state gone ${!boardFrom.mark} · new session: dialog ${sessionFrom.dialog} · commands: palette ${commandsFrom.palette}`,
+  );
+}
 
 // ---- arrangements the old window saved ------------------------------------------
 /* Each recorded arrangement is loaded as the old window wrote it, with the old

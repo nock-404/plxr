@@ -31,15 +31,24 @@ const SKINS = ["crt", "win95", "sketch", "pixel"];
 const BOXES = {
   bar: ".bar",
   statusrow: ".statusrow",
-  rail: ".rail",
   content: ".content",
-  railHome: ".railhome",
-  railGroup: ".railgroup",
-  railSession: ".railitem:has(.rsub)",
+  stripeLeft: '.stripe[data-edge="left"]',
+  stripeRight: '.stripe[data-edge="right"]',
+  stripeBottom: '.stripe[data-edge="bottom"]',
+  stripeIcon: ".stripe .stripeIcon",
+  toolHead: '.toolWindow[data-tool="files"] .toolHead',
+  switchProject: '.switch[data-switch="project"]',
+  switchSession: '.switch[data-switch="session"]',
   tile: ".tile",
   tileHead: ".thead",
   tileFoot: ".tfoot",
 };
+/* The two switches sit between the wordmark and the header's word buttons: where
+   one starts follows the wordmark's typeface, and how wide it is follows how much
+   room the buttons' words leave it — both the skin's business, measured at 202,
+   178, 172 and 241 px from the left and 109 to 300 px wide across the four.
+   Their row and their height are the frame's, and that is what is held. */
+const ROW_ONLY = new Set(["switchProject", "switchSession"]);
 
 const BROWSERS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -240,15 +249,18 @@ const evaluate = async (expression) => {
   return r.result?.value;
 };
 
-/* The boxes are the frame's and the overview's, so the overview is brought to
-   the front first. Measured on whatever arrangement was saved last, a window
+/* The boxes are the frame's, a tool window's header and the overview's, so the
+   overview is brought to the front first and the Files window shown. Measured on whatever arrangement was saved last, a window
    left with another tab in front of the overview has no tiles to measure, and
    a missing box fails below. */
 for (let i = 0; i < 80; i++) {
   if (await evaluate(`(() => { ${GATEKIT} return appUp(); })()`).catch(() => 0)) break;
   await sleep(250);
 }
-await evaluate(`(() => { ${GATEKIT} return openDoc("overview"); })()`).catch(() => false);
+await evaluate(`(async () => { ${GATEKIT} return await openDoc("overview"); })()`).catch(() => false);
+// A tool's header is measured on the Files window, so it is shown.
+await sleep(800);
+await evaluate(`(() => { ${GATEKIT} return openTool("files"); })()`).catch(() => false);
 
 /* Waited for until every box is on the page, for twenty seconds at most, so a
    page still arriving does not read as a page without one. */
@@ -307,7 +319,7 @@ if (missing.length) {
 }
 const differing = names.filter((n) => {
   const rows = SKINS.map((s) => measured[s][n]);
-  return [0, 1, 2, 3].some((i) => {
+  return (ROW_ONLY.has(n) ? [1, 3] : [0, 1, 2, 3]).some((i) => {
     const values = rows.map((r) => r[i]);
     return Math.max(...values) - Math.min(...values) > SLACK;
   });

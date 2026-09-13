@@ -229,10 +229,10 @@ await sleep(3000);
 const loaded = await run(`${GATEKIT}
   return {
     app: !!document.querySelector(".app"),
-    rail: appUp(),
+    up: appUp(),
   };
 `).catch(() => null);
-if (!loaded?.app || !loaded.rail) {
+if (!loaded?.app || !loaded.up) {
   console.log("  the interface did not render — nothing to check");
   stop(1);
 }
@@ -244,7 +244,7 @@ const ports = await api("/api/ports");
 // ---- the overview ---------------------------------------------------------
 const overview = await run(`${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  openDoc('overview');
+  await openDoc('overview');
   await wait(600);
   const tiles = [...document.querySelectorAll('.tile')];
   return {
@@ -252,7 +252,6 @@ const overview = await run(`${GATEKIT}
     withTitle: tiles.filter(t => (t.querySelector('.tname')?.textContent || '').trim()).length,
     withState: tiles.filter(t => (t.querySelector('.act')?.textContent || '').trim()).length,
     withDot: tiles.filter(t => t.querySelector('.dot')).length,
-    railSessions: sessionRows().length,
     strip: (document.querySelector('.statusrow span')?.textContent || '').trim(),
     emptyState: !!document.querySelector('.emptybox'),
   };
@@ -270,18 +269,12 @@ if (sessions.length === 0) {
   claim("every tile carries a state word", overview.withState === overview.tiles);
   claim("every tile carries a dot", overview.withDot === overview.tiles);
   claim(
-    "the rail lists the same sessions",
-    overview.railSessions === sessions.length,
-    `${overview.railSessions} in the rail`,
-  );
-  claim(
     "the status strip counts them",
     overview.strip.includes(String(sessions.length)),
     overview.strip,
   );
-  /* The session switch at the top is the list the rail's session rows are
-     becoming: every session, each with its state's mark, opened and closed
-     again by the switch itself. */
+  /* The session switch at the top is the list of sessions: every session,
+     each with its state's mark, opened and closed again by the switch itself. */
   const switched = await run(`
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const sw = document.querySelector('.switch[data-switch="session"]');
@@ -339,7 +332,14 @@ for (const [name, expectRows] of [
     view = seen();
     if (!view) return { opened: false };
     const body = view.querySelector('.listbody');
+    // Its window stands against its stripe: no gap, no overlap.
+    const stripe = stripeIcon(id).closest('.stripe').getBoundingClientRect();
+    const edge = stripeIcon(id).closest('.stripe').dataset.edge;
+    const box = document.querySelector('.toolWindow[data-tool="' + id + '"]')?.closest('.dv-groupview')?.getBoundingClientRect();
+    const against = !box || box.width === 0 ? null : Math.round(edge === 'left' ? box.left - stripe.right : edge === 'right' ? stripe.left - box.right : stripe.top - box.bottom);
     return {
+      against,
+      edge,
       opened: true,
       rows: view.querySelectorAll('.row').length,
       blocks: view.querySelectorAll('.ublock').length,
@@ -348,6 +348,7 @@ for (const [name, expectRows] of [
     };
   `);
   claim(`${name} opens`, view.opened && !view.missing);
+  claim(`${name} opens against its stripe`, view.against !== null && Math.abs(view.against) <= 1, `${view.against}px from the ${view.edge} stripe`);
   claim(
     `${name} shows content or says why it is empty`,
     !view.blank && (view.rows > 0 || view.blocks > 0 || view.empty),
@@ -363,7 +364,7 @@ const live = sessions.filter((s) => s.alive);
 if (live.length > 0) {
   const session = await run(`${GATEKIT}
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    openDoc('overview');
+    await openDoc('overview');
     await wait(500);
     const tile = [...document.querySelectorAll('.tile')].find(t => t.dataset.status !== 'orphaned' && t.dataset.status !== 'dead');
     if (!tile) return { noLiveTile: true };
@@ -557,7 +558,7 @@ claim("a fault reaches the daemon's log", after.length > before && after.include
    everything else, which is what the float-and-dock claims below prove. */
 const settings = await run(`${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  openDoc('overview');
+  await openDoc('overview');
   await wait(400);
   const before = document.documentElement.getAttribute('data-skin');
   // The gear, by what it does — not by index: buttons come and go in that row,
@@ -696,7 +697,7 @@ const place = await run(`${GATEKIT}
   await wait(1200);
   const named = document.querySelector('.switch[data-switch="project"] .switchLabel')?.firstChild?.textContent.trim() ?? '';
   const menuGone = !document.querySelector('body > .menu');
-  openDoc('folders');
+  await openDoc('folders');
   await wait(1500);
   const openFolder = (document.querySelector('.folderbar .prompt')?.nextElementSibling?.textContent || '')
     + ' ' + [...document.querySelectorAll('.folderTabs .btn, .folderTabs button')].map(b => b.textContent).join(' ');
@@ -818,16 +819,24 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   claim("the content is a dock with several surfaces at once: the board in main, a tool window at each side",
     dock.many.main.includes("Overview") && dock.many.tools.includes("changes") && dock.many.tools.includes("usage"),
     `main ${dock.many.main.join(", ")} · tool windows ${dock.many.tools.join(", ")}`);
-  /* The menu is the window's frame, beside the grid rather than a column in
-     it — so it never appears among the dock's tabs, and it is always there. */
-  const menuThere = await run(`${GATEKIT}
-    const host = document.querySelector('.railHost');
-    const items = stripeIcons().filter(e => e.closest('.railHost')).length;
+  /* The stripes are the window's frame, around the dock rather than columns
+     in it — so no icon is inside the dock, no old menu is among its tabs, and
+     the three stand at the frame's edges. */
+  const frame = await run(`${GATEKIT}
+    const b = el => el ? el.getBoundingClientRect() : null;
+    const shell = b(document.querySelector('.dockShell')), host = b(document.querySelector('.dockHost'));
+    const l = b(document.querySelector('.stripe[data-edge="left"]')), r = b(document.querySelector('.stripe[data-edge="right"]')), bt = b(document.querySelector('.stripe[data-edge="bottom"]'));
+    const near = (a, c) => Math.abs(a - c) <= 1;
+    const placed = Boolean(shell && host && l && r && bt) && near(l.left, shell.left) && near(r.right, shell.right) && near(bt.bottom, shell.bottom) && near(bt.width, shell.width)
+      && host.left >= l.right - 1 && host.right <= r.left + 1 && host.bottom <= bt.top + 1;
+    const inDock = stripeIcons().filter(e => e.closest('.dockHost')).length;
     const inGrid = [...document.querySelectorAll('.dv-tab')].some(t => /^\\s*plxr\\s*$/.test(t.querySelector('.panelTabName')?.textContent || ''));
-    return { there: Boolean(host) && items > 0, width: host ? Math.round(host.getBoundingClientRect().width) : -1, inGrid };
+    return { placed, icons: stripeIcons().length, inDock, inGrid, rail: document.querySelectorAll('.rail, .railHost, .railitem').length,
+      thick: [l, r].map(x => x && Math.round(x.width)).concat(bt ? [Math.round(bt.height)] : []) };
   `);
-  claim("the menu stands beside the dock, not in it", menuThere.there && !menuThere.inGrid,
-    `${menuThere.width}px wide, among the tabs: ${menuThere.inGrid}`);
+  claim("the stripes stand at the frame around the dock with every tool's icon on them, none inside the dock and no rail",
+    frame.placed && frame.icons === 9 && frame.inDock === 0 && !frame.inGrid && frame.rail === 0,
+    `left/right/bottom ${frame.thick.join("/")} px · ${frame.icons} icons, ${frame.inDock} inside the dock · an old menu tab ${frame.inGrid} · rail elements ${frame.rail}`);
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   /* A reset rebuilds the arrangement for the activity that was chosen last —
      'focus' (the board alone) unless somebody picked another from the LAYOUTS
@@ -866,7 +875,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
 {
   const cm = await run(`${GATEKIT}
     const w = ms => new Promise(r => setTimeout(r, ms));
-    openDoc('overview');
+    await openDoc('overview');
     await w(800);
     const tile = document.querySelector('.tile');
     if (!tile) return { noTile: true };
@@ -897,7 +906,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
     const w = ms => new Promise(r => setTimeout(r, ms));
     if (!(await pickProject(${JSON.stringify(cwd)}))) return { noField: true };
     await w(1200);
-    if (!stripeIcon('changes')) return { noRail: true };
+    if (!stripeIcon('changes')) return { noIcon: true };
     openTool('changes');
     await w(1500);
     const rows = [...document.querySelectorAll('.changesPanel .changepath')];
@@ -929,7 +938,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
       stacked,
     };
   `);
-  if (!diff.noField && !diff.noRail && !diff.nothingChanged) {
+  if (!diff.noField && !diff.noIcon && !diff.nothingChanged) {
     claim("a changed file opens as a diff panel", diff.openedPanel && diff.diffLines > 0, `${diff.rows} changed, ${diff.diffLines} diff lines in ${diff.picked}`);
     claim("a diff stacks its hunks, one above the next", diff.stacked, `${diff.hunks} hunks`);
   }

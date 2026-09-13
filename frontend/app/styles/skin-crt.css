@@ -4,7 +4,7 @@
    here. The window is frosted: surfaces stay see-through and blur what is
    behind them.
 
-   Nothing here sets a size. The frame — bar height, rail width, row pitch,
+   Nothing here sets a size. The frame — bar height, stripe thickness, row pitch,
    control metrics — belongs to layout.css, so every skin lays out identically
    and only the dressing changes. */
 
@@ -32,8 +32,8 @@
 [data-skin="crt"] .bar,
 [data-skin="crt"] .statusrow,
 
-/* ---- rail ------------------------------------------------------------- */
-[data-skin="crt"] .rail,
+/* ---- stripes --------------------------------------------------------- */
+[data-skin="crt"] .stripe,
 
 /* ---- tiles: measuring-instrument brackets ----------------------------- */
 [data-skin="crt"] .tile,
@@ -52,7 +52,6 @@
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }
-[data-skin="crt"] .rail,
 [data-skin="crt"] .tile,
 [data-skin="crt"] .card { box-shadow: inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .fx { background: repeating-linear-gradient(to bottom, rgba(0,0,0,var(--scan-alpha)) 0 var(--hair), transparent var(--hair) var(--scan-period)), radial-gradient(ellipse at center, transparent 62%, #00000057 100%); }
@@ -85,7 +84,16 @@
 [data-skin="crt"] .pacenow.pace--hot .ubig { color: var(--blocked); }
 [data-skin="crt"] .paceLimitLabel { color: var(--dead); }
 [data-skin="crt"] .paceNote { color: var(--dim); }
-[data-skin="crt"] .rail { border-right: var(--hair) solid var(--dim); }
+/* The stripes: the tube's line where each meets the dock, the glass's
+   highlight along the top, and a lit icon glowing in the phosphor. */
+[data-skin="crt"] .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-skin="crt"] .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
+[data-skin="crt"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--dim); }
+[data-skin="crt"] .stripe[data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--panel-glass)); }
+[data-skin="crt"] .stripeIcon { border-radius: 0; }
+[data-skin="crt"] .stripeIcon[data-lit="yes"] { filter: drop-shadow(0 0 .25rem var(--accent)); }
+[data-skin="crt"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent); }
+[data-skin="crt"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--blocked) 60%, transparent); }
 [data-skin="crt"] .tile { border: var(--hair) solid var(--dim); transition: border-color .12s,transform .12s; }
 
 [data-skin="crt"] .listbar { border-bottom: var(--hair) solid var(--dim); }
@@ -112,7 +120,6 @@
     color-mix(in srgb, var(--blocked) 12%, transparent) 0 0.375rem,
     transparent 0.375rem 0.875rem);
 }
-[data-skin="crt"] .railitem[data-unattended="yes"] .rdot { color: var(--blocked); }
 
 /* The floating window and the tooltip wear the tube's own line and glow. */
 [data-skin="crt"] .window { border-color: var(--accent); box-shadow: 0 1rem 3rem var(--shadow), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
