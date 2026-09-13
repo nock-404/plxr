@@ -171,12 +171,18 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
     (ticked ?? stopsIn(el)[0])?.focus();
   }, []);
 
-  /* And back where it came from when the menu is done with — but only when
-     the keyboard is still in the menu. A click somewhere else has already put
-     it where it belongs, and taking it back from there would be theft. */
-  const giveBack = useCallback(() => {
-    const now = document.activeElement;
-    if (back?.isConnected && (!now || now === document.body || ref.current?.contains(now))) back.focus();
+  /* And back where it came from when the menu goes — however it goes: a row
+     taken, Escape, ⌘E pressed again, another menu opened from a row. Only
+     when the keyboard is still in the menu, though: a click somewhere else
+     has already put it where it belongs, and taking it back from there would
+     be theft. A layout effect, because its cleanup runs while the rows are
+     still in the document; after that the keyboard has fallen to the body and
+     nothing can tell where it was. */
+  useLayoutEffect(() => {
+    const el = ref.current;
+    return () => {
+      if (back?.isConnected && el?.contains(document.activeElement)) back.focus();
+    };
   }, [back]);
 
   useEffect(() => {
@@ -194,7 +200,6 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
         // A completion list open over the field is closed first, by its own
         // Escape; the next one closes the menu.
         if (document.querySelector(".pathList")) return;
-        giveBack();
         onClose();
         return;
       }
@@ -225,7 +230,7 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
       window.removeEventListener("keydown", key);
       window.removeEventListener("blur", onClose);
     };
-  }, [onClose, anchor, giveBack]);
+  }, [onClose, anchor]);
 
   return createPortal(
     <div className="menu" role="menu" ref={ref} style={{ left: `${pos.left}px`, top: `${pos.top}px` }}>
@@ -243,7 +248,6 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
             key={`field:${it.label}`}
             label={it.label}
             onSubmit={(value) => {
-              giveBack();
               onClose();
               it.onSubmit(value);
             }}
@@ -257,7 +261,6 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
             className={`menuItem${it.danger ? " danger" : ""}`}
             disabled={it.disabled}
             onClick={() => {
-              giveBack();
               onClose();
               it.onClick();
             }}

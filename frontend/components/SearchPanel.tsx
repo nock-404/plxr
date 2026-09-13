@@ -19,7 +19,7 @@ import { tr } from "@/lib/i18n";
  * opened as a workspace for it.
  *
  * Only when no session has ever been active in this layout does it fall back
- * to the folder the path field points at, opened as a workspace.
+ * to the folder picked at the top, opened as a workspace.
  *
  * A hit opens the file as an editor panel at that line — the editor scrolls
  * there and puts the cursor on it.
@@ -45,7 +45,7 @@ export default function SearchPanel({
     return () => window.clearTimeout(t);
   }, [sessionId]);
 
-  // The fallback: the path field's folder, as a workspace — only with no session.
+  // The fallback: the picked folder, as a workspace — only with no session.
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [problem, setProblem] = useState("");
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function SearchPanel({
       return (
         <div className="emptyNote">
           <b>{tr("searchPanel.emptyHead", "no folder")}</b>
-          {tr("searchPanel.empty", "Open a session, or choose a folder in the path field, then this searches its files.")}
+          {tr("searchPanel.empty", "Open a session, or choose a project at the top, then this searches its files.")}
         </div>
       );
     }
@@ -80,7 +80,7 @@ export default function SearchPanel({
   return (
     <div className="searchPanel">
       {label ? (
-        <Tooltip text={tr("searchPanel.followTip", "Searches the folder of the session that was focused last")}>
+        <Tooltip text={tr("searchPanel.followTip", "Searches the project: the session in front, or the folder picked at the top")}>
           <span className="notice">{tr("searchPanel.following", "searching {name}", { name: label })}</span>
         </Tooltip>
       ) : null}

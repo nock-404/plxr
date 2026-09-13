@@ -6,7 +6,6 @@ import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import { useMenu, type MenuItem } from "@/components/ui/Menu";
 import Logo from "@/components/ui/Logo";
-import PathField from "@/components/ui/PathField";
 import Tooltip from "@/components/ui/Tooltip";
 import Keys from "@/components/Keys";
 import NewSession from "@/components/NewSession";
@@ -19,6 +18,8 @@ import UpdateBar from "@/components/UpdateBar";
 import NotifyAsk from "@/components/NotifyAsk";
 import Workbench, { startCapture } from "@/components/Workbench";
 import Workshop, { applyStored } from "@/components/Workshop";
+import ProjectSwitch from "@/components/topbar/ProjectSwitch";
+import SessionSwitch from "@/components/topbar/SessionSwitch";
 import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
@@ -37,6 +38,7 @@ import { arm, changed } from "@/lib/notify";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { VIEW_ORDER, bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
 import { adoptPrefs } from "@/lib/prefs";
+import { NO_PROJECT, type Project } from "@/lib/project";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
@@ -85,15 +87,6 @@ export default function App() {
    * and FOLDERS did not know about it either. Now it is the one folder the
    * window is about — it narrows the overview, it is where a new session
    * starts, and it is the folder open in FOLDERS. Remembered across starts. */
-  const [filter, setFilter] = useState(() => {
-    try {
-      return localStorage.getItem("plxr.here") ?? "";
-    } catch {
-      return "";
-    }
-  });
-  /* Taken as a folder only when committed — Enter, or a pick from the list —
-     never while it is being typed: half a path is not a place. */
   const [here, setHere] = useState<string>(() => {
     try {
       return localStorage.getItem("plxr.here") ?? "";
@@ -103,7 +96,6 @@ export default function App() {
   });
   const goHere = useCallback((path: string) => {
     const p = path.trim().replace(/\/+$/, "");
-    setFilter(p);
     setHere(p);
     try {
       if (p) localStorage.setItem("plxr.here", p);
@@ -113,6 +105,41 @@ export default function App() {
     }
     if (p) api.openWorkspace(p).catch(() => {/* not a folder, or not there: the overview still filters by it */});
   }, []);
+  /* The project the tools follow — see lib/project.ts. A folder picked in the
+     project switch, or a session coming to the front: the later one wins, so a
+     pick holds until the next session comes to the front. It starts as the
+     folder remembered from last time. */
+  const [chosen, setChosen] = useState<Project>(() => ({ path: here, sessionId: "" }));
+  // The session that came to the front last, which the session switch names.
+  const [frontSession, setFrontSession] = useState("");
+  const pickProject = useCallback(
+    (path: string) => {
+      const p = path.trim().replace(/\/+$/, "");
+      goHere(p);
+      setChosen({ path: p, sessionId: "" });
+    },
+    [goHere],
+  );
+  /* All projects: the board shows every session again. A folder that was
+     picked goes with it; a session in front stays the project. */
+  const allProjects = useCallback(() => {
+    goHere("");
+    setChosen((p) => (p.sessionId ? p : NO_PROJECT));
+  }, [goHere]);
+  const tilesNow = useRef(tiles);
+  tilesNow.current = tiles;
+  const sessionFront = useCallback((id: string) => {
+    setFrontSession(id);
+    setChosen((p) => (p.sessionId === id ? p : { path: tilesNow.current.find((t) => t.id === id)?.cwd ?? "", sessionId: id }));
+  }, []);
+  // A session is followed by its id and its folder read off the tiles, so a
+  // session that is not known yet when it comes to the front gets its folder
+  // as soon as it is.
+  const followedCwd = chosen.sessionId ? tiles.find((t) => t.id === chosen.sessionId)?.cwd : undefined;
+  const project = useMemo<Project>(
+    () => (followedCwd && followedCwd !== chosen.path ? { ...chosen, path: followedCwd } : chosen),
+    [chosen, followedCwd],
+  );
   const [creating, setCreating] = useState(false);
   /* The settings used to be a window of its own on the body, which is why it
      could not be docked anywhere — "why can I grab the settings and dock them
@@ -139,6 +166,10 @@ export default function App() {
      keyboard is handled here — with the guard that keeps a shortcut from
      firing while a field is being typed in. */
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /* The two switches at the top are asked to open their lists by counting
+     up: ⌘E and the palette live here, the lists under the switches. */
+  const [sessionAsk, setSessionAsk] = useState(0);
+  const [projectAsk, setProjectAsk] = useState(0);
   const [now, setNow] = useState<string>("");
   const [ports, setPorts] = useState(0);
   const [archive, setArchive] = useState(0);
@@ -273,7 +304,7 @@ export default function App() {
 
   /* The keyboard, read against the keymap.
    *
-   * Two guards. A field being typed in — the path filter, the palette's own
+   * Two guards. A field being typed in — the project switch's folder, the palette's own
    * box — takes every key, so nothing fires from there: ⌘K must not fold the
    * palette while somebody is typing into it. A terminal or an editor is
    * typed in too, but it does not take ⌘K, ⌘N or ⌘1: those reach the shell
@@ -314,6 +345,9 @@ export default function App() {
       if (fire("newSession", () => setCreating(true))) return;
       if (fire("newShell", () => direct({ type: "newShell" }))) return;
       if (fire("settings", openSettings)) return;
+      // Not from a text area being written in; the terminal reads its keys
+      // through one too, and from there the switch is wanted most.
+      if (!(target?.tagName === "TEXTAREA" && !fromTerminal(e)) && fire("sessionSwitch", () => setSessionAsk((n) => n + 1))) return;
       for (let i = 0; i < VIEW_ACTIONS.length; i++) {
         const view = VIEW_ORDER[i];
         if (fire(VIEW_ACTIONS[i], () => setFocus({ kind: "view", view }))) return;
@@ -341,10 +375,10 @@ export default function App() {
   }, []);
 
   const shown = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
+    const needle = here.trim().toLowerCase();
     if (!needle) return tiles;
     return tiles.filter((t) => t.cwd.toLowerCase().includes(needle) || t.name.toLowerCase().includes(needle));
-  }, [tiles, filter]);
+  }, [tiles, here]);
 
   // One reading for the counter, the brake, the room state and the inbox badge.
   const herd = herdOf(tiles);
@@ -543,6 +577,8 @@ export default function App() {
     return [
       { id: "cmd:new", group: tr("palette.action", "Action"), label: tr("palette.newSession", "New session"), run: () => setCreating(true) },
       { id: "cmd:newshell", group: tr("palette.action", "Action"), label: tr("palette.newShell", "New shell here"), hint: caption(bindingOf("newShell")), run: () => direct({ type: "newShell" }) },
+      { id: "cmd:switchsession", group: tr("palette.action", "Action"), label: tr("palette.switchSession", "Switch session…"), hint: caption(bindingOf("sessionSwitch")), run: () => setSessionAsk((n) => n + 1) },
+      { id: "cmd:switchproject", group: tr("palette.action", "Action"), label: tr("palette.switchProject", "Switch project…"), run: () => setProjectAsk((n) => n + 1) },
       { id: "cmd:grid", group: tr("palette.action", "Action"), label: tr("palette.sessionGrid", "Session grid"), run: () => direct({ type: "grid" }) },
       { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: openSettings },
       { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
@@ -578,27 +614,30 @@ export default function App() {
     [presets, currentPreset, direct, applyPreset],
   );
   /* What the board's and the rail's own menus can ask of the shell: the same
-     verbs the header MENU has. A new shell starts in the folder the path field
-     points at — the home folder when it points nowhere — and lands where a new
-     session lands; if the service refuses, the start dialog says why. */
+     verbs the header MENU has. A new shell starts in the project's folder —
+     the home folder when there is no project — and lands where a new session
+     lands; if the service refuses, the start dialog says why. */
   const shell = useMemo<ShellActions>(
     () => ({
       newSession: () => setCreating(true),
       newShell: () =>
         void api
-          .create(here, [])
+          .create(project.path, [])
           .then((s) => setFocus({ kind: "session", id: s.id, name: s.name || s.id }))
           .catch(() => setCreating(true)),
       templates: () => setTemplates(true),
       resetLayout: () => direct({ type: "reset" }),
     }),
-    [here, direct],
+    [project.path, direct],
   );
   // Opening a session from outside the dock — a new one just created — asks the
   // dock to bring it up; inside the dock the rail and the tiles call the dock
   // directly.
   function openSession(id: string) {
     const t = tiles.find((x) => x.id === id);
+    // Asked for by name, it is the project now — even when its panel is
+    // already the one in front, which dockview does not report again.
+    sessionFront(id);
     setFocus({ kind: "session", id, name: t ? titleOf(t) : id });
   }
 
@@ -618,37 +657,28 @@ export default function App() {
           <span className="wordmark">plxr</span>
         </div>
 
-        <div className="filter" data-on={filter.trim() ? "yes" : "no"}>
-          <span className="prompt">{tr("header.pathPrompt", "path>")}</span>
-          {/* Completes like the field in the start dialog: the filter is a
-              path too, and typing one out by hand is no better here. */}
-          <PathField
-            value={filter}
-            onChange={setFilter}
-            onSubmit={() => goHere(filter)}
-            placeholder={tr("header.pathPlaceholder", "the folder you are working in")}
-          />
-          {/* A filter that hides things without saying so is a window that lies.
-              This one hid the session somebody was talking to, in a list of two
-              where there were five, with nothing on screen to explain it. */}
-          {/* Typed but not yet taken: Enter, or this, makes it the place. A
-              pick from the list keeps the list open on purpose — that is how
-              you walk down into a folder — so the pick alone does not commit. */}
-          {filter.trim() && filter.trim().replace(/\/+$/, "") !== here ? (
-            <Tooltip text={tr("header.go", "Make this the folder you are working in")}>
-              <Button bare className="filtergo" onClick={() => goHere(filter)}>
-                ↵
-              </Button>
-            </Tooltip>
-          ) : null}
-          {filter.trim() ? (
-            <Tooltip text={tr("header.filterClear", "Show everything again")}>
-              <Button bare className="filterclear" onClick={() => goHere("")}>
-                ✕
-              </Button>
-            </Tooltip>
-          ) : null}
-        </div>
+        {/* The project the tools follow and the session in front, each a
+            switch with its list under it. They replace the path field. */}
+        <ProjectSwitch
+          project={project}
+          here={here}
+          tiles={tiles}
+          asked={projectAsk}
+          onPick={pickProject}
+          onAll={allProjects}
+          onOverview={() => setFocus({ kind: "view", view: "folders" })}
+        />
+        <SessionSwitch
+          tiles={tiles}
+          project={project}
+          front={frontSession}
+          waiting={needsAnswer}
+          asked={sessionAsk}
+          onOpen={openSession}
+          onBoard={() => setFocus({ kind: "view", view: "overview" })}
+          onNew={() => setCreating(true)}
+          onNewShell={() => direct({ type: "newShell" })}
+        />
 
         <div className="draghandle" />
 
@@ -755,6 +785,8 @@ export default function App() {
             tiles={tiles}
             shown={shown}
             here={here}
+            project={project}
+            onSessionFront={sessionFront}
             connected={connected}
             counts={{ inbox: needsAnswer, ports, archive }}
             openSession={openSession}

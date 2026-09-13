@@ -36,7 +36,6 @@
 [data-skin="sketch"] .selectList,
 [data-skin="sketch"] .card,
 [data-skin="sketch"] .emptybox,
-[data-skin="sketch"] .filter input,
 [data-skin="sketch"] .listbar input,
 [data-skin="sketch"] .composer input,
 [data-skin="sketch"] .card input,
@@ -76,10 +75,8 @@
   letter-spacing: 0;
 }
 [data-skin="sketch"] .prompt { color: var(--dim); }
-[data-skin="sketch"] .filter input,
 [data-skin="sketch"] .listbar input,
 [data-skin="sketch"] .composer input { outline: none; background: transparent; }
-[data-skin="sketch"] .filter input:focus,
 [data-skin="sketch"] .listbar input:focus { border-color: var(--accent); }
 
 [data-skin="sketch"] .btn, [data-skin="sketch"] .selectButton {
@@ -479,6 +476,18 @@
   box-shadow: none;
 }
 [data-skin="sketch"] .menuHeader { color: var(--dim); letter-spacing: 0; text-transform: none; font-style: italic; }
+/* The switches drawn in ink with the hand-drawn corners the fields have; a
+   wash of paper when pointed at, the accent ink when open. */
+[data-skin="sketch"] .switch {
+  background: transparent; color: var(--fg);
+  border: var(--ink) solid var(--fg);
+  border-radius: .875rem .375rem .75rem .3rem / .3rem .75rem .375rem .875rem;
+}
+[data-skin="sketch"] .switch:hover { background: #efe9d8; border-color: var(--fg); }
+[data-skin="sketch"] .switch[data-open="yes"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+[data-skin="sketch"] .switchBranch { font-family: var(--mono); font-size: .55em; }
+[data-skin="sketch"] .switchBadge { border-radius: 50%; }
+[data-skin="sketch"] .switchBadge[data-waiting="yes"] { background: transparent; color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent); }
 
 /* ---- terminal: ink palette, ended overlay, bell ------------------------ */
 /* Inks on the slate: the same reds, greens and blues the interface writes in. */

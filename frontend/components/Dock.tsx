@@ -50,6 +50,7 @@ import { setDense } from "@/lib/prefsEvents";
 import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
 import { tabTitle } from "@/lib/state";
+import { projectLabel, type Project } from "@/lib/project";
 import { errText } from "@/lib/i18n";
 
 /* The window as dockable panels.
@@ -101,13 +102,12 @@ type DockData = {
   counts: { inbox: number; ports: number; archive: number };
   /* The active dock panel, whatever kind it is. */
   activeId: string;
-  /* The session that was focused last — sticky. Focusing the editor, the
-     changes or the usage panel does not clear it, so anything that follows
-     "the session you are working in" keeps following it while you look at
-     something beside it. Empty until a session panel has ever been active,
-     which on a restore is a moment longer than it takes the layout to appear:
+  /* The project the tools follow: the session that came to the front last,
+     or the folder picked in the project switch, whichever came later — see
+     lib/project.ts. Focusing the editor, the changes or the usage panel does
+     not move it. On a restore a session's id arrives before the session does:
      a follower has to tolerate that, and never blank or close itself over it. */
-  lastActiveSessionId: string;
+  project: Project;
   editorTarget: EditorTarget;
   /* The diff that was opened last, while its panel is open — so the row it
      came from stays lit in the changes list, and goes dark when the panel
@@ -145,9 +145,8 @@ type DockData = {
   requestClose: (panel: IDockviewPanel) => Promise<CloseResult>;
   /* Several at once, one guard after the other; a cancel stops the run. */
   closeMany: (panels: IDockviewPanel[]) => void;
-  /* A plain shell in the focused session's folder, opened beside it as a
-     session panel of its own — the path field's folder when no session has
-     been focused yet, the home directory when there is no folder either. */
+  /* A plain shell in the project's folder, opened as a session panel of its
+     own — the home directory when there is no project. */
   newShell: () => void;
 };
 
@@ -287,46 +286,56 @@ function PreviewPanel(props: IDockviewPanelProps<{ url: string }>) {
   return <Preview url={props.params.url} />;
 }
 
-/* The one changes panel follows the session focused last — its id is a git
-   id as far as the service is concerned. The path field's folder is only the
-   fallback for a layout in which no session has ever been active. */
+/* What a project tool says it follows: a session by its name, a session not
+   known yet by its id, a picked folder by the folder's own name. */
+function followLabel(project: Project, followed: Tile | undefined, gone: boolean): string | undefined {
+  if (followed) return followed.name || followed.cwd;
+  if (project.sessionId) return gone ? undefined : project.sessionId;
+  return projectLabel(project) || undefined;
+}
+
+/* The one changes panel follows the project: the session that came to the
+   front last, or the folder picked in the project switch, whichever came
+   later (lib/project.ts). A session is followed by its id — a git id as far
+   as the service is concerned — and a picked folder by its path. */
 function ChangesDockPanel() {
   const d = useDock();
-  const id = d.lastActiveSessionId;
+  const id = d.project.sessionId;
   const followed = id ? d.tiles.find((t) => t.id === id) : undefined;
   /* A session the service no longer knows — plxr was restarted since this
      layout was saved — cannot be followed, and is not: the panel falls back
-     to the path field's folder rather than reading for ever. Only once the
+     to the project's folder rather than reading for ever. Only once the
      tiles are connected, though; before that the session is merely not here
      yet, and the panel's own debounce rides over the moment. */
   const gone = Boolean(id) && d.connected && !followed;
+  const folder = d.project.path || d.here;
   return (
     <ChangesPanel
-      here={d.here}
+      here={folder}
       sessionId={gone ? undefined : id || undefined}
-      label={followed ? followed.name || followed.cwd : gone ? undefined : id || undefined}
+      label={followLabel(d.project, followed, gone)}
       shown={d.shownDiff}
       onDiff={d.openDiff}
       onEdit={(rootId, path) => d.openEditor(rootId, path)}
-      onOpenFiles={(rootId) => d.openFiles(rootId, followed?.cwd ?? d.here, followed ? followed.name || followed.cwd : d.here)}
+      onOpenFiles={(rootId) => d.openFiles(rootId, followed?.cwd ?? folder, followed ? followed.name || followed.cwd : projectLabel(d.project) || folder)}
     />
   );
 }
 
-/* The review panel follows the session the changes panel follows, with the
+/* The review panel follows the project the changes panel follows, with the
    same tolerance for a session the service does not know yet or any more.
    A file opens as a range diff — the working tree against the branch's
    merge-base — beside the terminal. */
 function ReviewDockPanel() {
   const d = useDock();
-  const id = d.lastActiveSessionId;
+  const id = d.project.sessionId;
   const followed = id ? d.tiles.find((t) => t.id === id) : undefined;
   const gone = Boolean(id) && d.connected && !followed;
   return (
     <ReviewPanel
-      here={d.here}
+      here={d.project.path || d.here}
       sessionId={gone ? undefined : id || undefined}
-      label={followed ? followed.name || followed.cwd : gone ? undefined : id || undefined}
+      label={followLabel(d.project, followed, gone)}
       shown={d.shownDiff}
       onDiff={d.openDiff}
       onEdit={(rootId, path) => d.openEditor(rootId, path)}
@@ -334,19 +343,19 @@ function ReviewDockPanel() {
   );
 }
 
-/* The one search panel follows the same session the changes panel does, with
+/* The one search panel follows the same project the changes panel does, with
    the same tolerance for a session the service does not know yet or any
    more. A hit opens the editor at its line, beside the terminal. */
 function SearchDockPanel() {
   const d = useDock();
-  const id = d.lastActiveSessionId;
+  const id = d.project.sessionId;
   const followed = id ? d.tiles.find((t) => t.id === id) : undefined;
   const gone = Boolean(id) && d.connected && !followed;
   return (
     <SearchPanel
-      here={d.here}
+      here={d.project.path || d.here}
       sessionId={gone ? undefined : id || undefined}
-      label={followed ? followed.name || followed.cwd : gone ? undefined : id || undefined}
+      label={followLabel(d.project, followed, gone)}
       onOpen={(rootId, path, line) => d.openEditor(rootId, path, line)}
     />
   );
@@ -718,6 +727,8 @@ export default function Dock({
   tiles,
   shown,
   here,
+  project,
+  onSessionFront,
   connected,
   counts,
   openSession,
@@ -740,7 +751,6 @@ export default function Dock({
   | "openEditor"
   | "openFiles"
   | "activeId"
-  | "lastActiveSessionId"
   | "editorTarget"
   | "shownDiff"
   | "setDirty"
@@ -750,6 +760,8 @@ export default function Dock({
   | "newShell"
 > & {
   focus: Focus;
+  /* A session panel came to the front: the shell's project follows it. */
+  onSessionFront: (id: string) => void;
   layoutAction: LayoutAction | null;
   /* The dock's answer to a 'save': the arrangement as dockview writes it, for
      the shell to keep under the name it asked for. */
@@ -765,7 +777,9 @@ export default function Dock({
   const restored = useRef(false);
   const activity = useRef<Activity>("focus");
   const [activeId, setActiveId] = useState("overview");
-  const [lastActiveSessionId, setLastActiveSessionId] = useState("");
+  // Called from onReady, which dockview calls once: the newest callback, through a ref.
+  const sessionFrontRef = useRef(onSessionFront);
+  sessionFrontRef.current = onSessionFront;
   const [editorTarget, setEditorTarget] = useState<EditorTarget>(null);
   const [shownDiff, setShownDiff] = useState<ShownDiff>(null);
   // The session in the active panel, for the service: a notification about
@@ -816,8 +830,8 @@ export default function Dock({
    * it becomes the id. The file API reads either form. */
   // The roots the editors resolve their paths against, read at call time so
   // openEditor stays stable while the tiles change every second.
-  const rootDirRef = useRef({ tiles, here });
-  rootDirRef.current = { tiles, here };
+  const rootDirRef = useRef({ tiles, here, project });
+  rootDirRef.current = { tiles, here, project };
 
   // Unsaved edits per editor panel: a ref, because it is read at the moment a
   // tab is clicked and never needs a render of its own.
@@ -1014,18 +1028,15 @@ export default function Dock({
 
   /* New shell here.
    *
-   * The folder is the focused session's — read at call time through a ref,
-   * the way openEditor reads its roots, so the callback stays stable. A
-   * session the service no longer knows falls through to the path field's
-   * folder, and an empty folder lets the service pick the home directory. An
+   * The folder is the project's — the session in front or the folder picked
+   * at the top — read at call time through a ref, the way openEditor reads its
+   * roots, so the callback stays stable. An empty folder lets the service
+   * pick the home directory. An
    * empty command is a plain login shell. The panel opens on the stage beside
    * the session it was asked from, titled the way the service names it. */
-  const lastSessionRef = useRef(lastActiveSessionId);
-  lastSessionRef.current = lastActiveSessionId;
   const newShell = useCallback(() => {
-    const { tiles: ts, here: h } = rootDirRef.current;
-    const focused = ts.find((t) => t.id === lastSessionRef.current);
-    const cwd = focused?.cwd || h || "";
+    const { here: h, project: pr } = rootDirRef.current;
+    const cwd = pr.path || h || "";
     void api
       .create(cwd, [], "", "")
       .then((s) => {
@@ -1036,14 +1047,15 @@ export default function Dock({
       .catch(() => undefined);
   }, []);
 
-  /* Go to file, from the palette: names under the folder of the session worked
-     in last, or the path field's folder when no session has been, opened as an
-     editor beside the work. */
+  /* Go to file, from the palette: names under the project — the session in
+     front, or the folder picked at the top — opened as an editor beside the
+     work. A session the service does not know is searched as its folder. */
   const searchFiles = useCallback(
     async (q: string): Promise<Command[]> => {
-      const { tiles: ts, here: h } = rootDirRef.current;
-      const tile = ts.find((t) => t.id === lastSessionRef.current);
-      const rootId = tile ? tile.id : h ? `dir:${h}` : "";
+      const { tiles: ts, here: h, project: pr } = rootDirRef.current;
+      const tile = pr.sessionId ? ts.find((t) => t.id === pr.sessionId) : undefined;
+      const folder = pr.path || h;
+      const rootId = tile ? tile.id : folder ? `dir:${folder}` : "";
       if (!rootId) return [];
       const report = await api.names(rootId, q).catch(() => null);
       if (!report) return [];
@@ -1059,12 +1071,12 @@ export default function Dock({
 
   const data = useMemo<DockData>(
     () => ({
-      tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
+      tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell,
     }),
     [
-      tiles, shown, here, connected, counts, activeId, lastActiveSessionId, editorTarget, shownDiff,
+      tiles, shown, here, project, connected, counts, activeId, editorTarget, shownDiff,
       openSession, openPreview, openDiff, onDiffClosed, openPanel, openPanelFresh, openEditor, openFiles, setDirty, isDirty, onReplaced, shell, layouts,
       requestClose, closeMany, newShell,
     ],
@@ -1195,8 +1207,8 @@ export default function Dock({
           h.forward = [];
         }
       }
-      // Sticky: only a session panel moves it, and nothing clears it.
-      if (id.startsWith("session:")) setLastActiveSessionId(id.slice("session:".length));
+      // A session panel coming to the front moves the project; nothing else does.
+      if (id.startsWith("session:")) sessionFrontRef.current(id.slice("session:".length));
     });
     // The documents group looked at last, for the next document to join.
     event.api.onDidActiveGroupChange((g) => {

@@ -119,6 +119,15 @@
 [data-skin="crt"] .windowHead { border-bottom-color: var(--dim); }
 [data-skin="crt"] .tooltip { border-color: var(--accent); text-shadow: 0 0 .3em color-mix(in srgb, var(--accent) 40%, transparent); }
 [data-skin="crt"] .menuHeader { color: var(--dim); letter-spacing: .2em; }
+/* The switches on the tube: a dim line like every control here, the accent
+   and a wash of it when pointed at or open. */
+[data-skin="crt"] .switch { border-color: var(--line); border-radius: 0; text-shadow: inherit; }
+[data-skin="crt"] .switch:hover,
+[data-skin="crt"] .switch[data-open="yes"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+[data-skin="crt"] .switch:hover .switchLabel,
+[data-skin="crt"] .switch[data-open="yes"] .switchLabel { color: var(--accent); }
+[data-skin="crt"] .switchBranch { letter-spacing: .1em; text-transform: uppercase; }
+[data-skin="crt"] .switchBadge[data-waiting="yes"] { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--waiting) 60%, transparent); }
 
 /* The ended note sits inside the terminal's frame and glows like its text. */
 [data-skin="crt"] .endedNote { color: var(--dim); text-shadow: 0 0 .35em color-mix(in srgb, var(--accent) 40%, transparent); }

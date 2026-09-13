@@ -40,7 +40,6 @@
 [data-skin="pixel"] .selectList,
 [data-skin="pixel"] .card,
 [data-skin="pixel"] .emptybox,
-[data-skin="pixel"] .filter input,
 [data-skin="pixel"] .listbar input,
 [data-skin="pixel"] .composer input,
 [data-skin="pixel"] .card input,
@@ -76,7 +75,6 @@
   letter-spacing: 0.05em;
 }
 [data-skin="pixel"] .prompt { color: var(--accent); }
-[data-skin="pixel"] .filter input,
 [data-skin="pixel"] .listbar input,
 [data-skin="pixel"] .composer input {
   background: var(--bg-glass);
@@ -366,6 +364,17 @@
               calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
 }
 [data-skin="pixel"] .menuHeader { color: var(--accent); letter-spacing: 0; }
+/* The switches as placed blocks: four hard shadows and no rounding, the
+   accent when pointed at or open. */
+[data-skin="pixel"] .switch {
+  background: var(--bg-glass); color: var(--fg); border: 0; border-radius: 0;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line), calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
+}
+[data-skin="pixel"] .switch:hover,
+[data-skin="pixel"] .switch[data-open="yes"] { background: var(--panel); border-color: transparent; box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--accent), 0 var(--px) 0 0 var(--accent), calc(-1 * var(--px)) 0 0 0 var(--accent), var(--px) 0 0 0 var(--accent); }
+[data-skin="pixel"] .switch[data-open="yes"] .switchLabel { color: var(--accent); }
+[data-skin="pixel"] .switchBadge { border-radius: 0; }
+[data-skin="pixel"] .switchBadge[data-waiting="yes"] { background: var(--accent); color: var(--onAccent); }
 
 /* ---- terminal: arcade palette, ended overlay, bell --------------------- */
 /* Saturated and bright, the way a cabinet draws them. */

@@ -51,7 +51,6 @@
 }
 .prompt { color: var(--dim); }
 .input,
-.filter input,
 .listbar input,
 .composer input {
   border: 0;
@@ -61,11 +60,9 @@
   outline: none;
 }
 .input:focus,
-.filter input:focus,
 .listbar input:focus,
 .composer input:focus { border-color: var(--accent); }
 .input::placeholder,
-.filter input::placeholder,
 .listbar input::placeholder,
 .composer input::placeholder { color: var(--dead); }
 .btn {
@@ -778,16 +775,8 @@
 .meterGap[data-bad="yes"] { color: var(--blocked); }
 .meterUnit, .meterCost { color: var(--dead); }
 
-/* A filter that is doing something says so, in the colour used for anything
-   else that is switched on. */
-.filter[data-on="yes"] .prompt { color: var(--accent); }
-.filterclear { color: var(--dim); }
-.filterclear:hover { color: var(--accent); }
 /* The overflow menu sits on the same surface as the panels do. */
 .obarMenu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); }
-/* The ↵ that takes a typed folder: not dim — it is the one thing to do next. */
-.filtergo { color: var(--accent); }
-.filtergo:hover { color: var(--fg); }
 .hiding { color: var(--accent); }
 
 /* Set off from the reading above it, because it is a control and that is not. */
@@ -1022,6 +1011,17 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    takes its state's colour from .dot, which outranks this. */
 .menuIcon, .menuSub { color: var(--dim); }
 .menuField { color: var(--fg); }
+
+/* The switches at the top: quiet until pointed at or open, the name in the
+   text colour and the mark, the branch and the chevron read after it. The
+   badge counts the sessions waiting for an answer, in their colour. */
+.switch { color: var(--fg); background: none; border: var(--hair) solid transparent; border-radius: .375rem; }
+.switch:hover, .switch[data-open="yes"] { border-color: var(--line); background: color-mix(in srgb, var(--fg) 6%, transparent); }
+.switch:focus-visible { outline: var(--hair) solid var(--accent); }
+.switchLabel { color: var(--fg); }
+.switchIcon, .switchBranch, .switchChevron { color: var(--dim); }
+.switchBadge { border-radius: 999rem; }
+.switchBadge[data-waiting="yes"] { background: var(--waiting); color: var(--bg); }
 
 /* The palette on the panel surface, the picked row in the accent. */
 .paletteScrim { background: rgba(0,0,0,0.45); }
