@@ -1058,6 +1058,19 @@ Rules for every step:
 
 ---
 
+### 14.1 His answers (13.09.2026)
+
+Asked all seven with a proposal each, he answered "auf was wartest du?" —
+what are you waiting for — so the proposals stand:
+
+1. Bottom stripe: empty, a drop target only, for now.
+2. One visible tool per side and one width per side; split mode later.
+3. The Folders view stays, as the project overview document in main.
+4. Project rule as written in §6.1.
+5. German tool names in the German interface; icon shapes shown to him first.
+6. Keys as written: ⌘E, ⌘3 for Files, ⇧⎋ to hide.
+7. The overview stays a document in main.
+
 ## 15. Risks
 
 | # | Risk | Mitigation |
