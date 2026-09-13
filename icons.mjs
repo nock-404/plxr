@@ -499,8 +499,23 @@ async function iconsOnScreen() {
     return [...document.querySelectorAll('.uiIcon')].map((svg) => {
       const r = svg.getBoundingClientRect();
       const c = getComputedStyle(svg).color.match(/[0-9.]+/g).map(Number);
+      /* A mark its own scroller cuts off is not on screen either: a tree row
+         under the bottom edge of a tool window lies inside the viewport, and
+         the ancestor at its middle is its own list, so it counted as seen and
+         was read as a mark with no ink. Found when the empty bottom stripe
+         gave the dock 36 pixels and a file row came to stand under the Files
+         tool's scrollbar. */
+      const clipped = (() => {
+        for (let el = svg.parentElement; el && el !== document.body; el = el.parentElement) {
+          const cs = getComputedStyle(el);
+          if (!/auto|scroll|hidden|clip/.test(cs.overflowX + ' ' + cs.overflowY)) continue;
+          const c = el.getBoundingClientRect();
+          if (r.top < c.top - 0.5 || r.bottom > c.bottom + 0.5 || r.left < c.left - 0.5 || r.right > c.right + 0.5) return true;
+        }
+        return false;
+      })();
       const hidden = r.width === 0 || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth
-        || !!svg.closest('[hidden], .selectList') || getComputedStyle(svg).visibility === 'hidden';
+        || !!svg.closest('[hidden], .selectList') || getComputedStyle(svg).visibility === 'hidden' || clipped;
       // What is drawn on top of the icon's middle, to leave out marks covered
       // by a menu or a panel.
       const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);

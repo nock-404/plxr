@@ -97,6 +97,13 @@
 [data-skin="crt"] .stripeIcon[data-lit="yes"] { filter: drop-shadow(0 0 .25rem var(--accent)); }
 [data-skin="crt"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent); }
 [data-skin="crt"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--blocked) 60%, transparent); }
+/* The bottom stripe with no icon: the tube's line and no glass behind it. An
+   icon carried brings the glass up, edged in the phosphor. */
+[data-skin="crt"] .stripe[data-empty="yes"] { background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: inset 0 var(--hair) 0 var(--dim); }
+[data-skin="crt"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
+[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: var(--panel-glass); -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat)); backdrop-filter: blur(var(--blur)) saturate(var(--sat)); box-shadow: inset 0 var(--hair) 0 var(--accent), 0 0 var(--glow) color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-skin="crt"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"][data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--panel-glass)); }
+[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--panel-glass)); box-shadow: inset 0 var(--hair) 0 var(--blocked); }
 [data-skin="crt"] .tile { border: var(--hair) solid var(--dim); transition: border-color .12s,transform .12s; }
 
 [data-skin="crt"] .listbar { border-bottom: var(--hair) solid var(--dim); }

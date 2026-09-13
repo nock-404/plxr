@@ -1008,12 +1008,68 @@ Taken for him after he said he believes nothing without seeing it; files in
 
 - **After a reload the Files tool is empty and the project reads "No project"**
   until a session is brought to the front again. The project follows the
-  session in front, and after a reload no session is in front.
+  session in front, and after a reload no session is in front. (fixed on
+  wip7/stripefix 13.09: once the sessions are known and nothing has set the
+  project yet, it is the session that was in front last in this window, kept as
+  `plxr.front`, else the folder picked last, else the first running session.
+  Measured with two sessions: "probe" brought to the front, reloaded → project
+  stripefix, Files 53 rows without a click; a fresh window → the first session
+  and its folder.)
 - **The Files tool's empty text still points at "the path field above"**, which
-  the project switch replaced.
+  the project switch replaced. (fixed on wip7/stripefix 13.09: "…or pick a
+  project in the project switch at the top.", and the same in de.json.)
 - **In the win95 skin the dock's tab strip and the session bar are dark**, not the
   skin's grey — most likely the dockview variables moving onto the new
-  `.dockHost` wrapper left the win95 tab rules behind.
+  `.dockHost` wrapper left the win95 tab rules behind. (fixed on wip7/stripefix
+  13.09 — and not a win95 rule: dockview puts its theme class,
+  `dockview-theme-abyss`, on its own `.dv-shell` inside `.dockHost`, and abyss
+  sets the same `--dv-*` variables there, from dockview's stylesheet outside
+  plxr's cascade layer. On `.plxrDock`, inside that shell, plxr's values won; on
+  the wrapper they were only inherited and lost, in every skin. They are now
+  set on `.dockHost .dv-shell > *` as well. Measured in win95: tab strip
+  rgb(28,28,42) → rgb(192,192,192), the ground under the session bar
+  rgb(0,12,24) → transparent, as before 07bfb50; the crt, sketch and pixel tab
+  strips are their own --panel again.)
+
+### Seen in screenshots of the icon stripes (13.09.2026, commit 797e4ea)
+
+Files in ~/Downloads/plxr-screenshots-2026-09-13/icon-leisten/; the new set,
+1600×1000 at 2x with real mouse events in all four skins, in icon-leisten-v2/.
+
+- **The stripe icons were almost invisible** (fixed on wip7/stripefix 13.09): a
+  mark on a stripe has its own size, `--stripe-icon`: 20 px for a drawn pack;
+  for Pixel 24 CSS px at 1x and at 2x (12 before at 2x), always on whole device
+  pixels — measured crisp for all nine icons in all four skins. Idle in the text
+  colour instead of the dim one (crt rgb(31,157,95) → rgb(55,255,134)); lit in
+  the accent on a ground of 24 % accent (12 % before); win95 pressed in on
+  #ececec against #c0c0c0 with a navy mark.
+- **Count badges covered the icon** (fixed on wip7/stripefix 13.09): "11" and
+  "117" were 14 px high over 19 % and 33 % of the mark's box. A badge is two
+  glyphs at most now — "9+" above nine, the whole number in the tooltip — and
+  stands in the gap above the icon, ending where the mark begins: 8 px high over
+  a 24 px mark, 10 px over a 20 px one. The icons' ink under a badge, read off
+  screenshots taken with and without the badges: 0 % for usage, ports and
+  archive in all four skins (30 % while the badge still started at the box's
+  top).
+- **The empty bottom stripe was a blank 40 px bar** (fixed on wip7/stripefix
+  13.09): with no icon on it its row is `--stripe-rest`, 4 px, with no ground of
+  its own, only the skin's line; main is 36 px taller (909 px in a 1000 px
+  window). While an icon is carried, or the edge flashes, it stands 40 px high
+  over the foot of the dock without moving it (main 909 px before and during
+  the carry). It stays the drop target; with an icon on it the row is 40 px
+  again. stripes.mjs holds the line at rest and the stripe standing during a
+  carry.
+
+Left open, seen while fixing these:
+
+- **The dock's tab strip is dockview's 35 px, not `--strip-h` (45 px).** The
+  height variable on `.dockHost` in layout.css lost its scope the same way the
+  colours did; left alone, because setting it moves every tab strip by 10 px.
+- **In win95 the Overview tab's label is hard to read while another group has
+  the keyboard**: the tab in front takes the teal --bg, its label --dim.
+- **With the ground transparent again, crt's main shows what is behind the
+  window.** In the native window that is the frosted backdrop; headless Chrome
+  has none, so the screenshots show it light grey.
 
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
