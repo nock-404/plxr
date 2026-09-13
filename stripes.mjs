@@ -1558,6 +1558,244 @@ await fromMark("watermark-board");
   );
 }
 
+// ---- layouts and presets that know the tools --------------------------------------
+/* A saved layout is main and the tool windows together: which tool shows on
+   which edge, how big each edge is, where every tool stands, and main's
+   documents as they were split. One is saved, everything is changed, and it is
+   applied: all of it is measured back, and again after a reload. Then the four
+   activities, each with the tools it is about, one per side and the bottom
+   empty. Then layouts saved before a layout knew the tools: they still apply,
+   keep their documents and leave his placement alone — and one that does not
+   load leaves the window as it was. Driven through the LAYOUTS menu. */
+const LAYOUTS = `${HELPERS}
+  const layoutsButton = () => document.querySelector('.bar [data-do="layouts"]') || [...document.querySelectorAll('.bar .btn')].find(b => /^LAYOUTS$/.test(b.textContent.trim()));
+  const labelOf = r => ((r.querySelector('.menuLabel') || {}).textContent || '').trim();
+  const layoutRow = async (pick) => {
+    if (document.querySelector('body > .menu')) await closeMenu();
+    const button = layoutsButton();
+    if (!button) return null;
+    button.click();
+    const row = await until(() => [...document.querySelectorAll('body > .menu .menuItem')].find(pick), 2000);
+    if (!row) await closeMenu();
+    return row;
+  };
+  const layoutDo = async (doName, label) => {
+    const row = await layoutRow(r => r.dataset.do === doName && (!label || labelOf(r) === label));
+    if (!row) return false;
+    row.click();
+    await wait(1500);
+    return true;
+  };
+  const edgeOfTool = id => ['left', 'right', 'bottom'].find(e => order(e).includes(id)) || null;
+  const arrangement = () => {
+    const lit = showing();
+    const at = e => lit.find(t => edgeOfTool(t) === e) || null;
+    const size = e => { const t = at(e); const b = t ? edgeBox(t) : null; return b ? (e === 'bottom' ? b.h : b.w) : 0; };
+    return {
+      shows: { left: at('left'), right: at('right'), bottom: at('bottom') },
+      size: { left: size('left'), right: size('right'), bottom: size('bottom') },
+      order: { left: order('left'), right: order('right'), bottom: order('bottom') },
+      main: gridGroups().filter(g => g.b.w > 0 && g.b.h > 0).map(g => ({ tabs: g.tabs, b: g.b })).sort((p, q) => p.b.x - q.b.x || p.b.y - q.b.y),
+      tabs: gridTabs(),
+    };
+  };
+`;
+/* A left window's sash dragged to a width, the way a hand drags it. */
+async function dragLeftEdge(tool, width) {
+  const s = await run(`${HELPERS}
+    const w = edgeBox(${JSON.stringify(tool)});
+    if (!w) return null;
+    const s = [...document.querySelectorAll('.dockHost .dv-sash')].map(el => box(el)).filter(b => b.w > 0 && b.h > b.w && Math.abs(b.x + b.w / 2 - (w.x + w.w)) < 8 && b.y <= w.y + w.h / 2 && b.y + b.h >= w.y + w.h / 2);
+    return s.length ? { x: s[0].x + s[0].w / 2, y: w.y + w.h / 2, width: w.w } : null;
+  `);
+  if (!s) return null;
+  const to = s.x + (width - s.width);
+  await mouse("mouseMoved", s.x, s.y);
+  await mouse("mousePressed", s.x, s.y, { button: "left", buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= 14; i++) {
+    await mouse("mouseMoved", s.x + ((to - s.x) * i) / 14, s.y, { button: "left", buttons: 1 });
+    await sleep(16);
+  }
+  await mouse("mouseReleased", to, s.y, { button: "left", buttons: 0, clickCount: 1 });
+  await sleep(700);
+  return run(`${HELPERS} return edgeBox(${JSON.stringify(tool)})?.w ?? null;`);
+}
+const sides = (a) =>
+  a ? `left ${a.shows.left ?? "none"} ${a.size.left} · right ${a.shows.right ?? "none"} ${a.size.right} · bottom ${a.shows.bottom ?? "none"} ${a.size.bottom} · stripes ${a.order.left.join(",")} | ${a.order.right.join(",")} | ${a.order.bottom.join(",") || "-"} · main ${a.main.map((g) => g.tabs.join("+")).join(" | ")}` : "none";
+const sameShows = (a, b) => Boolean(a && b) && ["left", "right", "bottom"].every((e) => a.shows[e] === b.shows[e] && near(a.size[e], b.size[e]));
+const sameOrder = (a, b) => Boolean(a && b) && JSON.stringify(a.order) === JSON.stringify(b.order);
+const sameMain = (a, b, tol = 2) => Boolean(a && b) && a.main.length === b.main.length && a.main.every((g, i) => g.tabs.join("+") === b.main[i].tabs.join("+") && boxNear(g.b, b.main[i].b, tol));
+const sameTabs = (a, b) => Boolean(a && b) && JSON.stringify(a.main.map((g) => g.tabs.join("+"))) === JSON.stringify(b.main.map((g) => g.tabs.join("+")));
+/* JSON compared as data: the service hands objects back with their keys sorted. */
+const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([p], [q]) => (p < q ? -1 : p > q ? 1 : 0))) : x));
+const DEFAULT_ORDER = { left: ["files", "changes", "search", "review"], right: ["inbox", "usage", "ports", "archive", "notes"], bottom: [] };
+const bottomSpotNow = () => run(`${HELPERS} const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { x: b.x + 90, y: b.y + b.h / 2 };`);
+
+await view(1600);
+await api("/api/prefs", { method: "PUT", body: JSON.stringify({ toolLayout: null, dockPresets: null, dockActivity: null }) });
+await load();
+// Main: the board, and two editors opened from the Files tool and split side by side.
+const presetSetup = await run(`${LAYOUTS}
+  await hideAll();
+  for (let i = 0; i < 12; i++) {
+    const tab = [...document.querySelectorAll('.plxrDock .dv-tab')].find(t => (t.querySelector('.panelTabName') || {}).textContent?.trim() !== 'Overview');
+    const close = tab?.querySelector('.panelTabClose');
+    if (!close) break;
+    close.click(); await wait(450);
+    const keep = [...document.querySelectorAll('.ask .cardButtons .btn')].find(b => b.textContent.trim() === 'KEEP RUNNING');
+    if (keep) { keep.click(); await wait(450); }
+  }
+  if (!tabNamed('Overview')) { await openDoc('overview'); await wait(900); }
+  await click('files', 900);
+  const row = n => [...(win('files')?.querySelectorAll('.frow') ?? [])].find(r => (r.querySelector('.fname') || {}).textContent?.trim() === n);
+  if (!(await until(() => row('alpha.txt'), 6000))) return { why: 'alpha.txt is not in the Files tool' };
+  row('alpha.txt').click();
+  await until(() => tabNamed('alpha.txt'), 5000); await wait(700);
+  row('beta.txt').click();
+  await until(() => tabNamed('beta.txt'), 5000); await wait(700);
+  const tab = tabNamed('beta.txt').querySelector('.panelTab'); const r = tab.getBoundingClientRect();
+  tab.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.top + 8, button: 2 }));
+  const split = await until(() => [...document.querySelectorAll('body > .menu .menuItem')].find(b => labelOf(b) === 'Split to the right'), 2000);
+  if (!split) { await closeMenu(); return { why: 'no Split to the right row on the beta.txt tab' }; }
+  split.click(); await wait(900);
+  return { main: arrangement().main };
+`);
+let presetSaved = null;
+let presetItem = null;
+if (presetSetup.why) {
+  unmeasured("a saved layout brings back every edge, size, placement and document", presetSetup.why);
+} else {
+  const dragged = await dragLeftEdge("files", 400);
+  await carry("inbox", await bottomSpotNow());
+  presetSaved = await run(`${LAYOUTS}
+    await click('usage', 900);
+    await click('inbox', 900);
+    const before = arrangement();
+    if (!(await layoutDo('save-layout'))) return { why: 'no Save current as… row under LAYOUTS' };
+    const ask = await until(() => document.querySelector('.card.ask input'), 2000);
+    if (!ask) return { why: 'Save current as… asked for no name' };
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(ask, 'tools-on-edges');
+    ask.dispatchEvent(new Event('input', { bubbles: true }));
+    [...document.querySelectorAll('.card.ask button')].find(b => b.textContent.trim() === 'SAVE')?.click();
+    await wait(900);
+    return { before };
+  `);
+  presetSaved.dragged = dragged;
+  await sleep(700);
+  presetItem = ((await api("/api/prefs")).dockPresets?.items ?? []).find((p) => p.name === "tools-on-edges") ?? null;
+  if (presetSaved.why) unmeasured("a saved layout brings back every edge, size, placement and document", presetSaved.why);
+  else if (!presetItem) unmeasured("a saved layout brings back every edge, size, placement and document", "no preset tools-on-edges in prefs.dockPresets after SAVE");
+}
+if (presetSaved && !presetSaved.why && presetItem) {
+  const before = presetSaved.before;
+  const split = before.main.filter((g) => g.tabs.includes("alpha.txt") || g.tabs.includes("beta.txt"));
+  claim(
+    "set up to be saved: Files lit on the left dragged to 400 px, Usage on the right, Inbox carried to the bottom stripe and lit there, and two editors split side by side in main",
+    near(presetSaved.dragged, 400) && before.shows.left === "files" && near(before.size.left, 400) && before.shows.right === "usage" && before.shows.bottom === "inbox" && before.order.bottom[0] === "inbox" &&
+      split.length === 2 && split[0].tabs.join() !== split[1].tabs.join() && near(split[0].b.y, split[1].b.y, 1) && split[0].b.x < split[1].b.x,
+    sides(before),
+  );
+  const eg = presetItem.layout?.edgeGroups ?? {};
+  claim(
+    "the saved layout carries where every tool stands (Inbox first on the bottom), the edges' sizes, and main with the tool windows showing at their edges",
+    presetItem.tools?.order?.bottom?.[0] === "inbox" && canon(presetItem.tools.order) === canon(before.order) && near(presetItem.sizes?.left, 400) &&
+      eg.left?.visible && near(eg.left?.size, 400) && eg.left?.group?.activeView === "files" && eg.right?.visible && eg.right?.group?.activeView === "usage" && eg.bottom?.visible && eg.bottom?.group?.views?.includes("inbox"),
+    `tools ${JSON.stringify(presetItem.tools?.order)} · sizes ${JSON.stringify(presetItem.sizes)} · edges ${["left", "right", "bottom"].map((e) => `${e} ${eg[e]?.visible ? "shown" : "hidden"} ${eg[e]?.size} ${eg[e]?.group?.activeView ?? "-"}`).join(" · ")}`,
+  );
+
+  // Everything changed: every tool back where it started, Changes on the left dragged to 300 px, Notes on the right, the editors closed.
+  const resetRow = await run(`${LAYOUTS} await hideAll(); const ok = await layoutDo('reset-tools'); await click('changes', 900); return ok;`);
+  const narrower = await dragLeftEdge("changes", 300);
+  const changed = await run(`${LAYOUTS}
+    await click('notes', 900);
+    for (const n of ['alpha.txt', 'beta.txt']) { tabNamed(n)?.querySelector('.panelTabClose')?.click(); await wait(500); }
+    await wait(400);
+    return arrangement();
+  `);
+  claim(
+    "then everything is changed: Reset tool positions under LAYOUTS puts Inbox back on the right, Changes shows on the left at 300 px, Notes on the right, nothing on the bottom, and the editors are closed",
+    resetRow && near(narrower, 300) && changed.shows.left === "changes" && changed.shows.right === "notes" && !changed.shows.bottom && changed.order.bottom.length === 0 && !changed.tabs.includes("alpha.txt") && !changed.tabs.includes("beta.txt"),
+    `reset row ${resetRow} · ${sides(changed)}`,
+  );
+
+  const applied = await run(`${LAYOUTS} const ok = await layoutDo('apply-layout', 'Apply tools-on-edges'); await wait(700); return { ok, after: arrangement() };`);
+  await sleep(900);
+  const appliedPrefs = await api("/api/prefs");
+  const a = applied.after;
+  claim(
+    "applied from LAYOUTS, every edge shows what it showed at the size it had: Files on the left at 400 px, Usage on the right, Inbox on the bottom",
+    applied.ok && sameShows(a, before) && near(a.size.left, 400),
+    `saved: ${sides(before)} · applied: ${sides(a)}`,
+  );
+  claim(
+    "applied, every tool stands where it stood — Inbox first on the bottom stripe again — and prefs.toolLayout says so",
+    sameOrder(a, before) && appliedPrefs.toolLayout?.order?.bottom?.[0] === "inbox" && canon(appliedPrefs.toolLayout?.order) === canon(before.order),
+    `stripes ${JSON.stringify(a.order)} · prefs.toolLayout ${JSON.stringify(appliedPrefs.toolLayout?.order)}`,
+  );
+  claim(
+    "applied, main's documents are back as they were split: the board and the two editors side by side, each group within 2 px of its saved box",
+    sameMain(a, before),
+    `saved ${before.main.map((g) => `${g.tabs.join("+")} ${show(g.b)}`).join(" | ")} · applied ${a.main.map((g) => `${g.tabs.join("+")} ${show(g.b)}`).join(" | ")}`,
+  );
+  claim("applied, the width remembered for the left edge is the preset's: prefs.dockSizes.left is 400", near(appliedPrefs.dockSizes?.left, 400), `dockSizes ${JSON.stringify(appliedPrefs.dockSizes)}`);
+  await load();
+  const reloaded = await run(`${LAYOUTS} return arrangement();`);
+  claim("the applied layout holds through a reload: the same windows, sizes, placement and documents", sameShows(reloaded, before) && sameOrder(reloaded, before) && sameMain(reloaded, before), sides(reloaded));
+
+  // ---- the activities ----
+  await run(`${LAYOUTS} await hideAll(); await layoutDo('reset-tools');`);
+  const activities = {};
+  for (const act of ["focus", "code", "review", "monitor"]) {
+    activities[act] = await run(`${LAYOUTS} const ok = await layoutDo('arrange-${act}'); await wait(400); return { ok, ...arrangement() };`);
+  }
+  const only = (x, want) => x.ok && ["left", "right", "bottom"].every((e) => x.shows[e] === (want[e] ?? null)) && JSON.stringify(x.tabs) === '["Overview"]' && x.order.bottom.length === 0;
+  const wants = { focus: {}, code: { left: "files" }, review: { left: "changes" }, monitor: { right: "inbox" } };
+  claim(
+    "each activity under LAYOUTS puts the board alone in main and shows the tools it is about, one per side and none on the empty bottom: Focus none, Code Files on the left, Review Changes on the left, Monitor the Inbox on the right, where Usage shares its edge",
+    Object.entries(wants).every(([act, want]) => only(activities[act], want)),
+    Object.entries(activities).map(([act, x]) => `${act}: ${x.ok ? "" : "no row · "}${sides(x)}`).join(" || "),
+  );
+  await carry("inbox", await bottomSpotNow());
+  const monitorMoved = await run(`${LAYOUTS} const ok = await layoutDo('arrange-monitor'); await wait(400); return { ok, ...arrangement() };`);
+  claim(
+    "with the Inbox carried to the bottom stripe, Monitor shows it there and Usage on the right, an edge of its own now: his placement wins",
+    monitorMoved.ok && monitorMoved.shows.bottom === "inbox" && monitorMoved.shows.right === "usage" && !monitorMoved.shows.left,
+    sides(monitorMoved),
+  );
+  await run(`${LAYOUTS} await layoutDo('arrange-focus'); await hideAll(); await layoutDo('reset-tools');`);
+
+  // ---- layouts saved before a layout knew the tools ----
+  /* The layout just saved, as it was written before it carried a placement and
+     sizes, and one whose group dockview refuses; both beside the new one. */
+  const broken = { grid: { root: { type: "branch", data: [{ type: "leaf", data: { id: 7, views: [] }, size: 800 }], size: 900 }, width: 800, height: 900, orientation: "HORIZONTAL" }, panels: {} };
+  await api("/api/prefs", {
+    method: "PUT",
+    body: JSON.stringify({
+      toolLayout: null,
+      dockPresets: { dvMajor: 8, items: [presetItem, { name: "edges-only", layout: presetItem.layout }, { name: "broken", layout: broken, tools: { v: 1, order: { left: [], right: [], bottom: ["files"] } } }] },
+    }),
+  });
+  await load();
+  const edgesOnly = await run(`${LAYOUTS} const ok = await layoutDo('apply-layout', 'Apply edges-only'); await wait(700); return { ok, ...arrangement() };`);
+  await sleep(900);
+  const edgesPrefs = await api("/api/prefs");
+  const kept = (edgesPrefs.dockPresets?.items ?? []).find((p) => p.name === "edges-only");
+  claim(
+    "a layout saved without a placement still applies: main's documents come back split as they were, every tool is at an edge once, his placement stays (Inbox on the right, the bottom empty), Files shows at its saved 400 px, and the layout is not rewritten",
+    edgesOnly.ok && sameTabs(edgesOnly, before) && onceEach(placed(edgesPrefs.dock)) && settledPlaces(edgesOnly.order) === DEFAULT_PLACES && !edgesOnly.shows.bottom &&
+      edgesOnly.shows.left === "files" && near(edgesOnly.size.left, 400) && kept && !("tools" in kept) && !("sizes" in kept) && canon(edgesPrefs.toolLayout?.order ?? DEFAULT_ORDER) === canon(DEFAULT_ORDER),
+    `${sides(edgesOnly)} · every tool once ${onceEach(placed(edgesPrefs.dock))} · prefs.toolLayout ${JSON.stringify(edgesPrefs.toolLayout?.order)} · kept as saved ${Boolean(kept) && !("tools" in kept)}`,
+  );
+  const brokenApplied = await run(`${LAYOUTS} const was = arrangement(); const ok = await layoutDo('apply-layout', 'Apply broken'); await wait(700); return { ok, was, now: arrangement() };`);
+  await sleep(900);
+  const brokenPrefs = await api("/api/prefs");
+  claim(
+    "a saved layout that does not load changes nothing: main keeps its documents, every tool keeps its edge and its window, and the placement it carried is not taken",
+    brokenApplied.ok && sameTabs(brokenApplied.now, brokenApplied.was) && sameShows(brokenApplied.now, brokenApplied.was) && sameOrder(brokenApplied.now, brokenApplied.was) && canon(brokenPrefs.toolLayout?.order ?? DEFAULT_ORDER) === canon(DEFAULT_ORDER) && onceEach(placed(brokenPrefs.dock)),
+    `before ${sides(brokenApplied.was)} · after ${sides(brokenApplied.now)} · every tool once ${onceEach(placed(brokenPrefs.dock))} · prefs.toolLayout ${JSON.stringify(brokenPrefs.toolLayout?.order)}`,
+  );
+}
+
 // ---- arrangements the old window saved ------------------------------------------
 /* Each recorded arrangement is loaded as the old window wrote it, with the old
    menu panel put back into it, the old region choice of the inbox beside it,
@@ -1593,18 +1831,20 @@ for (const [name, dock] of Object.entries(fixtures)) {
   const prefs = await api("/api/prefs");
   const views = JSON.stringify(dock);
   const wantEditor = /"editor:/.test(views);
-  // Applied as a preset: the tools it names are put on their edges, never copied.
-  const preset = await run(`${HELPERS}
-    const button = [...document.querySelectorAll('.bar .btn')].find(b => /^LAYOUTS$/.test(b.textContent.trim()));
-    if (!button) return { why: 'no LAYOUTS button' };
-    button.click(); await wait(300);
-    const row = [...document.querySelectorAll('body > .menu .menuItem')].find(b => b.querySelector('.menuLabel')?.textContent.trim() === 'Apply old');
-    if (!row) { await closeMenu(); return { why: 'no Apply old row' }; }
+  /* Applied as a preset: the tools it names are put on their edges, never
+     copied; its documents land in main; it carries no placement, so his stays;
+     and it is repaired each time it is applied, never rewritten. */
+  const preset = await run(`${LAYOUTS}
+    if (!layoutsButton()) return { why: 'no LAYOUTS button' };
+    const row = await layoutRow(r => labelOf(r) === 'Apply old');
+    if (!row) return { why: 'no Apply old row' };
     row.click(); await wait(1200);
-    return { tabs: gridTabs() };
+    return { tabs: gridTabs(), editor: Boolean(document.querySelector('.plxrDock .editorPanel')), bottom: order('bottom') };
   `);
   await sleep(900);
-  const afterPreset = preset.why ? null : placed((await api("/api/prefs")).dock);
+  const presetPrefs = preset.why ? null : await api("/api/prefs");
+  const afterPreset = preset.why ? null : placed(presetPrefs.dock);
+  const oldKept = presetPrefs?.dockPresets?.items?.[0];
   claim(
     `${name}: loaded, no tool, no folder tree and no old menu is left in main`,
     !got.tabs.some((t) => TOOL_TITLES.includes(t) || /^plxr$/i.test(t)) && !JSON.stringify(prefs.dock?.panels ?? {}).match(/"(files:[^"]*|rail)"/) && got.tabs.length > 0,
@@ -1619,9 +1859,10 @@ for (const [name, dock] of Object.entries(fixtures)) {
   if (preset.why) unmeasured(`${name}: applied as a preset, no tool is copied`, preset.why);
   else
     claim(
-      `${name}: applied as a preset, no tool is copied and none lands in main`,
-      onceEach(afterPreset) && !preset.tabs.some((t) => TOOL_TITLES.includes(t)),
-      `at the edges ${afterPreset.edges.join(",")} · in main ${afterPreset.main.join(", ")} · tabs ${preset.tabs.join(", ")}`,
+      `${name}: applied as a preset, no tool is copied and none lands in main, ${wantEditor ? "its editor is in main, " : ""}his placement stays (Inbox on the bottom) and the preset is not rewritten`,
+      onceEach(afterPreset) && !preset.tabs.some((t) => TOOL_TITLES.includes(t)) && preset.tabs.length > 0 && (!wantEditor || preset.editor) &&
+        preset.bottom[0] === "inbox" && presetPrefs.toolLayout?.order?.bottom?.[0] === "inbox" && oldKept && canon(oldKept) === canon({ name: "old", layout: dock }),
+      `at the edges ${afterPreset.edges.join(",")} · in main ${afterPreset.main.join(", ")} · tabs ${preset.tabs.join(", ")} · editor ${preset.editor} · bottom stripe ${preset.bottom.join(",")} · preset as saved ${Boolean(oldKept) && canon(oldKept) === canon({ name: "old", layout: dock })}`,
     );
 }
 
