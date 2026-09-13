@@ -42,7 +42,8 @@ import { adoptPrefs } from "@/lib/prefs";
 import { NO_PROJECT, rootIdOf, type Project } from "@/lib/project";
 import { askReveal } from "@/lib/reveal";
 import { announcePrefs } from "@/lib/prefsEvents";
-import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
+import { adopt, apply, fitPalette, load, persistVia, rememberThemes, save, type ThemeState, installUserFonts } from "@/lib/theme";
+import { ICONS_VERSION, migrateIcons } from "@/lib/iconChoice";
 import { useTiles } from "@/lib/useTiles";
 
 /* What ⌘1…9 are bound to, in the order CHORD_ORDER counts them. */
@@ -269,9 +270,12 @@ export default function App() {
         focusSeen.current ??= requestedFocus(prefs)?.seq;
         const kept = (prefs as { theme?: Partial<ThemeState> }).theme;
         // Fitted only now: which palettes belong to which skin is not known
-        // until the daemon has said what it serves, one line above.
-        const state = fitPalette(kept ? { ...load(), ...kept } : load());
-        adopt(state);
+        // until the daemon has said what it serves, one line above. A look the
+        // daemon kept from before the skins brought their packs follows the
+        // skin from now on, and is kept that way once (lib/iconChoice.ts).
+        const state = fitPalette(kept ? { ...load(), ...migrateIcons(kept) } : load());
+        if (kept && kept.iconsVersion !== ICONS_VERSION) save(state);
+        else adopt(state);
         apply(state);
         setTheme(state);
       },
@@ -316,7 +320,7 @@ export default function App() {
                 openRef.current(wanted.id);
               }
               if (prefs.theme) {
-                const state = fitPalette({ ...load(), ...prefs.theme });
+                const state = fitPalette({ ...load(), ...migrateIcons(prefs.theme) });
                 adopt(state);
                 apply(state);
                 setTheme(state);

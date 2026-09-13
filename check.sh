@@ -103,6 +103,10 @@ step "session order" node --experimental-strip-types frontend/lib/state.test.mjs
 # of the grid, the ones that were in front named, the documents kept where they
 # were, and a second run changing nothing.
 step "layout migration" node --experimental-strip-types frontend/lib/layoutMigrate.test.mjs
+# The icon pack per skin: each skin draws with its own from his table, a pack
+# picked over it wins in every skin, and a look stored before the skins
+# brought their packs follows the skin once it is read back.
+step "icon pack per skin" node --experimental-strip-types frontend/lib/iconChoice.test.mjs
 
 printf '  %-22s ' "typescript"
 if out=$(cd frontend && npx tsc --noEmit 2>&1); then echo "ok"; else echo "FAILED"; echo "$out" | head -20; fail=1; fi

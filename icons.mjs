@@ -16,7 +16,9 @@
  *   - picking a pack changes the window at once, without a reload, and the
  *     choice is still there after one
  *   - nothing moves: every box measured is where it was in the other packs
- *   - a new browser profile, with no look stored anywhere, comes up in Pixel
+ *   - a new browser profile, with no look stored anywhere, follows the skin —
+ *     the tube draws Tabler — and so does a look stored before the skins
+ *     brought their packs
  *   - every name the tool stripes draw, laid out in a row of its own because
  *     most of them wear nothing on screen yet, has ink, is not a filled box and
  *     keeps no colour of its own, in every pack, skin and density
@@ -49,8 +51,10 @@ const PACKS = [
   ["pixel", "Pixel"],
 ];
 const RATIOS = [1, 2];
-// The pack a window draws with until somebody picks one.
-const DEFAULT_PACK = ["pixel", "Pixel"];
+// The pack each skin draws with until somebody picks one over it (his table,
+// 13.09.2026, lib/iconChoice.ts), and the first words of the picker's row for it.
+const SKIN_PACKS = { crt: "tabler", win95: "pixel", sketch: "phosphor", pixel: "pixel" };
+const FOLLOW_LABEL = "Matching the appearance";
 // The names the tool stripes draw (spec 2026-09-13 §9, his picks of
 // 13.09.2026): the tools, the header's hide, more and move, the three edge
 // toggles, and the project and session switchers with their opener.
@@ -615,9 +619,9 @@ for (const ratio of RATIOS) {
         hrefs: [...document.querySelectorAll('.uiIcon use')].map((u) => u.getAttribute('href') || '') };
     `);
     const kept = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
-    const elsewhere = fresh.hrefs.filter((h) => !h.startsWith(`/icons/${DEFAULT_PACK[0]}.svg`));
-    claim(`a new profile with no stored look comes up in the ${DEFAULT_PACK[1]} pack`,
-      kept?.theme === undefined && fresh.icons === DEFAULT_PACK[0] && fresh.shown === DEFAULT_PACK[1] && fresh.closed
+    const elsewhere = fresh.hrefs.filter((h) => !h.startsWith(`/icons/${SKIN_PACKS.crt}.svg`));
+    claim(`a new profile with no stored look follows the skin: the tube draws ${SKIN_PACKS.crt}`,
+      kept?.theme === undefined && fresh.icons === SKIN_PACKS.crt && (fresh.shown || "").startsWith(FOLLOW_LABEL) && fresh.closed
         && fresh.hrefs.length > 0 && elsewhere.length === 0,
       `service keeps ${kept?.theme === undefined ? "no look" : `a look with ${kept.theme.icons}`} · data-icons=${fresh.icons} · picker says ${fresh.shown}`
         + ` · ${fresh.hrefs.length} marks, ${elsewhere.length} drawn from another pack${elsewhere.length ? `: ${elsewhere[0]}` : ""}`);
@@ -819,8 +823,63 @@ for (const ratio of RATIOS) {
   }
 }
 
+/* Matching the appearance, picked back in the settings: every skin draws with
+   its own pack, at once, and the service keeps "skin". And a look stored before
+   the skins brought their packs — a pack in it and no version, in the service
+   and in the page's own copy — comes up following the skin, and is kept so. */
+{
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  const follows = await run(`
+    const iconsButton = () => document.querySelector('[data-field="icons"] .selectButton');
+    const choose = async (button, match) => {
+      button.click();
+      await wait(300);
+      const row = [...document.querySelectorAll('.selectList .selectRow')].find((r) => match(r.textContent.trim()));
+      if (!row) { document.body.click(); return false; }
+      row.click();
+      await wait(500);
+      return true;
+    };
+    await openSettings();
+    const picked = await choose(iconsButton(), (t) => t.startsWith(${JSON.stringify(FOLLOW_LABEL)}));
+    const skins = {};
+    for (const [skin, label] of ${JSON.stringify(SKINS)}) {
+      const ok = await choose(document.querySelector('.settingsbody .tabbody .field .selectButton'), (t) => t === label);
+      skins[skin] = { ok, icons: document.documentElement.dataset.icons, shown: iconsButton()?.querySelector('span')?.textContent.trim() };
+    }
+    await closeSettings();
+    return { picked, skins };
+  `);
+  await sleep(1200);
+  const keptFollow = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
+  const wrong = Object.entries(follows.skins).filter(([skin, s]) => !s.ok || s.icons !== SKIN_PACKS[skin] || !(s.shown || "").startsWith(FOLLOW_LABEL));
+  claim("matching the appearance picked back, every skin draws with its own pack, and the service keeps it",
+    follows.picked && wrong.length === 0 && Object.keys(follows.skins).length === 4 && keptFollow?.theme?.icons === "skin",
+    Object.entries(follows.skins).map(([skin, s]) => `${skin} ${s.icons} "${s.shown}"`).join(" · ") + ` · service keeps ${keptFollow?.theme?.icons}`);
+
+  const old = { ...(keptFollow.theme || {}), skin: "sketch", palette: "sketch", icons: "pixel" };
+  delete old.iconsVersion;
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ theme: old }) });
+  await run(`localStorage.setItem('plxr.theme', ${JSON.stringify(JSON.stringify(old))}); return true;`);
+  await load();
+  const migrated = await run(`
+    await wait(1500);
+    await openSettings();
+    const shown = document.querySelector('[data-field="icons"] .selectButton span')?.textContent.trim();
+    await closeSettings();
+    return { skin: document.documentElement.dataset.skin, icons: document.documentElement.dataset.icons, shown };
+  `);
+  await sleep(1200);
+  const keptMigrated = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
+  claim("a look stored before the skins brought their packs — Pixel in it, no version — comes up following the skin, and is kept so",
+    migrated.skin === "sketch" && migrated.icons === SKIN_PACKS.sketch && (migrated.shown || "").startsWith(FOLLOW_LABEL)
+      && keptMigrated?.theme?.icons === "skin" && keptMigrated?.theme?.iconsVersion === 2,
+    `data-skin=${migrated.skin} data-icons=${migrated.icons} picker says ${migrated.shown} · service keeps ${keptMigrated?.theme?.icons} at version ${keptMigrated?.theme?.iconsVersion}`);
+}
+
 /* Remembered: the last pick survives a reload and sits in the daemon's copy
-   of the look, which is what a second window and the next start read. */
+   of the look, which is what a second window and the next start read. A pack
+   picked is an override: it stays through a reload. */
 {
   await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await run(`

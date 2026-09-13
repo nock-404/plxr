@@ -21,7 +21,8 @@ import { askVersionNow, watchVersion } from "@/lib/version";
 import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
 import { DEFAULTS, apply, fitPalette, installUserFonts, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
 import type { Theme, UserFont, VersionInfo } from "@/lib/types";
-import { ICON_PACKS, PACK_LABELS, type IconPack } from "@/lib/icons";
+import { ICON_PACKS, PACK_LABELS } from "@/lib/icons";
+import { FOLLOW_SKIN, SKIN_PACKS, type IconChoice } from "@/lib/iconChoice";
 
 type Tab = "skins" | "terminal" | "editor" | "keys" | "accounts" | "layouts" | "notify" | "agents" | "status" | "licences";
 
@@ -243,18 +244,23 @@ export default function Settings({
                   />
                 </span>
               </div>
-              {/* The pack every mark in the window is drawn from. Applied like
-                  the skin: at once, everywhere, and kept with the rest of the look. */}
+              {/* The pack every mark in the window is drawn from: the one the
+                  appearance brings, named in the first row, unless a pack is
+                  picked over it. Applied like the skin: at once, everywhere,
+                  and kept with the rest of the look. */}
               <div className="field">
                 <span className="fieldName">{tr("settings.icons", "icons")}</span>
                 <span className="rowInline" data-field="icons">
                   <Select
                     value={state.icons}
-                    onChange={(icons: IconPack) => change({ icons })}
-                    options={ICON_PACKS.map((pack) => ({ value: pack, label: PACK_LABELS[pack] }))}
+                    onChange={(icons: IconChoice) => change({ icons })}
+                    options={[
+                      { value: FOLLOW_SKIN, label: tr("settings.iconsFollow", "Matching the appearance ({pack})", { pack: PACK_LABELS[SKIN_PACKS[state.skin]] }) },
+                      ...ICON_PACKS.map((pack) => ({ value: pack, label: PACK_LABELS[pack] })),
+                    ]}
                   />
                   <span className="notice">
-                    {tr("settings.iconsHint", "Every mark in the window comes from this pack. Pixel is drawn on a pixel grid and suits the tube.")}
+                    {tr("settings.iconsHint", "Every mark in the window comes from this pack. Matching the appearance, each appearance brings its own; a pack picked here stays until that is picked again.")}
                   </span>
                 </span>
               </div>
