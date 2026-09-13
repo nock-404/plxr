@@ -1595,7 +1595,7 @@ for (const [name, dock] of Object.entries(fixtures)) {
   const wantEditor = /"editor:/.test(views);
   // Applied as a preset: the tools it names are put on their edges, never copied.
   const preset = await run(`${HELPERS}
-    const button = [...document.querySelectorAll('.bar .btn')].find(b => /^LAYOUTS$/.test(b.textContent.trim()));
+    const button = document.querySelector('.bar [data-do="layouts"]');
     if (!button) return { why: 'no LAYOUTS button' };
     button.click(); await wait(300);
     const row = [...document.querySelectorAll('body > .menu .menuItem')].find(b => b.querySelector('.menuLabel')?.textContent.trim() === 'Apply old');

@@ -109,6 +109,7 @@ export default function Editor({
   baseline,
   onChange,
   onSave,
+  onCursor,
 }: {
   value: string;
   filename: string;
@@ -130,6 +131,9 @@ export default function Editor({
   baseline?: string | null;
   onChange: (text: string) => void;
   onSave?: () => void;
+  /* Where the cursor stands, one-based, whenever it moves or the text under
+     it changes — for the line and column in the status bar. */
+  onCursor?: (line: number, col: number) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
@@ -143,6 +147,13 @@ export default function Editor({
   save.current = onSave;
   const changed = useRef(onChange);
   changed.current = onChange;
+  const cursor = useRef(onCursor);
+  cursor.current = onCursor;
+  const tellCursor = (state: EditorState) => {
+    const head = state.selection.main.head;
+    const at = state.doc.lineAt(head);
+    cursor.current?.(at.number, head - at.from + 1);
+  };
 
   useEffect(() => {
     const el = host.current;
@@ -176,10 +187,12 @@ export default function Editor({
         ...pluginExtensions(plugins()),
         EditorView.updateListener.of((u) => {
           if (u.docChanged) changed.current(u.state.doc.toString());
+          if (u.docChanged || u.selectionSet) tellCursor(u.state);
         }),
       ],
     });
     view.current = new EditorView({ state, parent: el });
+    tellCursor(state);
     return () => {
       view.current?.destroy();
       view.current = null;

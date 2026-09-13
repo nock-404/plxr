@@ -249,6 +249,11 @@ UI = {
     "panel-left":    ("layout-sidebar",     "sidebar-simple",          "panel-left",              "plxr:panel-left"),
     "panel-right":   ("layout-sidebar-right", "plxr:panel-right",      "panel-right",             "plxr:panel-right"),
     "panel-bottom":  ("layout-bottombar",   "plxr:panel-bottom",       "panel-bottom",            "plxr:panel-bottom"),
+    # The top bar's word buttons as icons (OFFEN.md P8): the arrangements, the
+    # menu and the templates. Each pack's own shape at its pin, none drawn.
+    "layout":        ("layout",             "layout",                  "panels-top-left",         "layout"),
+    "menu":          ("menu-2",             "list",                    "menu",                    "menu"),
+    "templates":     ("copy",               "copy",                    "copy",                    "copy"),
 }
 
 S = "seti-ui:"

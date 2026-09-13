@@ -69,6 +69,12 @@
 <symbol id="panel-right" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M4 2h16v2H4zM4 20h16v2H4zM2 4h2v16H2zM20 4h2v16h-2zM14 4h2v16h-2z"/></symbol>
 <!-- panel-bottom: drawn for plxr: a window with a row along its bottom -->
 <symbol id="panel-bottom" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M4 2h16v2H4zM4 20h16v2H4zM2 4h2v16H2zM20 4h2v16h-2zM4 14h16v2H4z"/></symbol>
+<!-- layout: halfmage/pixelarticons@8275e0af7c16 svg/layout.svg -->
+<symbol id="layout" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M20 20H4v-2h4v-8H4v8H2V6h2v2h16V6h2v12h-2v-8H10v8h10v2Zm0-14H4V4h16v2Z"/></symbol>
+<!-- menu: halfmage/pixelarticons@8275e0af7c16 svg/menu.svg -->
+<symbol id="menu" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M20 18H4v-2h16v2Zm0-5H4v-2h16v2Zm0-5H4V6h16v2Z"/></symbol>
+<!-- templates: halfmage/pixelarticons@8275e0af7c16 svg/copy.svg -->
+<symbol id="templates" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M8 6h12v2H8zM4 2h12v2H4zm2 6h2v12H6zM2 4h2v12H2zm6 16h12v2H8zM20 8h2v12h-2zm-4-4h2v2h-2zM4 16h2v2H4z"/></symbol>
 <!-- file-code: halfmage/pixelarticons@8275e0af7c16 svg/code.svg -->
 <symbol id="file-code" viewBox="0 0 24 24" fill="currentColor" shape-rendering="crispEdges"><path d="M11 18H9v-4h2v4Zm-4-1H5v-2h2v2Zm12-2v2h-2v-2h2ZM5 15H3v-2h2v2Zm16 0h-2v-2h2v2Zm-8-1h-2v-4h2v4ZM3 13H1v-2h2v2Zm20 0h-2v-2h2v2ZM5 11H3V9h2v2Zm16 0h-2V9h2v2Zm-6-1h-2V6h2v4ZM7 9H5V7h2v2Zm12 0h-2V7h2v2Z"/></symbol>
 <!-- file-ts: halfmage/pixelarticons@8275e0af7c16 svg/code.svg -->

@@ -89,13 +89,35 @@
 /* Busy is not unavailable. It still says something, so it stays readable and
    wears the accent to show that something is going on. */
 .btn[data-busy="yes"] { opacity: 1; cursor: progress; color: var(--accent); border-color: var(--accent); }
-.statusrow {
+/* The status line at the foot: quiet, and in the case it is written in — a
+   line read all day is not set in spaced capitals (OFFEN.md P14). The part of
+   the breadcrumb that is in front reads in the foreground colour. */
+.statusbar {
   color: var(--dim);
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  border-bottom: var(--hair) solid var(--line);
-  font-size: .74em;
+  background: var(--panel);
+  border-top: var(--hair) solid var(--line);
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: .78em;
 }
+.statusCrumb { color: var(--dim); background: none; border: 0; border-radius: .25rem; }
+.statusCrumb:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.statusCrumb:focus-visible { outline: var(--hair) solid var(--accent); }
+.statusCrumb[data-crumb="file"], .statusCrumb[data-crumb="session"], .statusCrumb[data-crumb="doc"] { color: var(--fg); }
+.statusCrumb[data-crumb="doc"]:hover { background: none; }
+.statusCrumbIcon, .statusCrumbSep { color: var(--dim); }
+.statusItem { color: var(--dim); }
+.statusItem[data-status-item="branch"] { color: var(--fg); }
+.statusDivider { background: var(--line); }
+/* The search field in the top bar: a field in the bar, the palette's chord a
+   small key cap at its end. */
+.barSearch { color: var(--dim); background: color-mix(in srgb, var(--fg) 5%, transparent); border: var(--hair) solid var(--line); border-radius: .375rem; }
+.barSearch:hover { border-color: var(--dim); }
+.barSearch:focus-within { border-color: var(--accent); }
+.barSearch .barSearchInput { color: var(--fg); background: none; border: 0; text-transform: none; letter-spacing: normal; }
+.barSearch .barSearchInput::placeholder { color: var(--dim); }
+.barSearchIcon { color: var(--dim); }
+.barSearchKey { color: var(--dim); border: var(--hair) solid var(--line); border-radius: .25rem; font-size: .78em; }
 /* The spend readout: the number in the foreground, the trend in the accent,
    the count as quiet as the rest of the row. Past the user's own ceiling the
    whole readout turns to the blocked colour — a colour, never a brake. */

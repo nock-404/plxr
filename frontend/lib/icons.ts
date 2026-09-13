@@ -16,10 +16,10 @@ export const PACK_LABELS: Record<IconPack, string> = {
 /* Changes whenever a sprite does, so a window never draws from a copy the
    web view kept from before an update. */
 export const SPRITE_VERSIONS: Record<IconPack, string> = {
-  tabler: "80fa352aac1e",
-  phosphor: "1a34b70241d5",
-  lucide: "c676da178629",
-  pixel: "fadae5e80db8",
+  tabler: "28e347188982",
+  phosphor: "9be03c208a8e",
+  lucide: "0c059a6105bc",
+  pixel: "fe03da7eb9a5",
 };
 
 export const ICON_NAMES = [
@@ -57,6 +57,9 @@ export const ICON_NAMES = [
   "panel-left",
   "panel-right",
   "panel-bottom",
+  "layout",
+  "menu",
+  "templates",
   "file-code",
   "file-ts",
   "file-tsx",

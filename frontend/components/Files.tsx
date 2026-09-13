@@ -18,6 +18,8 @@ import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { announceFilesChanged } from "@/lib/useChanges";
 import { useToolShown } from "@/lib/toolShown";
 import { useScrollMemory, useToolMemory } from "@/lib/toolMemory";
+import { samePath } from "@/lib/project";
+import { REVEAL_ASKED, revealAsked, revealTaken, type RevealRequest } from "@/lib/reveal";
 import type { FileEntry } from "@/lib/types";
 
 /* The tree beside the terminal.
@@ -431,6 +433,73 @@ export default function Files({
       if (entry.dir && !open[entry.path]) void list(entry.path);
     }
   }, [needle, visible, open, list]);
+
+  /* A place asked for from outside: a folder or a file named in the status
+     bar's breadcrumb. Only the Files tool answers — the tree in the folders
+     view keeps to itself — and only for its own root. The tree goes back to
+     the folder it was given, every folder on the way unfolds as its listing
+     arrives, and the place is selected, which scrolls it into view. A step
+     that is not in the listing ends it: the place is gone or hidden. */
+  const [revealing, setRevealing] = useState<RevealRequest | null>(null);
+  useEffect(() => {
+    if (memory !== "files") return;
+    const take = () => {
+      const r = revealAsked();
+      if (!r || !samePath(r.root, root)) return;
+      revealTaken(r.seq);
+      setFilter("");
+      setRevealing(r);
+    };
+    take();
+    window.addEventListener(REVEAL_ASKED, take);
+    return () => window.removeEventListener(REVEAL_ASKED, take);
+    // setFilter is the tool memory's setter and stays the same.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memory, root]);
+  const revealListed = useRef(new Set<string>());
+  useEffect(() => {
+    if (!revealing) return;
+    if (walked) {
+      setAt({ of: rootId, dir: "" });
+      return;
+    }
+    const steps = revealing.rel ? revealing.rel.split("/") : [];
+    const done = () => {
+      revealListed.current.clear();
+      setRevealing(null);
+    };
+    let dir = "";
+    for (let i = 0; i < steps.length; i++) {
+      const rows = open[dir];
+      if (!rows) {
+        // The root is read by the tree itself; a folder on the way is read once.
+        if (dir && !revealListed.current.has(dir)) {
+          revealListed.current.add(dir);
+          void list(dir);
+        }
+        return;
+      }
+      const rel = steps.slice(0, i + 1).join("/");
+      const entry = rows.find((r) => r.rel === rel);
+      if (!entry) return done();
+      if (i === steps.length - 1) {
+        setHere(entry.path);
+        return done();
+      }
+      if (!entry.dir) return done();
+      if (!expanded.has(entry.path)) {
+        setExpanded((was) => new Set([...was, entry.path]));
+        if (remembered.current) {
+          remembered.current.add(entry.path);
+          keepOpen(remembered.current);
+        }
+      }
+      dir = entry.path;
+    }
+    if (!steps.length) done();
+    // The setters are the tool memory's and stay the same.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealing, open, expanded, walked, list, rootId]);
 
   const parentOf = (path: string) => {
     for (const [dir, rows] of Object.entries(open)) {

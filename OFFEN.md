@@ -818,9 +818,9 @@ them, and what plxr has to take from them:
   file's own colour, the name, a close that appears on hover, and the tab in
   front marked with a line in the accent along the edge it meets the content.
   A count sits on the tab when there is something to count.
-- **D4 A status line along the bottom** with the breadcrumb of what is open:
+- **D4 A status line along the bottom** (wip8/bars 13.09: the status bar at the foot — project › folders › file or project › session, each part a button; branch, line:column, line endings, encoding) with the breadcrumb of what is open:
   project, folder, folder, file. plxr has no breadcrumb anywhere.
-- **D5 A search field in the middle of the top bar**, labelled with its own
+- **D5 A search field in the middle of the top bar**, (wip8/bars 13.09: typing opens the ⌘K palette on the typed text, the chord written in the field) labelled with its own
   chord, not a hidden palette.
 - **D6 Air.** Rounded corners, real padding, hairline separators instead of
   boxes around everything, and type that is not all one weight.
@@ -889,10 +889,10 @@ that I do not agree with the menu as such."
 - **P6 The bottom is used.** Git log sits under the tree and the editor by
   default, with its own internal panes (branches · commits · changed files).
   plxr's bottom region exists but nothing opens there on its own.
-- **P7 A status bar along the very bottom**: the project breadcrumb on the left,
+- **P7 A status bar along the very bottom** (wip8/bars 13.09: one status line under the bottom stripe, the old row under the top bar folded into its right end; indent not shown): the project breadcrumb on the left,
   line endings, encoding, indent and the branch on the right. plxr has its status
   row at the top, under the toolbar, and no bottom bar.
-- **P8 The top toolbar is project and run, not a text field and word buttons.**
+- **P8 The top toolbar is project and run, not a text field and word buttons.** (half, wip8/bars 13.09: PAUSE ALL, LAYOUTS, MENU, TEMPLATES are icons with tooltips naming action and chord; + NEW keeps its word; no run configuration)
   Project switcher with its badge, branch switcher, run configuration, run and
   debug, then search and settings as icons. plxr has "path>" as a free text
   field and LAYOUTS, MENU, TEMPLATES, + NEW as words.

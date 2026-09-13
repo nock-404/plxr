@@ -485,7 +485,7 @@ const MEASURE = `
   const strip = q('.plxrDock .panelTab')?.closest('.dv-tabs-container');
   const along = (b) => b && strip ? [Math.round((b[0] + strip.scrollLeft) * 10) / 10, b[1], b[2], b[3]] : b;
   return {
-    bar: box(q('.bar')), statusrow: box(q('.statusrow')), stripeLeft: box(q('.stripe[data-edge="left"]')),
+    bar: box(q('.bar')), statusbar: box(q('.statusbar')), stripeLeft: box(q('.stripe[data-edge="left"]')),
     stripeIcon: box(q('.stripe .stripeIcon')), toolHead: box(q('.toolWindow[data-tool="files"] .toolHead')),
     switchProject: box(q('.switch[data-switch="project"]')),
     frow: box(q('.plxrDock .frow')), frowName: box(q('.plxrDock .frow .fname')), frowCount: document.querySelectorAll('.plxrDock .frow').length,

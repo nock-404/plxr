@@ -245,17 +245,22 @@ const menu = await tab.run(`${HELPERS}
   const m = got.v;
   return m ? { heads: menuHeads(), rows: menuRows(), alpha: alphaOf(m), onBody: m.parentElement === document.body,
     z: getComputedStyle(m).zIndex, checks: [...m.querySelectorAll('.menuCheck')].length,
-    hints: [...m.querySelectorAll('.menuHint')].map(h => h.textContent.trim()), rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(m.getBoundingClientRect()), vh: innerHeight } : null;
+    hints: [...m.querySelectorAll('.menuHint')].map(h => h.textContent.trim()), rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(m.getBoundingClientRect()), vh: innerHeight, vw: innerWidth } : null;
 `);
 /* Under the button — unless the list is taller than the room under it: the
    menu keeps itself on the screen and moves up only as far as that takes, its
    last row never below the window's edge. The MENU grew by the tool windows
    and the documents, and at 1000 px it no longer fits under its button. */
 const menuRoom = menu ? menu.vh - (menuBtn.y + menuBtn.h) : 0;
-claim("MENU opens the one context menu on <body>, under the button, or lifted only as far as a list taller than the room under it needs",
-  menu && menu.onBody && Math.abs(menu.rect.x - menuBtn.x) < 3 &&
+/* Its left edge at the button's — or, the button being an icon near the right edge of
+   the window, where a list that wide would run off it, moved left only as far as
+   staying on the screen takes, still over the button. */
+const menuAlong = menu && (Math.abs(menu.rect.x - menuBtn.x) < 3 ||
+  (menuBtn.x + menu.rect.w > menu.vw - 8 && menu.rect.x < menuBtn.x && menu.rect.x + menu.rect.w >= menuBtn.x + menuBtn.w && menu.rect.x + menu.rect.w <= menu.vw));
+claim("MENU opens the one context menu on <body>, under the button (kept on the screen at its right edge), or lifted only as far as a list taller than the room under it needs",
+  menu && menu.onBody && menuAlong &&
     (menu.rect.y >= menuBtn.y + menuBtn.h || (menu.rect.h > menuRoom - 8 && menu.rect.y + menu.rect.h <= menu.vh)),
-  menu ? `menu at ${Math.round(menu.rect.x)},${Math.round(menu.rect.y)}, ${Math.round(menu.rect.h)} px high · button bottom ${Math.round(menuBtn.y + menuBtn.h)} · room under it ${Math.round(menuRoom)} of ${menu.vh} · z ${menu.z}` : "no menu");
+  menu ? `menu at ${Math.round(menu.rect.x)},${Math.round(menu.rect.y)}, ${Math.round(menu.rect.w)}×${Math.round(menu.rect.h)} px · button ${Math.round(menuBtn.x)}–${Math.round(menuBtn.x + menuBtn.w)} of ${menu.vw} · button bottom ${Math.round(menuBtn.y + menuBtn.h)} · room under it ${Math.round(menuRoom)} of ${menu.vh} · z ${menu.z}` : "no menu");
 claim("the menu is opaque (background alpha 1)", menu && menu.alpha === 1, menu ? `alpha ${menu.alpha}` : "");
 claim("every group is there: Actions, Tools, Tool windows, Documents, Help", menu && ["Actions", "Tools", "Tool windows", "Documents", "Help"].every((h) => menu.heads.includes(h)), menu ? menu.heads.join(" · ") : "");
 const wantRows = ["Search commands…", "New session", "Templates", "Settings", "PAUSE ALL", "Reset the panel layout", "Workbench", "Workshop", "frame-rate readout", "Files", "Inbox", "Changes", "Ports", "Usage", "Archive", "Overview", "Project overview", "Keyboard"];
@@ -529,7 +534,7 @@ const tip = await tab.run(`${HELPERS}
   return t ? { text: t.textContent.trim(), alpha: alphaOf(t), z: getComputedStyle(t).zIndex, rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(t.getBoundingClientRect()), ms: got.ms, nativeTitles } : { nativeTitles };
 `);
 await mouse("mouseMoved", 5, 5);
-claim("hovering ⚙ shows the plxr tooltip on <body>, opaque, at the top rung", tip.text === "Settings" && tip.alpha === 1 && tip.z === "410", tip.text ? `"${tip.text}" alpha ${tip.alpha} z ${tip.z} after ${tip.ms} ms` : "no tooltip");
+claim("hovering ⚙ shows the plxr tooltip on <body>, opaque, at the top rung, naming the action and its chord", tip.text === "Settings ⌘," && tip.alpha === 1 && tip.z === "410", tip.text ? `"${tip.text}" alpha ${tip.alpha} z ${tip.z} after ${tip.ms} ms` : "no tooltip");
 claim("the tooltip sits under the button, centred", tip.rect && tip.rect.y >= gear.y + gear.h && Math.abs((tip.rect.x + tip.rect.w / 2) - (gear.x + gear.w / 2)) < 2,
   tip.rect ? `tip ${Math.round(tip.rect.x)},${Math.round(tip.rect.y)} ${Math.round(tip.rect.w)}×${Math.round(tip.rect.h)} · button bottom ${Math.round(gear.y + gear.h)}` : "");
 claim("no native title= attribute is left inside the app", tip.nativeTitles.length === 0, tip.nativeTitles.length ? tip.nativeTitles.join(", ") : "none");

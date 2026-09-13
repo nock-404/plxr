@@ -10,8 +10,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import Keys from "@/components/Keys";
 import NewSession from "@/components/NewSession";
 import Meter from "@/components/Meter";
-import Pace from "@/components/Pace";
-import Limits from "@/components/Limits";
+import StatusBar from "@/components/StatusBar";
 import Folders from "@/components/views/Folders";
 import Templates from "@/components/Templates";
 import UpdateBar from "@/components/UpdateBar";
@@ -21,7 +20,8 @@ import Workshop, { applyStored } from "@/components/Workshop";
 import ProjectSwitch from "@/components/topbar/ProjectSwitch";
 import SessionSwitch from "@/components/topbar/SessionSwitch";
 import EdgeToggles from "@/components/topbar/EdgeToggles";
-import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
+import BarSearch from "@/components/topbar/BarSearch";
+import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type FrontPanel, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
 import { titleOf } from "@/lib/state";
@@ -32,7 +32,6 @@ import Ports from "@/components/views/Ports";
 import Session from "@/components/views/Session";
 import Usage from "@/components/views/Usage";
 import { api } from "@/lib/api";
-import { clock } from "@/lib/format";
 import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
@@ -40,7 +39,8 @@ import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
 import { CHORD_ORDER, DOCS, TOOLS, chordOf, isTool } from "@/lib/tools";
 import { adoptPrefs } from "@/lib/prefs";
-import { NO_PROJECT, type Project } from "@/lib/project";
+import { NO_PROJECT, rootIdOf, type Project } from "@/lib/project";
+import { askReveal } from "@/lib/reveal";
 import { announcePrefs } from "@/lib/prefsEvents";
 import { adopt, apply, fitPalette, load, persistVia, rememberThemes, type ThemeState, installUserFonts } from "@/lib/theme";
 import { useTiles } from "@/lib/useTiles";
@@ -198,11 +198,20 @@ export default function App() {
      keyboard is handled here — with the guard that keeps a shortcut from
      firing while a field is being typed in. */
   const [paletteOpen, setPaletteOpen] = useState(false);
+  /* What the palette opens on: what was typed into the search field in the
+     top bar, and nothing when it is asked for any other way. */
+  const [paletteText, setPaletteText] = useState("");
+  const openPalette = useCallback((text: string) => {
+    setPaletteText(text);
+    setPaletteOpen(true);
+  }, []);
   /* The two switches at the top are asked to open their lists by counting
-     up: ⌘E and the palette live here, the lists under the switches. */
+     up: ⌘E and the palette live here, the lists under the switches — and the
+     breadcrumb in the status bar, whose project and session name them. */
   const [sessionAsk, setSessionAsk] = useState(0);
   const [projectAsk, setProjectAsk] = useState(0);
-  const [now, setNow] = useState<string>("");
+  // The panel in front of main, as the dock reports it, for the status bar.
+  const [front, setFront] = useState<FrontPanel>({ id: "", title: "", params: {} });
   /* The look, held rather than only applied.
      It used to be handed to apply() and forgotten, which was enough while
      nothing outside the settings panel needed to know it. The handle beside a
@@ -384,7 +393,13 @@ export default function App() {
         return;
       }
       if (fire("help", () => setKeys(true))) return;
-      if (fire("palette", () => setPaletteOpen((v) => !v))) return;
+      if (
+        fire("palette", () => {
+          setPaletteText("");
+          setPaletteOpen((v) => !v);
+        })
+      )
+        return;
       if (fire("workbench", () => setBench((b) => !b))) return;
       if (fire("workshop", () => setShop((v) => !v))) return;
       if (fire("newSession", () => setCreating(true))) return;
@@ -404,12 +419,6 @@ export default function App() {
     // declared it. Listing it here would read it before its declaration.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys, templates, creating]);
-
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(clock(new Date())), 1000);
-    setNow(clock(new Date()));
-    return () => window.clearInterval(t);
-  }, []);
 
   const shown = useMemo(() => {
     const needle = here.trim().toLowerCase();
@@ -548,7 +557,7 @@ export default function App() {
      session — its tile, its row in the session switch, its title. */
   const menuItems = useCallback((): MenuItem[] => {
     const items: MenuItem[] = [
-      { label: tr("menu.search", "Search commands…"), hint: caption(bindingOf("palette")), onClick: () => setPaletteOpen(true) },
+      { label: tr("menu.search", "Search commands…"), hint: caption(bindingOf("palette")), onClick: () => openPalette("") },
       { separator: true },
       { header: true, label: tr("menu.actions", "Actions") },
       { label: tr("palette.newSession", "New session"), hint: caption(bindingOf("newSession")), onClick: () => setCreating(true) },
@@ -587,7 +596,7 @@ export default function App() {
       { label: tr("keys.title", "Keyboard"), hint: caption(bindingOf("help")), onClick: () => setKeys(true) },
     ];
     return items;
-  }, [herd.halted, bench, shop, meter, direct, toggleMeter, openTools, openSettings]);
+  }, [herd.halted, bench, shop, meter, direct, toggleMeter, openTools, openSettings, openPalette]);
 
   // The actions that belong to the shell, not to any panel — offered in the
   // command palette (⌘K) alongside the views and sessions.
@@ -697,6 +706,22 @@ export default function App() {
    * started once, opens against the current tiles. */
   openRef.current = openSession;
 
+  /* A folder or the file named in the status bar, shown in the Files tool.
+     The tool follows the project, so a place under another root makes that
+     root the project first — its session, or its folder — and the tree takes
+     the request once it stands on that root. */
+  function revealInFiles(rootId: string, root: string, rel: string) {
+    if (rootId && rootId !== rootIdOf(project)) {
+      if (rootId.startsWith("dir:")) pickProject(root);
+      else sessionFront(rootId);
+    }
+    askReveal(root, rel);
+    setFocus({ kind: "tool", id: "files", how: "reveal" });
+  }
+
+  // What the pause button says it does, in the tooltip and to a screen reader.
+  const brakeName = herd.halted ? tr("header.resumeAll", "Resume all sessions") : tr("header.pauseAll", "Pause all sessions");
+
   return (
     <div className="app">
       <header className="bar">
@@ -730,14 +755,28 @@ export default function App() {
 
         <div className="draghandle" />
 
+        {/* The search in the middle of the bar, with its chord in it: what is
+            typed opens the palette on it. */}
+        <BarSearch onOpen={openPalette} />
+
+        <div className="draghandle" />
+
+        {/* Icons, each with a tooltip naming what it does and its key; only
+            + NEW keeps its word, at the top right where new things start. */}
         <div className="tools">
           {herd.running > 0 || herd.halted ? (
-            <Button
-              on={herd.halted}
-              onClick={() => (herd.halted ? api.releaseBrake() : api.emergencyBrake())}
-            >
-              {herd.halted ? tr("header.brakeRelease", "RESUME ALL") : tr("header.brake", "PAUSE ALL")}
-            </Button>
+            <Tooltip text={herd.halted ? brakeName : tr("header.brakeTip", "Pause every session at once — nothing is lost, they carry on where they stopped")}>
+              <Button
+                icon
+                on={herd.halted}
+                data-do="pause-all"
+                aria-pressed={herd.halted}
+                aria-label={brakeName}
+                onClick={() => (herd.halted ? api.releaseBrake() : api.emergencyBrake())}
+              >
+                <Icon name={herd.halted ? "play" : "pause"} />
+              </Button>
+            </Tooltip>
           ) : null}
           {/* The three edges of the dock, shown and hidden the way ⌘B ⌥⌘B ⌘J do. */}
           <EdgeToggles shown={openTools} onToggle={(edge) => direct({ type: "toggleEdge", arg: edge })} />
@@ -753,14 +792,18 @@ export default function App() {
           </Tooltip>
           {/* Opens under the button: the pointer is where the eye is, and the
               same menu serves the right-click everywhere else. */}
-          <Tooltip text={tr("header.layoutsTip", "Arrange the panels: for an activity, or as you saved them")}>
+          <Tooltip text={`${tr("header.layoutsName", "Layouts")} — ${tr("header.layoutsTip", "Arrange the panels: for an activity, or as you saved them")}`}>
             <Button
+              icon
+              data-do="layouts"
+              aria-haspopup="menu"
+              aria-label={tr("header.layoutsName", "Layouts")}
               onClick={(e) => {
                 const r = e.currentTarget.getBoundingClientRect();
                 menu.open(Math.round(r.left), Math.round(r.bottom + 4), layoutItems());
               }}
             >
-              {tr("header.layouts", "LAYOUTS")}
+              <Icon name="layout" />
             </Button>
           </Tooltip>
           <Tooltip text={tr("keys.tip", "Keyboard shortcuts")}>
@@ -771,53 +814,42 @@ export default function App() {
           {/* The same button both ways. It only ever set the panel open, so the
               way back out was the DONE button at the bottom of a panel long
               enough to have scrolled it off the screen. */}
-          <Tooltip text={tr("header.settingsTip", "Settings")}>
+          <Tooltip text={bindingOf("settings") ? `${tr("header.settingsTip", "Settings")} ${caption(bindingOf("settings"))}` : tr("header.settingsTip", "Settings")}>
             <Button icon data-do="settings" aria-label={tr("header.settingsTip", "Settings")} onClick={openSettings}>
               <Icon name="settings" />
             </Button>
           </Tooltip>
-          {/* Everything, under one word. The tools were reachable by F12 and
+          {/* Everything, under one button. The tools were reachable by F12 and
               nothing else; the views by one column beside the work. */}
-          <Tooltip text={tr("header.menuTip", "Every action and setting, grouped")}>
+          <Tooltip text={`${tr("header.menuName", "Menu")} — ${tr("header.menuTip", "Every action and setting, grouped")}`}>
             <Button
+              icon
               data-do="menu"
+              aria-haspopup="menu"
+              aria-label={tr("header.menuName", "Menu")}
               onClick={(e) => {
                 const r = e.currentTarget.getBoundingClientRect();
                 menu.open(Math.round(r.left), Math.round(r.bottom + 4), menuItems());
               }}
             >
-              {tr("header.menu", "MENU")}
+              <Icon name="menu" />
             </Button>
           </Tooltip>
-          <Button onClick={() => setTemplates(true)}>{tr("header.templates", "TEMPLATES")}</Button>
-          <Button primary onClick={() => setCreating(true)}>{tr("header.new", "+ NEW")}</Button>
+          <Tooltip text={`${tr("palette.templates", "Templates")} — ${tr("header.templatesTip", "Saved working sets")}`}>
+            <Button icon data-do="templates" aria-label={tr("palette.templates", "Templates")} onClick={() => setTemplates(true)}>
+              <Icon name="templates" />
+            </Button>
+          </Tooltip>
+          <Tooltip text={bindingOf("newSession") ? `${tr("palette.newSession", "New session")} ${caption(bindingOf("newSession"))}` : tr("palette.newSession", "New session")}>
+            <Button primary data-do="new-session" onClick={() => setCreating(true)}>
+              {tr("header.new", "+ NEW")}
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
       <UpdateBar />
       <NotifyAsk />
-
-      <div className="statusrow">
-        <span>
-          {connected ? countsLine(herd) : tr("conn.lost", "Connection lost, trying again …")}
-          {connected && shown.length !== tiles.length ? (
-            <span className="hiding">
-              {" · "}
-              {tr("header.filtered", "{shown} of {total} shown", {
-                shown: shown.length,
-                total: tiles.length,
-              })}
-            </span>
-          ) : null}
-        </span>
-        <span className="spacer" />
-        {dnd ? <span className="dnd">{tr("notify.dndOn", "do not disturb")}</span> : null}
-        {/* The spend, always in view — between the counts and the clock. */}
-        {/* Every account's limits, beside the spend. */}
-        <Limits onOpen={() => setFocus({ kind: "tool", id: "usage", how: "reveal" })} />
-        <Pace />
-        <span>{now}</span>
-      </div>
 
       <div className="body">
         {/* The view's own bar, lifted out of the view.
@@ -849,8 +881,10 @@ export default function App() {
             onLayoutSaved={savePreset}
             appCommands={appCommands}
             paletteOpen={paletteOpen}
+            paletteText={paletteText}
             onClosePalette={() => setPaletteOpen(false)}
-            onOpenPalette={() => setPaletteOpen(true)}
+            onOpenPalette={() => openPalette("")}
+            onFront={setFront}
           />
         </main>
           </div>
@@ -858,6 +892,34 @@ export default function App() {
         {bench ? <Workbench onClose={() => setBench(false)} /> : null}
         {shop ? <Workshop onClose={() => setShop(false)} /> : null}
       </div>
+
+      {/* The one status line, under the bottom stripe: where the work in
+          front is, and what is true about it and about the machine. */}
+      <StatusBar
+        front={front}
+        tiles={tiles}
+        project={project}
+        dnd={dnd}
+        counts={
+          connected ? (
+            <>
+              {countsLine(herd)}
+              {shown.length !== tiles.length ? (
+                <span className="hiding">
+                  {" · "}
+                  {tr("header.filtered", "{shown} of {total} shown", { shown: shown.length, total: tiles.length })}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            tr("conn.lost", "Connection lost, trying again …")
+          )
+        }
+        onProject={() => setProjectAsk((n) => n + 1)}
+        onSession={() => setSessionAsk((n) => n + 1)}
+        onReveal={revealInFiles}
+        onUsage={() => setFocus({ kind: "tool", id: "usage", how: "reveal" })}
+      />
 
       {meter ? <Meter /> : null}
 

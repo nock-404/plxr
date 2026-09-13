@@ -40,6 +40,7 @@ function score(query: string, text: string): number {
 export default function CommandPalette({
   commands,
   search,
+  initial = "",
   onClose,
 }: {
   commands: Command[];
@@ -47,11 +48,21 @@ export default function CommandPalette({
      typed. Asked a moment after typing stops, and an answer that arrives after
      the query has moved on is thrown away. */
   search?: (q: string) => Promise<Command[]>;
+  /* What was already typed when the palette was asked for — into the search
+     field in the top bar. The palette opens on it, the cursor after it. */
+  initial?: string;
   onClose: () => void;
 }) {
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initial);
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const field = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    const el = field.current;
+    if (el && initial) el.setSelectionRange(el.value.length, el.value.length);
+    // Only where it opens: after that the cursor is the typist's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // null while an answer is on its way, so the list does not say "nothing
   // matches" about files it has not been told about yet.
   const [found, setFound] = useState<Command[] | null>(null);
@@ -101,6 +112,7 @@ export default function CommandPalette({
     <div className="paletteScrim" onMouseDown={onClose}>
       <div className="palette" onMouseDown={(e) => e.stopPropagation()}>
         <Input
+          ref={field}
           autoFocus
           value={q}
           placeholder={tr("palette.placeholder", "Type a command…")}

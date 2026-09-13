@@ -30,7 +30,8 @@ const SKINS = ["crt", "win95", "sketch", "pixel"];
 // that is the skin's business. These boxes are the layout's.
 const BOXES = {
   bar: ".bar",
-  statusrow: ".statusrow",
+  // The status line along the foot of the window, under the bottom stripe.
+  statusbar: ".statusbar",
   content: ".content",
   stripeLeft: '.stripe[data-edge="left"]',
   stripeRight: '.stripe[data-edge="right"]',
@@ -40,6 +41,9 @@ const BOXES = {
   toolHead: '.toolWindow[data-tool="files"] .toolHead',
   switchProject: '.switch[data-switch="project"]',
   switchSession: '.switch[data-switch="session"]',
+  // The search field in the middle of the top bar, and the breadcrumb's first part.
+  barSearch: ".bar .barSearch",
+  crumb: '.statusbar .statusCrumb[data-crumb="project"]',
   tile: ".tile",
   tileHead: ".thead",
   tileFoot: ".tfoot",
@@ -48,8 +52,10 @@ const BOXES = {
    one starts follows the wordmark's typeface, and how wide it is follows how much
    room the buttons' words leave it — both the skin's business, measured at 202,
    178, 172 and 241 px from the left and 109 to 300 px wide across the four.
-   Their row and their height are the frame's, and that is what is held. */
-const ROW_ONLY = new Set(["switchProject", "switchSession"]);
+   Their row and their height are the frame's, and that is what is held.
+   The search field between them is placed the same way, and so is the first
+   crumb of the status line, whose width is its name in the skin's typeface. */
+const ROW_ONLY = new Set(["switchProject", "switchSession", "barSearch", "crumb"]);
 
 const BROWSERS = [
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",

@@ -14,6 +14,7 @@ import { copyText } from "@/lib/browser";
 import { tr, errText } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { FILES_CHANGED } from "@/lib/useChanges";
+import { lineEndings, type Caret } from "@/lib/caret";
 import type { Baseline, FileBody } from "@/lib/types";
 
 /* Read and edit one file from the machine the session or folder is on.
@@ -41,6 +42,7 @@ export default function Viewer({
   jump = 0,
   onClose,
   onDirty,
+  onCaret,
 }: {
   /* A session or a folder — the service reads which from the id. */
   rootId: string;
@@ -53,6 +55,9 @@ export default function Viewer({
   /* Told whenever the buffer gains or loses unsaved edits, so whatever holds
      this editor — its tab — can refuse to close over them. */
   onDirty?: (dirty: boolean) => void;
+  /* Where the cursor stands and how the file is written — its line endings
+     and its encoding — for the status bar; null while there is no text. */
+  onCaret?: (caret: Caret | null) => void;
 }) {
   const [body, setBody] = useState<FileBody | null>(null);
   const [text, setText] = useState("");
@@ -74,6 +79,22 @@ export default function Viewer({
   // What the handlers below need to know without being rebuilt for it.
   const latest = useRef({ body, dirty });
   latest.current = { body, dirty };
+
+  /* The cursor, with what is known about the file as it was read: the line
+     endings it uses, and UTF-8 — the service hands out nothing else as text,
+     a byte-order mark said as such. A file that is not text has no cursor. */
+  const [where, setWhere] = useState<{ line: number; col: number } | null>(null);
+  const caretOut = useRef(onCaret);
+  caretOut.current = onCaret;
+  useEffect(() => {
+    if (!body || body.binary || !where) {
+      caretOut.current?.(null);
+      return;
+    }
+    const encoding = body.text.startsWith("\uFEFF") ? "UTF-8 BOM" : "UTF-8";
+    caretOut.current?.({ line: where.line, col: where.col, eol: lineEndings(body.text), encoding });
+  }, [body, where]);
+  useEffect(() => () => caretOut.current?.(null), []);
 
   const readBaseline = useCallback(() => {
     api
@@ -314,6 +335,7 @@ export default function Viewer({
               setDirty(next !== (body?.text ?? ""));
             }}
             onSave={save}
+            onCursor={(l, c) => setWhere((w) => (w && w.line === l && w.col === c ? w : { line: l, col: c }))}
           />
         )}
       </div>

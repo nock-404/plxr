@@ -30,7 +30,7 @@
 
 /* ---- head ------------------------------------------------------------- */
 [data-skin="crt"] .bar,
-[data-skin="crt"] .statusrow,
+[data-skin="crt"] .statusbar,
 
 /* ---- stripes --------------------------------------------------------- */
 [data-skin="crt"] .stripe,
@@ -72,6 +72,18 @@
   }
 }
 [data-skin="crt"] .bar { border-bottom: var(--hair) solid var(--dim); }
+/* The status line on the tube: the glass of the bar, the phosphor's line
+   along its top, square highlights. The search field a square field sunk into
+   the glass, glowing while it has the keyboard. */
+[data-skin="crt"] .statusbar { border-top: var(--hair) solid var(--dim); }
+[data-skin="crt"] .statusCrumb,
+[data-skin="crt"] .barSearch,
+[data-skin="crt"] .barSearchKey { border-radius: 0; }
+[data-skin="crt"] .statusCrumb:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+[data-skin="crt"] .statusItem[data-status-item="branch"] { color: var(--accent); }
+[data-skin="crt"] .barSearch { background: color-mix(in srgb, var(--bg) 35%, transparent); border-color: var(--dim); }
+[data-skin="crt"] .barSearch:focus-within { border-color: var(--accent); box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 35%, transparent); }
+[data-skin="crt"] .barSearch .barSearchInput::placeholder { color: var(--dead); }
 /* The spend readout on the tube: the number carries the phosphor, the hot
    state glows in the blocked colour instead of the foreground. */
 [data-skin="crt"] .paceNum { color: var(--fg); }

@@ -103,9 +103,9 @@
   border-color: var(--accent);
 }
 
-[data-skin="sketch"] .statusrow {
+[data-skin="sketch"] .statusbar {
   color: var(--dim);
-  border-bottom: var(--hair) solid var(--line);
+  border-top: var(--hair) dashed var(--line);
   background: transparent;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -113,6 +113,22 @@
   letter-spacing: 0.02em;
   font-size: 0.85em;
 }
+/* The crumbs written by hand: a paper wash under the one pointed at, tilted
+   the way the buttons tilt; the figures about the file in the typewriter. The
+   search field drawn in ink like the switches beside it. */
+[data-skin="sketch"] .statusCrumb { border-radius: .6rem .25rem .5rem .2rem / .2rem .5rem .25rem .6rem; }
+[data-skin="sketch"] .statusCrumb:hover { background: #efe9d8; color: var(--fg); transform: rotate(-0.6deg); }
+[data-skin="sketch"] .statusItem[data-status-item="caret"],
+[data-skin="sketch"] .statusItem[data-status-item="eol"],
+[data-skin="sketch"] .statusItem[data-status-item="encoding"] { font-family: var(--mono); font-size: .6em; }
+[data-skin="sketch"] .statusDivider { background: var(--dim); }
+[data-skin="sketch"] .barSearch {
+  background: transparent; border: var(--ink) solid var(--fg);
+  border-radius: .875rem .375rem .75rem .3rem / .3rem .75rem .375rem .875rem;
+}
+[data-skin="sketch"] .barSearch:hover { background: #efe9d8; border-color: var(--fg); }
+[data-skin="sketch"] .barSearch:focus-within { border-color: var(--accent); }
+[data-skin="sketch"] .barSearchKey { font-family: var(--mono); font-size: .55em; border-color: var(--dim); }
 /* The spend readout, in pencil: the number in ink, the rest in the lighter
    shade; hot is underlined in the blocked colour rather than shouted. */
 [data-skin="sketch"] .pace { color: var(--dim); }
@@ -275,7 +291,7 @@
 [data-skin="sketch"] .frow:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 /* A hit is underlined in pencil, not painted over. */
 [data-skin="sketch"] .findmark { background: transparent; color: var(--accent); text-decoration: underline wavy; }
-[data-skin="sketch"] .filesbar .crumbs {
+[data-skin="sketch"] .filesbar .statusCrumbs {
   color: var(--dim);
   font-family: var(--mono);
   font-size: 0.5em;

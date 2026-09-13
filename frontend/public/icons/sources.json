@@ -188,6 +188,18 @@
         "set": "tabler-icons",
         "path": "icons/outline/layout-bottombar.svg"
       },
+      "layout": {
+        "set": "tabler-icons",
+        "path": "icons/outline/layout.svg"
+      },
+      "menu": {
+        "set": "tabler-icons",
+        "path": "icons/outline/menu-2.svg"
+      },
+      "templates": {
+        "set": "tabler-icons",
+        "path": "icons/outline/copy.svg"
+      },
       "file-code": {
         "set": "tabler-icons",
         "path": "icons/outline/file-code.svg"
@@ -449,6 +461,18 @@
           "set": "phosphor-core",
           "path": "assets/regular/sidebar-simple.svg"
         }
+      },
+      "layout": {
+        "set": "phosphor-core",
+        "path": "assets/regular/layout.svg"
+      },
+      "menu": {
+        "set": "phosphor-core",
+        "path": "assets/regular/list.svg"
+      },
+      "templates": {
+        "set": "phosphor-core",
+        "path": "assets/regular/copy.svg"
       },
       "file-code": {
         "set": "phosphor-core",
@@ -739,6 +763,18 @@
         "set": "lucide",
         "path": "icons/panel-bottom.svg"
       },
+      "layout": {
+        "set": "lucide",
+        "path": "icons/panels-top-left.svg"
+      },
+      "menu": {
+        "set": "lucide",
+        "path": "icons/menu.svg"
+      },
+      "templates": {
+        "set": "lucide",
+        "path": "icons/copy.svg"
+      },
       "file-code": {
         "set": "lucide",
         "path": "icons/file-code.svg"
@@ -1020,6 +1056,18 @@
       "panel-bottom": {
         "set": "plxr",
         "what": "a window with a row along its bottom"
+      },
+      "layout": {
+        "set": "pixelarticons",
+        "path": "svg/layout.svg"
+      },
+      "menu": {
+        "set": "pixelarticons",
+        "path": "svg/menu.svg"
+      },
+      "templates": {
+        "set": "pixelarticons",
+        "path": "svg/copy.svg"
       },
       "file-code": {
         "set": "pixelarticons",

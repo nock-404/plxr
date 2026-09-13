@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import Tooltip from "@/components/ui/Tooltip";
@@ -8,6 +8,7 @@ import { useMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
 import { projectLabel, rootIdOf, samePath, type Project } from "@/lib/project";
+import { useBranch } from "@/lib/useBranch";
 import type { Tile, Workspace } from "@/lib/types";
 
 // The name the window menu knows this switch's list by.
@@ -49,26 +50,9 @@ export default function ProjectSwitch({
      the list shows no folder rows before it has asked (emptylies.py). */
   const known = useRef<Workspace[] | null>(null);
 
-  /* The branch. A session whose hook reports one brings its own; for a plain
-     shell or a folder picked on its own git is asked, once, when it becomes
-     the project. */
+  /* The branch, read the way the status bar reads it (lib/useBranch). */
   const tile = project.sessionId ? tiles.find((t) => t.id === project.sessionId) : undefined;
-  const reported = tile?.branch ?? "";
-  const root = rootIdOf(project);
-  const [gitBranch, setGitBranch] = useState<{ root: string; branch: string } | null>(null);
-  useEffect(() => {
-    if (!root || reported) return;
-    let dropped = false;
-    api
-      .position(root)
-      .then((w) => !dropped && setGitBranch({ root, branch: w.detached ? "" : w.branch }))
-      // Not a repository is an ordinary answer: no branch to show.
-      .catch(() => !dropped && setGitBranch({ root, branch: "" }));
-    return () => {
-      dropped = true;
-    };
-  }, [root, reported]);
-  const branch = reported || (gitBranch && gitBranch.root === root ? gitBranch.branch : "");
+  const branch = useBranch(rootIdOf(project), tile?.branch ?? "");
 
   const items = (list: Workspace[] | null): MenuItem[] => {
     // The folders used lately first, then the ones sessions run in that are

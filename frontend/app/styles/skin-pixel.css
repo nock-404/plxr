@@ -94,15 +94,30 @@
 [data-skin="pixel"] .btn.on { background: var(--accent); color: var(--onAccent); }
 [data-skin="pixel"] .btn.tiny { font-size: 0.85em; }
 
-[data-skin="pixel"] .statusrow {
+[data-skin="pixel"] .statusbar {
   background: var(--bg-glass);
-  border-bottom: var(--px) solid var(--line);
+  border-top: var(--px) solid var(--line);
   color: var(--dim);
   font-size: 0.85em;
   letter-spacing: 0;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* Blocks, not pills: a crumb pointed at is an inverted tile, the branch in
+   the accent like every other figure here, and the search field a placed
+   block with four hard shadows, accent while it has the keyboard. */
+[data-skin="pixel"] .statusCrumb,
+[data-skin="pixel"] .barSearchKey { border-radius: 0; }
+[data-skin="pixel"] .statusCrumb:hover { background: var(--accent); color: var(--onAccent); }
+[data-skin="pixel"] .statusCrumb:hover .statusCrumbIcon { color: inherit; }
+[data-skin="pixel"] .statusItem[data-status-item="branch"] { color: var(--accent); }
+[data-skin="pixel"] .statusDivider { background: var(--line); }
+[data-skin="pixel"] .barSearch {
+  background: var(--bg-glass); border: 0; border-radius: 0;
+  box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line), calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line);
+}
+[data-skin="pixel"] .barSearch:focus-within { box-shadow: 0 calc(-1 * var(--px)) 0 0 var(--accent), 0 var(--px) 0 0 var(--accent), calc(-1 * var(--px)) 0 0 0 var(--accent), var(--px) 0 0 0 var(--accent); }
+[data-skin="pixel"] .barSearchKey { color: var(--accent); border-color: var(--line); }
 /* The spend readout: the number in the accent like every other figure here,
    the hot state in the blocked colour. */
 [data-skin="pixel"] .pace { color: var(--dim); }

@@ -32,6 +32,9 @@ LAYOUT_ONLY = {
     # Boxes and rails that only place what sits inside them.
     "app", "body", "stage", "content", "grid", "list", "listbody", "panes",
     "work", "workstrip", "workrow",
+    # The status line's rows: the breadcrumb's row, a crumb's name that gives way
+    # to an ellipsis, and the row of facts. Each crumb and fact dresses itself.
+    "statusCrumbs", "statusCrumbName", "statusFacts",
     # A card with a width, and a readout that is nothing but a row of numbers.
     "folderpick", "meter",
     # A mark's file list and one row in it: arrangement, and the two things in

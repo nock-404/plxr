@@ -57,6 +57,7 @@ import Settings from "@/components/Settings";
 import { type LayoutControls } from "@/components/LayoutSettings";
 import Viewer from "@/components/Viewer";
 import CommandPalette, { type Command } from "@/components/CommandPalette";
+import { setCaret } from "@/lib/caret";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import Ask from "@/components/ui/Ask";
@@ -119,6 +120,10 @@ export type ShellActions = {
 
 // Which tool is showing at each edge; null where the edge is hidden or empty.
 export type ShownTools = Record<Edge, ToolId | null>;
+
+/* The panel in front of main, for the status bar's breadcrumb: its id, its
+   title and what it was opened on. id "" when main is empty. */
+export type FrontPanel = { id: string; title: string; params: Record<string, unknown> };
 const NONE_SHOWN: ShownTools = { left: null, right: null, bottom: null };
 
 type DockData = {
@@ -473,6 +478,7 @@ function EditorPanel(props: IDockviewPanelProps<{ rootId: string; path: string; 
         jump={target ? target.nonce : 0}
         onClose={() => props.api.close()}
         onDirty={(v) => d.setDirty(props.api.id, v)}
+        onCaret={(c) => setCaret(props.api.id, c)}
       />
     </div>
   );
@@ -807,6 +813,8 @@ export default function Dock({
   onClosePalette,
   onToolsChanged,
   onOpenPalette,
+  onFront,
+  paletteText = "",
 }: Omit<
   DockData,
   | "openPreview"
@@ -849,6 +857,11 @@ export default function Dock({
   onToolsChanged?: (shown: ShownTools) => void;
   /* The palette is the shell's; main asks for it when it is empty. */
   onOpenPalette: () => void;
+  /* The panel that came to the front of main, whenever that changes — a
+     tool coming forward is not one — for the status bar. */
+  onFront?: (front: FrontPanel) => void;
+  /* What the palette opens on: the text typed into the top bar's search. */
+  paletteText?: string;
 }) {
   const apiRef = useRef<DockviewApi | null>(null);
   const hostRef = useRef<ToolHost | null>(null);
@@ -865,6 +878,8 @@ export default function Dock({
   // Called from onReady, which dockview calls once: the newest callback, through a ref.
   const sessionFrontRef = useRef(onSessionFront);
   sessionFrontRef.current = onSessionFront;
+  const frontRef = useRef(onFront);
+  frontRef.current = onFront;
   const [editorTarget, setEditorTarget] = useState<EditorTarget>(null);
   const [shownDiff, setShownDiff] = useState<ShownDiff>(null);
   const [shownTools, setShownTools] = useState<ShownTools>(NONE_SHOWN);
@@ -1383,6 +1398,7 @@ export default function Dock({
       if (panel && panel.group.api.location.type === "edge") return;
       const id = panel?.id ?? "";
       setActiveId(id);
+      frontRef.current?.({ id, title: panel?.title ?? "", params: (panel?.params ?? {}) as Record<string, unknown> });
       if (id) {
         const h = history.current;
         if (h.moving) h.moving = false;
@@ -1578,7 +1594,7 @@ export default function Dock({
           </div>
         </div>
       </InlineStrip.Provider>
-      {paletteOpen ? <CommandPalette commands={commands} search={searchFiles} onClose={onClosePalette} /> : null}
+      {paletteOpen ? <CommandPalette commands={commands} search={searchFiles} initial={paletteText} onClose={onClosePalette} /> : null}
       {closeAsk ? (
         <Ask
           heading={tr("dock.closeLiveHead", "This session is still running")}

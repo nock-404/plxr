@@ -22,7 +22,7 @@
   --settings-w: 26rem;
   --wb-w: 26rem;
   --bar-h: 3.6875rem;    /* 59px, measured against the reference */
-  --status-h: 1.75rem;   /* 28px */
+  --statusbar-h: 1.75rem; /* 28px — the status line at the foot, as tall as the row it replaced */
   --strip-h: 2.8125rem;  /* 45px — session bar, list bar */
   --thead-h: 2.125rem;   /* 34px — the tile's title row */
   --tfoot-h: 1.625rem;   /* 26px — the tile's status row */
@@ -220,9 +220,8 @@ body {
 :root[data-titlebar-inset="yes"] .bar { padding-left: 5.5rem; }
 
 /* The header is the window's handle — controls inside must opt out. */
-.bar, .statusrow, .sessbar { --wails-draggable: drag; }
-.bar input, .bar button, .bar .btn, .bar .select,
-.statusrow button, .statusrow input,
+.bar, .sessbar { --wails-draggable: drag; }
+.bar input, .bar button, .bar .btn, .bar .select, .bar .barSearch,
 .sessbar button, .sessbar .btn, .sessbar .select { --wails-draggable: no-drag; }
 .btn, .select, .slider, .tile, input, textarea { --wails-draggable: no-drag; }
 
@@ -257,6 +256,15 @@ body {
 .switchBadge { flex: 0 0 auto; min-width: var(--badge-h); height: var(--badge-h); padding: 0 0.1875rem; line-height: var(--badge-h); text-align: center; font-size: 0.7em; }
 
 .draghandle { flex: 1; min-width: 1.25rem; align-self: stretch; }
+/* The search field in the middle of the bar (OFFEN.md D5): its mark, the
+   field, and the palette's chord written at its end. A handle on each side
+   keeps it in the middle of the room the switches and the buttons leave; it
+   gives up width before they do, never all of it, and is as tall as a switch. */
+:root { --bar-search-w: 20rem; --bar-search-min: 9rem; }
+.barSearch { display: flex; align-items: center; gap: 0.375rem; flex: 0 1 var(--bar-search-w); min-width: var(--bar-search-min); height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; cursor: text; }
+.barSearchIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.barSearch .barSearchInput { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; }
+.barSearchKey { flex: 0 0 auto; padding: 0.125rem 0.3125rem; line-height: 1; white-space: nowrap; }
 .tools { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
 /* A control's size is arrangement, not dressing: when each skin set its own
    padding the header grew with the typeface and the buttons collided. The skin
@@ -279,7 +287,28 @@ body {
 .spacer { flex: 1; }
 
 .updatebar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; padding: 0.45rem 1rem; }
-.statusrow { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; height: var(--status-h); padding: 0 1rem; }
+/* ---------- foot: the status line ----------
+   One line along the bottom edge of the window, under the bottom stripe
+   (OFFEN.md P7, D4). On the left where the work in front is — the project,
+   the folders down to the file, or the session — each part a button; on the
+   right the branch, the cursor, the line endings and the encoding, then the
+   session counts, the limits, the spend and the clock, which had a row of
+   their own under the top bar. The folders in the middle of the crumbs give
+   way first; the clock never does. */
+:root { --crumb-max-w: 16rem; }
+.statusbar { display: flex; align-items: center; gap: 0.75rem; flex: 0 0 auto; height: var(--statusbar-h); padding: 0 0.75rem 0 0.375rem; min-width: 0; overflow: hidden; white-space: nowrap; }
+.statusCrumbs { display: flex; align-items: center; gap: 0.125rem; flex: 0 0.15 auto; min-width: 0; height: 100%; overflow: hidden; }
+.statusCrumb { display: inline-flex; align-items: center; gap: 0.3125rem; flex: 0 1 auto; min-width: 1.5rem; max-width: var(--crumb-max-w); height: calc(100% - 0.25rem); padding: 0 0.375rem; font: inherit; line-height: 1; text-align: left; cursor: pointer; }
+.statusCrumb[data-crumb="project"], .statusCrumb[data-crumb="file"], .statusCrumb[data-crumb="session"] { flex-shrink: 0.2; }
+.statusCrumb[data-crumb="doc"] { cursor: default; }
+.statusCrumbIcon, .statusCrumbSep { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.statusCrumbSep .uiIcon { width: var(--chev); height: var(--chev); }
+.statusCrumbName { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.statusFacts { display: flex; align-items: center; gap: 0.25rem; flex: 0 0 auto; min-width: 0; height: 100%; overflow: hidden; }
+.statusItem { display: inline-flex; align-items: center; gap: 0.3125rem; flex: 0 0 auto; min-width: 0; height: calc(100% - 0.25rem); padding: 0 0.375rem; line-height: 1; }
+.statusDivider { flex: 0 0 auto; width: 0.0625rem; height: 50%; }
+.statusbar .limits { flex-shrink: 8; }
+.statusItem[data-status-item="counts"] { flex: 0 2 auto; overflow: hidden; text-overflow: ellipsis; }
 /* The spend readout on the status row: number, trend glyph, active count in
    one line that never wraps; the glyph gets a fixed slot so a change of
    direction does not shift the number. */

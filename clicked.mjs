@@ -359,7 +359,7 @@ const overview = await run(`${GATEKIT}
     withTitle: tiles.filter(t => (t.querySelector('.tname')?.textContent || '').trim()).length,
     withState: tiles.filter(t => (t.querySelector('.act')?.textContent || '').trim()).length,
     withDot: tiles.filter(t => t.querySelector('.dot')).length,
-    strip: (document.querySelector('.statusrow span')?.textContent || '').trim(),
+    strip: (document.querySelector('.statusbar [data-status-item="counts"]')?.textContent || '').trim(),
     emptyState: !!document.querySelector('.emptybox'),
   };
 `);
