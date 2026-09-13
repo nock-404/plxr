@@ -449,7 +449,15 @@ body {
    keyboard, and invisible. A row of controls in a panel whose width somebody
    else decides has to be allowed to fall onto a second line. */
 .filesbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 0.375rem; flex: 0 0 auto; padding: 0.3rem 0.5rem; }
-.filesroot { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+/* The path at the top of the tree, as crumbs. The same crumbs the folder
+   picker uses — dressed once, in skin-base — but in a column of 16rem they may
+   not wrap onto four lines, so this one line runs off to the LEFT: the end of
+   the path is the part being worked in, and the whole of it is in the tooltip.
+   The line that stood here before was one ellipsised string that nothing could
+   be done with. */
+.filesbar .crumbs { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: flex-end; overflow: hidden; }
+.filesbar .crumb { flex: 0 0 auto; white-space: nowrap; }
+.filesbar .notice { flex: 0 0 auto; }
 .fgit { flex: 0 0 auto; width: 1rem; text-align: center; }
 .filesbar .input { flex: 1; min-width: 0; }
 .filetree { flex: 1; overflow: auto; padding: 0.25rem 0 0.75rem; }
@@ -667,7 +675,16 @@ button.diffline { cursor: pointer; }
    rather than a click on BACK and then a click on the file. The box has to be
    positioned for the overlay to measure itself against it. */
 .foldersbody { flex: 1; min-height: 0; display: flex; position: relative; }
-.foldersbody .filetree { flex: 0 0 var(--files-w); }
+/* No width for the tree here, and above all no flex-basis.
+ *
+ * This row used to hold the .filetree itself, so `flex: 0 0 var(--files-w)`
+ * was its width. The tree became .files — a column with its bars above it —
+ * and the rule stayed, now addressing the scrolling list INSIDE that column,
+ * where a flex-basis is a HEIGHT: the list was exactly 16.25rem tall whatever
+ * the window's height, and under it sat a dead grey area with the scrollbar
+ * ending in the middle of the panel. Measured in the three places the tree is
+ * mounted, this was the only one that was wrong. The width belongs to .files
+ * (width: var(--files-w)), the height to .filetree's own flex: 1. */
 .foldersbody .viewer { left: var(--files-w); }
 /* The folder tabs share the row: when four names do not fit, each gives up
    width rather than scrolling out of sight — a tab cut short still says

@@ -266,7 +266,7 @@ export default function Folders({
             <Files
               rootId={here.id}
               root={here.path}
-              onPick={(path) => onOpenFile(here.id, path)}
+              onPick={(path, rootId) => onOpenFile(rootId, path)}
             />
           )}
 

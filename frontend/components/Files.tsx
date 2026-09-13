@@ -8,7 +8,9 @@ import OverflowBar from "@/components/ui/OverflowBar";
 import Input from "@/components/ui/Input";
 import TreePick from "@/components/ui/TreePick";
 import { api } from "@/lib/api";
-import { errText, tr } from "@/lib/i18n";
+import { errText, tr, trN } from "@/lib/i18n";
+import { bindingOf, caption, matches } from "@/lib/keymap";
+import { atTop, parent, segments } from "@/lib/paths";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { announceFilesChanged } from "@/lib/useChanges";
 import type { FileEntry } from "@/lib/types";
@@ -27,7 +29,64 @@ import type { FileEntry } from "@/lib/types";
  *
  * Everything destructive asks first, and asks with our own dialog rather than
  * the browser's — see Ask.
- */
+ *
+ * And it only ever went downwards. Asked how to reach the folder above the
+ * one it was showing, there was no answer: the root was the session's folder
+ * or the one somebody opened, the line at the top was a dead ellipsised
+ * string, and the only way out of it was to open another folder somewhere
+ * else. Now the top line is the path itself, every step of it a place to
+ * stand, with one control and one key for the step up. Above the folder it was
+ * given, the tree addresses the service by the directory itself — see
+ * core.root and DirPrefix. */
+
+/* What was unfolded last time.
+ *
+ * A tree that forgets which folders were open the moment its panel is closed
+ * makes you walk down through four levels again to get back to where you were
+ * working. In the browser's own store: it is a convenience of this window, not
+ * state the service has any business holding.
+ *
+ * Written as the folders themselves — whole paths — and not as a list under
+ * the root they were opened from. A folder belongs to exactly one root anyway,
+ * so this is per root without saying so, and it survives the two things a root
+ * key does not: the same folder reached from two roots, and the same root
+ * spelled two ways. The second is not hypothetical. The window holds a folder
+ * as the user gave it and the service answers with the resolved path — on a
+ * Mac /var/… and /private/var/… are the same directory — so a tree re-rooted
+ * from a row and then reopened looked up a key nobody had ever written. */
+const OPEN_KEY = "plxr.tree.open";
+// A cap, so a month of opening folders cannot grow without end in a store that
+// is shared with everything else the window keeps.
+const OPEN_MAX = 400;
+
+function keptOpen(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]") as unknown;
+    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+  } catch {
+    // No store, nothing in it, or something else entirely — including a page
+    // being rendered where there is no browser at all. An empty tree is the
+    // honest start.
+    return [];
+  }
+}
+
+function keepOpen(paths: Set<string>): void {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify([...paths].slice(-OPEN_MAX)));
+  } catch {
+    /* a store that refuses to be written to costs the memory, nothing else */
+  }
+}
+
+// The same folder, whatever a trailing separator says about it.
+const samePlace = (a: string, b: string) => a.replace(/[\\/]+$/, "") === b.replace(/[\\/]+$/, "");
+
+/* How a directory that is neither a session nor a folder somebody opened is
+   addressed: "dir:/Users/me/work". The same prefix the service reads it by —
+   DirPrefix in internal/core, where it is also checked for being an absolute
+   path that is there and is a directory. */
+const DIR_ID = "dir:";
 
 type Pending =
   | { kind: "newFile" | "newFolder"; dir: string }
@@ -155,9 +214,17 @@ export default function Files({
      a running agent. */
   rootId: string;
   root: string;
-  onPick: (path: string) => void;
+  /* The file, and the root it has to be read through: walking up leaves the
+     session or the folder behind, and an editor opened on a file above them
+     would ask the wrong root for it and be refused. */
+  onPick: (path: string, rootId: string) => void;
 }) {
-  const sessionId = rootId;
+  /* The folder the tree has walked to, and the root that walk belongs to. The
+     two are held together on purpose: handed another session or another folder,
+     this is that folder's tree again at once — with the walk remembered as
+     state of the root it was made in, there is no render in between where the
+     new folder is read through the old one's directory. */
+  const [at, setAt] = useState<{ of: string; dir: string }>({ of: "", dir: "" });
   const [open, setOpen] = useState<Record<string, FileEntry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [noise, setNoise] = useState(false);
@@ -167,11 +234,24 @@ export default function Files({
   const [pending, setPending] = useState<Pending>(null);
   const [error, setError] = useState("");
   const tree = useRef<HTMLDivElement>(null);
+  // Read once, when this tree is built, and kept in step with every fold and
+  // unfold from then on.
+  const remembered = useRef<Set<string> | null>(null);
+  if (remembered.current === null) remembered.current = new Set(keptOpen());
+
+  /* Where the tree stands, and who the service knows that by.
+     Back at the folder it was given, it is that folder's own id again — so a
+     session's tree stays a session's tree, with everything that hangs off the
+     id, and only a tree that has actually walked out addresses a bare
+     directory. */
+  const walked = at.of === rootId ? at.dir : "";
+  const base = walked || root;
+  const baseId = walked ? DIR_ID + walked : rootId;
 
   const list = useCallback(
     async (dir: string) => {
       try {
-        const rows = await api.listDir(sessionId, dir);
+        const rows = await api.listDir(baseId, dir);
         setOpen((o) => ({ ...o, [dir]: rows ?? [] }));
         setError((e) => (e && dir === "" ? "" : e));
       } catch (e) {
@@ -181,15 +261,15 @@ export default function Files({
         setError(errText(e));
       }
     },
-    [sessionId],
+    [baseId],
   );
 
   const reload = useCallback(
     async (dir: string) => {
       await list(dir);
-      setGit(await api.gitStatus(sessionId).catch(() => ({})));
+      setGit(await api.gitStatus(baseId).catch(() => ({})));
     },
-    [list, sessionId],
+    [list, baseId],
   );
 
   /* After something moved: every folder that has been listed is listed
@@ -202,31 +282,74 @@ export default function Files({
   const reloadAll = useCallback(async () => {
     const dirs = Object.keys(open);
     await Promise.all((dirs.length ? dirs : [""]).map((d) => list(d)));
-    setGit(await api.gitStatus(sessionId).catch(() => ({})));
-    announceFilesChanged({ rootId: sessionId, rev: "", head: "" });
-  }, [open, list, sessionId]);
+    setGit(await api.gitStatus(baseId).catch(() => ({})));
+    // Announced under the root this tree was given, not the one it is standing
+    // on: an editor, a diff and the changes list are open on that one, and it
+    // is what they listen for.
+    announceFilesChanged({ rootId, rev: "", head: "" });
+  }, [open, list, baseId, rootId]);
 
+  /* A root, from the beginning.
+   *
+   * It runs for the folder the tree was given and again for every folder it
+   * walks into: nothing of the last root may survive the step. The listing
+   * starts empty, and the git marks are read again for this folder — going up
+   * used to be the one way to end up with the marks of the folder below still
+   * on the rows. */
   useEffect(() => {
+    setOpen({});
+    setExpanded(new Set());
+    setHere("");
+    setError("");
     void reload("");
-  }, [reload]);
+  }, [base, reload]);
+
+  /* And the folders that were open unfold themselves again, as the listing
+     that holds them arrives. Driven by what came back rather than by the root,
+     so a folder three levels down comes back too: unfolding it reads it, and
+     reading it unfolds whatever was open inside it. */
+  useEffect(() => {
+    const back: string[] = [];
+    for (const rows of Object.values(open)) {
+      for (const r of rows) if (r.dir && remembered.current?.has(r.path) && !expanded.has(r.path)) back.push(r.path);
+    }
+    if (!back.length) return;
+    setExpanded((set) => new Set([...set, ...back]));
+    for (const dir of back) if (!open[dir]) void list(dir);
+  }, [open, expanded, list]);
 
   // Git changes while an agent works, so it is asked again now and then rather
   // than only when something is clicked — and at once when something in the
   // window changed the tree, like a mark being restored.
   useEffect(() => {
-    const ask = () => api.gitStatus(sessionId).then(setGit).catch(() => undefined);
+    const ask = () => api.gitStatus(baseId).then(setGit).catch(() => undefined);
     const t = window.setInterval(ask, 4000);
     window.addEventListener("plxr:files-changed", ask);
     return () => {
       window.clearInterval(t);
       window.removeEventListener("plxr:files-changed", ask);
     };
-  }, [sessionId]);
+  }, [baseId]);
+
+  /* Standing somewhere else. The folder it was given keeps its own id, so
+     coming back down to it is a session's tree again rather than a directory
+     that happens to be in the same place. */
+  const reroot = useCallback(
+    (dir: string) => {
+      if (!dir) return;
+      setAt({ of: rootId, dir: samePlace(dir, root) ? "" : dir });
+    },
+    [root, rootId],
+  );
+  const upOne = useCallback(() => {
+    if (!atTop(base)) reroot(parent(base));
+  }, [base, reroot]);
+
+  const needle = filter.trim().toLowerCase();
 
   /* The rows as one flat list, which is what both the drawing and the keyboard
      need: a tree on screen is a list to anyone moving through it. */
   const visible = useMemo(() => {
-    const needle = filter.trim().toLowerCase();
     const out: { entry: FileEntry; depth: number }[] = [];
     const walk = (dir: string, depth: number) => {
       for (const e of open[dir] ?? []) {
@@ -240,16 +363,28 @@ export default function Files({
     };
     walk("", 0);
     return out;
-  }, [open, expanded, noise, filter]);
+  }, [open, expanded, noise, needle]);
+
+  /* How many rows the filter found.
+   *
+   * A filter that matches nothing used to leave an empty box under the field
+   * and say nothing at all, which reads as "this folder is empty" rather than
+   * "nothing here is called that" — and a filter that matched four things out
+   * of nine hundred said no more. The folders on the way to a hit are on
+   * screen too and are not hits, so they are not counted. */
+  const found = useMemo(
+    () => (needle ? visible.filter((v) => v.entry.name.toLowerCase().includes(needle)).length : 0),
+    [visible, needle],
+  );
 
   // Typing in the filter opens everything, so a name deep down can be found
   // without knowing where it lives.
   useEffect(() => {
-    if (!filter.trim()) return;
+    if (!needle) return;
     for (const { entry } of visible) {
       if (entry.dir && !open[entry.path]) void list(entry.path);
     }
-  }, [filter, visible, open, list]);
+  }, [needle, visible, open, list]);
 
   const parentOf = (path: string) => {
     for (const [dir, rows] of Object.entries(open)) {
@@ -261,39 +396,55 @@ export default function Files({
   function toggle(entry: FileEntry) {
     setHere(entry.path);
     if (!entry.dir) {
-      onPick(entry.path);
+      onPick(entry.path, baseId);
       return;
     }
-    setExpanded((set) => {
-      const next = new Set(set);
-      if (next.has(entry.path)) next.delete(entry.path);
-      else {
-        next.add(entry.path);
-        if (!open[entry.path]) void list(entry.path);
-      }
-      return next;
-    });
+    const next = new Set(expanded);
+    if (next.has(entry.path)) next.delete(entry.path);
+    else {
+      next.add(entry.path);
+      if (!open[entry.path]) void list(entry.path);
+    }
+    setExpanded(next);
+    /* Written here rather than watched from an effect: this is the one place a
+       folder is folded or unfolded by hand, and a hand is the only thing worth
+       remembering. Folding one forgets it — otherwise it would unfold itself
+       again the next time its parent is read, which is the same defect the
+       other way round. */
+    if (remembered.current) {
+      if (next.has(entry.path)) remembered.current.add(entry.path);
+      else remembered.current.delete(entry.path);
+      keepOpen(remembered.current);
+    }
   }
 
   /* Up and down move, right opens a folder, left closes it or steps out to the
      one above, Enter opens a file. The same keys every tree has had for thirty
-     years, and none of them worked here. */
+     years, and none of them worked here. And one chord out of the window's own
+     table, read here rather than by the window: ⌘↑ re-roots to the folder
+     above. Several trees can be open at once, so the one that answers is the
+     one holding the keyboard. */
   function onKey(e: React.KeyboardEvent<HTMLDivElement>) {
-    const at = visible.findIndex((v) => v.entry.path === here);
+    if (matches(e.nativeEvent, "filesUp")) {
+      upOne();
+      e.preventDefault();
+      return;
+    }
+    const cursor = visible.findIndex((v) => v.entry.path === here);
     const move = (to: number) => {
       const row = visible[Math.max(0, Math.min(visible.length - 1, to))];
       if (row) setHere(row.entry.path);
       e.preventDefault();
     };
-    const entry = visible[at]?.entry;
+    const entry = visible[cursor]?.entry;
     switch (e.key) {
       case "ArrowDown":
-        return move(at + 1);
+        return move(cursor + 1);
       case "ArrowUp":
-        return move(at < 0 ? 0 : at - 1);
+        return move(cursor < 0 ? 0 : cursor - 1);
       case "ArrowRight":
         if (entry?.dir && !expanded.has(entry.path)) toggle(entry);
-        else move(at + 1);
+        else move(cursor + 1);
         return;
       case "ArrowLeft":
         if (entry?.dir && expanded.has(entry.path)) {
@@ -314,9 +465,17 @@ export default function Files({
     }
   }
 
+  /* The selected row stays on screen — not only when it is moved to.
+   *
+   * It ran on the selection alone, so anything that redrew the list around a
+   * standing selection left it wherever it had been pushed: unfolding a folder
+   * above it, a file appearing from an agent's work, the whole listing being
+   * read again after a rename. `nearest` means this does nothing at all while
+   * the row is in view, so it is not a fight with the scrollbar — and `visible`
+   * only changes when the rows themselves do, not on every git poll. */
   useEffect(() => {
     tree.current?.querySelector<HTMLElement>('[data-at="yes"]')?.scrollIntoView({ block: "nearest" });
-  }, [here]);
+  }, [here, visible]);
 
   const selected = visible.find((v) => v.entry.path === here)?.entry ?? null;
   const dirOfSelection = selected ? (selected.dir ? selected.path : parentOf(selected.path)) : "";
@@ -327,12 +486,12 @@ export default function Files({
      Slicing is kept for the root itself and for a directory key that is not an
      entry. */
   const relOf = (path: string) => {
-    if (path === "" || path === root) return "";
+    if (path === "" || path === base) return "";
     for (const rows of Object.values(open)) {
       const hit = rows.find((r) => r.path === path);
       if (hit) return hit.rel;
     }
-    return path.startsWith(root) ? path.slice(root.length).replace(/^\//, "") : path;
+    return path.startsWith(base) ? path.slice(base.length).replace(/^\//, "") : path;
   };
 
   const ctx = useContextMenu();
@@ -350,6 +509,10 @@ export default function Files({
         label: entry.dir ? tr("files.menuOpenFolder", "Open") : tr("files.menuOpen", "Open"),
         onClick: () => toggle(entry),
       },
+      /* The way back down. The crumbs and the control above them only lead
+         upwards, and from four folders up there was no way back into the one
+         you came from other than unfolding the whole path again. */
+      ...(entry.dir ? [{ label: tr("files.rootHere", "Show only this folder"), onClick: () => reroot(entry.path) }] : []),
       { separator: true },
       { label: tr("files.newFile", "+ FILE"), onClick: () => setPending({ kind: "newFile", dir }) },
       { label: tr("files.newFolder", "+ FOLDER"), onClick: () => setPending({ kind: "newFolder", dir }) },
@@ -380,9 +543,13 @@ export default function Files({
     { label: tr("files.newFile", "+ FILE"), onClick: () => setPending({ kind: "newFile", dir: "" }) },
     { label: tr("files.newFolder", "+ FOLDER"), onClick: () => setPending({ kind: "newFolder", dir: "" }) },
     { separator: true },
+    // The same step the control at the top takes, at the pointer — including
+    // from the empty space under the last row, where there is no control.
+    { label: tr("files.upFolder", "Up one folder"), disabled: atTop(base), onClick: upOne },
+    { separator: true },
     { label: tr("files.menuRefresh", "Refresh"), onClick: () => void reloadAll() },
     { separator: true },
-    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(root).catch(() => undefined) },
+    { label: tr("files.copy", "COPY PATH"), onClick: () => void navigator.clipboard?.writeText(base).catch(() => undefined) },
     { label: tr("files.reveal", "SHOW"), onClick: () => void reveal("") },
   ];
 
@@ -401,24 +568,51 @@ export default function Files({
   async function reveal(path: string) {
     setError("");
     try {
-      await api.revealFile(sessionId, path);
+      await api.revealFile(baseId, path);
     } catch (e) {
       setError(errText(e));
     }
   }
 
+  // Every step of the path the tree stands on, each of them a root to re-root to.
+  const crumbs = segments(base);
+
   // The folder a moved entry lands in is a rename to a path in that folder.
   function move(entry: FileEntry, dir: string) {
     const to = dir ? `${dir}/${entry.name}` : entry.name;
     if (to === entry.rel) return;
-    void run(() => api.renameFile(sessionId, entry.rel, to));
+    void run(() => api.renameFile(baseId, entry.rel, to));
   }
 
   return (
     <aside className="files">
       <div className="filesbar" onContextMenu={ctx(rootMenu())}>
-        <Tooltip text={root}>
-          <span className="filesroot">{root}</span>
+        {/* Where the tree stands, as a place rather than as a caption: every
+            step of the path is a root to stand on, and the step above it has a
+            control of its own because it is the one that was missing. The
+            whole path is still in the tooltip — the column is too narrow to
+            hold a real one, so the crumbs run off to the left and the deepest
+            folders, which are the ones being worked in, stay on screen. */}
+        <Tooltip text={tr("files.upTip", "Up one folder — {key}", { key: caption(bindingOf("filesUp")) })}>
+          <Button tiny data-do="files-up" disabled={atTop(base)} onClick={upOne}>
+            ↑
+          </Button>
+        </Tooltip>
+        <Tooltip text={base}>
+          <span className="crumbs">
+            {/* The unix root is a place you can click to; a Windows drive is
+                already the first crumb. Same reasoning as the folder picker. */}
+            {!/^[A-Za-z]:/.test(crumbs[0]?.path ?? "") ? (
+              <Button bare className="crumb" data-do="crumb" onClick={() => reroot("/")}>
+                /
+              </Button>
+            ) : null}
+            {crumbs.map((c) => (
+              <Button bare key={c.path} className="crumb" data-do="crumb" onClick={() => reroot(c.path)}>
+                {c.name}
+              </Button>
+            ))}
+          </span>
         </Tooltip>
         <Tooltip text={tr("files.noiseTip", "Show hidden and ignored files")}>
           <Button tiny on={noise} onClick={() => setNoise((n) => !n)}>
@@ -433,6 +627,10 @@ export default function Files({
           placeholder={tr("files.filter", "filter")}
           onChange={(e) => setFilter(e.target.value)}
         />
+        {/* What the filter did, in the bar it was typed into. Nothing at all
+            was said before, so a filter that matched nothing and a folder that
+            is empty looked exactly alike. */}
+        {needle ? <span className="notice">{trN("files.found", found, "{n} match", "{n} matches")}</span> : null}
       </div>
 
       {/* One line at any width: what does not fit moves under the ⋯, the way
@@ -522,7 +720,7 @@ export default function Files({
       {pending?.kind === "newFile" || pending?.kind === "newFolder" ? (
         <Ask
           heading={pending.kind === "newFile" ? tr("files.newFile", "+ FILE") : tr("files.newFolder", "+ FOLDER")}
-          detail={relOf(pending.dir) || root}
+          detail={relOf(pending.dir) || base}
           field={tr("files.name", "name")}
           confirmLabel={tr("common.create", "CREATE")}
           onCancel={() => setPending(null)}
@@ -530,7 +728,7 @@ export default function Files({
             const dir = relOf(pending.dir);
             const path = dir ? `${dir}/${name.trim()}` : name.trim();
             setPending(null);
-            if (name.trim()) void run(() => api.createFile(sessionId, path, pending.kind === "newFolder"));
+            if (name.trim()) void run(() => api.createFile(baseId, path, pending.kind === "newFolder"));
           }}
         />
       ) : null}
@@ -552,7 +750,7 @@ export default function Files({
                makes the folders on the way. */
             const to = name.trim();
             if (to && to !== pending.entry.name) {
-              void run(() => api.renameFile(sessionId, from, dir ? `${dir}/${to}` : to));
+              void run(() => api.renameFile(baseId, from, dir ? `${dir}/${to}` : to));
             }
           }}
         />
@@ -560,8 +758,8 @@ export default function Files({
 
       {pending?.kind === "move" ? (
         <TreePick
-          rootId={sessionId}
-          root={root}
+          rootId={baseId}
+          root={base}
           start={pending.entry.rel.includes("/") ? pending.entry.rel.slice(0, pending.entry.rel.lastIndexOf("/")) : ""}
           exclude={pending.entry.dir ? pending.entry.rel : ""}
           onCancel={() => setPending(null)}
@@ -586,7 +784,7 @@ export default function Files({
           onConfirm={() => {
             const entry = pending.entry;
             setPending(null);
-            void run(() => api.removeFile(sessionId, entry.rel));
+            void run(() => api.removeFile(baseId, entry.rel));
           }}
         />
       ) : null}

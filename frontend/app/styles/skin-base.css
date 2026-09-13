@@ -263,10 +263,11 @@
 }
 .sesstitle { color: var(--accent); letter-spacing: .08em; }
 .filesbar { border-bottom: var(--hair) solid var(--line); }
-/* The session's own directory. It was set in the quiet colour at three
+/* The path the tree stands on. It was set in the quiet colour at three
    quarters size, which on a see-through ground left it barely there — and it
-   is the one line saying which tree this is. */
-.filesroot { color: var(--fg); font-size: .8em; opacity: .85; }
+   is the one line saying which tree this is. Every step of it is a crumb you
+   can stand on now; the size and the weight are the same. */
+.filesbar .crumbs { font-size: .8em; opacity: .85; }
 .frow {
   color: var(--fg);
   opacity: .85;

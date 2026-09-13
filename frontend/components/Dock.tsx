@@ -206,7 +206,7 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           props.api.close();
           d.onReplaced(nextId);
         }}
-        onOpenFile={(path, line) => d.openEditor(tile.id, path, line)}
+        onOpenFile={(path, line, rootId) => d.openEditor(rootId ?? tile.id, path, line)}
         /* The changes panel follows the session focused last, and the click
            that asks for it lands in this panel — so it is this session's
            folder the panel comes up on. */
@@ -550,7 +550,10 @@ function FilesPanel(props: IDockviewPanelProps<{ rootId: string; root: string }>
   const p = props.params;
   return (
     <div className="filesPanel">
-      <Files rootId={p.rootId} root={p.root} onPick={(path) => d.openEditor(p.rootId, path)} />
+      {/* The root the tree hands back, not the one the panel was opened on:
+          a tree that has walked above its folder reads files through the
+          directory itself, and the editor has to ask the same root. */}
+      <Files rootId={p.rootId} root={p.root} onPick={(path, rootId) => d.openEditor(rootId, path)} />
     </div>
   );
 }

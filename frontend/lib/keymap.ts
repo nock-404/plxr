@@ -48,7 +48,8 @@ export type Action =
   | "groupPrev"
   | "groupNext"
   | "view9"
-  | "newShell";
+  | "newShell"
+  | "filesUp";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -78,6 +79,11 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "panelNext", chord: "Mod+Option+ArrowRight", key: "keys.panelNext", fallback: "Next panel in the group" },
   { id: "groupPrev", chord: "Mod+Option+ArrowUp", key: "keys.groupPrev", fallback: "Previous group" },
   { id: "groupNext", chord: "Mod+Option+ArrowDown", key: "keys.groupNext", fallback: "Next group" },
+  /* The file tree, upwards. It belongs in this table like every other key —
+     it is rebindable and it is printed under "?" — but it is read by the tree
+     itself rather than by the window: several trees can be open at once, and
+     the one being walked through is the one with the keyboard. */
+  { id: "filesUp", chord: "Mod+ArrowUp", key: "keys.filesUp", fallback: "Up one folder in the file tree" },
 ];
 
 // The rail views, in the order ⌘1…9 reaches them. Search came last, so the
