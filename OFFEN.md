@@ -921,6 +921,12 @@ that I do not agree with the menu as such."
   project's other tools such as source control (changes, review, branches) and
   search. Global things (inbox, usage, ports, archive) do not belong there.
 
+- **P19 No collapsible sidebars.** Translated: "and you don't have all those
+  sidebar tab collapse things either!" In PhpStorm and VS Code a side panel
+  collapses to its stripe with one click on the active icon and comes back with
+  the next, and the panel remembers its width. plxr can fold a region only with
+  ⌘B / ⌥⌘B / ⌘J, and nothing on screen shows or does it.
+
 #### How it reads
 - **P14 PhpStorm writes its chrome in a proportional UI font** at a normal size
   and case; monospace is for code. plxr writes every label in spaced capitals in
