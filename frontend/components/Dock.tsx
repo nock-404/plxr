@@ -869,6 +869,9 @@ export default function Dock({
       if (fire("panelNext", () => stepPanel(dv, 1))) return;
       if (fire("groupPrev", () => stepGroup(dv, -1))) return;
       if (fire("groupNext", () => stepGroup(dv, 1))) return;
+      if (fire("toggleLeft", () => toggleRegion(dv, "left"))) return;
+      if (fire("toggleRight", () => toggleRegion(dv, "right"))) return;
+      if (fire("toggleBottom", () => toggleRegion(dv, "bottom"))) return;
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1503,6 +1506,43 @@ function addSplit(dv: DockviewApi, view: string, region: Region, direction: "rig
       ? { initialHeight: Math.floor(g.api.height / 2) }
       : { initialWidth: Math.floor(g.api.width / 2) };
   dv.addPanel({ id: view, component: view, title: VIEW_TITLES[view] ?? view, position, ...size });
+  hold(dv);
+}
+
+/* Folding a tool region away, and bringing it back with what was in it.
+ *
+ * A region could only be CLOSED, one panel at a time, and what was in it was
+ * gone — so clearing the sides to read a long file meant rebuilding them
+ * afterwards. Every editor has one chord for this and it does not throw
+ * anything away: what stood in the region is written down, the panels go, and
+ * the same chord puts them back in the order they were in. Main is never
+ * folded: there would be nothing left. */
+const folded = new Map<Region, string[]>();
+
+function toggleRegion(dv: DockviewApi, region: Region): void {
+  if (region === "main") return;
+  const g = groupOfRegion(dv, region);
+  if (g) {
+    const ids = g.panels.map((p) => p.id);
+    folded.set(region, ids);
+    for (const p of [...g.panels]) p.api.close();
+    hold(dv);
+    return;
+  }
+  const back = folded.get(region) ?? [];
+  folded.delete(region);
+  if (back.length === 0) {
+    // Nothing was folded away: the chord still has to do something, so the
+    // region opens with what belongs in it.
+    const first = Object.entries(HOME_REGION).find(([, r]) => r === region)?.[0];
+    if (first) openOrFocus(dv, first, first, VIEW_TITLES[first] ?? first, {}, region);
+    return;
+  }
+  for (const id of back) {
+    if (dv.getPanel(id)) continue;
+    const component = id.includes(":") ? id.slice(0, id.indexOf(":")) : id;
+    openOrFocus(dv, id, component, VIEW_TITLES[id] ?? id, {}, region);
+  }
   hold(dv);
 }
 

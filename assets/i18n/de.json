@@ -1186,5 +1186,8 @@
   "region.main": "Mitte",
   "region.left": "Links",
   "region.right": "Rechts",
-  "region.bottom": "Unten"
+  "region.bottom": "Unten",
+  "keys.toggleLeft": "Linken Bereich zeigen oder ausblenden",
+  "keys.toggleRight": "Rechten Bereich zeigen oder ausblenden",
+  "keys.toggleBottom": "Unteren Bereich zeigen oder ausblenden"
 }

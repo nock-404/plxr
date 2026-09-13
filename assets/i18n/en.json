@@ -1188,5 +1188,8 @@
   "region.main": "Main",
   "region.left": "Left",
   "region.right": "Right",
-  "region.bottom": "Bottom"
+  "region.bottom": "Bottom",
+  "keys.toggleLeft": "Show or hide the left region",
+  "keys.toggleRight": "Show or hide the right region",
+  "keys.toggleBottom": "Show or hide the bottom region"
 }
