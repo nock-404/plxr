@@ -26,7 +26,8 @@ import Usage from "@/components/views/Usage";
 import Archive from "@/components/views/Archive";
 import Session from "@/components/views/Session";
 import Notes from "@/components/views/Notes";
-import Rail, { VIEW_ICONS, type View } from "@/components/Rail";
+import Rail, { type View } from "@/components/Rail";
+import { DOCS, isTool, viewDef, type DocId, type ToolId } from "@/lib/tools";
 import Preview from "@/components/Preview";
 import ChangesPanel from "@/components/ChangesPanel";
 import ReviewPanel from "@/components/ReviewPanel";
@@ -437,13 +438,14 @@ function tabMark(id: string): { icon: IconName; kind: string } {
   if (id.startsWith("session:")) return { icon: "terminal", kind: "session" };
   if (id.startsWith("diff:")) return { icon: "diff", kind: "diff" };
   if (id.startsWith("preview:")) return { icon: "preview", kind: "preview" };
-  if (id.startsWith("files:")) return { icon: VIEW_ICONS.folders, kind: "view" };
+  if (id.startsWith("files:")) return { icon: DOCS.folders.icon, kind: "view" };
   if (id.startsWith("editor:")) {
     const path = id.slice("editor:".length);
     const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
     return { icon: fileIcon(path), kind: FILE_KINDS[ext] ?? "plain" };
   }
-  return { icon: VIEW_ICONS[id] ?? "file", kind: "view" };
+  const named = isTool(id) || Object.prototype.hasOwnProperty.call(DOCS, id);
+  return { icon: named ? viewDef(id as ToolId | DocId).icon : "file", kind: "view" };
 }
 
 function PanelTab(props: IDockviewPanelHeaderProps) {
@@ -624,6 +626,8 @@ function RailPanel() {
   );
 }
 
+/* Every tool and document of the registry has its component here, under its
+   own id — the compiler holds that below. */
 const components = {
   overview: OverviewPanel,
   preview: PreviewPanel,
@@ -641,7 +645,7 @@ const components = {
   archive: ArchivePanel,
   session: SessionPanel,
   notes: NotesPanel,
-};
+} satisfies Record<ToolId | DocId, unknown> & Record<string, unknown>;
 
 /* What the four regions are called where he has to pick one. Built when the
    menu is opened, not once at load, so a language change reaches them. */
@@ -652,19 +656,12 @@ export const REGION_TITLES: Record<Region, () => string> = {
   bottom: () => tr("region.bottom", "Bottom"),
 };
 
-export const VIEW_TITLES: Record<string, string> = {
-  settings: "Settings",
-  overview: "Overview",
-  inbox: "Inbox",
-  folders: "Folders",
-  ports: "Ports",
-  usage: "Usage",
-  archive: "Archive",
-  changes: "Changes",
-  search: "Search",
-  notes: "Notes",
-  review: "Review",
-};
+/* The views that open as a panel by name, in the order the palette offers
+   them, each with the title its tab starts with, read from the registry. The
+   file tree is not among them: it has no panel of its own yet, and "files" is
+   still the component of one folder's tree. */
+const PANEL_VIEWS: (ToolId | DocId)[] = ["settings", "overview", "inbox", "folders", "ports", "usage", "archive", "changes", "search", "notes", "review"];
+export const VIEW_TITLES: Record<string, string> = Object.fromEntries(PANEL_VIEWS.map((id) => [id, viewDef(id).fallback]));
 
 /* The dockview major this build lays panels out with. A saved arrangement is
    dockview's own JSON; a preset saved under one major is not trusted under the

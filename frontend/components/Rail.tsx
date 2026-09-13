@@ -7,52 +7,21 @@ import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
 import { accountName } from "@/lib/format";
-import { bindingOf, caption, VIEW_ORDER, type Action } from "@/lib/keymap";
 import { detailOf, railLine, stateOf, titleOf, unattended } from "@/lib/state";
 import { isHot, useLimits, worst } from "@/lib/useLimits";
 import type { Tile } from "@/lib/types";
-import type { IconName } from "@/lib/icons";
+import { chordOf, viewDef } from "@/lib/tools";
 
 // The rail always stays, even inside a session — otherwise looking into one
 // loses sight of the rest of the herd.
 export type View = "overview" | "inbox" | "folders" | "changes" | "review" | "search" | "ports" | "usage" | "archive" | "session" | "notes";
 
-/* The mark each view wears — on the rail, and on the tab of the panel it
-   opens, so one thing is one icon wherever it is met. Names from the icon
-   vocabulary, drawn by whichever pack is chosen. */
-export const VIEW_ICONS: Record<string, IconName> = {
-  overview: "overview",
-  inbox: "inbox",
-  folders: "folder",
-  changes: "changes",
-  review: "review",
-  search: "search",
-  ports: "ports",
-  usage: "usage",
-  archive: "archive",
-  notes: "notes",
-  settings: "settings",
-};
-
-const HOME: { view: View; key: string; fallback: string }[] = [
-  { view: "overview", key: "rail.overview", fallback: "Overview" },
-  { view: "inbox", key: "rail.inbox", fallback: "Inbox" },
-  { view: "folders", key: "rail.folders", fallback: "Folders" },
-  { view: "changes", key: "rail.changes", fallback: "Changes" },
-  { view: "review", key: "rail.review", fallback: "Review" },
-  { view: "search", key: "rail.search", fallback: "Search" },
-  { view: "ports", key: "rail.ports", fallback: "Ports" },
-  { view: "usage", key: "rail.usage", fallback: "Usage" },
-  { view: "archive", key: "rail.archive", fallback: "Archive" },
-  { view: "notes", key: "rail.notes", fallback: "Notes" },
-];
-
-// The chord that reaches a view, read off the keymap's own order — never a
-// second copy of it here.
-function viewChord(view: View): string {
-  const at = (VIEW_ORDER as readonly string[]).indexOf(view);
-  return at < 0 ? "" : caption(bindingOf(`view${at + 1}` as Action));
-}
+/* The views the rail opens, in the order it shows them. What each one is
+   called, the mark it wears and the chord that reaches it are read from the
+   registry in lib/tools.ts — the same mark on the rail and on the tab of the
+   panel it opens, so one thing is one icon wherever it is met. */
+type Home = Exclude<View, "session">;
+const HOME: Home[] = ["overview", "inbox", "folders", "changes", "review", "search", "ports", "usage", "archive", "notes"];
 
 export default function Rail({
   view,
@@ -110,8 +79,8 @@ export default function Rail({
 
   /* A view under the right button: open it where it usually goes, open it in
      a group of its own, or put the whole arrangement back. */
-  const homeMenu = (v: View): MenuItem[] => [
-    { label: tr("tile.menuOpen", "Open"), hint: viewChord(v), onClick: () => onView(v) },
+  const homeMenu = (v: Home): MenuItem[] => [
+    { label: tr("tile.menuOpen", "Open"), hint: chordOf(v), onClick: () => onView(v) },
     ...(onViewFresh ? [{ label: tr("rail.menuNewGroup", "Open in a new group"), onClick: () => onViewFresh(v) }] : []),
     ...(onResetLayout
       ? [{ separator: true as const }, { label: tr("palette.resetLayout", "Reset the panel layout"), onClick: onResetLayout }]
@@ -156,24 +125,25 @@ export default function Rail({
   return (
     <nav className="rail">
       {HOME.map((h) => {
-        const hot = h.view === "usage" && nearlyOut.length > 0;
+        const hot = h === "usage" && nearlyOut.length > 0;
+        const def = viewDef(h);
         const entry = (
           <Button
             bare
-            key={h.view}
-            className={`railitem railhome${view === h.view ? " active" : ""}${hot ? " railhot" : ""}`}
-            data-view={h.view}
+            key={h}
+            className={`railitem railhome${view === h ? " active" : ""}${hot ? " railhot" : ""}`}
+            data-view={h}
             data-nearly-out={hot ? "yes" : undefined}
-            onClick={() => onView(h.view)}
-            onContextMenu={ctx(homeMenu(h.view))}
+            onClick={() => onView(h)}
+            onContextMenu={ctx(homeMenu(h))}
           >
-            <span className="rdot"><Icon name={VIEW_ICONS[h.view]} /></span>
-            <span className="rname">{tr(h.key, h.fallback)}</span>
-            {hot ? <span className="rmeta">{tr("rail.nearlyOut", "!")}</span> : meta[h.view] ? <span className="rmeta">{meta[h.view]}</span> : null}
+            <span className="rdot"><Icon name={def.icon} /></span>
+            <span className="rname">{tr(def.key, def.fallback)}</span>
+            {hot ? <span className="rmeta">{tr("rail.nearlyOut", "!")}</span> : meta[h] ? <span className="rmeta">{meta[h]}</span> : null}
           </Button>
         );
         return hot ? (
-          <Tooltip key={h.view} text={usageTip}>
+          <Tooltip key={h} text={usageTip}>
             {entry}
           </Tooltip>
         ) : (
