@@ -304,12 +304,15 @@ claim("⌘K opens the palette (keydown default prevented)", palette.opened && pa
 claim("⌘K while typing in the palette's own field does not fold it", palette.stillOpen && !palette.again, `still open ${palette.stillOpen} · prevented ${palette.again}`);
 claim("Esc closes the palette", palette.closed, "");
 const guarded = await tab.run(`${HELPERS}
-  const input = document.querySelector('.filter input');
+  // The folder field in the project switch's list: the field the header offers.
+  document.querySelector('.switch[data-switch="project"]').click();
+  const input = (await until(() => document.querySelector('body > .menu .menuField input'), 2000)).v;
   input.focus();
   const prevented = key(input, { key: 'k', metaKey: true });
   await wait(200);
   const opened = Boolean(document.querySelector('body .palette'));
-  input.blur();
+  key(input, { key: 'Escape' });
+  await wait(150);
   return { prevented, opened, tag: input.tagName };
 `);
 claim("⌘K with the keydown targeted at an <input> does NOT toggle the palette", !guarded.opened && !guarded.prevented, `target ${guarded.tag} · opened ${guarded.opened} · prevented ${guarded.prevented}`);
@@ -389,6 +392,79 @@ const railMenu = await tab.run(`${HELPERS}
 `);
 claim("right-click on a rail session offers Open / Pause / Terminate / COPY PATH", ["Open", "Pause", "Terminate", "COPY PATH"].every((r) => railMenu.rows.includes(r)) && railMenu.danger.includes("Terminate"),
   `${railMenu.rows.join(" · ")} · danger: ${railMenu.danger.join(",")}`);
+
+// ---- the session switch: every session, its menu, and the keyboard ------------------
+/* The list the rail's session rows are becoming, at the top of the window. A
+   click opens it with each session under its project and its state; the right
+   button on a row offers the session's actions; ⌘E opens it with the keyboard
+   on the first row, the arrows walk it, Enter brings the session forward, and
+   ⌘E again closes it and hands the keyboard back. Real key events, through the
+   debugging protocol: a dispatched keydown does not press a button. */
+async function pressKey(name, code, keyCode, modifiers = 0) {
+  const text = name === "Enter" ? "\r" : undefined;
+  await tab.cdp.send("Input.dispatchKeyEvent", { type: text ? "keyDown" : "rawKeyDown", key: name, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode, modifiers, text });
+  await tab.cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key: name, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode, modifiers });
+}
+const sessionSwitch = await rectOf('.switch[data-switch="session"]');
+await mouse("mousePressed", sessionSwitch.x + sessionSwitch.w / 2, sessionSwitch.y + sessionSwitch.h / 2, { button: "left", clickCount: 1 });
+await mouse("mouseReleased", sessionSwitch.x + sessionSwitch.w / 2, sessionSwitch.y + sessionSwitch.h / 2, { button: "left", clickCount: 1 });
+const sessionList = await tab.run(`${HELPERS}
+  const got = await until(() => document.querySelector('body > .menu'), 2000);
+  const rows = [...document.querySelectorAll('body > .menu .menuItem')].filter(b => b.querySelector('.menuSub'));
+  const first = rows[0]?.getBoundingClientRect();
+  return {
+    heads: menuHeads(),
+    sessions: rows.map(b => b.querySelector('.menuLabel').firstChild.textContent.trim() + ' — ' + b.querySelector('.menuSub').textContent.trim()),
+    marks: rows.filter(b => b.querySelector('.menuIcon.dot')).length,
+    rows: menuRows(),
+    pressed: document.querySelector('.switch[data-switch="session"]').dataset.open,
+    ms: got.ms,
+    first: first ? { x: first.left + first.width / 2, y: first.top + first.height / 2 } : null,
+  };
+`);
+const listed = await (await api("/api/sessions")).json();
+claim("a click on the session switch lists every session under its project, with its state", sessionList.sessions.length === listed.length && sessionList.marks === listed.length && sessionList.heads.includes("scratch") && sessionList.pressed === "yes" && ["All sessions (board)", "New session…", "New shell here"].every((r) => sessionList.rows.includes(r)),
+  `${sessionList.sessions.join(" · ")} under ${sessionList.heads.join(", ")} · ${listed.length} in the service · after ${sessionList.ms} ms`);
+if (sessionList.first) {
+  await mouse("mousePressed", sessionList.first.x, sessionList.first.y, { button: "right", clickCount: 1 });
+  await mouse("mouseReleased", sessionList.first.x, sessionList.first.y, { button: "right", clickCount: 1 });
+}
+const switchRowMenu = await tab.run(`${HELPERS}
+  await wait(300);
+  const rows = menuRows();
+  const danger = [...document.querySelectorAll('body > .menu .menuItem.danger')].map(b => b.textContent.trim());
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(150);
+  return { rows, danger, gone: !document.querySelector('body > .menu') };
+`);
+claim("right-click on a session switch row offers Open / Pause / Terminate / COPY PATH", ["Open", "Pause", "Terminate", "COPY PATH"].every((r) => switchRowMenu.rows.includes(r)) && switchRowMenu.danger.includes("Terminate") && switchRowMenu.gone,
+  `${switchRowMenu.rows.join(" · ")} · danger: ${switchRowMenu.danger.join(",")}`);
+
+// From the keyboard: the board in front, the keyboard on the rail.
+await tab.run(`${HELPERS} byText('.railitem .rname', /^Overview$/).closest('.railitem').click(); await wait(600);`);
+await pressKey("e", "KeyE", 69, 4);
+const keyOpen = await tab.run(`${HELPERS}
+  const got = await until(() => document.querySelector('body > .menu'), 1500);
+  await wait(100);
+  const a = document.activeElement;
+  return { open: Boolean(got.v), inMenu: Boolean(a && a.closest('body > .menu')), on: a?.querySelector?.('.menuLabel')?.firstChild?.textContent.trim() ?? a?.tagName };
+`);
+await pressKey("ArrowDown", "ArrowDown", 40);
+const keyWalk = await tab.run(`const a = document.activeElement; return a?.querySelector?.('.menuLabel')?.firstChild?.textContent.trim() ?? a?.tagName;`);
+await pressKey("ArrowUp", "ArrowUp", 38);
+await pressKey("Enter", "Enter", 13);
+const keyPick = await tab.run(`${HELPERS}
+  const got = await until(() => (document.querySelector('.dv-active-group .dv-active-tab .panelTabName')?.textContent.trim() ?? '').startsWith('shell') ? true : null, 3000);
+  return { front: document.querySelector('.dv-active-group .dv-active-tab .panelTabName')?.textContent.trim() ?? '', closed: !document.querySelector('body > .menu'), ms: got.ms };
+`);
+claim("⌘E opens the session switch with the keyboard on its first row", keyOpen.open && keyOpen.inMenu && keyOpen.on === "shell", JSON.stringify(keyOpen));
+claim("the arrows walk the rows and Enter brings the session's panel to the front", keyWalk !== keyOpen.on && keyPick.closed && keyPick.front.startsWith("shell"), `ArrowDown → ${keyWalk} · front "${keyPick.front}" after ${keyPick.ms} ms`);
+await tab.run(`document.querySelector('.ptermbox .xterm-helper-textarea')?.focus();`);
+await pressKey("e", "KeyE", 69, 4);
+const keyAgain = await tab.run(`${HELPERS} await until(() => document.querySelector('body > .menu'), 1500); await wait(100); return Boolean(document.activeElement?.closest('body > .menu'));`);
+await pressKey("e", "KeyE", 69, 4);
+const keyBack = await tab.run(`${HELPERS} await wait(200); return { open: Boolean(document.querySelector('body > .menu')), back: String(document.activeElement?.className ?? '') };`);
+claim("from the terminal, ⌘E opens it and ⌘E again closes it and gives the keyboard back to the terminal", keyAgain && !keyBack.open && /xterm-helper-textarea/.test(keyBack.back), `in the list ${keyAgain} · open ${keyBack.open} · keyboard on "${keyBack.back}"`);
 
 // ---- right-click the session title ---------------------------------------------
 const title = await rectOf(".sesstitle");
@@ -656,6 +732,108 @@ const editor = await tab.run(`${HELPERS}
 `);
 claim("changing the tab width reaches the open CodeMirror editor (state.tabSize)", editor.opened && editor.before === 2 && editor.after === 8, editor.opened ? `${editor.before} → ${editor.after} after ${editor.ms} ms` : "no editor opened");
 claim("switching long lines to SCROLL takes the wrapping off the open editor", editor.opened && editor.wrapped && editor.unwrapped, editor.opened ? `cm-lineWrapping ${editor.wrapped} → ${!editor.unwrapped} after ${editor.wrapMs} ms` : "");
+
+// ---- the project switch: which project the tools follow ------------------------------
+/* Two sessions in two folders and a third folder on its own. The switch names
+   the project of the session in front and lists the folders with the current
+   one ticked; a folder picked there is what the tools follow — Search says so
+   — and it holds until another session comes to the front, whether it is
+   picked in the session switch or brought forward by its tab. */
+const otherFolder = join(home, "other");
+const thirdFolder = join(home, "third");
+mkdirSync(otherFolder, { recursive: true });
+mkdirSync(thirdFolder, { recursive: true });
+await api("/api/workspaces", { method: "POST", body: JSON.stringify({ path: thirdFolder }) });
+await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: otherFolder, cmd: [], name: "other", account: "" }) });
+const projectRule = await tab.run(`${HELPERS}
+  const label = () => document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '';
+  const name = b => b.querySelector('.menuLabel')?.firstChild?.textContent.trim() ?? '';
+  const notice = () => document.querySelector('.searchPanel .notice')?.textContent.trim() ?? '';
+  const pickSession = async who => {
+    document.querySelector('.switch[data-switch="session"]').click();
+    const got = await until(() => [...document.querySelectorAll('body > .menu .menuItem')].find(b => name(b) === who), 6000);
+    got.v?.click();
+    await wait(1200);
+    return Boolean(got.v);
+  };
+  const openList = async () => {
+    document.querySelector('.switch[data-switch="project"]').click();
+    await until(() => document.querySelector('body > .menu .menuField'), 3000);
+    await wait(100);
+    return [...document.querySelectorAll('body > .menu .menuItem')];
+  };
+  const search = async want => {
+    byText('.railitem .rname', /^Search$/).closest('.railitem').click();
+    return (await until(() => want.test(notice()) ? notice() : null, 4000)).v ?? notice();
+  };
+  const out = {};
+  out.pickedShell = await pickSession('shell');
+  out.shell = label();
+  const rows = await openList();
+  out.rows = rows.map(b => name(b) + (b.getAttribute('aria-checked') === 'true' ? ' ✓' : ''));
+  rows.find(b => name(b) === 'third')?.click();
+  await wait(1200);
+  out.third = label();
+  out.searchThird = await search(/third/);
+  document.querySelector('.searchPanel').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  await wait(400);
+  out.afterSearchClick = label();
+  out.pickedOther = await pickSession('other');
+  out.other = label();
+  out.searchOther = await search(/other/);
+  (await openList()).find(b => name(b) === 'third')?.click();
+  await wait(1200);
+  out.thirdAgain = label();
+  await front(shellTab());
+  await wait(1000);
+  out.byTab = label();
+  return out;
+`);
+claim("the project switch names the project of the session in front", projectRule.pickedShell && projectRule.shell === "scratch", `shell in front → "${projectRule.shell}"`);
+claim("it lists all projects, the folders and the project overview, with the current folder ticked", ["All projects", "scratch ✓", "other", "third", "Project overview"].every((r) => projectRule.rows.includes(r)), projectRule.rows.join(" · "));
+claim("a folder picked there is the project, and Search follows it", projectRule.third === "third" && /third/.test(projectRule.searchThird), `"${projectRule.third}" · Search: "${projectRule.searchThird}"`);
+claim("the pick holds while the work goes on in a panel that is not a session", projectRule.afterSearchClick === "third", `after a click into Search: "${projectRule.afterSearchClick}"`);
+claim("until another session comes to the front — picked in the session switch", projectRule.pickedOther && projectRule.other === "other" && /other/.test(projectRule.searchOther), `"${projectRule.other}" · Search: "${projectRule.searchOther}"`);
+claim("or brought forward by its tab", projectRule.thirdAgain === "third" && projectRule.byTab === "scratch", `picked "${projectRule.thirdAgain}", then the shell's tab → "${projectRule.byTab}"`);
+
+const projectSwitch = await rectOf('.switch[data-switch="project"]');
+await mouse("mousePressed", projectSwitch.x + projectSwitch.w / 2, projectSwitch.y + projectSwitch.h / 2, { button: "left", clickCount: 1 });
+await mouse("mouseReleased", projectSwitch.x + projectSwitch.w / 2, projectSwitch.y + projectSwitch.h / 2, { button: "left", clickCount: 1 });
+const thirdRow = await tab.run(`${HELPERS}
+  const got = await until(() => [...document.querySelectorAll('body > .menu .menuItem')].find(b => b.querySelector('.menuLabel')?.firstChild?.textContent.trim() === 'third'), 3000);
+  const r = got.v?.getBoundingClientRect();
+  return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+`);
+if (thirdRow) {
+  await mouse("mousePressed", thirdRow.x, thirdRow.y, { button: "right", clickCount: 1 });
+  await mouse("mouseReleased", thirdRow.x, thirdRow.y, { button: "right", clickCount: 1 });
+}
+const projectRowMenu = await tab.run(`${HELPERS}
+  await wait(300);
+  const rows = menuRows();
+  const danger = [...document.querySelectorAll('body > .menu .menuItem.danger')].map(b => b.textContent.trim());
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await wait(150);
+  return { rows, danger };
+`);
+claim("right-click on a project switch row offers COPY PATH / Remove folder", ["COPY PATH", "Remove folder"].every((r) => projectRowMenu.rows.includes(r)) && projectRowMenu.danger.includes("Remove folder"), `${projectRowMenu.rows.join(" · ")} · danger: ${projectRowMenu.danger.join(",")}`);
+
+// From the keyboard: Enter on the switch, the keyboard on the ticked row, the arrows and Enter pick.
+await tab.run(`document.querySelector('.switch[data-switch="project"]').focus();`);
+await pressKey("Enter", "Enter", 13);
+const projectKeys = await tab.run(`${HELPERS}
+  await until(() => document.querySelector('body > .menu .menuField'), 2000);
+  await wait(150);
+  const a = document.activeElement;
+  const on = a?.querySelector?.('.menuLabel')?.firstChild?.textContent.trim() ?? a?.tagName;
+  return { on, ticked: a?.getAttribute?.('aria-checked') };
+`);
+await pressKey("ArrowDown", "ArrowDown", 40);
+const projectNext = await tab.run(`const a = document.activeElement; return a?.querySelector?.('.menuLabel')?.firstChild?.textContent.trim() ?? a?.tagName;`);
+await pressKey("Enter", "Enter", 13);
+const projectPicked = await tab.run(`${HELPERS} await wait(1000); return { label: document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '', closed: !document.querySelector('body > .menu') };`);
+claim("the project switch works from the keyboard: Enter opens it on the ticked row, the arrows and Enter pick", projectKeys.on === "scratch" && projectKeys.ticked === "true" && projectNext && projectNext !== "scratch" && projectPicked.closed && projectPicked.label === projectNext,
+  `on "${projectKeys.on}" (ticked ${projectKeys.ticked}) → ArrowDown "${projectNext}" → Enter → "${projectPicked.label}"`);
 
 // ---- report --------------------------------------------------------------------------
 report();

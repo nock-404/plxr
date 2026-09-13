@@ -278,6 +278,26 @@ if (sessions.length === 0) {
     overview.strip.includes(String(sessions.length)),
     overview.strip,
   );
+  /* The session switch at the top is the list the rail's session rows are
+     becoming: every session, each with its state's mark, opened and closed
+     again by the switch itself. */
+  const switched = await run(`
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const sw = document.querySelector('.switch[data-switch="session"]');
+    if (!sw) return { noSwitch: true };
+    sw.click();
+    await wait(500);
+    const rows = [...document.querySelectorAll('body > .menu .menuItem')].filter(b => b.querySelector('.menuSub'));
+    const found = { rows: rows.length, marked: rows.filter(b => b.querySelector('.menuIcon.dot')).length, open: sw.getAttribute('aria-expanded') };
+    sw.click();
+    await wait(300);
+    return { ...found, closed: !document.querySelector('body > .menu') };
+  `);
+  claim(
+    "the session switch lists the same sessions as the daemon",
+    !switched.noSwitch && switched.rows === sessions.length && switched.marked === sessions.length && switched.open === "true" && switched.closed,
+    switched.noSwitch ? "no session switch" : `${switched.rows} rows, ${switched.marked} with a state mark, closed again ${switched.closed}`,
+  );
 }
 
 // ---- every view opens, and none of them is a blank area -------------------
@@ -664,21 +684,26 @@ claim(
   `${skin} is wearing ${palette}`,
 );
 
-// ---- the path field is the place you are ----------------------------------
+// ---- the folder picked in the project switch is the place you are ----------
 /* Choosing a folder at the top used to narrow the overview and nothing else:
    + NEW asked for the same folder again, FOLDERS did not know about it. Now a
-   folder taken there (Enter) is open in FOLDERS, and is where NEW starts. */
+   folder taken there (typed into the project switch's field, Enter) is the
+   project the switch names, open in FOLDERS, and where NEW starts. */
 const place = await run(`
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true })); };
-  const field = document.querySelector('.filter input');
+  document.querySelector('.switch[data-switch="project"]')?.click();
+  await wait(700);
+  const field = document.querySelector('body > .menu .menuField input');
   if (!field) return { noField: true };
   field.focus();
   set(field, ${JSON.stringify(process.cwd() + "/frontend")});
   await wait(300);
   field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
   await wait(1200);
+  const named = document.querySelector('.switch[data-switch="project"] .switchLabel')?.textContent.trim() ?? '';
+  const menuGone = !document.querySelector('body > .menu');
   const folders = [...document.querySelectorAll('.railitem')].find(e => /FOLDERS/i.test(e.textContent || ''));
   folders?.click();
   await wait(1500);
@@ -689,12 +714,13 @@ const place = await run(`
   await wait(900);
   const cwd = document.querySelector('.card .pathfield input')?.value || '';
   document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  return { openFolder, cwd };
+  return { openFolder, cwd, named, menuGone };
 `);
 // A folder that is NOT where the gate's own session runs, so NEW cannot
 // arrive at it by falling back to "where the last session was".
 const taken = process.cwd() + "/frontend";
-claim("a folder taken at the top is open in FOLDERS", !place.noField && place.openFolder.includes("frontend"), place.openFolder.trim().slice(0, 60));
+claim("a folder picked in the project switch is the project it names, and the list closes", !place.noField && place.named === "frontend" && place.menuGone, place.noField ? "no field in the project switch" : `"${place.named}" · list closed ${place.menuGone}`);
+claim("and it is open in FOLDERS", !place.noField && place.openFolder.includes("frontend"), place.openFolder.trim().slice(0, 60));
 claim("and it is where NEW starts", place.cwd.replace(/\/+$/, "") === taken, place.cwd);
 const known = await api("/api/workspaces");
 claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path === taken), `${(known ?? []).length} open`);
@@ -875,7 +901,9 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
   const diff = await run(`
     const w = ms => new Promise(r => setTimeout(r, ms));
     const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el), 'value').set.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); };
-    const field = document.querySelector('.filter input');
+    document.querySelector('.switch[data-switch="project"]')?.click();
+    await w(700);
+    const field = document.querySelector('body > .menu .menuField input');
     if (!field) return { noField: true };
     set(field, ${JSON.stringify(cwd)});
     field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
