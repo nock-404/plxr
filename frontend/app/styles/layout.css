@@ -389,6 +389,43 @@ body {
 .paceLimitLabel { flex: 0 0 auto; }
 .paceNote { flex: 1 1 14rem; min-width: 0; max-width: 46rem; }
 
+/* What is left, per account.
+
+   One card per account, each holding its windows. The card carries the
+   padding so every line inside it starts at the same column as the rest of
+   the view, and the whole thing has to stay readable at 12rem wide — the
+   window's own head row wraps rather than pushing the reset time off the
+   edge. */
+.uacct { padding: 0.75rem 1rem 0.5rem; }
+.uacctHead { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.375rem; }
+.uacctName { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uacctBadge { flex: 0 0 auto; }
+.uacctHot { flex: 0 0 auto; }
+.uacctDir { flex: 0 1 auto; min-width: 0; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; }
+
+/* One window: what it is, how much is gone, a bar, and when it comes back.
+   The bar takes a whole row of its own so the percentage and the reset time
+   never have to share width with it. */
+.uwin { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.12rem 0.625rem; padding: 0.3rem 0 0.4rem; }
+.uwinHead { grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.uwinPct { grid-column: 2; white-space: nowrap; }
+.uwinBar { grid-column: 1 / -1; height: 0.55rem; position: relative; }
+.uwinFill { position: absolute; inset: 0 auto 0 0; }
+.uwinWhen { grid-column: 1 / -1; }
+.uwinSpend { grid-column: 1 / -1; }
+.uwinNote { grid-column: 1 / -1; display: block; padding: 0.25rem 1rem 0.25rem 0; max-width: 46rem; line-height: 1.45; }
+.uacct .uwinNote { padding-left: 0; }
+
+/* The spend by model: a header row and one row per model, five columns that
+   collapse to two when the panel is narrow. */
+.umodels { padding: 0.75rem 1rem 0.5rem; }
+.umodelRow { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; padding: 0.15rem 0; }
+.umodelName { flex: 1 1 10rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.umodelCell { flex: 0 0 5rem; text-align: right; }
+
+/* Where the numbers come from, at the foot of the view. */
+.ufoot { display: block; padding: 0.75rem 1rem 1.25rem; max-width: 52rem; line-height: 1.5; }
+
 /* ---------- session ---------- */
 
 /* Dockview's panel content host is a plain height:100% block, not a flex parent,

@@ -77,6 +77,10 @@ LAYOUT_ONLY = {
     # The ceiling row under the live pace: label, field and note in a flex
     # row; each of the three carries its own dressing.
     "paceLimit",
+    # The per-account readout: the card's head row places the name, the badge
+    # and the directory, and one row of the model breakdown places its cells.
+    # Every one of those carries its own colour; the two rows carry none.
+    "uacctHead", "umodelRow",
     # The inline toolbar strip inside a dock panel: arrangement only.
     "viewstrip",
     # The web preview: a toolbar row and the iframe box, arrangement only.

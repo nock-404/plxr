@@ -457,7 +457,7 @@ Counts as the auditor put them: 395 open items after cross-area dedupe (from 530
 | ST08 | Nothing rendered before data; failure keeps last value + stale marker; 150 ms loading rule | partial | Inbox/Overview/Usage lie before first frame; Ports blank | must | M |  |
 | ST09 | Per-hour rate in the readout | partial | Tooltip only | must | S |  |
 | ST10 | Ceiling input refuses invalid, shows saved/error; reaction at limit decided | partial | Typo clears ceiling silently | must | S | chat: leash |
-| ST11 | Usage buckets per hour/session/account; byAccount rendered or explained | partial | Day/project/model only | must | M | OFFEN B usage panel |
+| ST11 | Usage buckets per hour/session/account; byAccount rendered or explained | done | shipped: hour buckets in the cache, a section per account leading with the session and weekly windows, and the shared-transcript case named instead of split | must | M | OFFEN B usage panel |
 | ST14 | Inbox rows: account, age; permission > waiting, oldest first | partial | Newest first, no account/age | must | S |  |
 | ST15 | Failed reply keeps draft and shows error | partial | Draft cleared before request | must | S |  |
 | ST17 | Header needs-answer badge → inbox | partial | Rail only | must | S |  |
@@ -470,8 +470,8 @@ Counts as the auditor put them: 395 open items after cross-area dedupe (from 530
 | ST29 | 'daemon' out of all fallbacks/logs with gate; stale advice fixed | partial | state.ts:51, err.remote.notListening | must | S |  |
 | ST31 | Status row complete and clickable: service, counts→inbox, spend→usage, branch, update, faults; collapses at 12rem | partial | Nothing clickable, half missing | must | M |  |
 | ST34 | Honest degradation: error + retry per surface, last good kept | partial | Inbox/Usage/Status/Overview swallow errors | must | M |  |
-| ST12 | Attribution line: tokens measured, currency/plan unavailable | partial | Absent | should | S |  |
-| ST13 | Window start/bounds in pace tooltip | missing | Absent | should | S |  |
+| ST12 | Attribution line: tokens measured, currency/plan unavailable | done | shipped: the foot says which file the percentages came from and how old they are, how many transcripts the tokens were counted from, and that both are approximate and local | should | S |  |
+| ST13 | Window start/bounds in pace tooltip | done | shipped: every window shows when it opened and when it comes back, in the reader's timezone; a window whose start is unknown says so instead of guessing | should | S |  |
 | ST16 | Drafts survive panel close | partial | Component state | should | S |  |
 | ST18 | Inbox keyboard (rows, Esc, open session) | partial | Enter sends only | should | S |  |
 | ST19 | Hazard style on inbox rows per skin | partial | Absent | should | S |  |
@@ -528,7 +528,7 @@ Counts as the auditor put them: 395 open items after cross-area dedupe (from 530
 | P04 | One truncation rule: ellipsis + Tooltip + copy for title/cwd/branch/root | partial | Two mechanisms, no tooltips | must | S | #3 path cut off |
 | P05 | Every panel correct at 12/20/40rem × 8rem; all toolbars overflow; measured | partial | OverflowBar on session bar only; no gate | must | M |  |
 | P06 | List/grid/empty panels fill dockview host | partial | .list/.grid collapse to content height | must | S | #2 terminal not full height (same class) |
-| P07 | Designed empties for Queue/Accounts/Branches with actions; Usage loading ≠ empty | partial | Missing/lying | must | S |  |
+| P07 | Designed empties for Queue/Accounts/Branches with actions; Usage loading ≠ empty | partial | Usage no longer lies before the answer; Queue/Accounts/Branches still missing | must | S |  |
 | P08 | Designed starting/offline screen; never WebKit error page; log-open action | missing | log.Fatal or WebKit error page | must | M |  |
 | P09 | First-run onboarding, skippable, re-openable | missing | Absent | must | M |  |
 | P11 | i18n complete: no English flash, DE overflow sweep, missing keys, aria labels | partial | Renders English first; 2 keys missing; 62 long DE strings unchecked | must | M |  |

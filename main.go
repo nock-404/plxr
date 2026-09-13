@@ -283,6 +283,9 @@ func runDaemon() {
 	// Say one word when the five-hour spend goes past the ceiling — with or
 	// without a window open.
 	go c.WatchPace()
+	// And one word before an account runs out of its window, which is the
+	// wall nobody saw coming.
+	go c.WatchLimits()
 
 	handler := daemon.CORS(daemon.Guard(info.Token, srv.Routes()))
 

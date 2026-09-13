@@ -545,6 +545,10 @@ func (s *Server) Routes() *http.ServeMux {
 		days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 		writeJSON(w, s.c.Usage(days))
 	})
+	// What is left right now, per account — the figures the view leads with.
+	mux.HandleFunc("GET /api/usage/accounts", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.UsageAccounts())
+	})
 	mux.HandleFunc("GET /api/tempo", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.Pace())
 	})

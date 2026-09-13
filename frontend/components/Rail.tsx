@@ -5,8 +5,10 @@ import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
+import { accountName } from "@/lib/format";
 import { bindingOf, caption, VIEW_ORDER, type Action } from "@/lib/keymap";
 import { detailOf, railLine, stateOf, titleOf, unattended } from "@/lib/state";
+import { isHot, useLimits, worst } from "@/lib/useLimits";
 import type { Tile } from "@/lib/types";
 
 // The rail always stays, even inside a session — otherwise looking into one
@@ -121,6 +123,19 @@ export default function Rail({
     groups.get(g)!.push(t);
   }
 
+  /* Which accounts are close to the end of a window, so USAGE on the rail
+     says so before somebody starts a long run on one of them. Nothing is
+     drawn before the first answer: a rail that is quiet because it has not
+     asked yet looks exactly like one that has asked and found nothing. */
+  const { report, at } = useLimits();
+  const nearlyOut = (report?.accounts ?? []).filter((a) => isHot(a, at));
+  const usageTip = nearlyOut.length
+    ? tr("rail.usageHot", "{names} nearly out: {pct}% of one window used", {
+        names: nearlyOut.map((a) => accountName(a)).join(", "),
+        pct: Math.max(...nearlyOut.map((a) => worst(a)?.percent ?? 0)),
+      })
+    : "";
+
   const meta: Record<View, number | undefined> = {
     overview: undefined,
     changes: undefined,
@@ -137,19 +152,30 @@ export default function Rail({
 
   return (
     <nav className="rail">
-      {HOME.map((h) => (
-        <Button
-          bare
-          key={h.view}
-          className={`railitem railhome${view === h.view ? " active" : ""}`}
-          onClick={() => onView(h.view)}
-          onContextMenu={ctx(homeMenu(h.view))}
-        >
-          <span className="rdot">{h.glyph}</span>
-          <span className="rname">{tr(h.key, h.fallback)}</span>
-          {meta[h.view] ? <span className="rmeta">{meta[h.view]}</span> : null}
-        </Button>
-      ))}
+      {HOME.map((h) => {
+        const hot = h.view === "usage" && nearlyOut.length > 0;
+        const entry = (
+          <Button
+            bare
+            key={h.view}
+            className={`railitem railhome${view === h.view ? " active" : ""}${hot ? " railhot" : ""}`}
+            data-nearly-out={hot ? "yes" : undefined}
+            onClick={() => onView(h.view)}
+            onContextMenu={ctx(homeMenu(h.view))}
+          >
+            <span className="rdot">{h.glyph}</span>
+            <span className="rname">{tr(h.key, h.fallback)}</span>
+            {hot ? <span className="rmeta">{tr("rail.nearlyOut", "!")}</span> : meta[h.view] ? <span className="rmeta">{meta[h.view]}</span> : null}
+          </Button>
+        );
+        return hot ? (
+          <Tooltip key={h.view} text={usageTip}>
+            {entry}
+          </Tooltip>
+        ) : (
+          entry
+        );
+      })}
       {onNewShell ? (
         <Tooltip text={tr("rail.newShellTip", "A plain shell in the folder of the session you are working in, beside it")}>
           <Button bare className="railitem railhome" data-do="new-shell" onClick={onNewShell}>

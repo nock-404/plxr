@@ -2,7 +2,7 @@
 
 import { base, token } from "./token";
 import type {
-  Account, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
+  Account, AccountUsageReport, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
   NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia,
   FolderReport, GitCommitDetail,
 } from "./types";
@@ -176,6 +176,9 @@ export const api = {
     req<void>(`/api/ports/${pid}${hard ? "?hard=1" : ""}`, { method: "DELETE" }),
 
   usage: (days: number) => req<Usage>(`/api/usage?days=${days}`),
+  /* What is left right now, per account: the session and weekly windows, when
+     they come back, and what has been spent since each one opened. */
+  usageAccounts: () => req<AccountUsageReport>("/api/usage/accounts"),
   // The current pace: the five-hour spend, the hourly rate, who is spending.
   tempo: () => req<Pace>("/api/tempo"),
   archive: () => req<ArchiveEntry[]>("/api/archive"),

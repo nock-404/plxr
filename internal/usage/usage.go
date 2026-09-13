@@ -52,20 +52,20 @@ type Report struct {
 	ByDay     []Line `json:"byDay"`
 	ByProject []Line `json:"byProject"`
 	ByModel   []Line `json:"byModel"`
-	ByAccount []Line `json:"byAccount"`
 	Files     int    `json:"files"`
 	Duration  string `json:"duration"`
 }
 
 // ---- The cache ----
 
-// entry holds what came out of one file. The models are kept per day, not as a
-// grand total: otherwise a period cannot be broken down by model.
+// entry holds what came out of one file. The models are kept per hour, not as
+// a grand total: otherwise a period cannot be broken down by model, and a
+// window that opens at 10:50 cannot be answered at all.
 type entry struct {
 	Version int                        `json:"version"`
 	Size    int64                      `json:"size"`
 	Mod     int64                      `json:"mod"`
-	Days    map[string]map[string]Item `json:"days"` // day -> model -> item
+	Hours   map[string]map[string]Item `json:"hours"` // UTC hour "2006-01-02T15" -> model -> item
 	Project string                     `json:"project"`
 }
 
@@ -75,7 +75,30 @@ type entry struct {
 // cache written before now reads back a size of zero, which would silently
 // count as "the file changed" for ever; bumping the version says so out loud
 // and rebuilds them once.
-const cacheVersion = 3
+//
+// 4: the buckets moved from the day to the hour. A plan's windows do not
+// start at midnight — the five-hour one opened at 10:50 this morning — so a
+// day is too coarse to answer "how much since this window opened" with, and a
+// cache of days cannot be refined into one of hours without reading the files
+// again.
+const cacheVersion = 4
+
+// dayOf is the day a bucket belongs to. A line with no readable timestamp is
+// bucketed under unknownHour, which is not a day and must not be sliced like
+// one.
+func dayOf(hour string) string {
+	if len(hour) < 10 {
+		return hour
+	}
+	return hour[:10]
+}
+
+// unknownHour is where a line whose timestamp cannot be read is counted. It
+// belongs to no window: a spend that cannot be placed in time must not be
+// added to the window somebody is deciding by.
+const unknownHour = "unknown"
+
+const hourLayout = "2006-01-02T15"
 
 type store struct {
 	mu      sync.Mutex
@@ -128,55 +151,90 @@ type rawLine struct {
 	Timestamp string `json:"timestamp"`
 }
 
-// Compute evaluates all transcripts. days limits it to the last n days
-// (0 = everything).
-func Compute(accs []accounts.Account, days int) Report {
-	start := time.Now()
-	sp := loadCache()
+// file is one transcript, as the walk found it.
+type file struct {
+	path      string
+	size, mod int64
+}
 
-	type job struct {
-		path, account string
-		size, mod     int64
-	}
-	var jobs []job
-	seen := map[string]bool{}
+// Pool is one set of transcripts and everybody who reads it.
+//
+// Claude Code keeps its transcripts under the account's configuration
+// directory — except that on this machine the projects/ folders of the second
+// and third account are links to the first one's. Three accounts, one set of
+// files. Nothing in a transcript says which account paid for the line, so a
+// pool read by more than one account cannot be split between them, and the
+// interface has to say so rather than divide by three.
+type Pool struct {
+	// Dir is the transcript directory with every link resolved — the identity
+	// of the pool, so two accounts pointing at one directory land here once.
+	Dir string
+	// Accounts are the names of the accounts that read it, in the order they
+	// were discovered.
+	Accounts []string
+	files    []file
+}
+
+// Shared reports whether more than one account reads these transcripts.
+func (p Pool) Shared() bool { return len(p.Accounts) > 1 }
+
+// pools groups accounts by the transcript directory they actually read, and
+// lists the transcripts in each exactly once.
+func pools(accs []accounts.Account) []Pool {
+	var out []Pool
+	at := map[string]int{}
 	for _, a := range accs {
-		dirs, _ := os.ReadDir(a.ProjectsDir())
-		for _, d := range dirs {
-			if !d.IsDir() {
+		dir := a.ProjectsDir()
+		if real, err := filepath.EvalSymlinks(dir); err == nil {
+			dir = real
+		}
+		if i, ok := at[dir]; ok {
+			out[i].Accounts = append(out[i].Accounts, a.Name)
+			continue
+		}
+		at[dir] = len(out)
+		out = append(out, Pool{Dir: dir, Accounts: []string{a.Name}, files: transcripts(dir)})
+	}
+	return out
+}
+
+// transcripts lists every session file under a projects directory.
+func transcripts(dir string) []file {
+	var out []file
+	sub, _ := os.ReadDir(dir)
+	for _, d := range sub {
+		if !d.IsDir() {
+			continue
+		}
+		pdir := filepath.Join(dir, d.Name())
+		names, _ := os.ReadDir(pdir)
+		for _, f := range names {
+			if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
 				continue
 			}
-			pdir := filepath.Join(a.ProjectsDir(), d.Name())
-			files, _ := os.ReadDir(pdir)
-			for _, f := range files {
-				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") {
-					continue
-				}
-				// The same session sits in several accounts. Counting it twice
-				// would triple the spend.
-				if seen[f.Name()] {
-					continue
-				}
-				seen[f.Name()] = true
-				info, err := f.Info()
-				if err != nil {
-					continue
-				}
-				jobs = append(jobs, job{filepath.Join(pdir, f.Name()), a.Name, info.Size(), info.ModTime().UnixMilli()})
+			info, err := f.Info()
+			if err != nil {
+				continue
 			}
+			out = append(out, file{filepath.Join(pdir, f.Name()), info.Size(), info.ModTime().UnixMilli()})
 		}
 	}
+	return out
+}
 
+// read hands back the hour buckets of every file given, from the cache where
+// the file has not moved and from the file itself where it has.
+func read(sp *store, files []file, each func(file, entry)) {
 	workers := runtime.NumCPU()
 	if workers > 8 {
 		workers = 8
 	}
-	in := make(chan job)
-	type entryResult struct {
-		account string
-		e       entry
+	type found struct {
+		f file
+		e entry
 	}
-	results := make(chan entryResult, 64)
+	in := make(chan file)
+	results := make(chan found, 64)
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -187,7 +245,7 @@ func Compute(accs []accounts.Account, days int) Report {
 				old, ok := sp.File[j.path]
 				sp.mu.Unlock()
 				if ok && old.Version == cacheVersion && old.Size == j.size && old.Mod == j.mod {
-					results <- entryResult{j.account, old}
+					results <- found{j, old}
 					continue
 				}
 				e := readAll(j.path)
@@ -196,74 +254,82 @@ func Compute(accs []accounts.Account, days int) Report {
 				sp.File[j.path] = e
 				sp.changed = true
 				sp.mu.Unlock()
-				results <- entryResult{j.account, e}
+				results <- found{j, e}
 			}
 		}()
 	}
 	go func() {
-		for _, j := range jobs {
+		for _, j := range files {
 			in <- j
 		}
 		close(in)
 		wg.Wait()
 		close(results)
 	}()
+	for r := range results {
+		each(r.f, r.e)
+	}
+}
+
+func get(m map[string]*Item, k string) *Item {
+	if m[k] == nil {
+		m[k] = &Item{}
+	}
+	return m[k]
+}
+
+// Compute evaluates all transcripts. days limits it to the last n days
+// (0 = everything).
+func Compute(accs []accounts.Account, days int) Report {
+	start := time.Now()
+	sp := loadCache()
+
+	var all []file
+	for _, p := range pools(accs) {
+		all = append(all, p.files...)
+	}
 
 	cutoff := ""
 	if days > 0 {
 		cutoff = time.Now().AddDate(0, 0, -days).Format("2006-01-02")
 	}
 
-	b := Report{Files: len(jobs)}
+	b := Report{Files: len(all)}
 	tag := map[string]*Item{}
 	proj := map[string]*Item{}
 	mod := map[string]*Item{}
-	account := map[string]*Item{}
-	get := func(m map[string]*Item, k string) *Item {
-		if m[k] == nil {
-			m[k] = &Item{}
-		}
-		return m[k]
-	}
 
-	for r := range results {
-		project := r.e.Project
+	read(sp, all, func(_ file, e entry) {
+		project := e.Project
 		if project == "" {
 			project = "(unknown)"
 		}
-		for t, byModel := range r.e.Days {
-			if cutoff != "" && t < cutoff {
+		for hour, byModel := range e.Hours {
+			day := dayOf(hour)
+			if cutoff != "" && day < cutoff {
 				continue
 			}
 			for m, p := range byModel {
 				b.Sum.add(p)
-				get(tag, t).add(p)
+				get(tag, day).add(p)
 				get(proj, project).add(p)
-				get(account, r.account).add(p)
 				if m != "" {
 					get(mod, m).add(p)
 				}
 			}
 		}
-	}
+	})
 	sp.saveCache()
 
 	b.ByDay = sorted(tag, true)
 	b.ByProject = sorted(proj, false)
 	b.ByModel = sorted(mod, false)
-	// With mirrored transcripts the split by account would be arbitrary: the
-	// same session sits in several accounts and is counted at the first one.
-	// Better to show nothing than something wrong.
-	b.ByAccount = sorted(account, false)
-	if len(b.ByAccount) < 2 {
-		b.ByAccount = []Line{}
-	}
 	b.Duration = time.Since(start).Round(time.Millisecond).String()
 	return b
 }
 
-// sorted emits the lines; byKey descending (for days), otherwise
-// nach Menge absteigend.
+// sorted emits the lines; byKey descending (for days), otherwise by size,
+// biggest first.
 func sorted(m map[string]*Item, byKey bool) []Line {
 	out := make([]Line, 0, len(m))
 	for k, p := range m {
@@ -278,7 +344,7 @@ func sorted(m map[string]*Item, byKey bool) []Line {
 }
 
 func readAll(path string) entry {
-	e := entry{Days: map[string]map[string]Item{}}
+	e := entry{Hours: map[string]map[string]Item{}}
 	f, err := os.Open(path)
 	if err != nil {
 		return e
@@ -308,25 +374,27 @@ func readAll(path string) entry {
 		}
 		p := Item{In: u.Input, Out: u.Output, CacheWrite: u.CacheWrite, CacheRead: u.CacheRead, Messages: 1}
 
-		tag := "unknown"
-		if len(z.Timestamp) >= 10 {
-			tag = z.Timestamp[:10]
+		// The timestamps are written in UTC, so the first thirteen characters
+		// are the UTC hour and the first ten the UTC day.
+		tag := unknownHour
+		if len(z.Timestamp) >= len(hourLayout) {
+			tag = z.Timestamp[:len(hourLayout)]
 		}
 		model := z.Message.Model
 		if model == "<synthetic>" {
 			model = ""
 		}
-		if e.Days[tag] == nil {
-			e.Days[tag] = map[string]Item{}
+		if e.Hours[tag] == nil {
+			e.Hours[tag] = map[string]Item{}
 		}
-		old := e.Days[tag][model]
+		old := e.Hours[tag][model]
 		old.add(p)
-		e.Days[tag][model] = old
+		e.Hours[tag][model] = old
 	}
 	return e
 }
 
-// ---- Verbrauchstempo ----
+// ---- How fast it is going ----
 
 // Pace describes how fast the allowance is being spent right now.
 //
@@ -357,34 +425,21 @@ func ComputePace(accs []accounts.Account) Pace {
 	var t Pace
 	var prevHour int64
 	active := map[string]bool{}
-	seen := map[string]bool{}
 
-	for _, a := range accs {
-		dirs, _ := os.ReadDir(a.ProjectsDir())
-		for _, d := range dirs {
-			if !d.IsDir() {
+	// One pass per pool of transcripts, so three accounts pointing at one
+	// directory read it once instead of counting it three times.
+	for _, p := range pools(accs) {
+		for _, f := range p.files {
+			// Anything untouched for more than five hours does not count.
+			if f.mod < cut5h.UnixMilli() {
 				continue
 			}
-			pdir := filepath.Join(a.ProjectsDir(), d.Name())
-			files, _ := os.ReadDir(pdir)
-			for _, f := range files {
-				if f.IsDir() || !strings.HasSuffix(f.Name(), ".jsonl") || seen[f.Name()] {
-					continue
-				}
-				info, err := f.Info()
-				// Anything untouched for more than five hours does not count.
-				if err != nil || info.ModTime().Before(cut5h) {
-					continue
-				}
-				seen[f.Name()] = true
-				path := filepath.Join(pdir, f.Name())
-				f5, f1, f2 := window(path, cut5h, cut1h, cut2h)
-				t.Window5h += f5
-				t.PerHour += f1
-				prevHour += f2
-				if f1 > 0 {
-					active[f.Name()] = true
-				}
+			f5, f1, f2 := window(f.path, cut5h, cut1h, cut2h)
+			t.Window5h += f5
+			t.PerHour += f1
+			prevHour += f2
+			if f1 > 0 {
+				active[f.path] = true
 			}
 		}
 	}

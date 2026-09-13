@@ -254,6 +254,74 @@
 }
 .paceNote { color: var(--dim); font-size: .8em; }
 .pacenow.pace--hot .paceNote { color: var(--blocked); }
+
+/* What is left, per account.
+
+   The card is one readout, so it draws its own line underneath and the
+   windows inside it draw none. The bar is the same one the history uses, so
+   the two read as the same kind of number; what is different is the colour it
+   takes once a window is nearly gone — `uhot` is the one state in this view
+   and it reaches the name, the percentage and the bar together, because a
+   coloured bar on its own is a decoration and a coloured sentence is a
+   warning. */
+.uacct { border-bottom: var(--hair) solid var(--line); }
+.uacctName {
+  color: var(--fg);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .8em;
+}
+.uacctBadge {
+  color: var(--dead);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uacctHot {
+  color: var(--blocked);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uacctDir { color: var(--dead); font-size: .78em; }
+.uwinHead {
+  color: var(--dead);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+.uwinPct { color: var(--accent); }
+.uwinBar { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+.uwinFill { background: var(--accent); opacity: .55; }
+.uwinWhen { color: var(--dim); font-size: .8em; }
+.uwinSpend { color: var(--dim); font-size: .78em; }
+.uwinNote { color: var(--dim); font-size: .78em; }
+.uacct.uhot .uacctName { color: var(--blocked); }
+.uwin.uhot .uwinPct,
+.uwin.uhot .uwinWhen { color: var(--blocked); }
+.uwin.uhot .uwinFill { background: var(--blocked); opacity: .75; }
+
+/* The spend by model. The header row is a label, the numbers are numbers,
+   and the block closes with the same hairline every other block does. */
+.umodels { border-bottom: var(--hair) solid var(--line); }
+.umodelName { color: var(--fg); font-size: .84em; }
+.umodelCell { color: var(--dim); font-size: .8em; }
+.umodelHead .umodelName,
+.umodelHead .umodelCell {
+  color: var(--dead);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: .7em;
+}
+
+/* Where the numbers come from: quieter than everything above it, and never
+   hidden — it is the sentence that says how much to trust the rest. */
+.ufoot { color: var(--dead); font-size: .76em; }
+
+/* The rail entry for a view that has something to warn about. */
+.railhot .rname,
+.railhot .rmeta { color: var(--blocked); }
+.choiceButton.railhot { color: var(--blocked); }
 .ubox b { color: var(--accent); font-weight: 400; }
 .ubox span {
   color: var(--dead);
