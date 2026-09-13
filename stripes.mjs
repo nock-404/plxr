@@ -270,7 +270,7 @@ await cdp.send("Network.enable");
 
 // What this window asks the service for, as the browser records it.
 const traffic = [];
-cdp.on("Network.requestWillBeSent", (p) => traffic.push({ at: Date.now(), kind: "http", url: p.request.url }));
+cdp.on("Network.requestWillBeSent", (p) => traffic.push({ at: Date.now(), kind: "http", url: p.request.url, method: p.request.method, body: p.request.postData ?? "" }));
 cdp.on("Network.webSocketCreated", (p) => traffic.push({ at: Date.now(), kind: "ws", url: p.url, id: p.requestId }));
 cdp.on("Network.webSocketClosed", (p) => traffic.push({ at: Date.now(), kind: "wsclosed", id: p.requestId }));
 
@@ -845,7 +845,39 @@ if (splitSetup.why || splitSetup.groups.length < 3) {
 }
 
 // ---- a hidden tool asks for nothing --------------------------------------------
-await run(`${HELPERS} await hideAll(); openSession(/plxr-stripes-check/); await wait(1200);`);
+/* Every tool is shown once first, so every body has been mounted — the tree
+   and the notes stay mounted when they are put away — then every edge is
+   hidden, and ten seconds of what the window asks for are read against what
+   each tool asks for. The window's own feeds — the tiles, the settings'
+   revision, the limits on the status row — are nobody's tool and are left
+   out. The tree used to go on asking git every four seconds from behind a
+   hidden edge. */
+const TOOL_ASKS = {
+  files: (t) => /\/api\/git\/[^/?]+$|\/api\/files\/[^?]+\?dir=/.test(t.url),
+  changes: (t) => /\/ws\/changes\/|\/api\/branches\/|\/api\/history\/|\/api\/position\/|\/api\/git\/[^/]+\/stashes/.test(t.url),
+  review: (t) => /\/api\/review\//.test(t.url),
+  search: (t) => /\/api\/find\//.test(t.url),
+  inbox: (t) => /\/api\/replies/.test(t.url),
+  usage: (t) => /\/api\/usage\?|\/api\/waiting/.test(t.url),
+  ports: (t) => /\/api\/ports/.test(t.url),
+  archive: (t) => /\/api\/archive|\/api\/search/.test(t.url),
+  // The notes write the one key they keep; the saved arrangement names the
+  // notes panel too, and is not the notes asking for anything.
+  notes: (t) => t.method === "PUT" && /\/api\/prefs$/.test(t.url) && Object.prototype.hasOwnProperty.call(prefsBody(t), "notes"),
+};
+function prefsBody(t) {
+  try {
+    const parsed = JSON.parse(t.body || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+await run(`${HELPERS}
+  await hideAll(); openSession(/plxr-stripes-check/); await wait(1200);
+  for (const id of TOOL_IDS) { if (!toolLit(id)) await click(id, 900); }
+  await hideAll();
+`);
 const openChanges = () => {
   const open = new Map();
   for (const t of traffic) {
@@ -856,21 +888,43 @@ const openChanges = () => {
 };
 await sleep(1500);
 const quietFrom = Date.now();
+await sleep(10000);
+const since = (from) => traffic.filter((t) => t.at >= from && t.url);
+const quiet = since(quietFrom);
+const idle = {
+  ...Object.fromEntries(Object.entries(TOOL_ASKS).map(([id, asks]) => [id, quiet.filter(asks).length])),
+  openChanges: openChanges(),
+  otherRequests: quiet.length,
+  prefsWrites: quiet.filter((t) => t.method === "PUT" && /\/api\/prefs$/.test(t.url)).map((t) => Object.keys(prefsBody(t)).join("+")),
+};
+/* Brought back, each picks up: the tree asks git at once and then on its
+   beat, the ports, what has changed and the usage ask again. */
+const treeFrom = Date.now();
+await run(`${HELPERS} await click('files', 400); await click('ports', 400);`);
 await sleep(5000);
-const quiet = traffic.filter((t) => t.at >= quietFrom);
-const asked = (list, re) => list.filter((t) => re.test(t.url ?? "")).length;
-const idle = { usage: asked(quiet, /\/api\/usage\?/), ports: asked(quiet, /\/api\/ports/), changes: asked(quiet, /\/ws\/changes\//), openChanges: openChanges() };
-const litFrom = Date.now();
-await run(`${HELPERS} await click('changes', 400); await click('ports', 400); await click('usage', 400);`);
+const treeAsks = since(treeFrom).filter(TOOL_ASKS.files);
+const portsAsks = since(treeFrom).filter(TOOL_ASKS.ports);
+const restFrom = Date.now();
+await run(`${HELPERS} await click('changes', 400); await click('usage', 400);`);
 await sleep(5000);
-const lit = traffic.filter((t) => t.at >= litFrom);
-const busy = { usage: asked(lit, /\/api\/usage\?/), ports: asked(lit, /\/api\/ports/), changes: asked(lit, /\/ws\/changes\//), openChanges: openChanges() };
+const busy = {
+  files: treeAsks.length,
+  filesFirstAfterMs: treeAsks.length ? treeAsks[0].at - treeFrom : null,
+  ports: portsAsks.length,
+  changes: since(restFrom).filter((t) => /\/ws\/changes\//.test(t.url)).length,
+  usage: since(restFrom).filter((t) => /\/api\/usage\?/.test(t.url)).length,
+  openChanges: openChanges(),
+};
 claim(
-  "with every edge hidden for five seconds, the window asks for no usage, no ports and no changes",
-  idle.usage === 0 && idle.ports === 0 && idle.changes === 0 && idle.openChanges === 0,
+  "with every edge hidden for ten seconds, no tool asks the service for anything — the tree and the notes, which stay mounted, included",
+  Object.keys(TOOL_ASKS).every((id) => idle[id] === 0) && idle.openChanges === 0,
   JSON.stringify(idle),
 );
-claim("with Changes, Ports and Usage showing, each asks again", busy.usage > 0 && busy.ports > 0 && busy.changes > 0, JSON.stringify(busy));
+claim(
+  "shown again, each picks up: the tree asks git at once and on its beat, the ports, the changes and the usage ask again",
+  busy.files >= 2 && busy.filesFirstAfterMs !== null && busy.filesFirstAfterMs <= 1500 && busy.ports > 0 && busy.changes > 0 && busy.usage > 0,
+  JSON.stringify(busy),
+);
 await run(`${HELPERS} await hideAll();`);
 await sleep(900);
 

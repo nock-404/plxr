@@ -8,6 +8,7 @@ import { useMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
 import { bindingOf, caption, type Action } from "@/lib/keymap";
 import { TOOLS, type Edge, type ToolId } from "@/lib/tools";
+import { ToolShown } from "@/lib/toolShown";
 
 /* A tool window: a header, and the tool under it.
  *
@@ -21,7 +22,8 @@ import { TOOLS, type Edge, type ToolId } from "@/lib/tools";
  * behind a hidden edge, so a tool that polls — what has changed, the ports, the
  * usage — would go on asking the service every second for a window nobody can
  * see. Only the tree and the notes stay: a tree's open folders and unsaved text
- * are what a person expects to find again. */
+ * are what a person expects to find again. They are told they are put away
+ * (lib/toolShown), and the tree stops asking git until it is shown again. */
 
 const EDGE_CHORD: Record<Edge, Action> = { left: "toggleLeft", right: "toggleRight", bottom: "toggleBottom" };
 
@@ -85,7 +87,9 @@ export default function ToolWindow({
           </Button>
         </Tooltip>
       </div>
-      <div className="toolBody">{lit || def.keepMounted ? children : null}</div>
+      <div className="toolBody">
+        <ToolShown.Provider value={lit}>{lit || def.keepMounted ? children : null}</ToolShown.Provider>
+      </div>
     </div>
   );
 }

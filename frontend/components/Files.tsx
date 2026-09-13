@@ -15,6 +15,7 @@ import { atTop, parent, segments } from "@/lib/paths";
 import { fileIcon } from "@/lib/fileIcons";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { announceFilesChanged } from "@/lib/useChanges";
+import { useToolShown } from "@/lib/toolShown";
 import type { FileEntry } from "@/lib/types";
 
 /* The tree beside the terminal.
@@ -315,18 +316,32 @@ export default function Files({
     for (const dir of back) if (!open[dir]) void list(dir);
   }, [open, expanded, list]);
 
-  // Git changes while an agent works, so it is asked again now and then rather
-  // than only when something is clicked — and at once when something in the
-  // window changed the tree, like a mark being restored.
+  /* Git changes while an agent works, so it is asked again now and then rather
+     than only when something is clicked — and at once when something in the
+     window changed the tree, like a mark being restored.
+   *
+   * Only while the tree is on screen. The Files tool stays mounted when it is
+   * put away, and asked git every four seconds for a window nobody could see.
+   * Shown again, it asks at once, and then on the beat. */
+  const shown = useToolShown();
+  const wasHidden = useRef(false);
   useEffect(() => {
+    if (!shown) {
+      wasHidden.current = true;
+      return;
+    }
     const ask = () => api.gitStatus(baseId).then(setGit).catch(() => undefined);
+    if (wasHidden.current) {
+      wasHidden.current = false;
+      void ask();
+    }
     const t = window.setInterval(ask, 4000);
     window.addEventListener("plxr:files-changed", ask);
     return () => {
       window.clearInterval(t);
       window.removeEventListener("plxr:files-changed", ask);
     };
-  }, [baseId]);
+  }, [baseId, shown]);
 
   /* Standing somewhere else. The folder it was given keeps its own id, so
      coming back down to it is a session's tree again rather than a directory
