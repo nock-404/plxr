@@ -61,12 +61,54 @@ for (const [dir, branch] of [[alpha, "main"], [beta, "feature/second"]]) {
 writeFileSync(join(alpha, "a.txt"), "one\nTWO\nthree\n");
 writeFileSync(join(beta, "README.md"), "# beta\nchanged\n");
 
-const APP = "/tmp/plxr3-app";
+const APP = process.env.PLXR_APP || "/tmp/plxr3-app";
 if (!existsSync(APP)) {
-  console.log("  /tmp/plxr3-app is not there — run ./build.sh first");
+  console.log(`  ${APP} is not there — run ./build.sh first`);
   process.exit(1);
 }
 const app = spawn(APP, ["daemon"], { env: { ...process.env, PLXR_HOME: home }, stdio: "ignore" });
+
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash, an unhandled rejection or ^C used to leave the browser and the
+ * service running: fourteen headless browsers holding 4.6 GB were found on
+ * one machine, most from gates that had crashed before their cleanup. The
+ * service detaches itself, so the process that listens is the one named in
+ * daemon.json. Registered the moment there is something to end; the browser
+ * and its profile do not exist yet at first, and reaching for them then
+ * throws, which is caught. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  try { chrome.kill(); browserExited(chrome); } catch { /* not started yet, or gone */ }
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (let i = 0; i < 20; i++) {
+    try { rmSync(profile, { recursive: true, force: true }); break; }
+    catch (e) { if (e instanceof ReferenceError) break; const until = Date.now() + 100; while (Date.now() < until); }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
@@ -113,17 +155,7 @@ const chrome = spawn(browser, [
 ], { stdio: "ignore" });
 
 function stop(code) {
-  try { chrome.kill(); } catch { /* gone */ }
-  try {
-    const pid = JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid;
-    process.kill(pid);
-  } catch { /* gone */ }
-  try { app.kill(); } catch { /* gone */ }
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(profile, { recursive: true, force: true }); break; }
-    catch { const until = Date.now() + 100; while (Date.now() < until); }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 

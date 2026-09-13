@@ -67,12 +67,55 @@ for (let i = 1; i <= 200; i++) deep.push(i === 150 ? "line 150 holds the NEEDLE 
 writeFileSync(join(work, "inner", "deep.txt"), deep.join("\n") + "\n");
 const repo = git("init", "-q", "-b", "main", ".") && git("add", "-A") && git("commit", "-qm", "start");
 
-const APP = "/tmp/plxr3-app";
+const APP = process.env.PLXR_APP || "/tmp/plxr3-app";
 if (!existsSync(APP)) {
-  console.log("  /tmp/plxr3-app is not there — run ./build.sh first");
+  console.log(`  ${APP} is not there — run ./build.sh first`);
   process.exit(1);
 }
 const app = spawn(APP, ["daemon"], { env: { ...process.env, PLXR_HOME: home }, stdio: "ignore" });
+
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash, an unhandled rejection or ^C used to leave the browser and the
+ * service running: fourteen headless browsers holding 4.6 GB were found on
+ * one machine, most from gates that had crashed before their cleanup. The
+ * service detaches itself, so the process that listens is the one named in
+ * daemon.json — this gate never ended that one at all, only the launcher.
+ * Registered the moment there is something to end; the browser and its
+ * profile do not exist yet at first, and reaching for them then throws,
+ * which is caught. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  try { chrome.kill(); browserExited(chrome); } catch { /* not started yet, or gone */ }
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (let i = 0; i < 20; i++) {
+    try { rmSync(profile, { recursive: true, force: true }); break; }
+    catch (e) { if (e instanceof ReferenceError) break; const until = Date.now() + 100; while (Date.now() < until); }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
@@ -118,13 +161,7 @@ const chrome = spawn(browser, [
 ], { stdio: "ignore" });
 
 function stop(code) {
-  try { chrome.kill(); } catch { /* gone */ }
-  try { app.kill(); } catch { /* gone */ }
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(profile, { recursive: true, force: true }); break; }
-    catch { const until = Date.now() + 100; while (Date.now() < until); }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 
@@ -316,8 +353,19 @@ const searched = await run(`${HELPERS}
   // suite the panel took longer than the old 1.5 s and the claim flipped.
   let panel = null;
   for (let i = 0; i < 32 && !panel; i++) { await wait(250); panel = document.querySelector('.searchPanel'); }
-  if (!panel) return { err: 'no search panel' };
+  if (!panel) return { err: 'no search panel',
+    tabs: [...document.querySelectorAll('.plxrDock .panelTabName')].map(e => e.textContent.trim()),
+    rail: [...document.querySelectorAll('.railhome .rname')].map(e => e.textContent.trim()) };
   const following = panel.querySelector('.notice')?.textContent.trim() ?? '';
+  /* The folders opened at the start are a tab of main, in front of the
+     session, and the dock renders only the tab in front — so the session is
+     brought forward before the terminal is measured beside the search. */
+  const sessionTab = document.querySelector('.plxrDock .panelTab[data-kind="session"]')?.closest('.dv-tab');
+  if (sessionTab) {
+    sessionTab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    sessionTab.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    await wait(800);
+  }
   const sessionGroup = document.querySelector('.session')?.closest('.dv-groupview');
   const beside = Boolean(sessionGroup) && panel.closest('.dv-groupview') !== sessionGroup;
   const terminalWide = (document.querySelector('.session')?.getBoundingClientRect().width ?? 0) > 200;
@@ -333,7 +381,8 @@ const searched = await run(`${HELPERS}
   const marks = [...panel.querySelectorAll('.findmark')].map(m => m.textContent);
   return { following, beside, terminalWide, files, marks, count: panel.querySelector('.hitSmall')?.textContent.trim() ?? '' };
 `);
-claim("the SEARCH panel opens from the rail and follows the session", /searching project/.test(searched.following ?? ""), searched.err ?? searched.following);
+claim("the SEARCH panel opens from the rail and follows the session", /searching project/.test(searched.following ?? ""),
+  searched.err ? `${searched.err} · tabs ${(searched.tabs ?? []).join(", ")} · rail ${(searched.rail ?? []).join(", ")}` : searched.following);
 claim("it opens beside the terminal, not over it", searched.beside && searched.terminalWide, JSON.stringify({ beside: searched.beside, wide: searched.terminalWide }));
 const byPath = Object.fromEntries((searched.files ?? []).map((f) => [f.path, f.lines]));
 claim("hits are grouped by file, one group per file that has the word",
@@ -364,13 +413,39 @@ const landed = await run(`${HELPERS}
   const sr = scroller.getBoundingClientRect();
   const visible = Boolean(lr) && lr.top >= sr.top && lr.bottom <= sr.bottom;
   const name = document.querySelector('.editorPanel .overlayName')?.textContent.trim();
-  return { name, line, lines: view.state.doc.lines, scrollTop: Math.round(scroller.scrollTop), visible,
-           still: Boolean(document.querySelector('.searchPanel')), terminal: Boolean(document.querySelector('.session')) };
+  const still = Boolean(document.querySelector('.searchPanel'));
+  /* Read before the tabs are switched below: the dock takes a tab that is not
+     in front out of the page, and an element put back has lost its scroll. */
+  const scrollTop = Math.round(scroller.scrollTop);
+  /* The editor is a tab of main and opens in front of the session, which the
+     dock then stops rendering. Nothing was closed: the session's tab is still
+     there, and brought forward its terminal is on screen again. Then the
+     editor goes back to the front for the step after this one. */
+  const pointer = t => {
+    t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    t.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+  };
+  const sessionTab = document.querySelector('.plxrDock .panelTab[data-kind="session"]')?.closest('.dv-tab');
+  let terminal = false;
+  let scrollBack = null;
+  if (sessionTab) {
+    pointer(sessionTab); await wait(800);
+    terminal = (document.querySelector('.session')?.getBoundingClientRect().width ?? 0) > 200;
+    const editorTab = byText('.plxrDock .panelTabName', /^deep\\.txt$/)?.closest('.dv-tab');
+    if (editorTab) {
+      pointer(editorTab); await wait(800);
+      // Measured, not claimed: whether the editor keeps its place when its tab was away.
+      scrollBack = Math.round(document.querySelector('.editorPanel .cm-scroller')?.scrollTop ?? -1);
+    }
+  }
+  return { name, line, lines: view.state.doc.lines, scrollTop, scrollBack, visible,
+           still, sessionTab: Boolean(sessionTab), terminal };
 `);
 claim("clicking a hit opens the file in an editor panel", landed.name === "deep.txt", landed.err ?? `opened ${landed.name}`);
 claim("the cursor sits on the hit's line", landed.line === 150, `line ${landed.line} of ${landed.lines}`);
-claim("the editor scrolled so that line is on screen", landed.scrollTop > 0 && landed.visible, `scrollTop ${landed.scrollTop}, visible ${landed.visible}`);
-claim("the search panel and the terminal stay open beside it", landed.still && landed.terminal, JSON.stringify({ still: landed.still, terminal: landed.terminal }));
+claim("the editor scrolled so that line is on screen", landed.scrollTop > 0 && landed.visible, `scrollTop ${landed.scrollTop}, visible ${landed.visible} · after its tab was away and back: scrollTop ${landed.scrollBack}`);
+claim("the search panel stays open, and the session is still there behind the editor, its terminal back when its tab comes forward",
+  landed.still && landed.sessionTab && landed.terminal, JSON.stringify({ still: landed.still, sessionTab: landed.sessionTab, terminal: landed.terminal }));
 
 // ---- a second hit in the same file moves the same editor -------------------
 writeFileSync(join(work, "inner", "deep.txt"), deep.map((l, i) => (i === 19 ? "line 20 NEEDLE again" : l)).join("\n") + "\n");

@@ -84,12 +84,55 @@ if (repo) {
 }
 
 // The binary build.sh leaves behind, wherever this is run from.
-const APP = "/tmp/plxr3-app";
+const APP = process.env.PLXR_APP || "/tmp/plxr3-app";
 if (!existsSync(APP)) {
-  console.log("  /tmp/plxr3-app is not there — run ./build.sh first");
+  console.log(`  ${APP} is not there — run ./build.sh first`);
   process.exit(1);
 }
 const app = spawn(APP, ["daemon"], { env: { ...process.env, PLXR_HOME: home }, stdio: "ignore" });
+
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash, an unhandled rejection or ^C used to leave the browser and the
+ * service running: fourteen headless browsers holding 4.6 GB were found on
+ * one machine, most from gates that had crashed before their cleanup. The
+ * service detaches itself, so the process that listens is the one named in
+ * daemon.json — this gate never ended that one at all, only the launcher.
+ * Registered the moment there is something to end; the browser and its
+ * profile do not exist yet at first, and reaching for them then throws,
+ * which is caught. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  try { chrome.kill(); browserExited(chrome); } catch { /* not started yet, or gone */ }
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (let i = 0; i < 20; i++) {
+    try { rmSync(profile, { recursive: true, force: true }); break; }
+    catch (e) { if (e instanceof ReferenceError) break; const until = Date.now() + 100; while (Date.now() < until); }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
 
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
@@ -134,13 +177,7 @@ const chrome = spawn(browser, [
 ], { stdio: "ignore" });
 
 function stop(code) {
-  try { chrome.kill(); } catch { /* gone */ }
-  try { app.kill(); } catch { /* gone */ }
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(profile, { recursive: true, force: true }); break; }
-    catch { const until = Date.now() + 100; while (Date.now() < until); }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 
@@ -206,6 +243,17 @@ const HELPERS = `
   const set = (el, v) => { Object.getOwnPropertyDescriptor(Object.getPrototypeOf(el),'value').set.call(el, v);
     el.dispatchEvent(new Event('input', { bubbles: true })); };
   const byText = (sel, re) => [...document.querySelectorAll(sel)].find(e => re.test(e.textContent.trim()));
+  /* The folders are a tab of main, and every file opens as a tab of main in
+     front of them. The dock renders only the tab in front, so the folder bar
+     and the tree are not in the page until the folders' tab is brought
+     forward — on the pointer, which is where dockview makes a tab active. */
+  const folders = async () => {
+    const t = byText('.plxrDock .panelTabName', /^Folders$/)?.closest('.dv-tab');
+    if (!t) return;
+    t.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    t.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, button: 0, pointerId: 1 }));
+    await wait(500);
+  };
 `;
 
 // ---- the view opens, with the folder in it ---------------------------------
@@ -328,6 +376,7 @@ claim("what was typed in the editor is on disk afterwards",
 /* ---- undo must not undo the file itself --------------------------------- */
 const undone = await run(`${HELPERS}
   byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
+  await folders();
   byText('.folderbarLow button', /^FILES$/)?.click(); await wait(700);
   const row = byText('.frow', /a\\.go/);
   if (!row) return { err: 'a.go is not in the tree' };
@@ -371,6 +420,7 @@ claim("undo does not undo the arrival of the file",
  * and the first keeps its edit; back on its tab, the edit is still there. */
 const guarded = await run(`${HELPERS}
   byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
+  await folders();
   byText('.folderbarLow button', /^FILES$/)?.click(); await wait(700);
   const rowFor = (suffix) => [...document.querySelectorAll('.frow')].find(r => (r.dataset.path || '').endsWith(suffix));
   const expand = (name) => { const f = [...document.querySelectorAll('.frow')].find(r => r.querySelector('.fname')?.textContent.trim() === name); if (f) f.click(); };
@@ -386,7 +436,9 @@ const guarded = await run(`${HELPERS}
   document.execCommand('insertText', false, 'UNSAVEDEDIT');
   await wait(400);
   const dirty = !!document.querySelector('.dirty');
-  // now click the other same-named file, still unsaved
+  // now click the other same-named file, still unsaved — from the tree, which
+  // went behind the editor that just opened
+  await folders();
   expand('two'); await wait(600);
   const other = rowFor('two/same.txt');
   if (other) other.click();
@@ -395,7 +447,8 @@ const guarded = await run(`${HELPERS}
   // A tab switches on the pointer, not on click.
   const shown = () => [...document.querySelectorAll('.editorPanel')].find(e => e.offsetParent !== null);
   const otherShown = (shown()?.querySelector('.cm-content')?.innerText || '');
-  const tabs = [...document.querySelectorAll('.dv-tab')].filter(t => (t.textContent || '').trim() === 'same.txt');
+  // A tab's text carries its icon beside the title; the title is .panelTabName.
+  const tabs = [...document.querySelectorAll('.dv-tab')].filter(t => (t.querySelector('.panelTabName')?.textContent || '').trim() === 'same.txt');
   const firstTab = tabs[0];
   if (firstTab) { firstTab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 1 })); firstTab.click(); }
   await wait(600);
@@ -409,6 +462,7 @@ claim("unsaved edits are kept when another file is opened: each file is its own 
 // ---- the search finds a word and lands on its line -------------------------
 const found = await run(`${HELPERS}
   byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
+  await folders();
   byText('.folderbarLow button', /^FIND$/).click(); await wait(800);
   const box = document.querySelector('.filesearch input');
   set(box, 'FINDTHISWORD'); await wait(200);
@@ -435,6 +489,7 @@ claim("clicking a hit opens that file on that line",
 if (repo) {
   const changes = await run(`${HELPERS}
     byText('.editorPanel button', /^CLOSE$/)?.click(); await wait(600);
+    await folders();
     byText('.folderbarLow button', /^FILES$/).click(); await wait(900);
     const count = document.querySelector('.branchword');
     if (!count) return { err: 'no count in the bar' };
@@ -450,6 +505,7 @@ if (repo) {
     (changes.groups || []).length >= 2, (changes.groups || []).join(" / "));
 
   const branches = await run(`${HELPERS}
+    await folders();
     byText('.folderbarLow button', /^BRANCHES$/).click(); await wait(2000);
     const rows = [...document.querySelectorAll('.branchrow')];
     return { first: rows[0]?.querySelector('.branchname')?.textContent.trim(),
@@ -462,6 +518,7 @@ if (repo) {
 
 // ---- the column can be made wider ----------------------------------------
 const width = await run(`${HELPERS}
+  await folders();
   byText('.folderbarLow button', /^FILES$/).click(); await wait(800);
   const w = () => getComputedStyle(document.documentElement).getPropertyValue('--files-w').trim();
   const before = w();

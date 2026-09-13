@@ -28,13 +28,14 @@
  *   the same menu entry twice puts a tool away but never a panel in main;
  *   a second tool replaces the first in a side region and leaves an editor
  *     with unsaved work alone;
+ *   ⌘B, ⌥⌘B and ⌘J fold a tool region away and bring the same panels back;
  *   ⌘W goes through the guard, ⌥⌘← → walk the panels, ⌥⌘↑ ↓ the groups.
  *
  * Held against a service started from this build, the way clicked.mjs does it;
  * the session and the folder it needs are made for the check and taken away
  * afterwards, and the arrangement the service had is put back.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -146,6 +147,41 @@ writeFileSync(join(work, "beta.txt"), "four\nfive\n");
 
 let made = null;
 let space = null;
+
+/* A crash, an unhandled rejection or ^C goes through stop() too, so the
+ * service gets its arrangement back; and whatever cannot even get that far,
+ * the exit still ends the browser. Fourteen headless browsers holding 4.6 GB
+ * were found on one machine, most from gates that had crashed before their
+ * cleanup. A second failure while stopping does not wait for the first. */
+let stopping = false;
+const bail = (code) => {
+  if (stopping) process.exit(code);
+  stopping = true;
+  void stop(code);
+};
+/* Chrome writes its profile until it has exited. stop() waits for that; the
+ * exit handler cannot await, so it asks ps — a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+process.on("exit", () => {
+  try { child.kill(); browserExited(child); } catch { /* already gone */ }
+  try { rmSync(work, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
+});
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); bail(1); });
+}
+process.on("SIGINT", () => bail(130));
+process.on("SIGTERM", () => bail(143));
+
 async function stop(code) {
   /* The profile is removed once the browser has let go of it. Removed while it
      was still writing, a run left fifty megabytes behind in the temp directory
@@ -414,11 +450,13 @@ claim(
 /* The drive that produced both complaints: the menu open with the overview,
    then the inbox, then the folders, then the usage — and then the usage away
    again. "I want only three columns", and "why doesn't the first stay as it is
-   and the second take the space back?". Every region is measured at every
-   step, and the numbers are printed rather than summarised. */
+   and the second take the space back?". The folders are a view of main now,
+   so they make no column at all; the changes stand in for a left region, so
+   that one region opening beside another is still measured. Every region is
+   measured at every step, and the numbers are printed rather than summarised. */
 const drive = await run(`${HELPERS}
   const step = async (what, view) => {
-    if (view) await clickMenu(view, view === 'Folders' ? 2200 : 1100);
+    if (view) await clickMenu(view, view === 'Folders' ? 2200 : view === 'Changes' ? 1400 : 1100);
     const s = shot();
     const wide = {};
     for (const g of s) wide[g.tabs.join('+')] = g.b.w;
@@ -428,13 +466,17 @@ const drive = await run(`${HELPERS}
   const out = [];
   out.push(await step('the overview alone'));
   out.push(await step('the inbox, on the right', 'Inbox'));
-  out.push(await step('the folders, on the left', 'Folders'));
+  out.push(await step('the folders, a tab in main', 'Folders'));
+  out.push(await step('the changes, on the left', 'Changes'));
   out.push(await step('the usage, in the inbox\\u2019s place', 'Usage'));
   out.push(await step('the usage away again', 'Usage'));
   return out;
 `);
 const at = (i) => drive[i];
-const widthOf = (s, name) => (s.boxes.find((b) => b.t === name) ?? {}).w ?? -1;
+// The width of the group a panel is in, whatever else is tabbed beside it.
+const widthOf = (s, name) => (s.boxes.find((b) => b.t.split("+").includes(name)) ?? {}).w ?? -1;
+// "Keeps its width" is held to two pixels: dockview rounds a sash's position.
+const near = (a, b) => a > 0 && b > 0 && Math.abs(a - b) <= 2;
 const printed = drive.map((s) => `${s.what}: menu ${s.rail}, ${s.boxes.map((b) => `${b.t} ${b.w}`).join(", ")} (${s.columns} columns)`).join(" · ");
 
 claim(
@@ -449,23 +491,32 @@ claim(
 );
 claim(
   "opening a region on the right takes the space out of main and nothing else",
-  widthOf(at(1), "Inbox") > 0 && at(1).main === at(0).main - widthOf(at(1), "Inbox"),
+  widthOf(at(1), "Inbox") > 0 && near(at(1).main, at(0).main - widthOf(at(1), "Inbox")),
   `main ${at(0).main} → ${at(1).main}, inbox ${widthOf(at(1), "Inbox")}`,
 );
+const mainTabs = (s) => (s.boxes.find((b) => b.t.split("+").includes("Overview")) ?? { t: "" }).t;
 claim(
-  "opening one on the left leaves the right one exactly where it was",
-  Math.abs(widthOf(at(2), "Inbox") - widthOf(at(1), "Inbox")) <= 1 && at(2).main === at(1).main - widthOf(at(2), "Folders"),
-  `right ${widthOf(at(1), "Inbox")} → ${widthOf(at(2), "Inbox")}, left ${widthOf(at(2), "Folders")}, main ${at(1).main} → ${at(2).main}`,
+  "the folders open as a tab of main and move nothing",
+  mainTabs(at(2)).split("+").includes("Folders") &&
+    at(2).columns === at(1).columns &&
+    near(at(2).main, at(1).main) &&
+    near(widthOf(at(2), "Inbox"), widthOf(at(1), "Inbox")),
+  `main holds ${mainTabs(at(2))}, columns ${at(1).columns} → ${at(2).columns}, main ${at(1).main} → ${at(2).main}, right ${widthOf(at(1), "Inbox")} → ${widthOf(at(2), "Inbox")}`,
+);
+claim(
+  "opening one on the left leaves the right one where it was, and main pays for it",
+  near(widthOf(at(3), "Inbox"), widthOf(at(2), "Inbox")) && widthOf(at(3), "Changes") > 0 && near(at(3).main, at(2).main - widthOf(at(3), "Changes")),
+  `right ${widthOf(at(2), "Inbox")} → ${widthOf(at(3), "Inbox")}, left ${widthOf(at(3), "Changes")}, main ${at(2).main} → ${at(3).main}`,
 );
 claim(
   "a second tool in the same region moves nothing at all",
-  widthOf(at(3), "Usage") === widthOf(at(2), "Inbox") && at(3).main === at(2).main && widthOf(at(3), "Folders") === widthOf(at(2), "Folders"),
-  `left ${widthOf(at(2), "Folders")} → ${widthOf(at(3), "Folders")}, main ${at(2).main} → ${at(3).main}, right ${widthOf(at(2), "Inbox")} → ${widthOf(at(3), "Usage")}`,
+  near(widthOf(at(4), "Usage"), widthOf(at(3), "Inbox")) && near(at(4).main, at(3).main) && near(widthOf(at(4), "Changes"), widthOf(at(3), "Changes")),
+  `left ${widthOf(at(3), "Changes")} → ${widthOf(at(4), "Changes")}, main ${at(3).main} → ${at(4).main}, right ${widthOf(at(3), "Inbox")} → ${widthOf(at(4), "Usage")}`,
 );
 claim(
   "closing it gives the space back to main, with the untouched region untouched",
-  Math.abs(widthOf(at(4), "Folders") - widthOf(at(3), "Folders")) <= 1 && at(4).main === at(3).main + widthOf(at(3), "Usage"),
-  `left ${widthOf(at(3), "Folders")} → ${widthOf(at(4), "Folders")}, main ${at(3).main} → ${at(4).main} (it gave up ${widthOf(at(3), "Usage")})`,
+  near(widthOf(at(5), "Changes"), widthOf(at(4), "Changes")) && widthOf(at(5), "Usage") === -1 && near(at(5).main, at(4).main + widthOf(at(4), "Usage")),
+  `left ${widthOf(at(4), "Changes")} → ${widthOf(at(5), "Changes")}, main ${at(4).main} → ${at(5).main} (it gave up ${widthOf(at(4), "Usage")})`,
 );
 claim("every width measured, step by step", true, printed);
 
@@ -483,7 +534,13 @@ const twice = await run(`${HELPERS}
   const firstClick = Boolean(tabNamed('Overview'));
   await clickMenu('Overview', 900);
   const secondClick = Boolean(tabNamed('Overview'));
-  return { toolOpened, toolClosed, overviewThere, firstClick, secondClick, active: activeTab() };
+  const active = activeTab();
+  // The folders are a view of main now, and are not put away either.
+  await clickMenu('Folders', 1500);
+  const foldersFront = activeTab() === 'Folders';
+  await clickMenu('Folders', 1100);
+  const foldersStay = Boolean(tabNamed('Folders'));
+  return { toolOpened, toolClosed, overviewThere, firstClick, secondClick, active, foldersFront, foldersStay };
 `);
 claim(
   "the same entry twice puts a tool in a side region away again",
@@ -492,14 +549,17 @@ claim(
 );
 claim(
   "but never a panel in main",
-  twice.overviewThere && twice.firstClick && twice.secondClick,
-  `the overview is still there after two clicks: ${twice.secondClick} (active: ${twice.active})`,
+  twice.overviewThere && twice.firstClick && twice.secondClick && twice.foldersFront && twice.foldersStay,
+  `the overview is still there after two clicks: ${twice.secondClick} (active: ${twice.active}); the folders, in front after the first: ${twice.foldersFront}, still there after the second: ${twice.foldersStay}`,
 );
 
 // ---- the four regions, and the tab menu that names them ----------------------
 /* All four up at once, each with something known in it, so that what the menu
    ticks can be held against where the panel actually is on the screen. */
 const four = await run(`${HELPERS}
+  /* The changes hold the left region since the drive — brought forward, not
+     clicked, so a click cannot put them away. */
+  await showView('Changes', 1400);
   await clickMenu('Inbox', 1100);
   const usage = tabNamed('Usage') || (await clickMenu('Usage', 1100), tabNamed('Usage'));
   if (!usage) return { why: 'the usage view did not open' };
@@ -507,9 +567,9 @@ const four = await run(`${HELPERS}
   await pick('Bottom', 1100);
   await clickMenu('Inbox', 1100);
   const where = regionMap();
-  const b = { left: boxOf('Folders'), main: boxOf('Overview'), right: boxOf('Inbox'), bottom: boxOf('Usage') };
+  const b = { left: boxOf('Changes'), main: boxOf('Overview'), right: boxOf('Inbox'), bottom: boxOf('Usage') };
   const marks = {};
-  for (const n of ['Folders', 'Overview', 'Inbox', 'Usage']) {
+  for (const n of ['Changes', 'Folders', 'Overview', 'Inbox', 'Usage']) {
     const t = tabNamed(n);
     if (!t) { marks[n] = ['no tab']; continue; }
     await rightClick(t);
@@ -559,10 +619,10 @@ if (four.why) {
       ]),
     four.shape.join(" | "),
   );
-  const oneEach = ["Folders", "Overview", "Inbox", "Usage"].every((n) => (four.marks[n] ?? []).length === 1);
+  const oneEach = ["Changes", "Folders", "Overview", "Inbox", "Usage"].every((n) => (four.marks[n] ?? []).length === 1);
   claim("exactly one region is ticked on every tab", oneEach, JSON.stringify(four.marks));
   const TITLE = { left: "Left", main: "Main", right: "Right", bottom: "Bottom" };
-  const mismatched = ["Folders", "Overview", "Inbox", "Usage"].filter(
+  const mismatched = ["Changes", "Folders", "Overview", "Inbox", "Usage"].filter(
     (n) => (four.marks[n] ?? [])[0] !== TITLE[four.where[n]],
   );
   claim(
@@ -667,15 +727,67 @@ claim(
   `it was at y ${floated.bottomBefore?.y} w ${floated.bottomBefore?.w}, it is back at y ${floated.back?.y} w ${floated.back?.w}, ${floated.left} floating left`,
 );
 
+// ---- fold a region away, and the same panels come back -----------------------
+/* A region that could only be closed lost what was in it. The chords fold it
+   away and put back what stood there — so each is pressed twice, and the
+   region's tabs, its box and main's box are read before, between and after. */
+const folding = await run(`${HELPERS}
+  /* Something known in each of the three: the changes on the left since the
+     drive, the inbox docked back at the bottom, the ports on the right. */
+  await showView('Changes', 1400);
+  await showView('Inbox', 1100);
+  await showView('Ports', 1400);
+  const out = [];
+  for (const [label, k, mods, name] of [
+    ['left', 'b', { metaKey: true }, 'Changes'],
+    ['right', 'b', { metaKey: true, altKey: true }, 'Ports'],
+    ['bottom', 'j', { metaKey: true }, 'Inbox'],
+  ]) {
+    // Focus in main, so the chord is read by the window and not by a field.
+    const front = tabNamed('Overview');
+    if (front) await activate(front);
+    const was = { tabs: tabsIn(name), b: boxOf(name), main: boxOf('Overview') };
+    await key(k, mods); await wait(600);
+    const folded = { gone: !tabNamed(name), main: boxOf('Overview'), left: names() };
+    await key(k, mods); await wait(1100);
+    const back = { tabs: tabsIn(name), b: boxOf(name), main: boxOf('Overview') };
+    out.push({ label, name, was, folded, back });
+  }
+  return out;
+`);
+for (const f of folding) {
+  const chord = { left: "⌘B", right: "⌥⌘B", bottom: "⌘J" }[f.label];
+  const along = f.label === "bottom" ? "h" : "w";
+  if (!f.was.b || !f.was.main) {
+    unmeasured(`${chord} folds the ${f.label} region away and brings it back`, `${f.name} or the overview was not on screen to fold`);
+    continue;
+  }
+  const gained = f.folded.main ? f.folded.main[along] - f.was.main[along] : NaN;
+  claim(
+    `${chord} folds the ${f.label} region away, and main takes the room`,
+    f.folded.gone && Math.abs(gained - f.was.b[along]) <= 2,
+    `${f.name} gone ${f.folded.gone} · it was ${f.was.b[along]}px ${along === "w" ? "wide" : "high"}, main ${f.was.main[along]} → ${f.folded.main?.[along]} (took ${gained}) · left on screen ${JSON.stringify(f.folded.left)}`,
+  );
+  const same = (a, b) => b && Math.abs(a.x - b.x) <= 2 && Math.abs(a.y - b.y) <= 2 && Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2;
+  claim(
+    `${chord} again brings the same panels back, where they were and as big`,
+    JSON.stringify(f.back.tabs) === JSON.stringify(f.was.tabs) && same(f.was.b, f.back.b),
+    `${JSON.stringify(f.was.tabs)} at ${f.was.b.x},${f.was.b.y} ${f.was.b.w}×${f.was.b.h} → ${JSON.stringify(f.back.tabs)} at ${f.back.b?.x},${f.back.b?.y} ${f.back.b?.w}×${f.back.b?.h}`,
+  );
+}
+
 // ---- close others, close group, and the two splits ---------------------------
 /* Two tools can no longer share a region by clicking twice — that is the point
    of the menu — so the two tabs this needs are two of the things that live in
    main: the files the editor opens. */
 const many = await run(`${HELPERS}
-  await clickMenu('Folders', 2500);
+  await showView('Folders', 2500);
   const alpha = byText('.frow', /alpha\\.txt/);
   if (!alpha) return { why: 'alpha.txt is not in the tree' };
   alpha.click(); await wait(2200);
+  /* The folders are a tab of main, and the editor they opened now stands in
+     front of them: the tree is brought forward again for the second file. */
+  await showView('Folders', 900);
   const beta = byText('.frow', /beta\\.txt/);
   if (!beta) return { why: 'beta.txt is not in the tree' };
   beta.click(); await wait(2200);
@@ -733,6 +845,8 @@ const swapped = await run(`${HELPERS}
      on the tool in front puts it away, so the tree is brought forward rather
      than clicked shut. */
   await showView('Overview', 900);
+  // A tool in the left region to be replaced, whatever the steps before left.
+  await showView('Changes', 1400);
   await showView('Folders', 2500);
   const alpha = byText('.frow', /alpha\\.txt/);
   if (!alpha) return { why: 'alpha.txt is not in the tree' };
@@ -752,17 +866,17 @@ const swapped = await run(`${HELPERS}
   document.execCommand('insertText', false, 'UNSAVEDEDIT\\n');
   await wait(700);
   const dirty = Boolean(document.querySelector('.editorPanel .dirty'));
-  const withFolders = tabsIn('alpha.txt');
-  await clickMenu('Changes', 1400);
   const withChanges = tabsIn('alpha.txt');
   await clickMenu('Search', 1400);
   const withSearch = tabsIn('alpha.txt');
+  await clickMenu('Review', 1400);
+  const withReview = tabsIn('alpha.txt');
   /* The tab says so too — read after the tab has been through the front, which
      is when it is drawn again. */
-  await activate(tabNamed('Search'));
+  await activate(tabNamed('Review'));
   await activate(tabNamed('alpha.txt'));
   const marked = tabNamed('alpha.txt').querySelector('.panelTab').dataset.dirty;
-  return { sideBox, mainBox, dirty, withFolders, withChanges, withSearch, marked, shot: shot() };
+  return { sideBox, mainBox, dirty, withChanges, withSearch, withReview, marked, shot: shot() };
 `);
 if (swapped.why) {
   unmeasured("a second tool in a side region replaces the first", swapped.why);
@@ -774,17 +888,17 @@ if (swapped.why) {
   );
   claim(
     "a second tool in a side region replaces the first",
-    swapped.withFolders.includes("Folders") &&
-      swapped.withChanges.includes("Changes") &&
-      !swapped.withChanges.includes("Folders") &&
+    swapped.withChanges.includes("Changes") &&
       swapped.withSearch.includes("Search") &&
-      !swapped.withSearch.includes("Changes"),
-    `${JSON.stringify(swapped.withFolders)} → ${JSON.stringify(swapped.withChanges)} → ${JSON.stringify(swapped.withSearch)}`,
+      !swapped.withSearch.includes("Changes") &&
+      swapped.withReview.includes("Review") &&
+      !swapped.withReview.includes("Search"),
+    `${JSON.stringify(swapped.withChanges)} → ${JSON.stringify(swapped.withSearch)} → ${JSON.stringify(swapped.withReview)}`,
   );
   claim(
     "and the editor with unsaved work in that region is left alone",
-    swapped.dirty && swapped.withChanges.includes("alpha.txt") && swapped.withSearch.includes("alpha.txt"),
-    `unsaved ${swapped.dirty}, the tab's own mark says ${swapped.marked}; the region holds ${JSON.stringify(swapped.withSearch)}`,
+    swapped.dirty && swapped.withSearch.includes("alpha.txt") && swapped.withReview.includes("alpha.txt"),
+    `unsaved ${swapped.dirty}, the tab's own mark says ${swapped.marked}; the region holds ${JSON.stringify(swapped.withReview)}`,
   );
 }
 

@@ -18,7 +18,7 @@
  * No dependencies: the browser already on the machine, over its debugging
  * protocol, the way changes.mjs does it.
  */
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync, existsSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -138,6 +138,48 @@ const app = spawn(APP, ["daemon"], {
   stdio: "ignore",
 });
 
+/* Everything this run starts is ended from wherever it stops.
+ *
+ * A crash, an unhandled rejection or ^C used to leave the browser and the
+ * service running: fourteen headless browsers holding 4.6 GB were found on
+ * one machine, most from gates that had crashed before their cleanup. The
+ * service detaches itself, so the process that listens is the one named in
+ * daemon.json. Registered the moment there is something to end; the browser
+ * and its profile do not exist yet at first, and reaching for them then
+ * throws, which is caught. */
+/* Chrome writes its profile until it has exited, so a profile removed right
+ * after the kill came back as a folder of 88K. Waited for synchronously — an
+ * exit handler cannot await — by asking ps: a child that has exited stays a
+ * zombie until the event loop collects it, and that loop does not run here. */
+const browserExited = (proc) => {
+  const until = Date.now() + 5000;
+  while (Date.now() < until) {
+    try {
+      if (execFileSync("ps", ["-o", "stat=", "-p", String(proc.pid)], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).includes("Z")) return;
+    } catch { return; /* ps knows no such process */ }
+    const t = Date.now() + 50; while (Date.now() < t);
+  }
+};
+let gateEnded = false;
+const endEverything = () => {
+  if (gateEnded) return;
+  gateEnded = true;
+  try { chrome.kill(); browserExited(chrome); } catch { /* not started yet, or gone */ }
+  try { process.kill(JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid); } catch { /* gone */ }
+  try { app.kill(); } catch { /* gone */ }
+  for (let i = 0; i < 20; i++) {
+    try { rmSync(profile, { recursive: true, force: true }); break; }
+    catch (e) { if (e instanceof ReferenceError) break; const until = Date.now() + 100; while (Date.now() < until); }
+  }
+  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+};
+process.on("exit", endEverything);
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
+}
+process.on("SIGINT", () => process.exit(130));
+process.on("SIGTERM", () => process.exit(143));
+
 let info = null;
 for (let i = 0; i < 80 && !info; i++) {
   try {
@@ -179,17 +221,7 @@ const chrome = spawn(browser, [
 ], { stdio: "ignore" });
 
 function stop(code) {
-  try { chrome.kill(); } catch { /* gone */ }
-  try {
-    const pid = JSON.parse(readFileSync(join(home, "daemon.json"), "utf8")).pid;
-    process.kill(pid);
-  } catch { /* gone */ }
-  try { app.kill(); } catch { /* gone */ }
-  for (let i = 0; i < 20; i++) {
-    try { rmSync(profile, { recursive: true, force: true }); break; }
-    catch { const until = Date.now() + 100; while (Date.now() < until); }
-  }
-  try { rmSync(home, { recursive: true, force: true }); } catch { /* later */ }
+  endEverything();
   process.exit(code);
 }
 
@@ -310,8 +342,10 @@ const HELPERS = `
 `;
 
 const open = await tab.run(`${HELPERS}
-  // By its glyph, not its name: the window may be running in either language.
-  [...document.querySelectorAll('.railhome .rdot')].find(d => d.textContent.trim() === '\u25a4')?.closest('.railitem').click();
+  /* By its glyph, not its name: the window may be running in either language.
+     The glyph is the one Rail.tsx gives usage since the four regions (\u2564); the
+     \u25a4 this looked for before matched nothing, and the view was never opened. */
+  [...document.querySelectorAll('.railhome .rdot')].find(d => d.textContent.trim() === '\u2564')?.closest('.railitem').click();
   const got = await until(() => document.querySelectorAll('.uacct').length === 3 ? cards() : null, 12000);
   return { cards: got.v, ms: got.ms,
     head: document.querySelector('.listbody .uhead')?.textContent.trim() ?? '',
@@ -364,6 +398,18 @@ const rest = await tab.run(`${HELPERS}
     railMark: document.querySelector('.railhome.railhot .rmeta')?.textContent.trim() ?? '',
     railName: document.querySelector('.railhome.railhot .rname')?.textContent.trim() ?? '',
     overflow: document.querySelector('.listbody')?.scrollWidth <= document.querySelector('.listbody')?.clientWidth,
+    // What is too wide, measured, so a failure says where the sideways scroll comes from.
+    widths: (() => {
+      const body = document.querySelector('.listbody');
+      if (!body) return null;
+      const r = body.getBoundingClientRect();
+      const group = body.closest('.dv-groupview')?.getBoundingClientRect();
+      const wide = [...body.querySelectorAll('*')]
+        .filter(e => e.getBoundingClientRect().right > r.right + 1)
+        .map(e => String(e.className || e.tagName) + ' ' + Math.round(e.getBoundingClientRect().width) + 'px')
+        .slice(0, 6);
+      return { client: body.clientWidth, scroll: body.scrollWidth, group: group ? Math.round(group.width) : -1, wide };
+    })(),
   };
 `);
 const table = rest.models.find((m) => m.rows.length);
@@ -376,7 +422,8 @@ claim("the foot says where the numbers come from and how fresh they are",
   /\.claude/.test(rest.foot) && /\d/.test(rest.foot) && rest.foot.length > 80, rest.foot.replace(/\s+/g, " "));
 claim("the rail marks USAGE while an account is nearly out",
   rest.railHot && rest.railMark.length > 0, `${rest.railName} ${rest.railMark}`);
-claim("the view does not scroll sideways", rest.overflow !== false, rest.overflow === false ? "the body is wider than its panel" : "fits");
+claim("the view does not scroll sideways", rest.overflow !== false,
+  `${rest.overflow === false ? "the body is wider than its panel" : "fits"}: ${JSON.stringify(rest.widths)}`);
 
 /* The account picker marks the same account before a session is started on
    it — which is the moment the choice still costs nothing. The picker in the
