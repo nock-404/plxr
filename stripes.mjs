@@ -721,6 +721,52 @@ const contained = await run(`${HELPERS}
   );
 }
 
+// ---- main split while both sides show ------------------------------------------
+/* Main's floor is what main needs, and it needs more once it is split: two
+   groups side by side each keep their minimum. A split made while both sides
+   were showing had nothing after it to bring the floor round — no resize, no
+   edge change — and at 1100 the second group lay 247 pixels under the right
+   tool window. So at each width main is made one column, both sides are
+   shown, and a file is opened from the tree, which splits main in two. */
+const splitWhileOpen = [];
+for (const w of [1600, 1100, 900]) {
+  await view(w);
+  await sleep(900);
+  splitWhileOpen.push(
+    await run(`${HELPERS}
+      for (const name of ['alpha.txt', 'beta.txt']) { const t = tabNamed(name); if (t) { t.querySelector('.panelTabClose')?.click(); await wait(400); } }
+      if (!toolLit('files')) await click('files', 900);
+      if (!toolLit('usage')) await click('usage', 900);
+      await wait(600);
+      const px = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
+      const read = () => {
+        const l = edgeBox('files'); const r = edgeBox('usage'); const gs = gridGroups().map(g => g.b).filter(b => b.w > 0);
+        const left = Math.min(...gs.map(b => b.x)); const right = Math.max(...gs.map(b => b.x + b.w));
+        return { shell: box(document.querySelector('.dv-shell')).w, left: l?.w ?? 0, main: grid().w, right: r?.w ?? 0, columns: new Set(gs.map(b => b.x)).size,
+          under: Math.max(0, l ? l.x + l.w - left : 0, r ? right - r.x : 0) };
+      };
+      const before = read();
+      const row = await until(() => [...(win('files')?.querySelectorAll('.frow') ?? [])].find(r => (r.querySelector('.fname') || {}).textContent?.trim() === 'alpha.txt'), 6000);
+      row?.click();
+      await until(() => tabNamed('alpha.txt'), 5000);
+      await wait(1200);
+      return { width: innerWidth, mainMin: px('--main-min'), sideMin: px('--side-min'), before, after: read() };
+    `),
+  );
+}
+{
+  const need = (f) => 2 * f.sideMin + f.after.columns * f.mainMin;
+  const roomy = (f) => f.after.shell >= need(f);
+  claim(
+    "main split in two while both sides show: wherever there is room nothing of main is under a tool window and main keeps both groups' floor",
+    splitWhileOpen.every((f) => f.after.columns === 2 && (!roomy(f) || (f.after.under <= 1 && f.after.main >= f.after.columns * f.mainMin - 1))) &&
+      splitWhileOpen.some((f) => roomy(f) && f.before.main < 2 * f.mainMin),
+    splitWhileOpen
+      .map((f) => `${f.width}px: sides ${f.before.left}+${f.before.right} → ${f.after.left}+${f.after.right} · main ${f.before.main} → ${f.after.main} (${f.after.columns} columns) · under a window ${f.after.under} · ${roomy(f) ? "room" : `no room, the shell is ${f.after.shell} and both sides at their minimum with two groups need ${need(f)}`}`)
+      .join(" | "),
+  );
+}
+
 // ---- main's floor, and never under a tool window ------------------------------
 const floor = [];
 await run(`${HELPERS} if (!toolLit('files')) await click('files', 700); if (!toolLit('usage')) await click('usage', 900);`);

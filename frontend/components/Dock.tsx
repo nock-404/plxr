@@ -1399,6 +1399,12 @@ export default function Dock({
         if (!dragging) clampMain(host, boxRef.current, dv.minimumWidth);
       });
     };
+    /* What main needs changes with main itself: two groups side by side each
+       keep their own minimum. A split made while both sides were showing had
+       no resize and no edge change after it to bring the floor round, and left
+       the second group 247 pixels under the right tool window at 1100. So
+       every change of main's layout is a reason to look at the floor again. */
+    dv.onDidLayoutChange(clampSoon);
     host.onChange(() => {
       const now = shownOf(host);
       setShownTools((was) => (EDGES.every((e) => was[e] === now[e]) ? was : now));
