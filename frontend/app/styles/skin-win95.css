@@ -68,6 +68,7 @@
 [data-skin="win95"] .viewerbody,
 [data-skin="win95"] .tbody,
 [data-skin="win95"] .files,
+[data-skin="win95"] .folderinfo,
 [data-skin="win95"] .pterm,
 [data-skin="win95"] .slider-track {
   background: #fff;
@@ -413,3 +414,39 @@
 [data-skin="win95"] .sessionTabBell { background: var(--blocked); border-radius: 0; border: var(--hair) solid var(--dk); }
 
 [data-skin="win95"] .panelTabIcon { color: var(--dk); text-shadow: none; }
+/* ---- the folder's standing, in grey plastic ----
+   This skin writes plainly: no capitals, no letter-spacing, and emphasis is
+   weight rather than a colour. Never a bevel — a bevel here would say "press
+   me", and it took a look at the real thing to see that the browser's own grey
+   pill had been saying exactly that all along.
+
+   The two colours are chosen for the ground they land on, which in this skin
+   is the teal desktop: measured, --dim on teal is 1.8:1, which is text nobody
+   reads twice. White is what this system has always written on the desktop
+   and black is what it emphasises with, so the words are white and the count
+   is bold black — the same order of loudness, in the two inks that carry. */
+[data-skin="win95"] .branchword {
+  color: var(--hi);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .branchdist { color: var(--hi); }
+[data-skin="win95"] .branchnum { color: var(--dk); font-weight: bold; }
+[data-skin="win95"] button.branchword:not(:disabled):hover { color: var(--dk); text-decoration: underline; }
+[data-skin="win95"] button.branchword:not(:disabled):hover .branchnum { color: var(--dk); text-decoration: none; }
+[data-skin="win95"] .branchword:disabled { color: var(--panel); font-weight: normal; text-shadow: none; }
+[data-skin="win95"] .branchword:disabled .branchnum { color: var(--panel); font-weight: normal; }
+/* The overview below reads on a sunken white box, so its quiet text stays
+   dark: the same word in two places, two grounds, two inks. */
+[data-skin="win95"] .infoname {
+  color: var(--dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 1em;
+}
+[data-skin="win95"] .commitrefs { color: var(--accent); letter-spacing: 0; font-size: 1em; }
+[data-skin="win95"] .commithash, [data-skin="win95"] .commitwhen, [data-skin="win95"] .commitpath { color: var(--dim); }
+[data-skin="win95"] .commitrow, [data-skin="win95"] .infovalue, [data-skin="win95"] .infosubject { color: var(--dk); }
+[data-skin="win95"] .infotext { color: var(--dim); }
+[data-skin="win95"] .infohead { color: var(--accent); text-transform: none; letter-spacing: 0; font-size: 1em; }

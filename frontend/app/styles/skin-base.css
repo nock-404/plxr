@@ -767,8 +767,51 @@ button.diffline:hover .difftext { text-decoration: underline; text-decoration-co
 .branchname { color: var(--fg); }
 .branchname[data-on="yes"] { color: var(--accent); }
 .branchdist { color: var(--dim); font-size: .8em; }
-.branchword { color: var(--dead); font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+/* A count and the word for it, read as one status: the number carries, the
+   word beside it does not. Every number in this bar wears the accent — the
+   files that differ, the commits ahead, the commits behind — because the
+   number is the part that changes and the part somebody is looking for. */
+.branchnum { color: var(--accent); }
+/* The words of a status, never a control.
+   This was var(--dead) on an unreset <button>, which is to say: the system's
+   grey pill with greyed-out text in it, in a bar of skinned controls. It is a
+   status now — dim words, an accent number — and it says under the pointer
+   that it opens the list it is counting. */
+.branchword { color: var(--dim); font-size: .78em; letter-spacing: .06em; text-transform: uppercase; }
+button.branchword:not(:disabled):hover { color: var(--accent); }
+button.branchword:not(:disabled):hover .branchnum { text-decoration: underline; }
+button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: .12rem; }
+/* Nothing to show is still something to say. It goes quiet rather than grey:
+   there is no dead control here, only a folder with nothing in it. */
+.branchword:disabled { color: var(--dead); }
+.branchword:disabled .branchnum { color: var(--dead); }
 .branchsubject { color: var(--dim); font-size: .85em; }
+
+/* ---- what the folder is ---- */
+/* The head of a section, in the accent: three levels on one page — the heading
+   carries, the name beside a value is quiet, the value itself is the text. */
+.infohead { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .72em; }
+/* A name and its value. The name is the quiet half — it is the same word every
+   time — and the value is what was looked up. Quiet, not faint: --dead is the
+   colour of a heading nobody has to read, and these are the keys to the values
+   beside them. Read on the tube, "LAST FETCH" in --dead was not there at all. */
+.infoname { color: var(--dim); letter-spacing: .12em; text-transform: uppercase; font-size: .7em; }
+.infovalue { color: var(--fg); font-size: .9em; }
+/* A commit's message body and a README, as they were written. */
+.infotext { color: var(--dim); font-size: .85em; line-height: 1.5; }
+.infosubject { color: var(--fg); }
+/* One commit in the history, as a row that opens what it changed. */
+.commitrow { color: var(--fg); }
+.commitrow:hover .commitsubject { color: var(--accent); }
+.commitrow.on .commitsubject { color: var(--accent); }
+.commitrow:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: .1rem; }
+.commithash { color: var(--dim); font-size: .85em; }
+.commitwhen { color: var(--dead); font-size: .8em; }
+.commitsubject { color: var(--fg); }
+/* What points at a commit — a branch, a tag. The one thing in the history that
+   turns a list of sentences into a place. */
+.commitrefs { color: var(--accent); font-size: .75em; letter-spacing: .04em; }
+.commitpath { color: var(--dim); font-size: .82em; }
 
 /* Where you are. Read before anything else in this panel, so it carries. */
 .branchline { color: var(--accent); letter-spacing: .06em; text-transform: uppercase; font-size: .78em; }

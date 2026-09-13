@@ -174,6 +174,16 @@ step "editor works" node editor.mjs
 # one `git status` loop for two windows and none once they are gone.
 step "changes follow" node changes.mjs
 
+# The other half of the folders view, and the bar above it. Two faults lived
+# here that no gate could see, because both were about what a computed style
+# resolves to: the changed-files chip was the browser's own grey pill, in all
+# four skins at once, and the wide half of the view said "pick a file" across
+# half the window about a folder it was looking straight at. So this one reads
+# the overview back — a commit subject, a count, a remote, a tag, out of a
+# repository built for the check — and measures the chip's background, border
+# and two colours in every skin.
+step "folder overview" node folders.mjs
+
 # Files managed from the tree and the project searched from a panel: a file
 # made from a row's context menu, renamed, moved through the folder picker
 # and deleted after the question — each held against the disk and the

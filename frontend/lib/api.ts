@@ -4,6 +4,7 @@ import { base, token } from "./token";
 import type {
   Account, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port,
   NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia,
+  FolderReport, GitCommitDetail,
 } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
@@ -97,6 +98,13 @@ export const api = {
   history: (id: string, n = 20) =>
     req<GitEntry[]>(`/api/history/${encodeURIComponent(id)}?n=${n}`),
   position: (id: string) => req<GitWhere>(`/api/position/${encodeURIComponent(id)}`),
+  /* Everything the folder overview shows, in one answer: where the branch
+     stands, what HEAD did, the remotes, and the plain facts of the directory.
+     One call rather than eight, so the panel is never half drawn. */
+  folder: (id: string) => req<FolderReport>(`/api/folder/${encodeURIComponent(id)}`),
+  /* One commit in full, with the files it touched. No hash means HEAD. */
+  commitDetail: (id: string, hash = "") =>
+    req<GitCommitDetail>(`/api/commit/${encodeURIComponent(id)}?hash=${encodeURIComponent(hash)}`),
 
   changes: (id: string) => req<GitChange[]>(`/api/changes/${encodeURIComponent(id)}`),
   /* With a base the diff is a range: the working tree against the merge-base

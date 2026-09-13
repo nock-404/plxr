@@ -613,7 +613,15 @@ body {
 .branchrow { display: grid; grid-template-columns: auto auto 1fr auto auto; align-items: baseline; gap: 0 0.4rem; padding: 0.2rem 0; }
 .branchname { grid-row: 1; grid-column: 1; }
 .branchdist { grid-row: 1; grid-column: 2; }
-.branchword { grid-row: 1; grid-column: 3; }
+/* A live status, not a control.
+   It says how many files differ and it opens the list that names them, so it
+   has to be a button — for the keyboard and for anything reading the screen
+   out loud. What it must not be is a button to look at: nothing here resets
+   what the browser draws around a <button>, so it came out as the system's own
+   grey pill in the middle of a bar of skinned controls, and greyed out to
+   boot. Every other bare button in this file carries the same three lines. */
+.branchword { grid-row: 1; grid-column: 3; background: none; border: 0; font: inherit; padding: 0; text-align: left; }
+button.branchword:not(:disabled) { cursor: pointer; }
 .branchrow button { grid-row: 1; }
 .branchsubject { grid-row: 2; grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .branchrow .logwhen { grid-row: 2; grid-column: 5; }
@@ -702,6 +710,62 @@ button.diffline { cursor: pointer; }
 .foldergit { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
 .foldergit .branchname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 18rem; }
 .folderTab { padding: 0 0.5rem; background: none; border: 0; font: inherit; cursor: pointer; }
+
+/* ---------- what the folder is ----------
+
+   The wide half of the folders view, when no difference is open. It used to
+   hold an empty box reading "pick a file" across half the window — half a
+   screen saying nothing about the folder it was looking straight at. It now
+   carries what a person looks up before touching a folder: where the branch
+   stands, what HEAD did, what has changed, where the remote is, what the
+   directory is made of, and what its README says.
+
+   One column that scrolls: the sections read top to bottom, and a second
+   column at this width would halve every path in it. */
+.folderinfo { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 0.75rem 1rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+.infoblock { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+/* A section heading, with room for a button beside it.
+   Its own class rather than .uhead: .uhead is the quiet label of a group in a
+   list, and on a page made of eight sections a heading nobody can pick out is
+   a page nobody can read. Read on the tube, "WHERE IT STANDS" in .uhead's
+   --dead was not there at all. */
+.infohead { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+/* Name and value in two columns, so the values line up down the whole block
+   rather than each starting wherever its label happened to end. */
+.infofacts { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; align-items: baseline; min-width: 0; }
+.infoname { white-space: nowrap; }
+/* A value wraps rather than being cut off, and can be picked up.
+   With an ellipsis it read "never — nothing has been fetched i…" in a panel
+   this wide, which is a fact turned back into a guess; and a path or a remote's
+   address is exactly the thing somebody is here to copy. */
+.infovalue { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+/* A commit message body and a README: whitespace as written, and a ceiling, so
+   a long README does not push everything below it off the screen. */
+.infotext { white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; max-height: 16rem; overflow-y: auto; margin: 0; }
+.infosubject { min-width: 0; overflow-wrap: anywhere; user-select: text; }
+/* One commit in the history. Two lines: who, when and the subject across the
+   top, whatever points at it underneath — a row that only fits on one line is
+   a row whose subject is cut off after two words. */
+.commitrow {
+  display: grid; grid-template-columns: auto auto 1fr; gap: 0 0.5rem;
+  align-items: baseline; min-width: 0; width: 100%;
+  background: none; border: 0; font: inherit; text-align: left; cursor: pointer;
+  padding: 0.2rem 0;
+}
+.commithash { grid-row: 1; grid-column: 1; }
+.commitwhen { grid-row: 1; grid-column: 2; white-space: nowrap; }
+.commitsubject { grid-row: 1; grid-column: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commitmeta { grid-row: 2; grid-column: 1 / -1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 0.5rem; }
+.commitrefs { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The files of a commit, under the row that was clicked. */
+.commitfiles { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.15rem 0 0.4rem 1rem; min-width: 0; }
+.commitfile { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+.commitpath { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The changes list, reused here rather than written a second time. In the left
+   column it is a fixed width that scrolls inside itself; here it IS the wide
+   area, so it takes the width it is given and grows down the page while the
+   overview around it does the scrolling. */
+.folderinfo .changes { flex: 0 0 auto; width: auto; overflow: visible; padding: 0; }
 
 /* ---------- choosing a folder ---------- */
 .folderpick { width: min(34rem, 92vw); }

@@ -391,3 +391,31 @@
 [data-skin="pixel"] .sessionTabBell { background: var(--accent); border-radius: 0; }
 
 [data-skin="pixel"] .panelTabIcon { color: var(--accent); text-shadow: none; }
+/* ---- the folder's standing, in eight bits ----
+   PressStart is wide and there is no room for tracking on top of it, so the
+   letter-spacing goes and the size comes down. The count wears the console
+   yellow; everything around it stays the dim blue of a menu line. */
+[data-skin="pixel"] .branchword,
+[data-skin="pixel"] .infoname,
+[data-skin="pixel"] .commitrefs {
+  color: var(--dim);
+  letter-spacing: 0;
+  font-size: 0.8em;
+}
+[data-skin="pixel"] .branchnum { color: var(--accent); }
+[data-skin="pixel"] button.branchword:not(:disabled):hover { color: var(--accent); }
+[data-skin="pixel"] button.branchword:not(:disabled):hover .branchnum { text-decoration: none; color: var(--fg); }
+[data-skin="pixel"] .branchword:disabled,
+[data-skin="pixel"] .branchword:disabled .branchnum { color: var(--dead); }
+[data-skin="pixel"] .commitrefs { color: var(--accent); }
+[data-skin="pixel"] .commithash, [data-skin="pixel"] .commitwhen, [data-skin="pixel"] .commitpath { color: var(--dim); font-size: 0.8em; }
+[data-skin="pixel"] .commitrow, [data-skin="pixel"] .infovalue, [data-skin="pixel"] .infosubject { color: var(--fg); }
+[data-skin="pixel"] .infotext { color: var(--dim); font-size: 0.85em; }
+
+/* The same ground as the tree beside it. */
+[data-skin="pixel"] .folderinfo {
+  background: var(--bg-glass);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-skin="pixel"] .infohead { color: var(--accent); letter-spacing: 0; font-size: 0.85em; }

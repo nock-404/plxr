@@ -17,6 +17,28 @@ export function shortPath(p: string, keep = 34): string {
   return `…${p.slice(-(keep - 1))}`;
 }
 
+/* A size on disk. Powers of 1024 with the units written the way a file manager
+   writes them, because that is what the number will be held against. */
+export function bytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[i]}`;
+}
+
+/* The whole date and time, as the machine writes them.
+   Beside the relative age, never instead of it: "3d" answers "is this fresh",
+   and only the stamp answers "which afternoon was that". */
+export function stamp(ms?: number): string {
+  if (!ms) return "";
+  return new Date(ms).toLocaleString();
+}
+
 export function ago(ms?: number): string {
   if (!ms) return "";
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));

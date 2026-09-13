@@ -6,6 +6,7 @@ import Changes from "@/components/Changes";
 import Difference from "@/components/Difference";
 import FileSearch from "@/components/FileSearch";
 import Files from "@/components/Files";
+import FolderInfo from "@/components/FolderInfo";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
@@ -168,14 +169,32 @@ export default function Folders({
             moreTitle={tr("common.more", "More")}
             left={
               where ? (
+                /* Three readings of one thing, dressed as one thing: which
+                   branch, how far ahead, how far behind. The number carries
+                   the accent and the word beside it stays dim — the number is
+                   the part that moves and the part somebody is looking for.
+                   The two distances used to be a bare "+2" and "−2", which
+                   reads as arithmetic rather than as a position. */
                 <span className="foldergit">
                   <span className="branchname" data-on="yes">
                     {where.detached
                       ? tr("git.detached", "no branch — sitting on {hash}", { hash: where.branch })
                       : where.branch}
                   </span>
-                  {where.ahead ? <span className="branchdist">{`+${where.ahead}`}</span> : null}
-                  {where.behind ? <span className="branchdist">{`−${where.behind}`}</span> : null}
+                  {where.ahead ? (
+                    <Tooltip text={tr("git.aheadTip", "Commits here that the upstream has not got")}>
+                      <span className="branchdist">
+                        <span className="branchnum">{where.ahead}</span> {tr("git.aheadWord", "ahead")}
+                      </span>
+                    </Tooltip>
+                  ) : null}
+                  {where.behind ? (
+                    <Tooltip text={tr("git.behindTip", "Commits on the upstream that are not here")}>
+                      <span className="branchdist">
+                        <span className="branchnum">{where.behind}</span> {tr("git.behindWord", "behind")}
+                      </span>
+                    </Tooltip>
+                  ) : null}
                 </span>
               ) : null
             }
@@ -184,16 +203,31 @@ export default function Folders({
                 ? [
                     {
                       key: "changed",
-                      // A count nobody can act on is a boast. This one opens
-                      // the list it is counting.
+                      /* A count nobody can act on is a boast. This one opens
+                       * the list it is counting.
+                       *
+                       * A status, not a control. It is a button because it
+                       * does something — for the keyboard, and for anything
+                       * reading the screen out loud — but nothing reset what
+                       * the browser draws around a <button>, so it came out as
+                       * the system's own grey pill, greyed out, in a bar of
+                       * skinned controls. The reset is in layout.css now, with
+                       * every other bare button; here the count is split off
+                       * into its own span so it can wear the accent while the
+                       * words beside it stay dim. */
                       node: (
                         <Tooltip text={changed?.length ? tr("git.showThem", "Show which ones") : undefined}>
                           <Button bare className="branchword" disabled={!changed?.length} onClick={() => setSide("changes")}>
-                            {changed === null
-                              ? tr("git.reading", "reading…")
-                              : changed.length
-                                ? trN("git.files", changed.length, "{n} file changed", "{n} files changed")
-                                : tr("git.cleanShort", "nothing changed")}
+                            {changed === null ? (
+                              tr("git.reading", "reading…")
+                            ) : changed.length ? (
+                              <>
+                                <span className="branchnum">{changed.length}</span>{" "}
+                                {trN("git.filesWord", changed.length, "file changed", "files changed")}
+                              </>
+                            ) : (
+                              tr("git.cleanShort", "nothing changed")
+                            )}
                           </Button>
                         </Tooltip>
                       ),
@@ -294,12 +328,20 @@ export default function Folders({
               onEdit={(path, line) => onOpenFile(here.id, path, line || undefined)}
             />
           ) : (
-            <div className="empty">
-              <div className="emptybox">
-                <p className="emptyhead">{tr("folders.pickHead", "pick a file")}</p>
-                <p>{tr("folders.pick", "Choose one on the left to read or change it.")}</p>
-              </div>
-            </div>
+            /* Not an empty box.
+             *
+             * This half of the view used to read "pick a file — choose one on
+             * the left", across half the window, about a folder it was looking
+             * straight at. Everything a person looks up before touching a
+             * folder was already on the machine and nothing asked for it. */
+            <FolderInfo
+              rootId={here.id}
+              shown={diff}
+              onShow={setDiff}
+              onEdit={(path) => onOpenFile(here.id, path)}
+              onOpenChanges={() => setSide("changes")}
+              withChanges={side !== "changes"}
+            />
           )}
         </div>
       )}
