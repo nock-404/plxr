@@ -1313,5 +1313,8 @@
   "err.account.projectsLinked": "Its projects folder already links somewhere else, so nothing was changed: {detail}",
   "err.account.projectsNotEmpty": "Its projects folder already holds files, so it was not linked and nothing was changed: {detail}",
   "tab.maximize": "Maximise",
-  "tab.restore": "Restore size"
+  "tab.restore": "Restore size",
+  "keys.reopenPanel": "Reopen the panel closed last",
+  "palette.recent": "Recently closed",
+  "palette.reopen": "Reopen {name}"
 }

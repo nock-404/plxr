@@ -52,7 +52,8 @@ export type Action =
   | "filesUp"
   | "toggleLeft"
   | "toggleRight"
-  | "toggleBottom";
+  | "toggleBottom"
+  | "reopenPanel";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -78,6 +79,7 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   // The dock: close the active panel through its guard, and walk the panels
   // of a group and the groups of the window without the mouse.
   { id: "closePanel", chord: "Mod+W", key: "keys.closePanel", fallback: "Close the active panel" },
+  { id: "reopenPanel", chord: "Mod+Shift+T", key: "keys.reopenPanel", fallback: "Reopen the panel closed last" },
   { id: "panelPrev", chord: "Mod+Option+ArrowLeft", key: "keys.panelPrev", fallback: "Previous panel in the group" },
   { id: "panelNext", chord: "Mod+Option+ArrowRight", key: "keys.panelNext", fallback: "Next panel in the group" },
   { id: "groupPrev", chord: "Mod+Option+ArrowUp", key: "keys.groupPrev", fallback: "Previous group" },

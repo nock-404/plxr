@@ -1311,5 +1311,8 @@
   "err.account.projectsLinked": "Sein projects-Ordner verweist schon woandershin, deshalb wurde nichts geändert: {detail}",
   "err.account.projectsNotEmpty": "Sein projects-Ordner enthält schon Dateien, deshalb wurde nichts verknüpft und nichts geändert: {detail}",
   "tab.maximize": "Maximieren",
-  "tab.restore": "Normale Größe"
+  "tab.restore": "Normale Größe",
+  "keys.reopenPanel": "Zuletzt geschlossenes Panel wieder öffnen",
+  "palette.recent": "Zuletzt geschlossen",
+  "palette.reopen": "{name} wieder öffnen"
 }

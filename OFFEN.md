@@ -798,7 +798,7 @@ the second.
 - **N10 Settings is a floating window**, (on main 13.09: settings are a dock panel) so it cannot be docked or put beside
   what it changes.
 - **N11 The header MENU duplicates the rail** without sharing its model.
-- **N12 No recently closed, no recent files.**
+- **N12 No recently closed, no recent files.** (half, on main 13.09: ⇧⌘T reopens the last panel closed by hand where it was, the palette lists the last ten; recent files still open)
 - **N13 No editor breadcrumb**, so a file gives no sense of where it sits.
 
 ### D — how it should look: the three references he sent (13.09.2026)

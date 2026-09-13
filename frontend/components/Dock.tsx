@@ -151,6 +151,12 @@ type DockData = {
    said no. */
 export type CloseResult = "closed" | "kept" | "cancelled";
 
+/* A panel closed by hand, kept so it can be opened again where it was. Only
+   what the hand-close path closes lands here — a menu swapping one tool for
+   another, a region folded away or a layout rebuilt is not somebody closing a
+   panel, and would bury the one they did close under a dozen they did not. */
+type ClosedPanel = { id: string; component: string; title: string; params: object; region?: Region };
+
 const Ctx = createContext<DockData | null>(null);
 const useDock = () => {
   const v = useContext(Ctx);
@@ -818,6 +824,36 @@ export default function Dock({
    * comes to the front, where its own CLOSE says what is at stake and offers
    * SAVE, DISCARD or CANCEL. The rail never closes. Anything else just goes.
    * One question at a time: the dialog holds the answer's resolver. */
+  /* Recently closed.
+   *
+   * ⌘W on the wrong tab used to be final: the panel, where it sat, and for an
+   * editor or a diff which file it was on, all gone. The last twenty panels
+   * closed by hand are remembered with where they were, ⇧⌘T opens the last
+   * one again, and the palette lists them. */
+  const [closed, setClosed] = useState<ClosedPanel[]>([]);
+  const closedRef = useRef(closed);
+  closedRef.current = closed;
+  const remember = useCallback((panel: IDockviewPanel) => {
+    const id = panel.id;
+    const entry: ClosedPanel = {
+      id,
+      component: id.includes(":") ? id.slice(0, id.indexOf(":")) : id,
+      title: panel.title ?? id,
+      params: (panel.params ?? {}) as object,
+      region: panel.api.location.type === "grid" ? regionOfGroup(panel.group) : undefined,
+    };
+    setClosed((list) => [entry, ...list.filter((c) => c.id !== id)].slice(0, 20));
+  }, []);
+  const reopen = useCallback((id?: string) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    const list = closedRef.current;
+    const entry = id ? list.find((c) => c.id === id) : list.find((c) => !dv.getPanel(c.id));
+    if (!entry) return;
+    openOrFocus(dv, entry.id, entry.component, entry.title, entry.params, entry.region);
+    setClosed((l) => l.filter((c) => c.id !== entry.id));
+  }, []);
+
   const [closeAsk, setCloseAsk] = useState<{ name: string; answer: (r: "keep" | "kill" | "cancel") => void } | null>(null);
   const requestClose = useCallback((panel: IDockviewPanel): Promise<CloseResult> => {
     const id = panel.id;
@@ -838,6 +874,7 @@ export default function Dock({
               setCloseAsk(null);
               if (r === "cancel") return resolve("cancelled");
               if (r === "kill") void api.kill(sid).catch(() => undefined);
+              remember(panel);
               panel.api.close();
               resolve("closed");
             },
@@ -845,6 +882,7 @@ export default function Dock({
         });
       }
     }
+    remember(panel);
     panel.api.close();
     return Promise.resolve("closed");
   }, []);
@@ -885,6 +923,7 @@ export default function Dock({
         })
       )
         return;
+      if (fire("reopenPanel", () => reopen())) return;
       if (fire("panelPrev", () => stepPanel(dv, -1))) return;
       if (fire("panelNext", () => stepPanel(dv, 1))) return;
       if (fire("groupPrev", () => stepGroup(dv, -1))) return;
@@ -895,7 +934,7 @@ export default function Dock({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [requestClose]);
+  }, [requestClose, reopen]);
 
   const openEditor = useCallback((rootId: string, rawPath: string, line?: number, title?: string) => {
     const dv = apiRef.current;
@@ -989,8 +1028,15 @@ export default function Dock({
       }
       return rows;
     });
-    return [...appCommands, ...views, ...sessions];
-  }, [appCommands, tiles, openPanel, openSession, openFiles]);
+    const recent: Command[] = closed.slice(0, 10).map((c, i) => ({
+      id: `reopen:${c.id}`,
+      group: tr("palette.recent", "Recently closed"),
+      label: tr("palette.reopen", "Reopen {name}", { name: c.title }),
+      hint: i === 0 ? caption(bindingOf("reopenPanel")) : undefined,
+      run: () => reopen(c.id),
+    }));
+    return [...appCommands, ...recent, ...views, ...sessions];
+  }, [appCommands, tiles, openPanel, openSession, openFiles, closed, reopen]);
 
   /* What the shell asks for: a reset, a preset to apply, a name to save the
      arrangement under, or an activity to arrange for. Each request is new by
