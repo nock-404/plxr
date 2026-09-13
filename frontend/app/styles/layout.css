@@ -1089,6 +1089,13 @@ button.diffline { cursor: pointer; }
 .menuSep { height: 0; margin: 0.25rem 0.4rem; }
 /* A section's name: not a row, not clickable, set apart from the rows under it. */
 .menuHeader { padding: 0.35rem 0.6rem 0.15rem; font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; }
+/* A row's mark and its second line, which the switches' lists use: a session
+   with its state under its name, a folder with its path. The mark's slot is
+   never narrower than the icon, the rule every icon slot here follows. */
+.menuIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
+.menuSub { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.8em; }
+/* A field in the menu, as wide as the menu. */
+.menuField { display: flex; padding: 0.25rem 0.35rem; }
 
 /* The one tooltip: placed at runtime beside the thing it explains, hidden
    until it has been measured so it never flashes at the corner first. */

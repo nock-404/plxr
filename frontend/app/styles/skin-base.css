@@ -1018,6 +1018,10 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .menuCheck { color: var(--accent); }
 .menuHeader { color: var(--dim); }
 .menuSep { border-top: var(--hair) solid var(--line); }
+/* A row's mark and second line are read after its name; a session's mark
+   takes its state's colour from .dot, which outranks this. */
+.menuIcon, .menuSub { color: var(--dim); }
+.menuField { color: var(--fg); }
 
 /* The palette on the panel surface, the picked row in the accent. */
 .paletteScrim { background: rgba(0,0,0,0.45); }
