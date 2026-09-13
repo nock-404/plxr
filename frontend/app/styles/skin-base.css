@@ -1004,9 +1004,9 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .plxrDock .dv-groupview { background: var(--bg); }
 
 /* An editor with unsaved work says so where it is read — on its tab, as a
-   dot in place of the close, which is what the close would throw away. */
-.panelTab[data-dirty="yes"] .panelTabClose::after { content: "●"; color: var(--waiting); }
-.panelTab[data-dirty="yes"]:hover .panelTabClose::after { content: "✕"; color: inherit; }
+   dot in place of the close, which is what the close would throw away. The
+   dot's square and when it shows are layout.css's; its colour is here. */
+.panelTab[data-dirty="yes"] .panelTabClose::after { background: var(--waiting); border-radius: 50%; }
 
 /* The context menu on the panel surface, the picked item in the accent. */
 .menu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); }
@@ -1029,9 +1029,14 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .paletteEmpty { color: var(--dim); }
 
 /* ---- dock tabs (scope: tabs) ----
-   The close on every panel's tab: a glyph the skin draws, so the tab's text
-   stays its bare title. */
-.panelTabClose::after { content: "✕"; }
+   The close on every panel's tab: the pack's close icon in the quiet colour,
+   and under the pointer a small square of the text's own colour behind it with
+   the cross in full strength; firmer while pressed, the accent ring for the
+   keyboard. Every skin dresses it further. */
+.panelTabClose { color: var(--dim); border-radius: .25rem; box-shadow: none; outline: none; }
+.panelTabClose:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 14%, transparent); }
+.panelTabClose:active { color: var(--fg); background: color-mix(in srgb, var(--fg) 26%, transparent); }
+.panelTabClose:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: 0; }
 /* ---- terminal: the ANSI palette, the ended overlay, the bell ----------- */
 /* The sixteen colours a program may ask for by number. These are the VGA
    set, the fallback; every skin sets its own below its other tokens, and the

@@ -992,20 +992,20 @@ const plain = await run(`${HELPERS}
 `);
 claim("⌘W on a clean utility panel closes it without asking", !plain.noTab && !plain.asked && plain.gone);
 
-const glyph = await run(`${HELPERS}
+const closer = await run(`${HELPERS}
   await clickMenu('Archive', 1200);
   const archive = tabNamed('Archive');
   if (!archive) return { noTab: true };
   archive.querySelector('.panelTabClose').click();
   await wait(400);
-  const closedByGlyph = !tabNamed('Archive');
+  const closedByButton = !tabNamed('Archive');
   await clickMenu('Archive', 1200);
   tabNamed('Archive').querySelector('.panelTab').dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
   await wait(400);
-  return { closedByGlyph, closedByMiddle: !tabNamed('Archive'), asked: Boolean(document.querySelector('.ask')) };
+  return { closedByButton, closedByMiddle: !tabNamed('Archive'), asked: Boolean(document.querySelector('.ask')) };
 `);
-claim("the tab's close closes a clean panel", !glyph.noTab && glyph.closedByGlyph && !glyph.asked);
-claim("so does the middle button", !glyph.noTab && glyph.closedByMiddle && !glyph.asked);
+claim("the tab's close closes a clean panel", !closer.noTab && closer.closedByButton && !closer.asked);
+claim("so does the middle button", !closer.noTab && closer.closedByMiddle && !closer.asked);
 
 // ---- the keys between panels and groups -------------------------------------
 const walked = await run(`${HELPERS}

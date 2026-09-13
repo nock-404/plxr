@@ -521,10 +521,13 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       {/* The mark itself stays out of the title text: nothing that reads tab
           titles finds a dot appended to it. */}
       <span className="sessionTabBell" aria-hidden="true" />
-      {/* The glyph is drawn by the skin (::after), not written here: a tab's
+      {/* The close is the pack's own close icon, which carries no text: a tab's
           text is its title, and everything that reads tab titles — the gates,
-          the layout's own bookkeeping — must not find a ✕ appended to it. The
-          rail is the way to everything else and has no close at all. */}
+          the layout's own bookkeeping — must not find a ✕ appended to it. When
+          it is drawn, and the dot for unsaved work in its place, is the
+          stylesheets' business; the square it sits in is always there, so a
+          title never moves. The rail is the way to everything else and has no
+          close at all. */}
       {isRail ? null : (
         <Button
           bare
@@ -536,7 +539,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
             if (p) void d.requestClose(p);
           }}
         >
-          {""}
+          <Icon name="close" />
         </Button>
       )}
     </div>
