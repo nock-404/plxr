@@ -212,6 +212,11 @@
 .meta { color: var(--dim); font-size: .8em; }
 .row { border-bottom: var(--hair) solid var(--line); }
 .row:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+/* A row's actions lie over the end of its text (layout.css). They fade in
+   from the left on the row's hover colour: the same share of the accent, laid
+   on the opaque surface instead of the glass, so the text they cover does not
+   show through the buttons. */
+.hitAction { background: linear-gradient(to right, transparent, color-mix(in srgb, var(--accent) 8%, var(--surface)) var(--row-fade)); }
 .hitDate {
   color: var(--dim);
   letter-spacing: .06em;

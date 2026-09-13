@@ -234,6 +234,7 @@
 /* ---- lists, session, dialogs ---- */
 [data-skin="win95"] .row { border-bottom: var(--hair) solid var(--sh); }
 [data-skin="win95"] .row:hover { background: #d4d0c8; }
+[data-skin="win95"] .hitAction { background: linear-gradient(to right, transparent, #d4d0c8 var(--row-fade)); }
 [data-skin="win95"] .hitTitle { color: var(--dk); }
 [data-skin="win95"] .hitExcerpt, [data-skin="win95"] .hitProject, [data-skin="win95"] .hitDate { color: var(--dim); }
 [data-skin="win95"] .hitSmall, [data-skin="win95"] .uhead {

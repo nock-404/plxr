@@ -58,7 +58,7 @@ LAYOUT_ONLY = {
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",
     # Rows, cells and handles: geometry with no surface of their own.
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
-    "hitMain", "hitAction", "draghandle", "brand", "rtext", "rname", "rmain",
+    "hitMain", "draghandle", "brand", "rtext", "rname", "rmain",
     "fname", "style", "styleRow", "pathfield", "colourPicker", "settingsbody",
     # The floating window's body: it scrolls and pads what it holds; the frame,
     # the title bar and the grip carry the dressing. A short numeric field is

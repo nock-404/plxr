@@ -239,6 +239,7 @@
 }
 [data-skin="sketch"] .row { border-bottom: var(--hair) solid var(--line); }
 [data-skin="sketch"] .row:hover { background: #efe9d8; }
+[data-skin="sketch"] .hitAction { background: linear-gradient(to right, transparent, #efe9d8 var(--row-fade)); }
 [data-skin="sketch"] .hitTitle { color: var(--fg); }
 [data-skin="sketch"] .hitExcerpt {
   color: var(--dim);
