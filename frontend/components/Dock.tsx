@@ -233,7 +233,11 @@ function InboxPanel() {
    says who it is, so the editor knows which group to stand next to. */
 function FoldersPanel(props: IDockviewPanelProps) {
   const d = useDock();
-  return <Folders place={d.here} onOpenFile={(rootId, path, line) => d.openEditor(rootId, path, line, undefined, props.api.id)} />;
+  return (
+    <div className="foldersPanel">
+      <Folders place={d.here} onOpenFile={(rootId, path, line) => d.openEditor(rootId, path, line, undefined, props.api.id)} />
+    </div>
+  );
 }
 function PortsPanel() {
   const d = useDock();

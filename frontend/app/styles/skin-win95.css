@@ -77,6 +77,19 @@
   box-shadow: inset var(--hair) var(--hair) 0 var(--dk);
 }
 [data-skin="win95"] .pterm, [data-skin="win95"] .viewerbody { background: var(--term-bg); color: var(--term-fg); }
+/* The text of a document — an editor, a diff, the notes — is read off the
+   white field the tree is, pressed in, under its bar in the window's grey. */
+[data-skin="win95"] .viewerwrap {
+  background: var(--hi);
+  color: var(--dk);
+  border: var(--bevel) solid;
+  border-color: var(--sh) var(--hi) var(--hi) var(--sh);
+  box-shadow: inset var(--hair) var(--hair) 0 var(--dk);
+}
+/* A diff's line numbers and hunk heads in the grey the field can carry:
+   --dead is the disabled grey, 2.8:1 on white. */
+[data-skin="win95"] .hunkhead,
+[data-skin="win95"] .diffno { color: var(--dim); }
 
 /* ---- head ---- */
 [data-skin="win95"] .bar,
@@ -468,23 +481,25 @@
    me", and it took a look at the real thing to see that the browser's own grey
    pill had been saying exactly that all along.
 
-   The two colours are chosen for the ground they land on, which in this skin
-   is the teal desktop: measured, --dim on teal is 1.8:1, which is text nobody
-   reads twice. White is what this system has always written on the desktop
-   and black is what it emphasises with, so the words are white and the count
-   is bold black — the same order of loudness, in the two inks that carry. */
+   The two colours are chosen for the ground they land on: the window's grey,
+   which the folders stand on like every document of main and the branch list
+   like every tool. They were white for the teal desktop the folders once sat
+   on, and white on this grey is 1.7:1. Black is what this system emphasises
+   with, so the words are its dark grey (4.6:1) and the count bold black — the
+   same order of loudness, in two inks that carry. Nothing to show is the
+   system's own etched grey. */
 [data-skin="win95"] .branchword {
-  color: var(--hi);
+  color: var(--dim);
   text-transform: none;
   letter-spacing: 0;
   font-size: 1em;
 }
-[data-skin="win95"] .branchdist { color: var(--hi); }
+[data-skin="win95"] .branchdist { color: var(--dim); }
 [data-skin="win95"] .branchnum { color: var(--dk); font-weight: bold; }
 [data-skin="win95"] button.branchword:not(:disabled):hover { color: var(--dk); text-decoration: underline; }
 [data-skin="win95"] button.branchword:not(:disabled):hover .branchnum { color: var(--dk); text-decoration: none; }
-[data-skin="win95"] .branchword:disabled { color: var(--panel); font-weight: normal; text-shadow: none; }
-[data-skin="win95"] .branchword:disabled .branchnum { color: var(--panel); font-weight: normal; }
+[data-skin="win95"] .branchword:disabled { color: var(--sh); font-weight: normal; text-shadow: var(--hair) var(--hair) 0 var(--hi); }
+[data-skin="win95"] .branchword:disabled .branchnum { color: var(--sh); font-weight: normal; }
 /* The overview below reads on a sunken white box, so its quiet text stays
    dark: the same word in two places, two grounds, two inks. */
 [data-skin="win95"] .infoname {

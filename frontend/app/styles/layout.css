@@ -1292,7 +1292,7 @@ body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
 /* The editor and the file tree as dock panels beside the terminal. Not
    overlays: each is a column that fills its panel, and nothing in it is
    positioned, so the terminal beside it stays exactly where it was. */
-.editorPanel, .filesPanel { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
+.editorPanel, .filesPanel, .foldersPanel { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; }
 .editorBody { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 /* In its own panel the tree takes the whole width, not the column it was
    measured for beside a terminal. */

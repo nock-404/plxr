@@ -452,4 +452,6 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* The text of a document on the same ground as the tree. */
+[data-skin="pixel"] .viewerwrap { background: var(--bg-glass); }
 [data-skin="pixel"] .infohead { color: var(--accent); letter-spacing: 0; font-size: 0.85em; }

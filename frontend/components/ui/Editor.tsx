@@ -38,8 +38,13 @@ const token = (name: string, fallback: string) => {
 // The look, built from the same tokens as everything else, so the editor
 // belongs to whichever skin is on rather than bringing its own.
 function look() {
-  const fg = token("term-fg", "#ddd");
-  const bg = token("term-bg", "transparent");
+  /* The interface's text and surface, not the terminal's: the editor stands on
+     a panel like every other document, and its syntax is already coloured in
+     the interface's accent, working and dim. With the terminal's light grey as
+     its plain text, Windows 95 set #c0c0c0 code between navy keywords, which
+     reads on neither a black field nor a white one. */
+  const fg = token("fg", "#ddd");
+  const bg = token("panel", "transparent");
   const dim = token("dim", "#888");
   const accent = token("accent", "#8cf");
   const line = token("line", "#333");
