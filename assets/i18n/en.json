@@ -281,6 +281,7 @@
   "err.tokenExpired": "Token expired",
   "err.transcript.copyFailed": "The transcript could not be copied into the target account: {detail}",
   "err.transcript.missing": "Transcript not found",
+  "err.transcript.notInAccount": "That account has no transcript for this session: {detail}",
   "err.unfreeze.failed": "could not resume",
   "err.update.copyFailed": "The new version could not be put in place: {detail}",
   "err.update.installFailed": "The new version could not be installed: {detail}",
