@@ -280,6 +280,7 @@
   "err.tokenExpired": "Token abgelaufen",
   "err.transcript.copyFailed": "Transkript ließ sich nicht ins Zielkonto kopieren: {detail}",
   "err.transcript.missing": "Transkript nicht gefunden",
+  "err.transcript.notInAccount": "Dieses Konto hat kein Transkript für diese Session: {detail}",
   "err.unfreeze.failed": "Fortsetzen fehlgeschlagen",
   "err.update.copyFailed": "Neue Fassung ließ sich nicht ablegen: {detail}",
   "err.update.installFailed": "Neue Fassung ließ sich nicht einsetzen: {detail}",

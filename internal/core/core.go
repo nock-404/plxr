@@ -499,9 +499,23 @@ func (c *Core) Archive(pathFilter string) []archive.Entry {
 	return archive.List(c.Accounts(), pathFilter)
 }
 
+/* Finding a transcript, for an account that can read it.
+ *
+ * The name to match against used to be Entry.Account alone, and that is not the
+ * account a transcript belongs to — it is the one that fold happened to put in
+ * front when several accounts hold the same conversation. Point
+ * ~/.claude2/projects and ~/.claude3/projects at ~/.claude/projects, which is
+ * how one transcript store is kept across three logins, and all three accounts
+ * read the very same file; whichever of them led, the other two were told
+ * "Transcript not found" about a file they had open.
+ *
+ * So the question asked here is the one that matters: can this account reach
+ * this transcript. A name that reaches nothing still finds nothing — Accounts
+ * lists only the accounts whose projects directory really holds the file.
+ */
 func (c *Core) archiveFind(id, account string) (archive.Entry, bool) {
 	for _, e := range archive.List(c.Accounts(), "") {
-		if e.ID == id && (account == "" || e.Account == account) {
+		if e.ID == id && e.HasAccount(account) {
 			return e, true
 		}
 	}
@@ -523,6 +537,23 @@ func (c *Core) SearchTerminals(question string) []search.RecordingHit {
 	return search.SearchRecordings(ptyhost.RecordingDir, question, names)
 }
 
+/* Why the transcript was not found, said out loud.
+ *
+ * "Transcript not found" was the whole of it, and with three accounts sharing
+ * one store it was not even true — the file was there and the lookup was
+ * asking the wrong question. Now that the lookup is right, a refusal means the
+ * conversation really is not in that account's projects directory, and the two
+ * things worth knowing are which conversation and which account. Both go into
+ * the detail; without them the message sends somebody looking through three
+ * home directories for a name they were never told.
+ */
+func notForAccount(id, account string) error {
+	if account == "" {
+		return uierr.New("err.transcript.missing")
+	}
+	return uierr.With("err.transcript.notInAccount", id+" ("+account+")")
+}
+
 func (c *Core) ArchiveDelete(id, account string) error {
 	e, ok := c.archiveFind(id, account)
 	if !ok {
@@ -537,7 +568,7 @@ func (c *Core) ArchiveDelete(id, account string) error {
 func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, error) {
 	e, ok := c.archiveFind(id, fromAccount)
 	if !ok {
-		return nil, uierr.New("err.transcript.missing")
+		return nil, notForAccount(id, fromAccount)
 	}
 	if e.Cwd == "" {
 		return nil, uierr.New("err.session.noCwd")
@@ -550,7 +581,10 @@ func (c *Core) Resume(id, fromAccount, toAccount string) (*session.Session, erro
 	if target == "" {
 		target = e.Account
 	}
-	if target != e.Account {
+	// Copied only where there is something to copy. An account that already
+	// holds this transcript — its own, or through a projects directory shared
+	// with the account that has it — needs nothing done to its disk.
+	if !e.HasAccount(target) {
 		acc, ok := accounts.ByName(c.Accounts(), target)
 		if !ok {
 			return nil, uierr.With("err.account.unknown", target)
@@ -700,7 +734,7 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 		return nil, uierr.With("err.account.unknown", toAccount)
 	}
 	if _, found := c.archiveFind(claudeID, source); !found {
-		return nil, uierr.New("err.transcript.missing")
+		return nil, notForAccount(claudeID, source)
 	}
 	c.Kill(sessionID, true)
 	return c.Resume(claudeID, source, toAccount)
