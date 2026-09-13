@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -17,9 +18,10 @@ import (
 /* The window's side of the wire.
 
    The window opens a socket to the service's /ws/notify and shows whatever
-   comes down it, from its own process — the one the system will let post,
-   with the icon. It says how the permission stands when it connects and
-   again whenever that changes, so the settings panel can show it.
+   comes down it, from its own process — the one the system lets post, with
+   the icon. It says how the permission stands and which bundle it posts
+   under when it connects, whenever the permission changes, and whenever the
+   service asks it to look again.
 
    The service may go and come back on another port: the address is read
    fresh before every attempt, and the attempts back off to half a minute
@@ -31,16 +33,56 @@ type Endpoint struct {
 	Token string
 }
 
+// Report is what the window sends up the socket about itself.
+type Report struct {
+	Permission string `json:"permission"`
+	Bundle     string `json:"bundle,omitempty"`
+}
+
+// ReadReport picks the window's report out of a frame it sent, and says
+// whether the frame was one.
+func ReadReport(data []byte) (Report, bool) {
+	var r Report
+	if json.Unmarshal(data, &r) != nil || r.Permission == "" {
+		return Report{}, false
+	}
+	return r, true
+}
+
+// permissionOf turns the system's authorization status — the number
+// UNAuthorizationStatus carries — into the words the settings use. asking is
+// whether this process has put the question and not heard back yet: while it
+// is on screen the system already reports it as refused, and telling
+// somebody to go to System Settings while the question is in front of them
+// would be wrong.
+func permissionOf(status int, asking bool) string {
+	switch status {
+	case 2, 3, 4: // authorized, provisional, ephemeral
+		return PermissionGranted
+	case 1:
+		if asking {
+			return PermissionAsking
+		}
+		return PermissionDenied
+	case 0:
+		if asking {
+			return PermissionAsking
+		}
+		return PermissionNotAsked
+	}
+	return PermissionUnknown
+}
+
 // FollowService keeps a window subscribed for as long as the process runs.
 // find says where the service is now, show shows one message from this
-// process, permission says how the system permission stands, changed wakes
-// the loop when that answer changes, and authorize puts the system's
-// question again when the service asks for that on somebody's behalf.
-func FollowService(find func() (Endpoint, bool), show func(Message), permission func() string, changed <-chan struct{}, authorize func()) {
+// process, report says how the permission stands and which bundle this is,
+// changed wakes the loop when the permission changes, and authorize puts the
+// system's question when the service asks for that on somebody's behalf.
+func FollowService(find func() (Endpoint, bool), show func(Message), report func() Report, changed <-chan struct{}, authorize func()) {
 	wait := time.Second
 	for {
 		ep, ok := find()
-		if ok && follow(ep, show, permission, changed, authorize) {
+		if ok && follow(ep, show, report, changed, authorize) {
 			wait = time.Second // it was up: start fresh on the next drop
 		}
 		time.Sleep(wait)
@@ -53,7 +95,7 @@ func FollowService(find func() (Endpoint, bool), show func(Message), permission 
 // follow holds one connection until it drops. Reports whether it connected
 // at all, so the caller can tell a service that is gone from one that is
 // merely busy.
-func follow(ep Endpoint, show func(Message), permission func() string, changed <-chan struct{}, authorize func()) bool {
+func follow(ep Endpoint, show func(Message), report func() Report, changed <-chan struct{}, authorize func()) bool {
 	u, err := url.Parse(ep.URL)
 	if err != nil {
 		return false
@@ -96,21 +138,27 @@ func follow(ep Endpoint, show func(Message), permission func() string, changed <
 		}
 	}()
 
-	say := func() bool {
-		return c.WriteJSON(map[string]string{"permission": permission()}) == nil
-	}
+	say := func() bool { return c.WriteJSON(report()) == nil }
 	if !say() {
 		return true
 	}
 	for {
 		select {
 		case m := <-frames:
-			if m.Authorize {
+			switch {
+			case m.Authorize:
 				// The answer comes back on changed and is said then.
 				authorize()
-				continue
+				if !say() {
+					return true
+				}
+			case m.Refresh:
+				if !say() {
+					return true
+				}
+			default:
+				show(m)
 			}
-			show(m)
 		case <-changed:
 			if !say() {
 				return true
@@ -126,30 +174,12 @@ func follow(ep Endpoint, show func(Message), permission func() string, changed <
 // the same stretch.
 const pongWait = 60 * time.Second
 
-// permissionFrame is what the window sends up the socket. Exported for the
-// service's read loop, so both ends spell the field the same way.
-type permissionFrame struct {
-	Permission string `json:"permission"`
-}
-
-// ReadPermission picks the permission out of a frame the window sent, or ""
-// when the frame was something else.
-func ReadPermission(data []byte) string {
-	var f permissionFrame
-	if json.Unmarshal(data, &f) != nil {
-		return ""
-	}
-	return f.Permission
-}
-
 /* A click on a notification, handed to the page.
 
    The window process is where the click arrives, and the page is where the
    session is opened. There is no wire from one to the other: the page loads
    the service's address, not the asset server's, so the Wails runtime is not
    in it and anything pushed with ExecJS waits for a ready that never comes.
-   So the event was dispatched, nothing ran it, and the window came forward
-   on whatever session it was already showing.
 
    What does join the two is the service. The settings blob is written over
    the service's API and every page watches its revision, so the request is
@@ -190,8 +220,21 @@ func RequestFocus(ep Endpoint, sessionID string) error {
 	return nil
 }
 
-// logOnce says a thing once per process. The window has no one to say it to
-// but its log, and a line per notification there is a log nobody reads.
+// note writes one line about notifications to the process's log and to the
+// system log. The process's own output goes nowhere once plxr is started from
+// the Dock — the service is started with its output discarded, and so is an
+// application launched by the system — and a notification that was not shown
+// looks exactly like nothing having happened. The system log keeps it:
+//
+//	log show --last 1h --predicate 'process == "plxr" AND composedMessage CONTAINS "notif"'
+func note(format string, args ...any) {
+	line := fmt.Sprintf(format, args...)
+	log.Print(line)
+	systemLog(line)
+}
+
+// logOnce says a thing once per process. A line per notification is a log
+// nobody reads.
 var (
 	saidMu sync.Mutex
 	said   = map[string]bool{}
@@ -204,5 +247,5 @@ func logOnce(key, format string, args ...any) {
 		return
 	}
 	said[key] = true
-	log.Printf(format, args...)
+	note(format, args...)
 }

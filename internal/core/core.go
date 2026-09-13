@@ -1839,19 +1839,33 @@ func (c *Core) checkEdge(sess session.Session) {
 		return
 	}
 
-	body := sess.Activity
-	if body == "" {
-		// The daemon has no language. What a notification says in words is the
-		// interface's business — this is the last resort when the session gave
-		// no activity line of its own.
-		body = "waiting for your answer"
-	}
-	// Through the hub: a window that is open shows it with the icon, and a
-	// click leads back to this session; with none open the service shows it.
+	// Through the hub: one plxr window shows it with the icon, and a click
+	// leads back to this session.
 	notify.Post(notify.Message{
-		Title: sess.Label(), Body: body, Sound: settings.Sound,
+		Title: sess.Label(), Body: whatHappened(state, sess.Activity), Sound: settings.Sound,
 		SessionID: sess.ID, Kind: notifyKind(state),
 	})
+}
+
+// whatHappened is the body of a notification: what the session titled above
+// it did. The session's own activity line says it best while it is waiting;
+// for a session that ended it would describe what it was doing before, which
+// is not what happened. The service has no language — what a notification
+// says in words would be the interface's business — so this is plain English.
+func whatHappened(state, activity string) string {
+	switch state {
+	case "dead":
+		return "has ended"
+	case "orphaned":
+		return "was lost when the service stopped"
+	}
+	if activity != "" {
+		return activity
+	}
+	if state == "waiting" {
+		return "has stopped and is waiting"
+	}
+	return "is waiting for your answer"
 }
 
 // notifyKind names the occasion the way the settings do — the four switches

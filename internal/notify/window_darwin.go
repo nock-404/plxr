@@ -10,7 +10,10 @@ int plxrWindowCapable(void);
 void plxrWindowInstall(void);
 void plxrWindowAuthorize(void);
 int plxrWindowStatus(void);
-int plxrWindowPost(const char *title, const char *body, const char *sound, const char *sessionId);
+int plxrWindowAsking(void);
+char *plxrWindowBundle(void);
+int plxrWindowPost(const char *title, const char *body, const char *sound, const char *sessionId, char *failure, int failureSize);
+void plxrLog(const char *line);
 */
 import "C"
 
@@ -21,19 +24,18 @@ import (
 
 /* Showing a notification from the window's process.
 
-   This is the process macOS will take one from: bundled, launched as an
-   application, in the foreground, with a run loop for the answers to come
-   back on. The service is none of those things — see route.go for what was
-   measured — so it hands the message here and this posts it, under plxr's
-   name and with plxr's icon.
+   This is the only process of plxr's that talks to the notification centre:
+   bundled, launched as an application, in the foreground, and open for as
+   long as somebody is looking at it. See notify_darwin.go for what was
+   measured, and why the service does not.
 
-   The permission is asked for once, when the window comes up. The answer is
-   read before every post rather than remembered, because it can be changed
-   in System Settings at any time and a stale "granted" would post into
-   nothing. Without the permission nothing is posted from here — and the
-   service, told how the permission stands, does not hand anything here
-   either: it shows the notification itself, by its own route, so that a
-   permission not granted does not mean silence. */
+   The permission is NOT asked for when the window comes up. The question
+   the system puts is taken off the screen when the process that asked goes
+   away, and a question that went unanswered stands as a refusal for good.
+   So it is asked when somebody presses ALLOW NOTIFICATIONS, in this window,
+   which is still open while they answer. The answer is read before every
+   post rather than remembered, because it can be changed in System Settings
+   at any time. */
 
 // WindowCapable says whether this process can show notifications itself: it
 // has to be bundled, or there is no name to post under.
@@ -42,7 +44,7 @@ func WindowCapable() bool { return C.plxrWindowCapable() == 1 }
 var (
 	clickMu sync.Mutex
 	onClick func(sessionID string)
-	// Woken whenever the permission changes, so the service can be told.
+	// Woken whenever the permission may have changed, so the service is told.
 	permissionChanged = make(chan struct{}, 1)
 )
 
@@ -56,47 +58,62 @@ func WindowInstall(click func(sessionID string)) {
 	C.plxrWindowInstall()
 }
 
-// WindowAuthorize asks for the permission. The system shows its question
-// once and returns the standing answer ever after; the answer arrives on
-// PermissionChanged.
-func WindowAuthorize() { C.plxrWindowAuthorize() }
+// WindowAuthorize puts the system's question. The system shows it once per
+// application, ever; the answer arrives on PermissionChanged.
+func WindowAuthorize() {
+	note("notifications: asking macOS whether plxr may show notifications")
+	C.plxrWindowAuthorize()
+	wake()
+}
 
-// PermissionChanged is woken when the permission was asked and answered.
+// PermissionChanged is woken when the permission may have changed.
 func PermissionChanged() <-chan struct{} { return permissionChanged }
 
 // WindowPermission reads how the permission stands right now.
 func WindowPermission() string {
-	switch C.plxrWindowStatus() {
-	case 2, 3, 4: // authorized, provisional, ephemeral
-		return PermissionGranted
-	case 1:
-		return PermissionDenied
-	case 0:
-		return PermissionNotAsked
-	}
-	return PermissionUnknown
+	return permissionOf(int(C.plxrWindowStatus()), C.plxrWindowAsking() == 1)
 }
 
-// WindowPost shows one message from this process, if it may.
+// WindowReport is what this window says about itself to the service.
+func WindowReport() Report {
+	r := Report{Permission: WindowPermission()}
+	if p := C.plxrWindowBundle(); p != nil {
+		r.Bundle = C.GoString(p)
+		C.free(unsafe.Pointer(p))
+	}
+	return r
+}
+
+// WindowPost shows one message from this process. A refusal is not second-
+// guessed here: whether a notification is shown is the system's decision,
+// and what it answers is written to the log.
 func WindowPost(m Message) {
 	switch WindowPermission() {
-	case PermissionGranted:
-	case PermissionDenied:
-		logOnce("denied", "notifications: refused in System Settings — nothing is shown until that changes")
+	case PermissionNotAsked:
+		logOnce("not-asked", "notifications: plxr has not asked macOS yet, so %q was not shown — Settings › Notifications › ALLOW NOTIFICATIONS", m.Body)
 		return
-	default:
-		logOnce("not-asked", "notifications: not allowed yet — %q not shown", m.Body)
+	case PermissionUnknown:
+		note("notifications: the permission could not be read, so %q was not shown", m.Body)
 		return
 	}
-	t, b, s, id := C.CString(m.Title), C.CString(m.Body), C.CString(m.Sound), C.CString(m.SessionID)
+	t, b, s, id := C.CString(clip(m.Title)), C.CString(clip(m.Body)), C.CString(m.Sound), C.CString(m.SessionID)
+	failure := (*C.char)(C.calloc(512, 1))
 	defer func() {
 		C.free(unsafe.Pointer(t))
 		C.free(unsafe.Pointer(b))
 		C.free(unsafe.Pointer(s))
 		C.free(unsafe.Pointer(id))
+		C.free(unsafe.Pointer(failure))
 	}()
-	if C.plxrWindowPost(t, b, s, id) != 1 {
-		logOnce("refused", "notifications: the system refused one — %q", m.Body)
+	if C.plxrWindowPost(t, b, s, id, failure, 512) != 1 {
+		note("notifications: macOS did not take %q: %s", m.Body, C.GoString(failure))
+	}
+}
+
+func wake() {
+	select {
+	case permissionChanged <- struct{}{}:
+	default:
 	}
 }
 
@@ -111,10 +128,21 @@ func plxrGoClicked(sessionID *C.char) {
 	}
 }
 
-//export plxrGoPermission
-func plxrGoPermission() {
-	select {
-	case permissionChanged <- struct{}{}:
-	default:
+//export plxrGoAnswered
+func plxrGoAnswered(granted C.int, failure *C.char) {
+	if granted == 1 {
+		note("notifications: macOS answered - plxr may show notifications")
+	} else {
+		note("notifications: macOS answered - not allowed (%s)", C.GoString(failure))
 	}
+	wake()
+}
+
+// systemLog writes a line to the system log, where it survives a process
+// whose own output is discarded. Foundation's logging, not the notification
+// centre: the service may call this.
+func systemLog(line string) {
+	c := C.CString(line)
+	defer C.free(unsafe.Pointer(c))
+	C.plxrLog(c)
 }

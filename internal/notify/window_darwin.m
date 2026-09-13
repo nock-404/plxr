@@ -2,13 +2,15 @@
 
 #import <Foundation/Foundation.h>
 #import <UserNotifications/UserNotifications.h>
+#include <os/log.h>
+#include <stdatomic.h>
+#include <string.h>
 #include "_cgo_export.h"
 
-// The window's notifications: posted by the application process, shown while
-// it is frontmost, and a click handed back to Go with the session it named.
-//
-// plxrNotify in notify_darwin.m is the service's route, kept for the case of
-// no window being open. This file is what the window uses instead.
+// The window's notifications: the permission asked for, and each one posted,
+// by the application process; shown while it is frontmost; a click handed
+// back to Go with the session it named. Nothing else in plxr talks to the
+// notification centre.
 
 @interface PlxrNotifyDelegate : NSObject <UNUserNotificationCenterDelegate>
 @end
@@ -17,7 +19,8 @@
 
 // Shown even while plxr is the frontmost application: the whole point is to
 // be told while looking at something else, and that includes another session
-// in the same window.
+// in the same window. The one in front is not posted at all — the service
+// holds that back.
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
        willPresentNotification:(UNNotification *)notification
          withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
@@ -38,6 +41,10 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
 @end
 
 static PlxrNotifyDelegate *plxrDelegate = nil;
+
+// Whether this process has put the question and not heard back. The system
+// reports a question on screen as a refusal already.
+static atomic_int plxrAsking = 0;
 
 static UNUserNotificationCenter *plxrCentre(void) {
     if ([[NSBundle mainBundle] bundleIdentifier] == nil) {
@@ -65,17 +72,36 @@ void plxrWindowInstall(void) {
     }
 }
 
+// The bundle identifier this process posts under, for System Settings to be
+// opened on. The caller frees it.
+char *plxrWindowBundle(void) {
+    @autoreleasepool {
+        NSString *id = [[NSBundle mainBundle] bundleIdentifier];
+        return id ? strdup(id.UTF8String) : NULL;
+    }
+}
+
+int plxrWindowAsking(void) {
+    return atomic_load(&plxrAsking);
+}
+
 void plxrWindowAuthorize(void) {
     @autoreleasepool {
         UNUserNotificationCenter *centre = plxrCentre();
         if (centre == nil) {
             return;
         }
-        [centre requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
+        atomic_store(&plxrAsking, 1);
+        [centre requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound)
                               completionHandler:^(BOOL granted, NSError *error) {
-                                  (void)granted; (void)error;
-                                  plxrGoPermission();
-                              }];
+            @autoreleasepool {
+                atomic_store(&plxrAsking, 0);
+                NSString *why = error
+                    ? [NSString stringWithFormat:@"%@ %ld: %@", error.domain, (long)error.code, error.localizedDescription]
+                    : @"";
+                plxrGoAnswered(granted ? 1 : 0, (char *)why.UTF8String);
+            }
+        }];
     }
 }
 
@@ -104,20 +130,30 @@ int plxrWindowStatus(void) {
     }
 }
 
-int plxrWindowPost(const char *title, const char *body, const char *sound, const char *sessionId) {
+// Posts one notification. 1 when the system took it; 0 with the reason in
+// failure when it did not.
+int plxrWindowPost(const char *title, const char *body, const char *sound, const char *sessionId, char *failure, int failureSize) {
     @autoreleasepool {
         UNUserNotificationCenter *centre = plxrCentre();
         if (centre == nil) {
+            snprintf(failure, failureSize, "this build is not inside an application bundle");
             return 0;
         }
         UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
-        content.title = [NSString stringWithUTF8String:title];
-        content.body = [NSString stringWithUTF8String:body];
+        NSString *t = [NSString stringWithUTF8String:title];
+        NSString *b = [NSString stringWithUTF8String:body];
+        content.title = t ?: @"plxr";
+        content.body = b ?: @"";
         if (sound != NULL && strlen(sound) > 0) {
             content.sound = [UNNotificationSound soundNamed:[NSString stringWithFormat:@"%s.aiff", sound]];
         }
         if (sessionId != NULL && strlen(sessionId) > 0) {
-            content.userInfo = @{@"sessionId": [NSString stringWithUTF8String:sessionId]};
+            NSString *sid = [NSString stringWithUTF8String:sessionId];
+            if (sid != nil) {
+                content.userInfo = @{@"sessionId": sid};
+                // One session's notifications stack together in the list.
+                content.threadIdentifier = sid;
+            }
         }
         // The request copies the content and is autoreleased itself.
         UNNotificationRequest *request =
@@ -127,15 +163,32 @@ int plxrWindowPost(const char *title, const char *body, const char *sound, const
         [content release];
         dispatch_semaphore_t done = dispatch_semaphore_create(0);
         __block int ok = 0;
+        // Retained by the block, released here once read. An answer that
+        // comes after the timeout keeps its text; that is a few bytes, once.
+        __block NSString *why = nil;
         [centre addNotificationRequest:request withCompletionHandler:^(NSError *error) {
-            ok = error == nil ? 1 : 0;
+            if (error == nil) {
+                ok = 1;
+            } else {
+                why = [[NSString alloc] initWithFormat:@"%@ %ld: %@", error.domain, (long)error.code, error.localizedDescription];
+            }
             dispatch_semaphore_signal(done);
         }];
         long waited = dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC));
         dispatch_release(done);
         if (waited != 0) {
+            snprintf(failure, failureSize, "no answer from the notification centre within two seconds");
             return 0;
+        }
+        if (!ok) {
+            snprintf(failure, failureSize, "%s", why ? why.UTF8String : "refused without a reason");
+            [why release];
         }
         return ok;
     }
+}
+
+// One line to the system log, public so that it can be read back.
+void plxrLog(const char *line) {
+    os_log(OS_LOG_DEFAULT, "%{public}s", line);
 }

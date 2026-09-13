@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+// serviceRoute shows a notification from the service itself. On Windows a
+// toast is raised under the name it is given, whoever raises it, and no
+// permission is held by any one process.
+func serviceRoute() func(Message) {
+	return func(m Message) { deliver(esc(m.Title), esc(m.Body), m.Sound) }
+}
+
 // Windows shows a toast, put together in PowerShell because that is the only
 // way in without a compiled WinRT binding — and a binding for one message is a
 // dependency for one message.
@@ -38,7 +45,9 @@ func sounds() []string {
 
 // OpenSystemSettings is a macOS matter: there the permission lives in one
 // panel of the system's; here there is none to open.
-func OpenSystemSettings() error { return errors.New("no notification settings to open on this system") }
+func OpenSystemSettings(string) error {
+	return errors.New("no notification settings to open on this system")
+}
 
 // The sound to start with here.
 func defaultSound() string { return "Default" }

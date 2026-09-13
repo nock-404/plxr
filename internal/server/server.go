@@ -434,12 +434,19 @@ func (s *Server) Routes() *http.ServeMux {
 	// What to be told about, and with which sound. Read by the daemon, because
 	// it is the daemon that notices — a window that is closed cannot.
 	mux.HandleFunc("GET /api/notify", func(w http.ResponseWriter, r *http.Request) {
+		// Every window reads the permission again, so the settings, which
+		// ask every two seconds while they are open, show it as it stands in
+		// System Settings now and not as it stood when the window connected.
+		notify.Service.Refresh()
 		writeJSON(w, map[string]any{
 			"settings": notify.Read(), "sounds": notify.Sounds(),
 			// How the system permission stands, as the window reported it,
 			// and how many windows are listening — so the settings can say
-			// where a notification will come from.
+			// whether a notification can be shown at all.
 			"permission": notify.Service.Permission(), "windows": notify.Service.Windows(),
+			// Whether the service shows them itself, where there is no
+			// permission to hold and no window needed.
+			"serviceShows": notify.Service.ServiceShows(),
 		})
 	})
 	mux.HandleFunc("PUT /api/notify", func(w http.ResponseWriter, r *http.Request) {
@@ -455,7 +462,8 @@ func (s *Server) Routes() *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	// Hearing it is the only way to choose it. Answers with where it went:
-	// a window that is open shows it, otherwise the service does.
+	// to one window, to nobody because no window is open or plxr is not
+	// allowed yet, or — on Linux and Windows — shown by the service.
 	mux.HandleFunc("POST /api/notify/try", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"via": string(notify.Service.Try(r.URL.Query().Get("sound")))})
 	})
@@ -465,13 +473,27 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/notify/authorize", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]bool{"asked": notify.Service.Authorize()})
 	})
-	// Where a refused permission is switched back on. A system URL, which a
-	// page is not allowed to follow; the service runs it.
+	// Where a refused permission is switched back on: System Settings on
+	// plxr's own notification switches, for the bundle the window said it
+	// posts under. A system URL, which a page is not allowed to follow; the
+	// service runs it.
 	mux.HandleFunc("POST /api/notify/system-settings", func(w http.ResponseWriter, r *http.Request) {
-		if err := notify.OpenSystemSettings(); err != nil {
+		if err := notify.OpenSystemSettings(notify.Service.Bundle()); err != nil {
 			http.Error(w, uierr.With("err.notify.settingsNotOpened", err.Error()).Error(), http.StatusInternalServerError)
 			return
 		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+	// Which session a page has in front, and whether the page has focus. A
+	// notification about a session somebody is looking at is not one they
+	// need; the hub holds it back while that stands.
+	mux.HandleFunc("PUT /api/notify/front", func(w http.ResponseWriter, r *http.Request) {
+		var in notifyFront
+		if json.NewDecoder(r.Body).Decode(&in) != nil {
+			http.Error(w, uierr.New("err.badJSON").Error(), http.StatusBadRequest)
+			return
+		}
+		notify.Service.SetFront(in.Page, in.Session, in.Focused)
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -1340,6 +1362,15 @@ func (s *Server) wsChanges(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// notifyFront is a page's word on what it has in front: a random id for the
+// page, the session in its active panel ("" for none), and whether it has
+// focus.
+type notifyFront struct {
+	Page    string `json:"page"`
+	Session string `json:"session"`
+	Focused bool   `json:"focused"`
+}
+
 /* wsNotify hands the window what to show.
  *
  * The page does not open this one — the window process does, from Go, and
@@ -1349,9 +1380,10 @@ func (s *Server) wsChanges(w http.ResponseWriter, r *http.Request) {
  * service's side.
  *
  * Shaped like wsChanges: keep-alive by ping, a read loop that notices the
- * window going, and on that the subscription ends — after which the service
- * shows things itself again. What comes up the socket is the window's word
- * on the system permission, so the settings can show it. */
+ * window going, and on that the subscription ends. What comes up the socket
+ * is the window's word on the system permission and the bundle it posts
+ * under, so the settings can show the one and open System Settings on the
+ * other. */
 func (s *Server) wsNotify(w http.ResponseWriter, r *http.Request) {
 	c, err := s.up.Upgrade(w, r, nil)
 	if err != nil {
@@ -1371,8 +1403,8 @@ func (s *Server) wsNotify(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if p := notify.ReadPermission(data); p != "" {
-				sub.SetPermission(p)
+			if rep, ok := notify.ReadReport(data); ok {
+				sub.Report(rep.Permission, rep.Bundle)
 			}
 		}
 	}()

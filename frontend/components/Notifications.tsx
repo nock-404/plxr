@@ -16,13 +16,13 @@ import type { NotifyInfo, NotifyPermission, NotifySettings, NotifyVia } from "@/
 // session getting stuck, and it has to know the answer at a moment when no
 // window may be open at all.
 //
-// The showing is the plxr window's job when it holds the system permission:
-// then it posts with the icon, and the service hands it what to say. Without
-// the permission the service shows a plain one itself — a refusal must not
-// be silence. So this panel also says how that permission stands, offers the
-// way to get it (the window puts the system's question; a refusal is undone
-// in System Settings, which a button opens), and says where a test
-// notification came from.
+// On macOS the showing is the plxr window's alone: it asks the system for the
+// permission and posts with plxr's icon, one window for each notification.
+// The service shows nothing itself there — what it used instead wore another
+// application's name. So this panel says how the permission stands right now
+// in the window's process, offers the way to get it (ALLOW puts the system's
+// question, once), and when it stands refused says in plain words where it is
+// switched back on, with a button that opens exactly that place.
 const EVENTS: { key: keyof NotifySettings["when"]; text: string; english: string }[] = [
   { key: "needsYou", text: "notify.needsYou", english: "an agent asks a question" },
   { key: "waiting", text: "notify.waiting", english: "an agent falls idle" },
@@ -32,8 +32,9 @@ const EVENTS: { key: keyof NotifySettings["when"]; text: string; english: string
 ];
 
 // The permission is asked of the service every few seconds while the panel
-// is open: it changes when the window answers the system's question, and
-// that happens while this is on screen.
+// is open, and each ask makes the window read it again: it changes when the
+// system's question is answered, and when it is switched in System Settings,
+// and both happen while this is on screen.
 const ASK_EVERY = 2000;
 
 /* How full a window has to be before plxr says so, when nothing is set. The
@@ -43,22 +44,32 @@ const DEFAULT_LIMIT = 80;
 
 function permissionText(p: NotifyPermission, windows: number): string {
   if (windows === 0) {
-    return tr("notify.permNoWindow", "no plxr window open — the service shows plain notifications, without the icon");
+    return tr("notify.permNoWindow", "no plxr window is open — nothing can be shown until one is");
   }
-  if (p === "granted") return tr("notify.permGranted", "granted — the plxr window shows them, with the icon");
+  if (p === "granted") return tr("notify.permGranted", "allowed — the plxr window shows them, with plxr's icon");
   if (p === "denied") {
-    return tr("notify.permDenied", "turned off in System Settings › Notifications — the service shows plain ones instead, without the icon");
+    return tr(
+      "notify.permDenied",
+      "turned off in System Settings. To turn them back on: System Settings › Notifications › plxr › Allow notifications.",
+    );
   }
-  if (p === "notAsked") {
-    return tr("notify.permNotAsked", "not allowed yet — the service shows plain ones, without the icon, until plxr is allowed");
+  if (p === "asking") {
+    return tr(
+      "notify.permAsking",
+      "macOS is asking now — answer its notification in the top right corner, and keep plxr open until you have",
+    );
   }
+  if (p === "notAsked") return tr("notify.permNotAsked", "not asked yet — press ALLOW NOTIFICATIONS, and macOS asks once");
   return tr("notify.permUnknown", "the plxr window has not reported yet");
 }
 
 function viaText(via: NotifyVia): string {
-  return via === "window"
-    ? tr("notify.viaWindow", "posted by the plxr window")
-    : tr("notify.viaLocal", "no window open — plain notification from the service");
+  if (via === "window") return tr("notify.viaWindow", "handed to the plxr window, which shows it");
+  if (via === "local") return tr("notify.viaLocal", "shown by the service");
+  if (via === "notAllowed") {
+    return tr("notify.viaNotAllowed", "plxr is not allowed to show notifications yet — nothing was shown");
+  }
+  return tr("notify.viaNone", "no plxr window is open — nothing was shown");
 }
 
 export default function Notifications() {
@@ -66,6 +77,7 @@ export default function Notifications() {
   const [sounds, setSounds] = useState<string[]>([]);
   const [permission, setPermission] = useState<NotifyPermission>("unknown");
   const [windows, setWindows] = useState(0);
+  const [serviceShows, setServiceShows] = useState(false);
   const [dnd, setDnd] = useState(false);
   const [note, setNote] = useState("");
   const [tested, setTested] = useState("");
@@ -84,6 +96,7 @@ export default function Notifications() {
       setSounds(n.sounds ?? []);
       setPermission(n.permission ?? "unknown");
       setWindows(n.windows ?? 0);
+      setServiceShows(Boolean(n.serviceShows));
       if (!typingRef.current) setThreshold(String(n.settings.limit || DEFAULT_LIMIT));
     };
     api.notify().then(take).catch((e) => setNote(errText(e)));
@@ -154,7 +167,7 @@ export default function Notifications() {
     setNote("");
     try {
       const { asked } = await api.notifyAuthorize();
-      if (!asked) setNote(tr("notify.permNoWindow", "no plxr window open — the service shows plain notifications, without the icon"));
+      if (!asked) setNote(tr("notify.permNoWindow", "no plxr window is open — nothing can be shown until one is"));
     } catch (e) {
       setNote(errText(e));
     }
@@ -272,21 +285,41 @@ export default function Notifications() {
           <div className="field">
             <span className="fieldName">{tr("notify.permission", "system permission")}</span>
             <span className="rowInline">
-              <span className="notice">{permissionText(permission, windows)}</span>
-              {windows > 0 && permission === "notAsked" ? (
-                <Tooltip text={tr("notify.allowTip", "The plxr window puts the system's question")}>
-                  <Button onClick={() => void allow()}>{tr("notify.allow", "ALLOW NOTIFICATIONS")}</Button>
+              <span className="notice">
+                {serviceShows
+                  ? tr("notify.permService", "on this system the service shows them itself — there is no permission to hold")
+                  : permissionText(permission, windows)}
+              </span>
+              {!serviceShows && windows > 0 && permission === "notAsked" ? (
+                <Tooltip
+                  text={tr("notify.allowTip", "macOS asks once whether plxr may show notifications. Keep plxr open until you have answered.")}
+                >
+                  <Button primary onClick={() => void allow()}>
+                    {tr("notify.allow", "ALLOW NOTIFICATIONS")}
+                  </Button>
                 </Tooltip>
               ) : null}
-              {permission === "denied" ? (
-                <Tooltip text={tr("notify.openSettingsTip", "Opens System Settings › Notifications, where plxr is switched back on")}>
-                  <Button onClick={() => void openSystemSettings()}>{tr("notify.openSettings", "OPEN SYSTEM SETTINGS")}</Button>
+              {!serviceShows && permission === "denied" ? (
+                <Tooltip
+                  text={tr("notify.openSettingsTip", "Opens System Settings on plxr's notifications, where Allow notifications is switched back on")}
+                >
+                  <Button primary onClick={() => void openSystemSettings()}>
+                    {tr("notify.openSettings", "OPEN SYSTEM SETTINGS")}
+                  </Button>
                 </Tooltip>
               ) : null}
-              <Tooltip text={tr("notify.testTip", "Shows one now and says who showed it")}>
+              <Tooltip text={tr("notify.testTip", "Shows one now and says what became of it")}>
                 <Button onClick={() => void test()}>{tr("notify.test", "TEST")}</Button>
               </Tooltip>
             </span>
+            {!serviceShows && permission === "denied" ? (
+              <p className="notice">
+                {tr(
+                  "notify.permDeniedWhy",
+                  "macOS asks only once. If that question was not answered — or plxr was closed while it was on screen — it counts as a no, and only System Settings can change it.",
+                )}
+              </p>
+            ) : null}
             {tested ? <p className="notice">{tested}</p> : null}
           </div>
         </>

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,43 +15,26 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-/* The socket the window listens on.
+/* The socket the window listens on, and the page's word on what is in front.
 
-   What is pinned: a window that is connected gets the frame and the service
-   shows nothing itself; a window that stopped answering — the laptop shut, the
-   process killed without a close — is found out by the ping and the service
-   shows things itself again. The second one is the case that stays invisible
-   otherwise: the socket looks open on this side for ever, every notification
-   goes into it, and nothing is ever seen. */
+   What is pinned: a connected window gets the frame and nothing else shows
+   it; a window that stopped answering — the laptop shut, the process killed
+   without a close — is found out by the ping and dropped, after which nothing
+   is shown and the outcome says so; the window's report of the permission and
+   its bundle arrives; ALLOW reaches the window; and a session a focused page
+   has in front is not said. */
 
-type recorder struct {
-	mu    sync.Mutex
-	shown []notify.Message
-}
-
-func (r *recorder) show(m notify.Message) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.shown = append(r.shown, m)
-}
-
-func (r *recorder) count() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return len(r.shown)
-}
-
-func bench(t *testing.T) (*recorder, *httptest.Server) {
+func bench(t *testing.T) *httptest.Server {
 	t.Helper()
-	rec := &recorder{}
 	was := notify.Service
-	notify.Service = notify.NewHub(rec.show, func() bool { return false }, time.Now)
+	// The macOS shape: the service has no route of its own.
+	notify.Service = notify.NewHub(nil, func() bool { return false }, time.Now)
 	t.Cleanup(func() { notify.Service = was })
 
 	s := New(nil, nil)
 	srv := httptest.NewServer(s.Routes())
 	t.Cleanup(srv.Close)
-	return rec, srv
+	return srv
 }
 
 func dial(t *testing.T, srv *httptest.Server) *websocket.Conn {
@@ -75,18 +59,20 @@ func waitFor(t *testing.T, what string, ok func() bool) {
 	t.Fatalf("waited 3 s for %s", what)
 }
 
-func TestAConnectedWindowGetsTheFrameAndTheServiceStaysQuiet(t *testing.T) {
-	rec, srv := bench(t)
+func TestAConnectedWindowGetsTheFrame(t *testing.T) {
+	srv := bench(t)
 	c := dial(t, srv)
 	defer c.Close()
 	waitFor(t, "the subscription", func() bool { return notify.Service.Windows() == 1 })
 
-	if err := c.WriteJSON(map[string]string{"permission": notify.PermissionGranted}); err != nil {
+	if err := c.WriteJSON(notify.Report{Permission: notify.PermissionGranted, Bundle: "de.nyo.plxr.test"}); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, "the permission to arrive", func() bool { return notify.Service.Permission() == notify.PermissionGranted })
+	waitFor(t, "the report to arrive", func() bool {
+		return notify.Service.Permission() == notify.PermissionGranted && notify.Service.Bundle() == "de.nyo.plxr.test"
+	})
 
-	out := notify.Service.Post(notify.Message{Title: "one", Body: "waiting for your answer", SessionID: "abc", Kind: "needsYou"})
+	out := notify.Service.Post(notify.Message{Title: "one", Body: "is waiting for your answer", SessionID: "abc", Kind: "needsYou"})
 	if out != notify.ViaWindow {
 		t.Fatalf("outcome %q, want %q", out, notify.ViaWindow)
 	}
@@ -98,96 +84,36 @@ func TestAConnectedWindowGetsTheFrameAndTheServiceStaysQuiet(t *testing.T) {
 	if got.SessionID != "abc" || got.Kind != "needsYou" || got.Title != "one" {
 		t.Errorf("the window got %+v", got)
 	}
-	if rec.count() != 0 {
-		t.Errorf("the service showed %d itself", rec.count())
-	}
 }
 
-func TestAWindowThatStopsAnsweringIsDroppedAndTheServiceTakesOver(t *testing.T) {
-	// Short enough to wait for in a test; the real values are twenty and sixty
-	// seconds.
+func TestAWindowThatStopsAnsweringIsDroppedAndNothingIsShown(t *testing.T) {
 	pingWas, pongWas := pingEvery, pongWait
 	pingEvery, pongWait = 50*time.Millisecond, 200*time.Millisecond
 	defer func() { pingEvery, pongWait = pingWas, pongWas }()
 
-	rec, srv := bench(t)
+	srv := bench(t)
 	c := dial(t, srv)
 	defer c.Close()
 	waitFor(t, "the subscription", func() bool { return notify.Service.Windows() == 1 })
-
-	// The window never reads, so it never answers a ping. The service is not
-	// told it went; it has to notice.
+	// The window never reads, so it never answers a ping.
 	waitFor(t, "the silent window to be dropped", func() bool { return notify.Service.Windows() == 0 })
 
-	if out := notify.Service.Post(notify.Message{Title: "one", Body: "still waiting", SessionID: "abc"}); out != notify.ViaLocal {
-		t.Fatalf("after the drop: outcome %q, want %q", out, notify.ViaLocal)
-	}
-	if rec.count() != 1 {
-		t.Errorf("the service showed %d, want 1", rec.count())
-	}
-}
-
-func TestAWindowThatClosesHandsBackToTheService(t *testing.T) {
-	rec, srv := bench(t)
-	c := dial(t, srv)
-	waitFor(t, "the subscription", func() bool { return notify.Service.Windows() == 1 })
-	c.Close()
-	waitFor(t, "the window to be gone", func() bool { return notify.Service.Windows() == 0 })
-
-	if out := notify.Service.Post(notify.Message{Title: "one", Body: "still waiting"}); out != notify.ViaLocal {
-		t.Fatalf("after the close: outcome %q, want %q", out, notify.ViaLocal)
-	}
-	if rec.count() != 1 {
-		t.Errorf("the service showed %d, want 1", rec.count())
+	if out := notify.Service.Post(notify.Message{Title: "one", Body: "still waiting", SessionID: "abc"}); out != notify.NoWindow {
+		t.Fatalf("after the drop: outcome %q, want %q", out, notify.NoWindow)
 	}
 }
 
 // The window's own client, against the real route: what the service posts
-// reaches the window's process, and the permission it reports is what the
-// settings then show.
-func TestTheWindowClientReceivesWhatTheServicePosts(t *testing.T) {
-	rec, srv := bench(t)
-
-	var mu sync.Mutex
-	var shown []notify.Message
-	go notify.FollowService(
-		func() (notify.Endpoint, bool) { return notify.Endpoint{URL: srv.URL, Token: "t"}, true },
-		func(m notify.Message) {
-			mu.Lock()
-			defer mu.Unlock()
-			shown = append(shown, m)
-		},
-		func() string { return notify.PermissionGranted },
-		make(chan struct{}),
-		func() {},
-	)
-	waitFor(t, "the window client to subscribe", func() bool { return notify.Service.Windows() == 1 })
-	waitFor(t, "the permission to be reported", func() bool { return notify.Service.Permission() == notify.PermissionGranted })
-
-	if out := notify.Service.Post(notify.Message{Title: "one", Body: "waiting for your answer", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaWindow {
-		t.Fatalf("outcome %q, want %q", out, notify.ViaWindow)
-	}
-	waitFor(t, "the window to show it", func() bool {
-		mu.Lock()
-		defer mu.Unlock()
-		return len(shown) == 1 && shown[0].SessionID == "abc"
-	})
-	if rec.count() != 0 {
-		t.Errorf("the service showed %d itself", rec.count())
-	}
-}
-
-// A window that is connected but may not post: the service shows it
-// itself, so that the refusal is not silence. And ALLOW NOTIFICATIONS: the
-// route hands the window an authorize frame, the window asks the system,
-// and the answer it then gives is what the settings show.
-func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
-	rec, srv := bench(t)
+// reaches the window's process, ALLOW reaches it as a question, a refresh
+// makes it say the permission again, and none of those is shown as a
+// notification.
+func TestTheWindowClientShowsAsksAndReports(t *testing.T) {
+	srv := bench(t)
 
 	var mu sync.Mutex
 	var shown []notify.Message
 	permission := notify.PermissionNotAsked
-	asked := 0
+	asked, reported := 0, 0
 	changed := make(chan struct{}, 1)
 	go notify.FollowService(
 		func() (notify.Endpoint, bool) { return notify.Endpoint{URL: srv.URL, Token: "t"}, true },
@@ -196,15 +122,14 @@ func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
 			defer mu.Unlock()
 			shown = append(shown, m)
 		},
-		func() string {
+		func() notify.Report {
 			mu.Lock()
 			defer mu.Unlock()
-			return permission
+			reported++
+			return notify.Report{Permission: permission, Bundle: "de.nyo.plxr.test"}
 		},
 		changed,
 		func() {
-			// What the window does on the frame: puts the system's question
-			// and, when it is answered, reports the new standing.
 			mu.Lock()
 			asked++
 			permission = notify.PermissionGranted
@@ -215,11 +140,8 @@ func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
 	waitFor(t, "the window client to subscribe", func() bool { return notify.Service.Windows() == 1 })
 	waitFor(t, "the permission to be reported", func() bool { return notify.Service.Permission() == notify.PermissionNotAsked })
 
-	if out := notify.Service.Post(notify.Message{Title: "one", Body: "waiting for your answer", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaLocal {
-		t.Fatalf("with the permission not asked: outcome %q, want %q", out, notify.ViaLocal)
-	}
-	if rec.count() != 1 {
-		t.Errorf("the service showed %d, want 1", rec.count())
+	if out := notify.Service.Post(notify.Message{Title: "one", Body: "is waiting for your answer", SessionID: "abc"}); out != notify.NotAllowed {
+		t.Fatalf("not asked yet: outcome %q, want %q", out, notify.NotAllowed)
 	}
 
 	res, err := http.Post(srv.URL+"/api/notify/authorize", "application/json", nil)
@@ -236,14 +158,22 @@ func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
 		defer mu.Unlock()
 		return asked == 1 && notify.Service.Permission() == notify.PermissionGranted
 	})
-	mu.Lock()
-	if len(shown) != 0 {
-		t.Errorf("the authorize frame was shown as a notification: %+v", shown)
-	}
-	mu.Unlock()
 
-	// Now it holds the permission, and the next one is its to show.
-	if out := notify.Service.Post(notify.Message{Title: "two", Body: "still waiting", SessionID: "abc", Kind: "needsYou"}); out != notify.ViaWindow {
+	mu.Lock()
+	before := reported
+	mu.Unlock()
+	res, err = http.Get(srv.URL + "/api/notify")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	waitFor(t, "the settings' look to make the window report again", func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return reported > before
+	})
+
+	if out := notify.Service.Post(notify.Message{Title: "two", Body: "still waiting", SessionID: "abc"}); out != notify.ViaWindow {
 		t.Fatalf("once granted: outcome %q, want %q", out, notify.ViaWindow)
 	}
 	waitFor(t, "the window to show it", func() bool {
@@ -251,7 +181,45 @@ func TestAWindowWithoutThePermissionLeavesTheShowingToTheService(t *testing.T) {
 		defer mu.Unlock()
 		return len(shown) == 1 && shown[0].Title == "two"
 	})
-	if rec.count() != 1 {
-		t.Errorf("the service showed %d, want still 1", rec.count())
+}
+
+func TestAFocusedPageHoldsBackItsOwnSession(t *testing.T) {
+	srv := bench(t)
+	c := dial(t, srv)
+	defer c.Close()
+	if err := c.WriteJSON(notify.Report{Permission: notify.PermissionGranted}); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the report", func() bool { return notify.Service.Permission() == notify.PermissionGranted })
+
+	put := func(body string) {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPut, srv.URL+"/api/notify/front", bytes.NewBufferString(body))
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusNoContent {
+			t.Fatalf("%s answered %d", body, res.StatusCode)
+		}
+	}
+	put(`{"page":"p1","session":"abc","focused":true}`)
+	if out := notify.Service.Post(notify.Message{Title: "one", Body: "is waiting", SessionID: "abc"}); out != notify.InFront {
+		t.Errorf("the session in front: outcome %q, want %q", out, notify.InFront)
+	}
+	put(`{"page":"p1","session":"abc","focused":false}`)
+	if out := notify.Service.Post(notify.Message{Title: "one", Body: "is waiting", SessionID: "abc"}); out != notify.ViaWindow {
+		t.Errorf("the window lost focus: outcome %q, want %q", out, notify.ViaWindow)
+	}
+
+	req, _ := http.NewRequest(http.MethodPut, srv.URL+"/api/notify/front", bytes.NewBufferString("not json"))
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusBadRequest {
+		t.Errorf("a body that is not JSON answered %d", res.StatusCode)
 	}
 }

@@ -2,38 +2,35 @@ package notify
 
 import (
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"plxr/internal/daemon"
 )
 
-/* Who shows a notification, and whether it is shown at all.
-
-   The service is the one that notices — a session getting stuck, the spend
-   going over the line — and until now it also did the showing. Measured, that
-   is the wrong process for it: it is started detached from the window, has no
-   run loop and is never launched by the system as an application, so macOS
-   never answers its request for permission (the app is missing from the
-   notification preferences after every kind of use) and refuses every
-   notification it posts under its own name. Unbundled it has no name at all
-   and falls back to the script, whose notifications belong to Script Editor.
-
-   The window is a real application: foreground, bundled, launched by the
-   system, with a run loop. It can hold the permission and post with the icon,
-   and a click on what it posted comes back to it. So a window that is open
-   subscribes here, and everything the service wants to say goes to the newest
-   window that HOLDS the permission instead of being shown from the service.
-   A window that reports the permission as denied, not asked or unknown is not
-   able to show anything — it used to be given the message all the same, and
-   the message went nowhere. Now it is passed over: with no capable window the
-   service shows it itself, exactly as before — a plain notification is still
-   better than none.
-
-   The decision whether to say anything lives here too, once, in front of both
-   routes: do-not-disturb, and a ceiling on how much is said in a short time.
-   Somebody with eight agents asking at once gets one line, not eight. */
+// Who shows a notification, and whether it is shown at all.
+//
+// The service is the one that notices — a session getting stuck, the spend
+// going over the line — and it used to do the showing too. On macOS that is
+// the wrong process: see notify_darwin.go for what was measured. There the
+// service has no route of its own at all; the plxr window is the one process
+// that asks the system for the permission and the one that posts, under
+// plxr's name, with plxr's icon, and a click on what it posted comes back to
+// it. On Linux and Windows the service's own route is sound and stays.
+//
+// A window that is open subscribes here, says how the permission stands in
+// its process and which bundle it posts under, and exactly one window is
+// handed each message: the newest that holds the permission, or else the
+// newest whose permission stands refused — measured, a refusal left behind by
+// a question that was never answered still lets a posted notification
+// through, and whether it is shown is the system's call, not a guess made
+// here. A window that has not asked yet is passed over: it would only post
+// into a question nobody has put.
+//
+// The decision whether to say anything lives here too, once, in front of
+// every route: do-not-disturb, a session that is already in front of a
+// window with focus, and a ceiling on how much is said in a short time.
+// Somebody with eight agents asking at once gets one line, not eight.
 
 // Message is one notification as it crosses from the service to whoever
 // shows it. SessionID is what a click leads back to; Kind is what the
@@ -44,11 +41,14 @@ type Message struct {
 	Sound     string `json:"sound"`
 	SessionID string `json:"sessionId,omitempty"`
 	Kind      string `json:"kind"`
-	// Not a notification but a request to the window: ask the system for
-	// the permission again and report the answer. Sent when somebody presses
-	// ALLOW NOTIFICATIONS in the settings, which run in a page that cannot
-	// ask the system itself.
+	// Not a notification but a request to the window: ask the system for the
+	// permission and report the answer. Sent when somebody presses ALLOW
+	// NOTIFICATIONS, which is in a page that cannot ask the system itself.
 	Authorize bool `json:"authorize,omitempty"`
+	// Not a notification either: read the permission again and say how it
+	// stands. Sent while the settings are open, so they show it as it is now
+	// and not as it was when the window connected.
+	Refresh bool `json:"refresh,omitempty"`
 }
 
 // How the system permission stands, as the window reports it. "unknown" is
@@ -58,31 +58,50 @@ const (
 	PermissionGranted  = "granted"
 	PermissionDenied   = "denied"
 	PermissionNotAsked = "notAsked"
+	// The system's question is on screen and not answered yet.
+	PermissionAsking = "asking"
 )
 
 // Outcome says what became of a message.
 type Outcome string
 
 const (
-	// Handed to a window, which shows it.
+	// Handed to exactly one window, which shows it.
 	ViaWindow Outcome = "window"
-	// Shown by the service itself, no window being open.
+	// Shown by the service itself — Linux and Windows only.
 	ViaLocal Outcome = "local"
+	// Not shown: no window is open, and the service does not show anything
+	// itself here.
+	NoWindow Outcome = "none"
+	// Not shown: a window is open, but plxr has not been allowed to show
+	// notifications there yet.
+	NotAllowed Outcome = "notAllowed"
 	// Not shown: do not disturb is on.
 	Quiet Outcome = "quiet"
+	// Not shown: the session it is about is in front of a window that has
+	// focus, so it is being looked at already.
+	InFront Outcome = "front"
 	// Not shown on its own: too many in a short time, and a summary went
 	// out in its place.
 	Summary Outcome = "summary"
-	// Not shown at all: it fell inside a window that a summary already
-	// covers.
+	// Not shown at all: it fell inside a stretch a summary already covers.
 	Folded Outcome = "folded"
 )
 
 // The ceiling: more than floodCap messages inside floodWindow and the rest
-// of that window is said as one line.
+// of that stretch is said as one line.
 const (
 	floodCap    = 3
 	floodWindow = 10 * time.Second
+)
+
+// A page's word on which session it has in front stands for frontFresh
+// without being said again — it repeats it well inside that while it has
+// focus, so a page that was closed without a word stops silencing anything
+// soon after. frontPages bounds how many pages are remembered at once.
+const (
+	frontFresh = 45 * time.Second
+	frontPages = 64
 )
 
 // Subscriber is one window listening for what to show.
@@ -90,22 +109,29 @@ type Subscriber struct {
 	hub        *Hub
 	frames     chan Message
 	permission string
+	bundle     string
 }
 
 // Frames is what the window has to show, in order.
 func (s *Subscriber) Frames() <-chan Message { return s.frames }
 
-// SetPermission records how the system permission stands in the window's
-// process. The settings panel shows it.
-func (s *Subscriber) SetPermission(p string) {
+// Report records what the window said about itself: how the permission
+// stands in its process, and the bundle identifier it posts under. Empty
+// fields leave what was said before.
+func (s *Subscriber) Report(permission, bundle string) {
 	s.hub.mu.Lock()
 	defer s.hub.mu.Unlock()
-	s.permission = p
-	s.hub.lastPermission = p
+	if permission != "" {
+		s.permission = permission
+		s.hub.lastPermission = permission
+	}
+	if bundle != "" {
+		s.bundle = bundle
+		s.hub.lastBundle = bundle
+	}
 }
 
-// Close takes the window off the list. Whatever comes next goes to the next
-// newest window, or is shown by the service.
+// Close takes the window off the list.
 func (s *Subscriber) Close() {
 	s.hub.mu.Lock()
 	defer s.hub.mu.Unlock()
@@ -122,30 +148,38 @@ type stamp struct {
 	session string
 }
 
-// Hub routes messages to the newest window, or to the local route when there
-// is none, and holds the line on how much is said.
+type front struct {
+	session string
+	at      time.Time
+}
+
+// Hub routes each message to one window, or to the service's own route where
+// there is one, and holds the line on how much is said.
 type Hub struct {
 	mu   sync.Mutex
 	subs []*Subscriber // oldest first
-	// What a window last said about the permission, kept after it closed so
-	// the settings can still say "denied" with the window gone.
+	// What a window last said, kept after it closed so the settings can
+	// still say "denied" and still open the right pane with the window gone.
 	lastPermission string
+	lastBundle     string
 
-	local func(Message)
+	local func(Message) // nil where the service shows nothing itself
 	dnd   func() bool
 	now   func() time.Time
 
 	recent    []stamp
 	summaryAt time.Time
+	fronts    map[string]front // page → the session it has in front, while focused
 }
 
-// NewHub builds a hub. local shows a message from this process, dnd says
-// whether do-not-disturb is on, now is the clock.
+// NewHub builds a hub. local shows a message from the service's own process
+// and is nil where it must not; dnd says whether do-not-disturb is on; now is
+// the clock.
 func NewHub(local func(Message), dnd func() bool, now func() time.Time) *Hub {
-	return &Hub{local: local, dnd: dnd, now: now, lastPermission: PermissionUnknown}
+	return &Hub{local: local, dnd: dnd, now: now, lastPermission: PermissionUnknown, fronts: map[string]front{}}
 }
 
-// Subscribe adds a window. The newest one is the one that shows things.
+// Subscribe adds a window.
 func (h *Hub) Subscribe() *Subscriber {
 	s := &Subscriber{hub: h, frames: make(chan Message, 16), permission: PermissionUnknown}
 	h.mu.Lock()
@@ -161,6 +195,11 @@ func (h *Hub) Windows() int {
 	return len(h.subs)
 }
 
+// ServiceShows says whether the service shows a notification itself when no
+// window takes it — Linux and Windows, where no permission is held by any one
+// process, and never macOS.
+func (h *Hub) ServiceShows() bool { return h.local != nil }
+
 // Permission is how the system permission stands: what the newest window
 // says, or what the last one said before it went.
 func (h *Hub) Permission() string {
@@ -174,36 +213,69 @@ func (h *Hub) Permission() string {
 	return h.lastPermission
 }
 
-// capable says whether the window can show a notification: only with the
-// permission granted (provisional counts as granted on the window's side).
-// Denied, not asked and unknown all end in nothing being shown, and a
-// message handed to such a window is a message lost.
-func (s *Subscriber) capable() bool { return s.permission == PermissionGranted }
-
-// route hands the message to the newest capable window that will take it,
-// and to the local route when there is none. A window whose queue is full is
-// one that has stopped reading — it is passed over, not waited for.
-func (h *Hub) route(m Message) Outcome {
+// Bundle is the bundle identifier the newest window posts under, or the last
+// one said — what System Settings is opened on.
+func (h *Hub) Bundle() string {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	for i := len(h.subs) - 1; i >= 0; i-- {
-		if !h.subs[i].capable() {
-			continue
-		}
-		select {
-		case h.subs[i].frames <- m:
-			h.mu.Unlock()
-			return ViaWindow
-		default:
+		if h.subs[i].bundle != "" {
+			return h.subs[i].bundle
 		}
 	}
-	h.mu.Unlock()
-	h.local(m)
-	return ViaLocal
+	return h.lastBundle
 }
 
-// Authorize asks the newest window to put the system's question again and
-// report the answer. Reports whether a window was there to ask; the
-// permission is not required for this — it is the way to get one.
+// rank orders the windows for the one-poster election: 2 holds the
+// permission, 1 may post and leaves the showing to the system, 0 is passed
+// over.
+func rank(permission string) int {
+	switch permission {
+	case PermissionGranted:
+		return 2
+	case PermissionDenied, PermissionAsking:
+		return 1
+	}
+	return 0
+}
+
+// route hands the message to exactly one window: the newest of the best
+// rank that is still reading. A window whose queue is full has stopped
+// reading — it is passed over, not waited for. With no window to take it the
+// service's own route shows it where there is one; otherwise it is not shown.
+func (h *Hub) route(m Message) Outcome {
+	h.mu.Lock()
+	candidates := 0
+	for r := 2; r >= 1; r-- {
+		for i := len(h.subs) - 1; i >= 0; i-- {
+			if rank(h.subs[i].permission) != r {
+				continue
+			}
+			candidates++
+			select {
+			case h.subs[i].frames <- m:
+				h.mu.Unlock()
+				return ViaWindow
+			default:
+			}
+		}
+	}
+	windows := len(h.subs)
+	h.mu.Unlock()
+	if h.local != nil {
+		h.local(m)
+		return ViaLocal
+	}
+	if windows > 0 && candidates == 0 {
+		return NotAllowed
+	}
+	return NoWindow
+}
+
+// Authorize asks the newest window — one, never all of them — to put the
+// system's question and report the answer. Reports whether a window was
+// there to ask; the permission is not required for this, it is the way to
+// get one.
 func (h *Hub) Authorize() bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -217,13 +289,76 @@ func (h *Hub) Authorize() bool {
 	return false
 }
 
-// Post says one thing, subject to do-not-disturb and the ceiling.
+// Refresh asks every window to read the permission again and say it. A
+// window that is not reading is skipped.
+func (h *Hub) Refresh() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, s := range h.subs {
+		select {
+		case s.frames <- Message{Refresh: true}:
+		default:
+		}
+	}
+}
+
+// SetFront records which session a page has in front, and whether the page
+// has focus. Only a focused page showing a session silences anything; any
+// other word from the page takes back what it said before.
+func (h *Hub) SetFront(page, session string, focused bool) {
+	if page == "" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	now := h.now()
+	h.pruneFrontsLocked(now)
+	if session == "" || !focused {
+		delete(h.fronts, page)
+		return
+	}
+	if _, known := h.fronts[page]; !known && len(h.fronts) >= frontPages {
+		return
+	}
+	h.fronts[page] = front{session: session, at: now}
+}
+
+func (h *Hub) pruneFrontsLocked(now time.Time) {
+	for page, f := range h.fronts {
+		if now.Sub(f.at) > frontFresh {
+			delete(h.fronts, page)
+		}
+	}
+}
+
+// inFrontLocked says whether the session is in front of a focused page.
+func (h *Hub) inFrontLocked(session string, now time.Time) bool {
+	if session == "" {
+		return false
+	}
+	h.pruneFrontsLocked(now)
+	for _, f := range h.fronts {
+		if f.session == session {
+			return true
+		}
+	}
+	return false
+}
+
+// Post says one thing, subject to do-not-disturb, the session in front and
+// the ceiling.
 func (h *Hub) Post(m Message) Outcome {
 	if h.dnd() {
 		return Quiet
 	}
 	h.mu.Lock()
 	now := h.now()
+	// Before the ceiling is counted: what is being looked at is not said, and
+	// what is not said does not use up the line.
+	if h.inFrontLocked(m.SessionID, now) {
+		h.mu.Unlock()
+		return InFront
+	}
 	kept := h.recent[:0]
 	for _, s := range h.recent {
 		if now.Sub(s.at) < floodWindow {
@@ -235,7 +370,7 @@ func (h *Hub) Post(m Message) Outcome {
 		h.mu.Unlock()
 		return h.route(m)
 	}
-	// Over the line. One summary per window, the rest folds into it.
+	// Over the line. One summary per stretch, the rest folds into it.
 	if now.Sub(h.summaryAt) < floodWindow {
 		h.mu.Unlock()
 		return Folded
@@ -254,15 +389,20 @@ func (h *Hub) Post(m Message) Outcome {
 	if len(seen) <= 1 {
 		body = "a session keeps needing you"
 	}
-	h.route(Message{Title: "plxr", Body: body, Sound: m.Sound, Kind: "summary"})
+	if out := h.route(Message{Title: "plxr", Body: body, Sound: m.Sound, Kind: "summary"}); out != ViaWindow && out != ViaLocal {
+		return out
+	}
 	return Summary
 }
 
-// Try shows the test notification: past do-not-disturb and the ceiling,
-// because somebody pressed the button for it, but by the same route as the
-// real thing — that is what the button is there to show.
+// Try shows the test notification: past do-not-disturb, the session in front
+// and the ceiling, because somebody pressed the button for it, but by the
+// same route as the real thing — that is what the button is there to show.
 func (h *Hub) Try(sound string) Outcome {
-	return h.route(Message{Title: "plxr", Body: "This is what it sounds like", Sound: sound, Kind: "test"})
+	m := Message{Title: "plxr", Body: "This is how a notification from plxr looks and sounds", Sound: sound, Kind: "test"}
+	out := h.route(m)
+	explain(out, m)
+	return out
 }
 
 // DoNotDisturb reads the switch from the shared settings: `dnd`, written by
@@ -273,13 +413,29 @@ func DoNotDisturb() bool {
 }
 
 // Service is the hub the service uses. Tests put their own in its place.
-var Service = NewHub(func(m Message) { Send(m.Title, m.Body, m.Sound) }, DoNotDisturb, time.Now)
+var Service = NewHub(serviceRoute(), DoNotDisturb, time.Now)
 
-// Post says one thing through the service's hub.
+// Post says one thing through the service's hub, and says in the log why
+// when it was not shown.
 func Post(m Message) Outcome {
 	out := Service.Post(m)
-	if out != ViaWindow && out != ViaLocal {
-		log.Printf("notify: %q not shown on its own (%s)", m.Body, out)
-	}
+	explain(out, m)
 	return out
+}
+
+// explain writes down why a message was not shown. The log is the only place
+// the service can say it: a notification that does not arrive looks exactly
+// like nothing having happened.
+func explain(out Outcome, m Message) {
+	switch out {
+	case ViaWindow, ViaLocal:
+	case NoWindow:
+		note("notify: %q not shown - no plxr window is open, and the service does not show notifications itself", m.Body)
+	case NotAllowed:
+		note("notify: %q not shown - plxr has not been allowed to show notifications yet (Settings, Notifications)", m.Body)
+	case InFront:
+		note("notify: %q not shown - that session is in front of a window that has focus", m.Body)
+	default:
+		note("notify: %q not shown on its own (%s)", m.Body, out)
+	}
 }
