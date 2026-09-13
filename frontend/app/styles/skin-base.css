@@ -1109,10 +1109,19 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .licenceSource { color: var(--dim); }
 .licenceText { color: var(--fg); font-family: var(--term-font, ui-monospace, Menlo, monospace); font-size: .85em; background: color-mix(in srgb, var(--bg) 60%, transparent); border: var(--hair) solid var(--line); }
 
-/* The strip the tabs sit in, and the settings filling a panel: both take the
-   panel's own surface, so a region reads as one box rather than two. */
+/* The strip the tabs sit in, and every document of main filling its panel —
+   the settings, an editor, a diff, a preview, the board, the folders: all take
+   the panel's own surface, the one a tool window stands on, so a region reads
+   as one box rather than two. Main's own ground stays transparent and shows
+   only in the gaps between its groups; a document standing on it was dark
+   blue code on Windows 95's teal desktop. */
 .plxrDock .dv-tabs-container { background: var(--panel); }
-.settingsPanel { background: var(--panel); color: var(--fg); }
+.settingsPanel,
+.editorPanel,
+.diffPanel,
+.preview,
+.overviewPanel,
+.foldersPanel { background: var(--panel); color: var(--fg); }
 
 /* The tool stripes: the panel's surface, with the line where each meets the
    dock drawn inside it, so no skin's line takes a pixel from the icons. An icon

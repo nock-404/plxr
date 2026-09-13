@@ -57,7 +57,7 @@ LAYOUT_ONLY = {
     "changes", "changegroup", "changerow", "diffwrap", "hunk", "difftext",
     "logrow", "branchrow", "foldergit", "folderbar", "folderbarTop", "folderbarLow",
     "panel", "session", "sesssplit", "spacer", "splitList", "tabbody", "tall",
-    "wide", "queue", "queuelist", "tools", "viewer", "viewerwrap", "ask",
+    "wide", "queue", "queuelist", "tools", "viewer", "ask",
     "viewermarks", "filetree", "playterm", "wbBody", "ruleslist", "urow",
     # Rows, cells and handles: geometry with no surface of their own.
     "field", "rowInline", "choice", "cardButtons", "dialogFoot", "keyCell",
@@ -97,8 +97,9 @@ LAYOUT_ONLY = {
     # centred column. The buttons in them dress themselves, and the note is the
     # empty note every view draws.
     "edgeToggles", "mainWatermark",
-    # The web preview: a toolbar row and the iframe box, arrangement only.
-    "preview", "previewbar", "previewframe",
+    # The web preview's toolbar row and iframe box: arrangement only. The
+    # preview itself stands on the panel's surface, like every document.
+    "previewbar", "previewframe",
     # The standalone changes panel: fills its dock panel, arrangement only.
     "changesPanel",
     # The branch review panel and its list column: arrangement only, every
@@ -109,11 +110,10 @@ LAYOUT_ONLY = {
     "dv-react-part",
     # Find in files as a dock panel: the same, arrangement only.
     "searchPanel",
-    # A diff in its own dock panel: the positioned box its overlay fills.
-    "diffPanel",
-    # The editor and the file tree in dock panels of their own, and the
-    # editor's own column: boxes that fill a panel, arrangement only.
-    "editorPanel", "filesPanel", "editorBody",
+    # The file tree in a dock panel of its own, and the editor's column:
+    # boxes that fill a panel, arrangement only. The editor's and the diff's
+    # panels are not: main's documents stand on the panel's surface.
+    "filesPanel", "editorBody",
     # The context menu label cell: arrangement; the item and hint carry colour.
     "menuLabel",
     # The command palette: the scrolling list and the label cell are arrangement.
@@ -133,10 +133,11 @@ LAYOUT_ONLY = {
     # colours. The close is not here: it is a control with a hover, a press
     # and a focus of its own, and every skin dresses it.
     "panelTab", "panelTabName",
-    # The windows he asked for: the notes panel's column, the inbox's group
-    # and heading rows (the .uhead and .meta inside carry the colour), and
-    # the overview's column above its grid — arrangement only.
-    "notesPanel", "inboxGroup", "inboxHead", "inboxSub", "inboxProject", "overviewPanel",
+    # The windows he asked for: the notes panel's column and the inbox's
+    # group and heading rows (the .uhead and .meta inside carry the colour) —
+    # arrangement only. The overview's column is not: it is a document of
+    # main and stands on the panel's surface.
+    "notesPanel", "inboxGroup", "inboxHead", "inboxSub", "inboxProject",
     # The head row of a licence on the licences page: it places the set's
     # name beside its licence, and each of the two carries its own colour.
     "licenceHead",

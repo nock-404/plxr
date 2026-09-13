@@ -1109,6 +1109,36 @@ Left open, seen while fixing these:
   window.** In the native window that is the frosted backdrop; headless Chrome
   has none, so the screenshots show it light grey.
 
+### Main's documents on a surface again (13.09.2026, wip9/surfaces)
+
+Since 11ad6dc made main's ground transparent, the documents in it stood on the
+page: in win95 the editor was dark blue code on the teal desktop. Every
+document of main now takes the panel's surface a tool window has (editor,
+diff, preview, board, folders, settings), and the text of an editor, a diff or
+the notes stands on a reading field each skin dresses like the tree: white and
+pressed in for win95, the tree's glass for crt and pixel, paper for sketch.
+The editor takes the interface's text colour, not the terminal's: win95's
+plain code was the terminal's #c0c0c0 between navy keywords. Measured in
+headless Chrome, text against the composited ground behind it, before → after:
+
+- win95 editor: teal body → white field; plain text 2.62 → 21.00, worst token
+  1.33 → 6.33, line numbers 1.77 → 8.45. Diff worst 1.20 → 6.36; the folder
+  bar's words were white for the teal and are the dark grey now (4.65).
+- crt editor: the see-through page (light grey headless) → panel; plain
+  2.24 → 12.97, worst token 1.17 → 4.96. Folders 1.17 → 4.96.
+- sketch and pixel read before and still do: editor plain 9.00 → 7.99 and
+  15.60 → 14.52, worst token 5.91 → 4.71 and 6.02 → 5.61.
+
+Left open:
+
+- **crt's diff line numbers are 2.0:1** on the added-line wash: --dead, the
+  skin's quiet colour, as before (2.2).
+- **A session in main still stands on the transparent ground.** Its terminal
+  has a ground of its own in three skins; in crt it shows what is behind the
+  window.
+- **pixel's folder overview crushes its value column** to two glyphs a line
+  in a group of a third of the window; the same before this change.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish

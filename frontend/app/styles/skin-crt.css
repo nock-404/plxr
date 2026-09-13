@@ -245,4 +245,7 @@
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }
+/* The text of a document takes the tree's glass too. The panel under it is
+   opaque, so there is nothing to blur. */
+[data-skin="crt"] .viewerwrap { background-color: var(--panel-glass); }
 [data-skin="crt"] .infohead { text-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 50%, transparent); }

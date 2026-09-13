@@ -555,4 +555,6 @@
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* The text of a document is written on the panel's paper, like the tree. */
+[data-skin="sketch"] .viewerwrap { background: transparent; }
 [data-skin="sketch"] .infohead { color: var(--accent); text-transform: none; letter-spacing: 0.04em; font-size: 0.85em; }
