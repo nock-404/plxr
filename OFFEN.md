@@ -774,6 +774,8 @@ the second.
 - **W11 Drag and drop does not respect regions.** Dockview's own edge drops can
   break the four-region shape.
 - **W12 Region sizes are not remembered** (on main 13.09: kept while the window runs and across a restart, measured at 400px through a reload) across close and reopen.
+- **W13 The bottom region only spanned main.** (wip9/bottomwide 14.09, not merged: the bottom window runs under left, main and right, from stripe to stripe; components/dock/shellNesting.ts, stripes.mjs "the bottom under everything", before/after in ~/Downloads/plxr-screenshots-2026-09-13/bottom-volle-breite) His words, translated: "I said bottom across the full width, not bottom only in main" — "left - main - right. under everything, the bottom". Still open:
+  looked at in the real window by eye — the native window came up with the new build and kept every stored size, but it could not be photographed from here (no screen recording permission), and ⌘B, ⌥⌘B, ⌘J and a sash drag were driven only in headless Chrome, not in WKWebView.
 
 ### N — the menu and navigation
 

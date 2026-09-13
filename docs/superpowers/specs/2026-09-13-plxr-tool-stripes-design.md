@@ -115,8 +115,11 @@ header, keys, switchers, persistence keys and gates stay the same either way.
 - **One tool window visible per edge.** A second icon on the same edge swaps the content. JetBrains'
   split mode is a follow-up.
 - **One remembered size per edge,** not per tool.
-- **The bottom window sits between the left and right windows,** not under them. This is the core
-  layout. The bottom *stripe* still spans the full width.
+- **The bottom window spans the full width under the left window, main and the right window,** as he
+  put it (translated): "left - main - right. under everything, the bottom", like PhpStorm. With the
+  bottom window shown the side windows end where it starts; with it hidden they run the full height.
+  dockview 8.3.1 nests its bottom edge between the side edges, so `components/dock/shellNesting.ts`
+  rebuilds the shell once (§12.1, correction 9). The bottom *stripe* spans the full width as well.
 - **No peek or overlay mode.** In dockview that is an enterprise feature; plxr does not build its own.
 
 ---
@@ -141,8 +144,9 @@ App                                              components/App.tsx
            │   ├ edge group "left"    header hidden, locked 'no-drop-target'
            │   │    panels: files, changes, search, review → ToolWindow > body
            │   ├ grid = main: documents only, PanelTab with ×
-           │   ├ edge group "bottom"  (between left and right windows)
-           │   └ edge group "right"   panels: inbox, usage, ports, archive, notes
+           │   ├ edge group "right"   panels: inbox, usage, ports, archive, notes
+           │   └ edge group "bottom"  under left, main and right (shellNesting.ts: a vertical
+           │                          splitview [row(left | main | right), bottom] in .dv-shell)
            ├ Stripe edge="right"
            ├ Stripe edge="bottom"                grid-column 1 / 4, full width
            └ StripeGhost                         only while dragging (components/stripes/Stripes.tsx)
@@ -931,7 +935,8 @@ Every claim below is measured.
 12. **Drag:**
     - press on Inbox, move to the bottom stripe at index 0, release → `.stripe[data-edge=bottom]`'s
       first icon is inbox
-    - clicking it opens its window between the side windows, above the bottom stripe
+    - clicking it opens its window across the full width, under both side windows, above the bottom
+      stripe: from the left stripe's inner edge to the right stripe's inner edge
     - releasing outside any stripe changes nothing
     - Escape mid-drag changes nothing
     - press and release without movement toggles
@@ -1063,6 +1068,15 @@ must-pass items pass; item 11 (not a must) fails, so plxr's own clamp is needed.
    drags (`onDidLayoutChange` does not, for drags or visibility).
 8. `setEdgeGroupVisible(true)` on a collapsed edge stays 35 px; call `expand()`
    first.
+9. (14.09.2026) dockview nests the bottom edge in the middle column, between the
+   side edges (ShellManager: outer horizontal [left | middle | right], middle
+   vertical [top | grid | bottom]); he wants it under both. ShellManager is not
+   exported, so `components/dock/shellNesting.ts` rebuilds the nesting once, at
+   the start of `edgeHost`, on the live instance: a vertical `Splitview`
+   [row = the old outer splitview, bottom], a facade in place of `_middleColumn`
+   for "bottom", and `layout` shadowed on the instance. What is stored does not
+   change. `frontend/lib/shellNesting.test.mjs` fails on any dockview change it
+   relies on; dockview is pinned to 8.3.1 with npm overrides.
 
 ## 13. Implementation plan
 
@@ -1201,3 +1215,4 @@ waiting for?" — so the proposals stand:
 | 16 | geometry's missing-box fix may expose failures that were passing silently | fix them in step 1, before any UI change |
 | 17 | The Tooltip has no side placement, so right-stripe tooltips may overflow | clamp to the viewport in `Tooltip.tsx` in step 9 |
 | 18 | P7/P8 (status bar at the bottom, header word buttons) are not covered | separate work; the bottom stripe leaves room at its right end |
+| 19 | The full-width bottom relies on dockview's private shell internals (`_middleColumn`, `_outerSplitview`, `_flushPendingSizes`, `layout`) | exact pin and npm overrides at 8.3.1; `shellNesting.test.mjs` tripwire in check.sh; a duck-typed guard that leaves dockview's nesting and logs when the shape differs; stripes.mjs "the bottom under everything" reads the structure and the boxes |

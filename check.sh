@@ -103,6 +103,12 @@ step "session order" node --experimental-strip-types frontend/lib/state.test.mjs
 # of the grid, the ones that were in front named, the documents kept where they
 # were, and a second run changing nothing.
 step "layout migration" node --experimental-strip-types frontend/lib/layoutMigrate.test.mjs
+# The bottom tool window runs under the left one, main and the right one because
+# components/dock/shellNesting.ts rebuilds dockview's shell on the live
+# instance, through fields dockview does not promise to keep. This reads the
+# dockview that is installed and fails on any change to what that file relies
+# on — before a browser gate would find the bottom window back under main.
+step "shell nesting" node frontend/lib/shellNesting.test.mjs
 # The icon pack per skin: each skin draws with its own from his table, a pack
 # picked over it wins in every skin, and a look stored before the skins
 # brought their packs follows the skin once it is read back.

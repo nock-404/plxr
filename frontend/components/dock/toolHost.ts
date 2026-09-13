@@ -22,8 +22,15 @@
  *     size until it is expanded, so an empty edge is hidden and a collapsed one
  *     expanded before it is shown;
  *   - a size set while hidden is kept and applied when the edge is shown.
+ *
+ * The bottom window runs under all of it — under the left window, main and the
+ * right window — the way he described the frame (translated): "left - main -
+ * right. under everything, the bottom". dockview keeps its bottom edge inside the column
+ * between the two side edges, so the shell is rebuilt once, before any edge is
+ * made (shellNesting.ts), and nothing below this line knows the difference.
  */
 import type { DockviewApi, DockviewGroupPanel, IDockviewPanel } from "dockview-react";
+import { spanBottom } from "@/components/dock/shellNesting";
 import { tr } from "@/lib/i18n";
 import { EDGES, isTool, viewDef, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
 
@@ -99,6 +106,9 @@ export function focusedTool(): ToolId | null {
 }
 
 export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
+  // First, before an edge exists or a layout is loaded: the bottom edge under
+  // both side edges instead of between them.
+  spanBottom(dv);
   const listeners = new Set<() => void>();
   const emit = () => {
     for (const fn of [...listeners]) fn();

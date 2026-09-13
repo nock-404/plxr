@@ -15,6 +15,12 @@
  *   a tool opens at its edge, main gives up exactly its width and nothing else
  *     moves; the same click hides it and main takes the room back;
  *   a second tool on the same edge swaps into the same box;
+ *   the bottom window runs under all of it, from the left stripe to the right
+ *     one, and the side windows end where it starts; hidden, they reach the
+ *     bottom stripe again; its height holds through a hide, a reload, a
+ *     maximised group and a preset, a window moved to it and back is the same
+ *     element, documents are refused on it, and an arrangement saved while it
+ *     still sat under main alone loads as it was stored;
  *   an edge dragged wider keeps that width through hide, show, another edge
  *     and a reload, and hiding alone is saved;
  *   a tool window has no ×, the middle button closes nothing in it, ⌘W from
@@ -123,6 +129,10 @@ const fresh = Object.fromEntries(KEYS.map((k) => [k, null]));
 await api("/api/prefs", { method: "PUT", body: JSON.stringify(fresh) }).catch(() => undefined);
 
 const fixtures = JSON.parse(readFileSync(join(HERE, "frontend", "lib", "layoutMigrate.fixtures.json"), "utf8"));
+/* What the window stored while dockview still kept the bottom edge under main
+   alone, saved from that build: Files 400 px on the left, Usage on the right,
+   Inbox 260 px at the bottom, all three shown. */
+const oldNesting = JSON.parse(readFileSync(join(HERE, "frontend", "lib", "dock-bottom-under-main.fixture.json"), "utf8"));
 
 /* Where each tool sits is read off the arrangement the window saved, not off
    the page: dockview takes a tool that is not in front of its edge out of the
@@ -372,6 +382,15 @@ const HELPERS = `${GATEKIT}
 const near = (a, b, tol = 1) => typeof a === "number" && typeof b === "number" && Math.abs(a - b) <= tol;
 const boxNear = (a, b, tol = 1) => Boolean(a && b) && near(a.x, b.x, tol) && near(a.y, b.y, tol) && near(a.w, b.w, tol) && near(a.h, b.h, tol);
 const show = (b) => (b ? `${b.x},${b.y} ${b.w}×${b.h}` : "none");
+/* His frame (translated): "left - main - right. under everything, the bottom".
+   Read off boxes { L, R, B } — the left, right and bottom windows, null when
+   hidden — and { lS, rS, bS }, the three stripes: the bottom window runs from
+   the left stripe's inner edge to the right stripe's and stands on the bottom
+   stripe, and a side window that shows ends where it starts. */
+const acrossStripes = (m) => Boolean(m && m.B && m.lS && m.rS && m.bS) && near(m.B.x, m.lS.x + m.lS.w) && near(m.B.x + m.B.w, m.rS.x) && near(m.B.y + m.B.h, m.bS.y);
+const sidesEndOnIt = (m) => Boolean(m && m.B) && (!m.L || (near(m.L.y + m.L.h, m.B.y, 2) && near(m.L.x, m.B.x))) && (!m.R || (near(m.R.y + m.R.h, m.B.y, 2) && near(m.R.x + m.R.w, m.B.x + m.B.w)));
+const fullWidth = (m) => acrossStripes(m) && Boolean(m.L && m.R) && sidesEndOnIt(m);
+const spanText = (m) => (m ? `bottom ${show(m.B)} · left ${show(m.L)} · right ${show(m.R)}${m.G ? ` · main ${show(m.G)}` : ""} · stripes left ${show(m.lS)} right ${show(m.rS)} bottom ${show(m.bS)}` : "none");
 
 // ---- a fresh window: every tool a window of its own, none of them showing ----
 const start = await run(`${HELPERS}
@@ -775,14 +794,15 @@ const landed = await run(`${HELPERS} return { left: order('left'), right: order(
 }
 const between = await run(`${HELPERS}
   await click('files', 800); await click('usage', 800); await click('inbox', 1000);
-  const out = { b: edgeBox('inbox'), l: edgeBox('files'), r: edgeBox('usage'), s: box(document.querySelector('.stripe[data-edge="bottom"]')), lit: toolLit('inbox') };
+  const at = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
+  const out = { B: edgeBox('inbox'), L: edgeBox('files'), R: edgeBox('usage'), lS: at('left'), rS: at('right'), bS: at('bottom'), lit: toolLit('inbox') };
   await hideAll();
   return out;
 `);
 claim(
-  "clicked, it opens its window at the bottom, between the two side windows and on the bottom stripe",
-  between.lit && between.b && between.l && between.r && near(between.b.x, between.l.x + between.l.w, 2) && near(between.b.x + between.b.w, between.r.x, 2) && near(between.b.y + between.b.h, between.s.y, 1),
-  `inbox ${show(between.b)} · left ${show(between.l)} · right ${show(between.r)} · bottom stripe ${show(between.s)}`,
+  "clicked, it opens its window at the bottom across the full width, from the left stripe's inner edge to the right stripe's, on the bottom stripe, and both side windows end where it starts",
+  between.lit && fullWidth(between),
+  spanText(between),
 );
 
 // Let go where no stripe is, Escape half way, and a press that does not move.
@@ -1216,13 +1236,312 @@ if (splitSetup.why || splitSetup.groups.length < 3) {
     worst = Math.max(worst, d);
     seen.push(`${order.join("→")}: ${d}px`);
   }
-  const bottomBox = await run(`${HELPERS} await click('inbox', 700); const b = edgeBox('inbox'); const g = grid(); await click('inbox', 500); return { b, g };`);
+  const bottomBox = await run(`${HELPERS}
+    for (const t of ['files', 'usage', 'inbox']) if (!toolLit(t)) await click(t, 600);
+    await wait(300);
+    const out = { B: edgeBox('inbox'), L: edgeBox('files'), R: edgeBox('usage'), G: grid(), S: box(document.querySelector('.dockHost .dv-shell')) };
+    await hideAll();
+    return out;
+  `);
   claim(
     "main's splits keep their proportions whichever order the three edges are shown and hidden in",
     worst <= 2,
     `${splitSetup.groups.map((g) => g.tabs).join(" | ")} · worst drift ${worst}px · ${seen.join(" · ")}`,
   );
-  claim("a tool on the bottom edge opens under main, between the side windows", bottomBox.b && near(bottomBox.b.y, bottomBox.g.y + bottomBox.g.h, 2) && near(bottomBox.b.x, bottomBox.g.x, 2), `bottom ${show(bottomBox.b)} · main ${show(bottomBox.g)}`);
+  const bb = bottomBox;
+  claim(
+    "with both side windows showing, a tool on the bottom edge opens under main and under both of them: main ends where it starts, and it is as wide as the whole dock",
+    bb.B && bb.G && bb.S && bb.L && bb.R && near(bb.G.y + bb.G.h, bb.B.y, 2) && near(bb.B.x, bb.S.x) && near(bb.B.w, bb.S.w),
+    `bottom ${show(bb.B)} · main ${show(bb.G)} · left ${show(bb.L)} · right ${show(bb.R)} · dock ${show(bb.S)}`,
+  );
+}
+
+// ---- the bottom under everything ---------------------------------------------------
+/* His frame, in his words (translated): "left - main - right. under everything,
+   the bottom" — the way PhpStorm has it. dockview keeps its bottom edge in the
+   column between the side edges, where it is only as wide as main, so
+   components/dock/shellNesting.ts rebuilds the shell; what is read here is the
+   page. The Inbox stands on the bottom edge from the section above. */
+{
+  const SPAN = `${HELPERS}
+    const stripeAt = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
+    const span = (l, r, b) => ({ L: edgeBox(l), R: edgeBox(r), B: edgeBox(b), G: grid(), S: box(document.querySelector('.dockHost .dv-shell')), lS: stripeAt('left'), rS: stripeAt('right'), bS: stripeAt('bottom') });
+    const structure = () => {
+      const shell = document.querySelector('.dockHost .dv-shell');
+      const views = [...(shell?.querySelectorAll(':scope > .dv-split-view-container.dv-vertical > .dv-view-container > .dv-view') ?? [])];
+      return {
+        marked: shell?.dataset.bottomSpan === 'full', views: views.length,
+        rowFirst: Boolean(views[0]?.querySelector(':scope > .dv-shell-row')), bottomSecond: Boolean(views[1]?.querySelector('[data-testid="dv-edge-group-bottom"]')),
+        sidesInRow: Boolean(document.querySelector('.dv-shell-row [data-testid="dv-edge-group-left"]') && document.querySelector('.dv-shell-row [data-testid="dv-edge-group-right"]')),
+        bottomInRow: Boolean(document.querySelector('.dv-shell-row [data-testid="dv-edge-group-bottom"]')),
+        edgesInMiddle: document.querySelectorAll('.dockHost .dv-shell-middle-column .dv-edge-group').length,
+      };
+    };
+    const showOnly = async ids => { for (const t of TOOL_IDS) if (toolLit(t) && !ids.includes(t)) await click(t, 400); for (const t of ids) if (!toolLit(t)) await click(t, 700); await wait(400); };
+    const rowIn = (id, n) => [...(win(id)?.querySelectorAll('.frow') ?? [])].find(r => (r.querySelector('.fname') || {}).textContent?.trim() === n);
+    const unfoldedIn = (id, n) => (rowIn(id, n)?.querySelector('.fchev')?.innerHTML || '').includes('chevron-down');
+  `;
+  const stripeSpot = (edge, fromEnd) => run(`${HELPERS}
+    const s = box(document.querySelector('.stripe[data-edge="${edge}"]'));
+    return ${edge === "bottom"} ? { x: s.x + s.w - ${fromEnd}, y: s.y + s.h / 2 } : { x: s.x + s.w / 2, y: s.y + s.h - ${fromEnd} };
+  `);
+
+  // The structure and the boxes, at three widths.
+  await run(`${SPAN} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1200); document.activeElement?.blur?.();`);
+  const spans = [];
+  for (const w of [1600, 1100, 900]) {
+    await view(w);
+    await sleep(900);
+    spans.push(await run(`${SPAN} await showOnly(['files', 'usage', 'inbox']); document.activeElement?.blur?.(); await wait(500); return { width: innerWidth, ...span('files', 'usage', 'inbox'), structure: structure() };`));
+  }
+  claim(
+    "the shell is rebuilt: marked, its top splitview vertical with two views — the row holding the left window, main and the right window, then the bottom edge — and no edge left in dockview's middle column",
+    spans.every((m) => m.structure.marked && m.structure.views === 2 && m.structure.rowFirst && m.structure.bottomSecond && m.structure.sidesInRow && !m.structure.bottomInRow && m.structure.edgesInMiddle === 0),
+    spans.map((m) => `${m.width}px: ${JSON.stringify(m.structure)}`).join(" | "),
+  );
+  claim(
+    "with Files, Usage and Inbox shown, the bottom window runs from the left stripe's inner edge to the right stripe's on the bottom stripe, and both side windows end where it starts — at 1600, 1100 and 900 px",
+    spans.every((m) => fullWidth(m)),
+    spans.map((m) => `${m.width}px: ${spanText(m)}`).join(" | "),
+  );
+
+  // A short window, the bottom at the height it opens with.
+  await cdp.send("Emulation.setDeviceMetricsOverride", { width: 1100, height: 600, deviceScaleFactor: 1, mobile: false });
+  await sleep(900);
+  const short = await run(`${SPAN} await showOnly(['files', 'usage', 'inbox']); document.activeElement?.blur?.(); await wait(500); return span('files', 'usage', 'inbox');`);
+  await view(1600);
+  await sleep(900);
+  claim(
+    "in a short window, 1100 by 600, the bottom window still stands on the bottom stripe under both side windows, they and main keep a hundred pixels above it, and no box overlaps another",
+    fullWidth(short) && [short.L, short.R, short.G].every((b) => b.h >= 99) && [short.L, short.R, short.B, short.G].every((b) => b.w > 0 && b.h > 0 && b.x >= 0 && b.y >= 0) &&
+      short.L.x + short.L.w <= short.G.x + 1 && short.G.x + short.G.w <= short.R.x + 1 && short.B.y >= short.G.y + short.G.h - 1,
+    spanText(short),
+  );
+
+  // ⌘J: hidden, the side windows and main run the full height again.
+  const chordJ = await run(`${SPAN}
+    await showOnly(['files', 'usage', 'inbox']); document.activeElement?.blur?.();
+    const shown = span('files', 'usage', 'inbox');
+    await key('j', { metaKey: true }); await wait(500);
+    const hidden = span('files', 'usage', 'inbox');
+    document.activeElement?.blur?.();
+    await key('j', { metaKey: true }); await wait(700);
+    document.activeElement?.blur?.();
+    return { shown, hidden, again: span('files', 'usage', 'inbox') };
+  `);
+  {
+    const { shown, hidden: h, again } = chordJ;
+    claim(
+      "⌘J hides the bottom window, and both side windows and main run the full height down to the bottom stripe again, at the widths they had",
+      fullWidth(shown) && !h.B && h.L && h.R && h.G && near(h.L.h, h.S.h, 2) && near(h.R.h, h.S.h, 2) && near(h.G.h, h.S.h, 2) && near(h.L.y + h.L.h, h.bS.y) && near(h.R.y + h.R.h, h.bS.y) && near(h.L.w, shown.L.w) && near(h.R.w, shown.R.w),
+      `shown: ${spanText(shown)} · hidden: ${spanText(h)} · dock ${show(h.S)}`,
+    );
+    claim("⌘J again brings the bottom window back at the height it had, across the full width", fullWidth(again) && near(again.B.h, shown.B.h), `height before ${shown.B?.h} · again ${spanText(again)}`);
+  }
+
+  // A group of main maximised while the bottom shows.
+  const maxed = await run(`${SPAN}
+    await showOnly(['usage', 'inbox']); document.activeElement?.blur?.();
+    const visible = () => gridGroups().filter(g => g.b.w > 0 && g.b.h > 0).length;
+    const before = { ...span('files', 'usage', 'inbox'), groups: visible() };
+    const tab = [...document.querySelectorAll('.plxrDock .dv-tab')].find(t => t.offsetParent !== null)?.querySelector('.panelTab');
+    if (!tab) return { why: 'no tab in main to maximise' };
+    const r = tab.getBoundingClientRect();
+    tab.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 8, clientY: r.top + 8, button: 2 }));
+    const row = await until(() => [...document.querySelectorAll('body > .menu .menuItem')].find(b => b.querySelector('.menuLabel')?.textContent.trim() === 'Maximise'), 2000);
+    if (!row) { await closeMenu(); return { why: 'no Maximise row on a tab of main' }; }
+    row.click(); await wait(900);
+    const during = { ...span('files', 'usage', 'inbox'), groups: visible() };
+    await click('files', 1000);
+    document.activeElement?.blur?.();
+    return { before, during, after: { ...span('files', 'usage', 'inbox'), groups: visible() } };
+  `);
+  if (maxed.why || maxed.before.groups < 2) {
+    unmeasured("a group of main maximised leaves the bottom window where it is", maxed.why ?? `only ${maxed.before.groups} group of main on screen`);
+  } else {
+    claim(
+      "a group of main maximised leaves the bottom window exactly where it was, and showing Files ends the maximise with the bottom still under all three",
+      maxed.during.groups === 1 && boxNear(maxed.during.B, maxed.before.B) && maxed.after.groups === maxed.before.groups && fullWidth(maxed.after),
+      `groups ${maxed.before.groups} → ${maxed.during.groups} → ${maxed.after.groups} · bottom ${show(maxed.before.B)} → ${show(maxed.during.B)} · after: ${spanText(maxed.after)}`,
+    );
+  }
+
+  // A height dragged by hand: through a hide, another edge and a reload.
+  await run(`${SPAN} await showOnly(['files', 'usage', 'inbox']); document.activeElement?.blur?.();`);
+  const dragged = await dragBottomEdge("inbox", 300);
+  const heights = await run(`${SPAN}
+    const at = () => edgeBox('inbox')?.h ?? null;
+    const dragged = at();
+    await click('inbox', 600); const hidden = edgeBox('inbox');
+    await click('inbox', 900); const again = at();
+    await click('files', 700); const leftOff = { bottom: at(), left: edgeBox('files') };
+    await click('files', 900); const leftOn = at();
+    document.activeElement?.blur?.();
+    await wait(1200);
+    return { dragged, hidden, again, leftOff, leftOn, before: span('files', 'usage', 'inbox') };
+  `);
+  await load();
+  const reloaded = await run(`${SPAN} return { lit: ['files', 'usage', 'inbox'].map(toolLit), ...span('files', 'usage', 'inbox') };`);
+  const reloadPrefs = await api("/api/prefs");
+  claim(
+    "the bottom sash dragged to 300 px leaves the bottom window 300 px high; hidden and shown it comes back at 300, and so it does with the left window hidden and shown meanwhile",
+    near(dragged, 300) && near(heights.dragged, 300) && !heights.hidden && near(heights.again, 300) && !heights.leftOff.left && near(heights.leftOff.bottom, 300) && near(heights.leftOn, 300),
+    JSON.stringify({ dragged, ...heights, before: undefined }),
+  );
+  {
+    const b = heights.before;
+    const eg = reloadPrefs.dock?.edgeGroups ?? {};
+    claim(
+      "after a reload all three windows are lit at the sizes they had — left and right widths, the bottom 300 high — the bottom still under all three, and the stored arrangement and prefs.dockSizes both say 300",
+      reloaded.lit.every(Boolean) && near(reloaded.L?.w, b.L?.w) && near(reloaded.R?.w, b.R?.w) && near(reloaded.B?.h, 300) && fullWidth(reloaded) &&
+        near(eg.bottom?.size, 300) && eg.bottom?.visible === true && near(reloadPrefs.dockSizes?.bottom, 300) && near(eg.left?.size, b.L?.w) && near(eg.right?.size, b.R?.w),
+      `before: ${spanText(b)} · after: ${spanText(reloaded)} · lit ${reloaded.lit.join(",")} · stored ${["left", "right", "bottom"].map((e) => `${e} ${eg[e]?.size} ${eg[e]?.visible ? "shown" : "hidden"}`).join(" · ")} · dockSizes ${JSON.stringify(reloadPrefs.dockSizes)}`,
+    );
+  }
+
+  // A window moved to the bottom and back is the same element, with what it had on screen.
+  await run(`${SPAN} await openSession(/plxr-stripes-check/); await wait(1200);`);
+  const across = await run(`${SPAN}
+    await showOnly(['files', 'usage', 'inbox']);
+    if (!(await until(() => rowIn('files', 'many'), 6000))) return { why: 'no folder "many" in the Files tool' };
+    if (!unfoldedIn('files', 'many')) rowIn('files', 'many').click();
+    if (!(await until(() => rowIn('files', 'row-001.txt'), 4000))) return { why: 'the folder "many" did not unfold' };
+    const node = win('files');
+    node.dataset.gateMark = 'across';
+    window.__plxrGateFiles = node;
+    node.querySelector('[data-do="tool-more"]').click();
+    const row = await until(() => document.querySelector('body > .menu [data-do="move-bottom"]'), 2000);
+    if (!row) return { why: 'no Bottom row under ⋮' };
+    row.click(); await wait(1200);
+    if (!toolLit('files')) await click('files', 900);
+    document.activeElement?.blur?.();
+    await wait(300);
+    return { bottom: order('bottom'), lit: toolLit('files'), same: win('files') === node && node.dataset.gateMark === 'across', unfolded: unfoldedIn('files', 'many'), child: Boolean(rowIn('files', 'row-001.txt')), ...span('changes', 'usage', 'files') };
+  `);
+  if (across.why) {
+    unmeasured("a tool window moved to the bottom and back is the same element", across.why);
+  } else {
+    await carry("files", await stripeSpot("left", 30));
+    await sleep(600);
+    const back = await run(`${SPAN}
+      if (!toolLit('files')) await click('files', 900);
+      if (!toolLit('inbox')) await click('inbox', 900);
+      document.activeElement?.blur?.();
+      await wait(300);
+      const node = window.__plxrGateFiles;
+      return { left: order('left'), same: Boolean(node) && win('files') === node && node.dataset.gateMark === 'across', unfolded: unfoldedIn('files', 'many'), ...span('files', 'usage', 'inbox') };
+    `);
+    await sleep(900);
+    const acrossPrefs = await api("/api/prefs");
+    claim(
+      "⋮ → Bottom takes the showing Files window into the full-width box at the bottom as the same element, its unfolded folder still unfolded",
+      across.bottom.includes("files") && across.lit && across.same && across.unfolded && across.child && acrossStripes(across) && sidesEndOnIt(across),
+      `bottom stripe ${across.bottom.join(",")} · same element ${across.same} · unfolded ${across.unfolded} · ${spanText(across)}`,
+    );
+    claim(
+      "carried back to the left stripe it shows on the left as the same element again, still unfolded, with the bottom window under all three, and every tool is at an edge exactly once",
+      back.left.includes("files") && back.same && back.unfolded && fullWidth(back) && onceEach(placed(acrossPrefs.dock)),
+      `left stripe ${back.left.join(",")} · same element ${back.same} · unfolded ${back.unfolded} · ${spanText(back)} · every tool once ${onceEach(placed(acrossPrefs.dock))}`,
+    );
+  }
+
+  /* Usage carried to the bottom stripe and back. Files shows on the left the
+     whole time: with no side window showing, main is as wide as the dock, and
+     a bottom window under main alone would pass for one under everything. */
+  await run(`${SPAN} await showOnly(['files', 'usage']); document.activeElement?.blur?.();`);
+  await carry("usage", await stripeSpot("bottom", 60));
+  const usageBottom = await run(`${SPAN} if (!toolLit('usage')) await click('usage', 900); if (!toolLit('files')) await click('files', 900); document.activeElement?.blur?.(); await wait(300); return { bottom: order('bottom'), ...span('files', 'notes', 'usage') };`);
+  await carry("usage", await stripeSpot("right", 30));
+  const usageBack = await run(`${SPAN} if (!toolLit('usage')) await click('usage', 900); document.activeElement?.blur?.(); await wait(300); return { right: order('right'), R: edgeBox('usage'), rS: stripeAt('right'), S: box(document.querySelector('.dockHost .dv-shell')) };`);
+  claim(
+    "Usage carried to the bottom stripe opens across the full width; carried back to the right stripe, the right edge shows it again",
+    usageBottom.bottom.includes("usage") && acrossStripes(usageBottom) && sidesEndOnIt(usageBottom) && usageBack.right.includes("usage") && usageBack.R && near(usageBack.R.x + usageBack.R.w, usageBack.rS.x) && near(usageBack.R.h, usageBack.S.h, 2),
+    `bottom stripe ${usageBottom.bottom.join(",")} · ${spanText(usageBottom)} · back: right stripe ${usageBack.right.join(",")} · usage ${show(usageBack.R)}`,
+  );
+
+  // Documents refused on the bottom window.
+  const target = await run(`${SPAN}
+    await showOnly(['files', 'inbox']);
+    if (!tabNamed('alpha.txt')) {
+      if (!(await until(() => rowIn('files', 'alpha.txt'), 6000))) return { why: 'alpha.txt is not in the Files tool' };
+      rowIn('files', 'alpha.txt').click();
+      if (!(await until(() => tabNamed('alpha.txt'), 5000))) return { why: 'alpha.txt did not open' };
+      await wait(700);
+    }
+    const b = edgeBox('inbox');
+    if (!b) return { why: 'the Inbox is not showing at the bottom' };
+    return { centre: { x: b.x + b.w / 2, y: b.y + b.h / 2 }, 'top edge': { x: b.x + b.w / 2, y: b.y + 6 }, 'left end': { x: b.x + 12, y: b.y + b.h / 2 }, 'right end': { x: b.x + b.w - 12, y: b.y + b.h / 2 } };
+  `);
+  if (target.why) {
+    unmeasured("a document dragged onto the bottom window stays in main", target.why);
+  } else {
+    const refused = [];
+    for (const [zone, at] of Object.entries(target)) refused.push({ zone, ...(await tabDrag("alpha.txt", at)) });
+    const bottomHolds = await run(`${SPAN} const g = win('inbox')?.closest('.dv-groupview'); return { editors: g ? g.querySelectorAll('.editorPanel, .panelTab[data-kind]:not([data-kind="view"])').length : -1, shown: Boolean(edgeBox('inbox')) };`);
+    claim(
+      "a document dragged onto the full-width bottom window — its centre, its top edge, either end — stays in main, and the bottom edge holds tools only",
+      refused.every((d) => d.intercepted && d.inMain && d.inTools === 0) && bottomHolds.editors === 0 && bottomHolds.shown,
+      `${refused.map((d) => `${d.zone}: in main ${d.inMain}, non-tools in edges ${d.inTools}`).join(" · ")} · bottom group: ${JSON.stringify(bottomHolds)}`,
+    );
+  }
+
+  // ⌘W with the keyboard in the bottom window.
+  const closeKey = await run(`${SPAN}
+    await showOnly(['inbox']);
+    const tabs = gridTabs().length;
+    win('inbox').focus();
+    const inside = Boolean(document.activeElement?.closest?.('.toolWindow[data-tool="inbox"]'));
+    await key('w', { metaKey: true }); await wait(300);
+    return { inside, lit: toolLit('inbox'), shown: Boolean(edgeBox('inbox')), tabs, after: gridTabs().length };
+  `);
+  claim("⌘W with the keyboard in the bottom window hides it and closes nothing in main", closeKey.inside && !closeKey.lit && !closeKey.shown && closeKey.after === closeKey.tabs, JSON.stringify(closeKey));
+
+  // Main's floor with the bottom window showing as well.
+  const floorBottom = [];
+  await run(`${SPAN} await showOnly(['files', 'usage', 'inbox']); document.activeElement?.blur?.();`);
+  for (const w of [1600, 1100, 900, 700]) {
+    await view(w);
+    await sleep(900);
+    floorBottom.push(
+      await run(`${SPAN}
+        await wait(200);
+        const g = grid(); const l = edgeBox('files'); const r = edgeBox('usage'); const shell = box(document.querySelector('.dockHost .dv-shell'));
+        const gs = gridGroups().map(x => x.b).filter(b => b.w > 0 && b.h > 0);
+        const left = Math.min(...gs.map(b => b.x)); const right = Math.max(...gs.map(b => b.x + b.w));
+        const remPx = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
+        return { width: innerWidth, shell: shell.w, left: l?.w ?? 0, main: g.w, right: r?.w ?? 0, columns: new Set(gs.map(b => b.x)).size,
+          under: Math.max(0, l ? l.x + l.w - left : 0, r ? right - r.x : 0), mainMin: remPx('--main-min'), sideMin: remPx('--side-min'), bottom: edgeBox('inbox') };
+      `),
+    );
+  }
+  await view(1600);
+  await sleep(900);
+  {
+    const room = (f) => f.shell >= 2 * f.sideMin + f.columns * f.mainMin;
+    claim(
+      "with the bottom window showing too, main is never narrower than its floor nor under a side window wherever there is room, and the bottom window stays as wide as the dock",
+      floorBottom.every((f) => !room(f) || (f.main >= f.mainMin - 1 && f.under <= 1)) && floorBottom.some(room) && floorBottom.every((f) => f.bottom && near(f.bottom.w, f.shell)),
+      floorBottom.map((f) => `${f.width}px: left ${f.left} · main ${f.main} (${f.columns} columns, floor ${f.mainMin} each) · right ${f.right} · under a window ${f.under} · bottom ${f.bottom?.w} in a dock of ${f.shell} · room ${room(f)}`).join(" | "),
+    );
+  }
+
+  // What the window stored before the bottom ran under everything.
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ dock: oldNesting.dock, dockSizes: oldNesting.dockSizes, toolLayout: oldNesting.toolLayout }) });
+  await load();
+  const old = await run(`${SPAN} return { lit: ['files', 'usage', 'inbox'].map(toolLit), structure: structure(), ...span('files', 'usage', 'inbox') };`);
+  {
+    const e = oldNesting.dock.edgeGroups;
+    claim(
+      "an arrangement stored while the bottom sat under main alone — Files 400 px on the left, Usage on the right, Inbox 260 px at the bottom, all shown — loads at the sizes it stored, now under all three",
+      old.lit.every(Boolean) && near(old.L?.w, e.left.size) && near(old.R?.w, e.right.size) && near(old.B?.h, e.bottom.size) && fullWidth(old) && old.structure.marked,
+      `stored left ${e.left.size} · right ${e.right.size} · bottom ${e.bottom.size} · loaded: ${spanText(old)} · lit ${old.lit.join(",")}`,
+    );
+  }
+
+  // The sections after this one start from the Inbox on the bottom edge and nothing else changed.
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ dock: null, dockSizes: null, toolLayout: { v: 1, order: { left: ["files", "changes", "search", "review"], right: ["usage", "ports", "archive", "notes"], bottom: ["inbox"] } } }) });
+  await load();
+  await run(`${HELPERS} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1500);`);
 }
 
 // ---- a hidden tool asks for nothing --------------------------------------------
@@ -1620,6 +1939,27 @@ async function dragLeftEdge(tool, width) {
   await sleep(700);
   return run(`${HELPERS} return edgeBox(${JSON.stringify(tool)})?.w ?? null;`);
 }
+/* The bottom window's sash dragged to a height: the horizontal sash along its
+   top edge, found where the window starts and across its middle. */
+async function dragBottomEdge(tool, height) {
+  const s = await run(`${HELPERS}
+    const w = edgeBox(${JSON.stringify(tool)});
+    if (!w) return null;
+    const s = [...document.querySelectorAll('.dockHost .dv-sash')].map(el => box(el)).filter(b => b.h > 0 && b.w > b.h && Math.abs(b.y + b.h / 2 - w.y) < 8 && b.x <= w.x + w.w / 2 && b.x + b.w >= w.x + w.w / 2);
+    return s.length ? { x: w.x + w.w / 2, y: s[0].y + s[0].h / 2, height: w.h } : null;
+  `);
+  if (!s) return null;
+  const to = s.y - (height - s.height);
+  await mouse("mouseMoved", s.x, s.y);
+  await mouse("mousePressed", s.x, s.y, { button: "left", buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= 14; i++) {
+    await mouse("mouseMoved", s.x, s.y + ((to - s.y) * i) / 14, { button: "left", buttons: 1 });
+    await sleep(16);
+  }
+  await mouse("mouseReleased", s.x, to, { button: "left", buttons: 0, clickCount: 1 });
+  await sleep(700);
+  return run(`${HELPERS} return edgeBox(${JSON.stringify(tool)})?.h ?? null;`);
+}
 const sides = (a) =>
   a ? `left ${a.shows.left ?? "none"} ${a.size.left} · right ${a.shows.right ?? "none"} ${a.size.right} · bottom ${a.shows.bottom ?? "none"} ${a.size.bottom} · stripes ${a.order.left.join(",")} | ${a.order.right.join(",")} | ${a.order.bottom.join(",") || "-"} · main ${a.main.map((g) => g.tabs.join("+")).join(" | ")}` : "none";
 const sameShows = (a, b) => Boolean(a && b) && ["left", "right", "bottom"].every((e) => a.shows[e] === b.shows[e] && near(a.size[e], b.size[e]));
@@ -1726,6 +2066,15 @@ if (presetSaved && !presetSaved.why && presetItem) {
     "applied from LAYOUTS, every edge shows what it showed at the size it had: Files on the left at 400 px, Usage on the right, Inbox on the bottom",
     applied.ok && sameShows(a, before) && near(a.size.left, 400),
     `saved: ${sides(before)} · applied: ${sides(a)}`,
+  );
+  const appliedSpan = await run(`${HELPERS}
+    const at = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
+    return { L: edgeBox('files'), R: edgeBox('usage'), B: edgeBox('inbox'), lS: at('left'), rS: at('right'), bS: at('bottom') };
+  `);
+  claim(
+    "applied, the three sizes are the layout's — left and right widths, the bottom's height — and the bottom window runs under both side windows from stripe to stripe",
+    fullWidth(appliedSpan) && ["left", "right"].every((e) => near(appliedSpan[e === "left" ? "L" : "R"]?.w, presetItem.layout?.edgeGroups?.[e]?.size)) && near(appliedSpan.B?.h, presetItem.layout?.edgeGroups?.bottom?.size),
+    `saved ${["left", "right", "bottom"].map((e) => `${e} ${presetItem.layout?.edgeGroups?.[e]?.size}`).join(" · ")} · ${spanText(appliedSpan)}`,
   );
   claim(
     "applied, every tool stands where it stood — Inbox first on the bottom stripe again — and prefs.toolLayout says so",

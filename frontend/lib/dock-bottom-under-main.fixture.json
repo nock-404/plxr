@@ -1,0 +1,180 @@
+{
+  "dock": {
+    "activeGroup": "bottom",
+    "edgeGroups": {
+      "bottom": {
+        "collapsedSize": 35,
+        "group": {
+          "activeView": "inbox",
+          "headerPosition": "bottom",
+          "hideHeader": true,
+          "id": "bottom",
+          "locked": "no-drop-target",
+          "views": [
+            "inbox"
+          ]
+        },
+        "minimumSize": 80,
+        "size": 260,
+        "visible": true
+      },
+      "left": {
+        "collapsedSize": 35,
+        "group": {
+          "activeView": "files",
+          "headerPosition": "left",
+          "hideHeader": true,
+          "id": "left",
+          "locked": "no-drop-target",
+          "views": [
+            "files",
+            "changes",
+            "search",
+            "review"
+          ]
+        },
+        "minimumSize": 176,
+        "size": 400,
+        "visible": true
+      },
+      "right": {
+        "collapsedSize": 35,
+        "group": {
+          "activeView": "usage",
+          "headerPosition": "right",
+          "hideHeader": true,
+          "id": "right",
+          "locked": "no-drop-target",
+          "views": [
+            "usage",
+            "ports",
+            "archive",
+            "notes"
+          ]
+        },
+        "minimumSize": 176,
+        "size": 320,
+        "visible": true
+      }
+    },
+    "grid": {
+      "height": 613,
+      "orientation": "HORIZONTAL",
+      "root": {
+        "data": [
+          {
+            "data": {
+              "activeView": "session:7b4876bee4e47e72",
+              "id": "1",
+              "views": [
+                "overview",
+                "session:7b4876bee4e47e72"
+              ]
+            },
+            "size": 800,
+            "type": "leaf"
+          }
+        ],
+        "size": 613,
+        "type": "branch"
+      },
+      "width": 800
+    },
+    "panels": {
+      "archive": {
+        "contentComponent": "archive",
+        "id": "archive",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Archive"
+      },
+      "changes": {
+        "contentComponent": "changes",
+        "id": "changes",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Changes"
+      },
+      "files": {
+        "contentComponent": "files",
+        "id": "files",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Files"
+      },
+      "inbox": {
+        "contentComponent": "inbox",
+        "id": "inbox",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Inbox"
+      },
+      "notes": {
+        "contentComponent": "notes",
+        "id": "notes",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Notes"
+      },
+      "overview": {
+        "contentComponent": "overview",
+        "id": "overview",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Overview"
+      },
+      "ports": {
+        "contentComponent": "ports",
+        "id": "ports",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Ports"
+      },
+      "review": {
+        "contentComponent": "review",
+        "id": "review",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Review"
+      },
+      "search": {
+        "contentComponent": "search",
+        "id": "search",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Search"
+      },
+      "session:7b4876bee4e47e72": {
+        "contentComponent": "session",
+        "id": "session:7b4876bee4e47e72",
+        "params": {
+          "id": "7b4876bee4e47e72"
+        },
+        "tabComponent": "props.defaultTabComponent",
+        "title": "plxr-shots · working"
+      },
+      "usage": {
+        "contentComponent": "usage",
+        "id": "usage",
+        "tabComponent": "props.defaultTabComponent",
+        "title": "Usage"
+      }
+    }
+  },
+  "dockSizes": {
+    "bottom": 260,
+    "left": 400,
+    "right": 320
+  },
+  "toolLayout": {
+    "order": {
+      "bottom": [
+        "inbox"
+      ],
+      "left": [
+        "files",
+        "changes",
+        "search",
+        "review"
+      ],
+      "right": [
+        "usage",
+        "ports",
+        "archive",
+        "notes"
+      ]
+    },
+    "v": 1
+  }
+}
