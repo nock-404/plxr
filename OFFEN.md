@@ -857,6 +857,16 @@ showed Claude Code's own /usage screen as the reference.
 - **U7 It must be reachable where it matters**, (half, on main 13.09: new-session picker proven; the session bar's picker not proven on screen) not only in a view: the
   account picker on a session should show what that account has left.
 
+### Found while building the icon packs (13.09.2026), already on main
+
+- **A long folder name wraps out of its rail heading in the Pixel skin.** The
+  group heading above a folder's sessions breaks onto a second line and runs
+  over the entry under it.
+- **The first letter of tree names is clipped in Windows 95 at 1x.** The icon
+  column and the name overlap by a pixel or two at normal density.
+- **clicked.mjs fails when run twice against one service,** and its count of
+  ports can be off by one when a port opens or closes during the run.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
