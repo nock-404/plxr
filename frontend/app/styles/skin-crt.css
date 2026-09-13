@@ -119,6 +119,10 @@
 [data-skin="crt"] .windowHead { border-bottom-color: var(--dim); }
 [data-skin="crt"] .tooltip { border-color: var(--accent); text-shadow: 0 0 .3em color-mix(in srgb, var(--accent) 40%, transparent); }
 [data-skin="crt"] .menuHeader { color: var(--dim); letter-spacing: .2em; }
+/* The keyboard list on the tube: headings spaced like the menu's, over a line
+   in the dim phosphor. */
+[data-skin="crt"] .keysGroup { color: var(--dim); letter-spacing: .2em; border-bottom-color: var(--dim); }
+[data-skin="crt"] .keysText { color: var(--accent); }
 
 /* The ended note sits inside the terminal's frame and glows like its text. */
 [data-skin="crt"] .endedNote { color: var(--dim); text-shadow: 0 0 .35em color-mix(in srgb, var(--accent) 40%, transparent); }

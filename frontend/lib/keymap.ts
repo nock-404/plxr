@@ -208,18 +208,43 @@ export const isMac = () => typeof navigator !== "undefined" && navigator.userAge
 // The arrow keys arrive under their DOM names; the list prints them as arrows.
 const ARROWS: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" };
 
-/* caption prints a chord the way the platform writes it: ⌘⇧K on a Mac,
-   Ctrl+Shift+K elsewhere. */
+/* The key a shifted character is typed on.
+ *
+ * A chord keeps punctuation as the character that arrived, so ⌃⇧- is stored
+ * as "Ctrl+_" — and was printed "^_", a key no keyboard has. A keycap names
+ * the key that is pressed, so the character is written as Shift and its key
+ * again. Read off the US layout, the one the table's chords are named in. */
+const UNSHIFTED: Record<string, string> = {
+  "~": "`", "!": "1", "@": "2", "#": "3", $: "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+  _: "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", '"': "'", "<": ",", ">": ".", "?": "/",
+};
+
+/* The modifiers in the order each platform writes them: ⌃⌥⇧⌘ on a Mac, the
+   order of its menus, and Ctrl first elsewhere. The order inside a chord is
+   only the order chordOf pushed them in, which is neither — ⌘⌥B where the
+   menu bar says ⌥⌘B. */
+const MAC_MODIFIERS: [string, string][] = [["Ctrl", "⌃"], ["Option", "⌥"], ["Shift", "⇧"], ["Mod", "⌘"]]; // german-ok: the modifier's own name
+const PC_MODIFIERS: [string, string][] = [["Meta", "Meta"], ["Mod", "Ctrl"], ["Ctrl", "Ctrl"], ["Option", "Alt"], ["Shift", "Shift"]]; // german-ok: the key's name on a PC keyboard
+
+/* caption prints a chord the way the platform writes it: ⇧⌘K and ⌃⇧- on a
+   Mac, Ctrl+Shift+K and Ctrl+Shift+- elsewhere. */
 export function caption(chord: string): string {
   if (!chord) return "—";
-  const parts = chord.split("+");
-  const raw = parts.pop() ?? "";
-  const key = ARROWS[raw] ?? raw;
-  if (isMac()) {
-    const glyphs = parts.map((p) => (p === "Mod" ? "⌘" : p === "Shift" ? "⇧" : p === "Option" ? "⌥" : p === "Ctrl" ? "⌃" : p)).join(""); // german-ok: the modifier's own name
-    return `${glyphs}${key}`;
+  // The plus key itself leaves an empty part behind: "Mod++".
+  const plus = chord === "+" || chord.endsWith("++");
+  const parts = (plus ? chord.slice(0, -1) : chord).split("+").filter(Boolean);
+  let key = plus ? "+" : (parts.pop() ?? "");
+  const held = new Set(parts);
+  if (Object.prototype.hasOwnProperty.call(UNSHIFTED, key)) {
+    held.add("Shift");
+    key = UNSHIFTED[key];
   }
-  return [...parts.map((p) => (p === "Mod" ? "Ctrl" : p === "Option" ? "Alt" : p)), key].join("+"); // german-ok: the key's name on a PC keyboard
+  key = ARROWS[key] ?? key;
+  if (isMac()) {
+    return MAC_MODIFIERS.filter(([name]) => held.has(name)).map(([, glyph]) => glyph).join("") + key;
+  }
+  const names = [...new Set(PC_MODIFIERS.filter(([name]) => held.has(name)).map(([, written]) => written))];
+  return [...names, key].join("+");
 }
 
 // The action, if any, already bound to this chord — so a rebinding can say

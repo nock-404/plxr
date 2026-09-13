@@ -389,6 +389,12 @@
 /* A tooltip the way the system drew them: pale yellow, a thin black line. */
 [data-skin="win95"] .tooltip { background: #ffffe1; color: var(--dk); border: var(--hair) solid var(--dk); box-shadow: none; text-shadow: none; }
 [data-skin="win95"] .menuHeader { color: var(--sh); letter-spacing: 0; text-transform: none; font-weight: bold; }
+/* The keyboard list: bold black headings over an etched line, and the row
+   under the pointer in the selection colour. */
+[data-skin="win95"] .keysGroup { color: var(--dk); font-weight: bold; text-transform: none; letter-spacing: 0; font-size: 1em; border-bottom: var(--hair) solid var(--sh); }
+[data-skin="win95"] .keysText { color: var(--dk); }
+[data-skin="win95"] .keysRow:hover { background: var(--accent); }
+[data-skin="win95"] .keysRow:hover .keysText { color: var(--onAccent); }
 
 /* ---- terminal: VGA palette, ended overlay, bell ------------------------ */
 /* The sixteen colours of the text mode this look comes from, exactly. */

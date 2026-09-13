@@ -631,6 +631,14 @@
 .windowGrip { background: linear-gradient(135deg, transparent 50%, var(--line) 50%); }
 .windowGrip:hover { background: linear-gradient(135deg, transparent 50%, var(--accent) 50%); }
 
+/* The keyboard list: a quiet heading over each group, a hairline under every
+   row, and the words in the colour the other lists give a row's title. */
+.keysList { color: var(--fg); }
+.keysGroup { color: var(--dim); letter-spacing: .14em; text-transform: uppercase; font-size: .74em; border-bottom: var(--hair) solid var(--line); }
+.keysRow { border-bottom: var(--hair) solid var(--line); }
+.keysRow:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.keysText { color: var(--accent); }
+
 /* The tooltip: the same opaque surface as the menu, in the quiet text size. */
 .tooltip { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); color: var(--fg); font-size: .8em; text-transform: none; letter-spacing: 0; }
 
