@@ -1059,6 +1059,7 @@ export default function Dock({
       .prefs()
       .then((p) => {
         readRegions(p as Record<string, unknown>);
+        readSizes(p as Record<string, unknown>);
         const chosen = (p as { dockActivity?: string }).dockActivity;
         if (chosen && (ACTIVITIES as string[]).includes(chosen)) activity.current = chosen as Activity;
         const saved = (p as { dock?: object }).dock;
@@ -1100,7 +1101,7 @@ export default function Dock({
       timer = window.setTimeout(() => {
         note(event.api);
         try {
-          void api.setPrefs({ dock: event.api.toJSON() });
+          void api.setPrefs({ dock: event.api.toJSON(), dockSizes: Object.fromEntries(sizes) });
         } catch {
           /* nothing to lose but the saved arrangement */
         }
@@ -1455,6 +1456,22 @@ function note(dv: DockviewApi): void {
     const region = regionOfGroup(g);
     if (region === "left" || region === "right") sizes.set(region, g.api.width);
     else if (region === "bottom") sizes.set("bottom", g.api.height);
+  }
+}
+
+/* readSizes takes the region sizes back out of the settings on load.
+ *
+ * They were kept only while the window ran, so a restart opened every side
+ * region at the frame's default again however wide it had been dragged. The
+ * sizes are pixels because dockview counts in them; one that is not a
+ * positive number is ignored rather than trusted. */
+export function readSizes(prefs: Record<string, unknown>): void {
+  const saved = prefs.dockSizes;
+  if (!saved || typeof saved !== "object") return;
+  for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
+    if ((k === "left" || k === "right" || k === "bottom") && typeof v === "number" && Number.isFinite(v) && v > 0) {
+      sizes.set(k, Math.round(v));
+    }
   }
 }
 
