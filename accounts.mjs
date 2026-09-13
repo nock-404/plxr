@@ -570,7 +570,7 @@ claim("the account switch on a session offers the new account",
 // USAGE on the rail.
 const usage = await tab.run(`${HELPERS}
   const glyphs = [...document.querySelectorAll('.railhome .rdot')].map(d => d.textContent.trim());
-  const item = [...document.querySelectorAll('.railhome .rdot')].find(d => d.textContent.trim() === '\u2564')?.closest('.railitem');
+  const item = document.querySelector('.railhome[data-view="usage"]');
   item?.click();
   const got = await until(() => document.querySelectorAll('.uacct').length === 4 ? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()) : null, 15000);
   return { names: got.v ?? [...document.querySelectorAll('.uacct .uacctName')].map(n => n.textContent.trim()), ms: got.ms,
