@@ -53,7 +53,9 @@ export type Action =
   | "toggleLeft"
   | "toggleRight"
   | "toggleBottom"
-  | "reopenPanel";
+  | "reopenPanel"
+  | "historyBack"
+  | "historyForward";
 
 export const KEYMAP_CHANGED = "plxr:keymap";
 
@@ -80,6 +82,10 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   // of a group and the groups of the window without the mouse.
   { id: "closePanel", chord: "Mod+W", key: "keys.closePanel", fallback: "Close the active panel" },
   { id: "reopenPanel", chord: "Mod+Shift+T", key: "keys.reopenPanel", fallback: "Reopen the panel closed last" },
+  /* Back and forward through the panels that were in front, the chords VS Code
+     uses on a Mac. Not ⌘[ and ⌘]: the editor outdents and indents with those. */
+  { id: "historyBack", chord: "Ctrl+-", key: "keys.historyBack", fallback: "Back to the panel that was in front before" },
+  { id: "historyForward", chord: "Ctrl+_", key: "keys.historyForward", fallback: "Forward again" },
   { id: "panelPrev", chord: "Mod+Option+ArrowLeft", key: "keys.panelPrev", fallback: "Previous panel in the group" },
   { id: "panelNext", chord: "Mod+Option+ArrowRight", key: "keys.panelNext", fallback: "Next panel in the group" },
   { id: "groupPrev", chord: "Mod+Option+ArrowUp", key: "keys.groupPrev", fallback: "Previous group" },
@@ -190,11 +196,11 @@ export function matches(e: KeyboardEvent, action: Action): boolean {
   return chord !== null && chord === bindingOf(action);
 }
 
-// hasModifier: a chord that needs Mod, the option key or an F-key is safe to
+// hasModifier: a chord that needs Mod, the option key, Control or an F-key is safe to
 // fire from a text box; a bare letter or "?" is not — that is what somebody is
 // typing.
 export function hasModifier(chord: string): boolean {
-  return /(^|\+)(Mod|Option)\+/.test(chord) || /^F\d{1,2}$/.test(chord.split("+").pop() ?? "");
+  return /(^|\+)(Mod|Option|Ctrl)\+/.test(chord) || /^F\d{1,2}$/.test(chord.split("+").pop() ?? "");
 }
 
 export const isMac = () => typeof navigator !== "undefined" && navigator.userAgent.includes("Mac");

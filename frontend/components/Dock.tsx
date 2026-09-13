@@ -824,6 +824,41 @@ export default function Dock({
    * comes to the front, where its own CLOSE says what is at stake and offers
    * SAVE, DISCARD or CANCEL. The rail never closes. Anything else just goes.
    * One question at a time: the dialog holds the answer's resolver. */
+  /* Where the work has been.
+   *
+   * Following a diff into an editor and the editor into a terminal left no way
+   * back but finding the tab again. Every panel that comes to the front is
+   * written down; back and forward walk that list the way a browser does, and
+   * a panel that has been closed since is stepped over rather than reopened. */
+  const history = useRef<{ back: string[]; forward: string[]; moving: boolean }>({ back: [], forward: [], moving: false });
+  const stepHistory = useCallback((dir: -1 | 1) => {
+    const dv = apiRef.current;
+    if (!dv) return;
+    const h = history.current;
+    const bring = (id: string) => {
+      const p = dv.getPanel(id);
+      if (!p) return;
+      if (dv.activePanel?.id !== id) h.moving = true;
+      p.api.setActive();
+    };
+    if (dir < 0) {
+      let i = h.back.length - 2;
+      while (i >= 0 && !dv.getPanel(h.back[i])) i--;
+      if (i < 0) return;
+      const left = h.back.splice(i + 1).filter((id) => dv.getPanel(id));
+      h.forward.push(...left.reverse());
+      bring(h.back[i]);
+      return;
+    }
+    while (h.forward.length) {
+      const next = h.forward.pop() as string;
+      if (!dv.getPanel(next)) continue;
+      h.back.push(next);
+      bring(next);
+      return;
+    }
+  }, []);
+
   /* Recently closed.
    *
    * ⌘W on the wrong tab used to be final: the panel, where it sat, and for an
@@ -929,6 +964,8 @@ export default function Dock({
       )
         return;
       if (fire("reopenPanel", () => reopen())) return;
+      if (fire("historyBack", () => stepHistory(-1))) return;
+      if (fire("historyForward", () => stepHistory(1))) return;
       if (fire("panelPrev", () => stepPanel(dv, -1))) return;
       if (fire("panelNext", () => stepPanel(dv, 1))) return;
       if (fire("groupPrev", () => stepGroup(dv, -1))) return;
@@ -939,7 +976,7 @@ export default function Dock({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [requestClose, reopen]);
+  }, [requestClose, reopen, stepHistory]);
 
   const openEditor = useCallback((rootId: string, rawPath: string, line?: number, title?: string) => {
     const dv = apiRef.current;
@@ -1061,10 +1098,14 @@ export default function Dock({
       hint: i === 0 ? caption(bindingOf("reopenPanel")) : undefined,
       run: () => reopen(c.id),
     }));
-    return [...appCommands, ...recent, ...views, ...sessions];
+    const moves: Command[] = [
+      { id: "nav:back", group: tr("palette.action", "Action"), label: tr("keys.historyBack", "Back to the panel that was in front before"), hint: caption(bindingOf("historyBack")), run: () => stepHistory(-1) },
+      { id: "nav:forward", group: tr("palette.action", "Action"), label: tr("keys.historyForward", "Forward again"), hint: caption(bindingOf("historyForward")), run: () => stepHistory(1) },
+    ];
+    return [...appCommands, ...moves, ...recent, ...views, ...sessions];
     // closedRev is read for its change, not its value: the list sits in the ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appCommands, tiles, openPanel, openSession, openFiles, closedRev, reopen]);
+  }, [appCommands, tiles, openPanel, openSession, openFiles, closedRev, reopen, stepHistory]);
 
   /* What the shell asks for: a reset, a preset to apply, a name to save the
      arrangement under, or an activity to arrange for. Each request is new by
@@ -1132,6 +1173,15 @@ export default function Dock({
     event.api.onDidActivePanelChange((e) => {
       const id = e.panel?.id ?? "";
       setActiveId(id);
+      if (id) {
+        const h = history.current;
+        if (h.moving) h.moving = false;
+        else if (h.back[h.back.length - 1] !== id) {
+          h.back.push(id);
+          if (h.back.length > 50) h.back.shift();
+          h.forward = [];
+        }
+      }
       // Sticky: only a session panel moves it, and nothing clears it.
       if (id.startsWith("session:")) setLastActiveSessionId(id.slice("session:".length));
     });

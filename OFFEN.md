@@ -786,7 +786,7 @@ the second.
   under ten view buttons.
 - **N4 Every click opens a tab.** (on main 13.09: one tool per side region, a second click puts it away) In the side regions one view at a time
   belongs there, not a growing stack.
-- **N5 There is no file-first navigation.** (half, on main 13.09: go to file from ⌘K by typing part of a name; symbol jumps and back/forward still open) No go-to-file, no find-in-project
+- **N5 There is no file-first navigation.** (on main 13.09: go to file from ⌘K by typing part of a name; ⌃- and ⌃⇧- walk back and forward through the panels that were in front; symbol jumps are not wanted, see V) No go-to-file, no find-in-project
   from the keyboard, no go-to-symbol, no back and forward through history.
 - **N6 There is no go-to-anything.** (half, on main 13.09: ⌘K reaches commands, views, sessions, recently closed panels and files; settings pages and symbols not yet) Files, sessions, commands, settings and
   symbols in one box, the way double-shift works in PhpStorm.

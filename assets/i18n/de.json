@@ -1315,5 +1315,7 @@
   "keys.reopenPanel": "Zuletzt geschlossenes Panel wieder öffnen",
   "palette.recent": "Zuletzt geschlossen",
   "palette.reopen": "{name} wieder öffnen",
-  "palette.file": "Datei"
+  "palette.file": "Datei",
+  "keys.historyBack": "Zurück zum Panel, das vorher vorne war",
+  "keys.historyForward": "Wieder vorwärts"
 }
