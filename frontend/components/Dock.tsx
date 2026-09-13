@@ -743,8 +743,15 @@ export const VIEW_TITLES: Record<string, string> = Object.fromEntries(PANEL_VIEW
 export const DV_MAJOR = parseInt(String(pkg.dependencies["dockview-react"]).replace(/^[^\d]*/, ""), 10);
 
 /* A named arrangement the user saved, and the list of them as it sits in prefs
-   under `dockPresets`. */
-export type Preset = { name: string; layout: object };
+   under `dockPresets`.
+ *
+ * `layout` is dockview's own JSON: main's groups and documents, and the tool
+ * windows at the edges — which one is in front, whether the edge shows, how
+ * big it is. `tools` is where every tool stood on the stripes when it was
+ * saved, and `sizes` the widths he had dragged the edges to. A preset saved
+ * before either existed has neither; it is applied with his placement as it
+ * stands now. */
+export type Preset = { name: string; layout: object; tools?: ToolLayout; sizes?: Partial<Record<Edge, number>> };
 export type PresetStore = { dvMajor: number; items: Preset[] };
 
 // readPresets takes the saved list out of a prefs blob, or nothing when the
@@ -773,7 +780,7 @@ export type Focus =
    what it is. */
 export type LayoutRequest =
   | { type: "reset" }
-  | { type: "apply"; arg: object }
+  | { type: "apply"; arg: Preset }
   | { type: "save"; arg: string }
   | { type: "activity"; arg: Activity }
   /* Not arrangements, but asked the same way — from the MENU and the keys,
@@ -843,9 +850,10 @@ export default function Dock({
   /* A session panel came to the front: the shell's project follows it. */
   onSessionFront: (id: string) => void;
   layoutAction: LayoutAction | null;
-  /* The dock's answer to a 'save': the arrangement as dockview writes it, for
-     the shell to keep under the name it asked for. */
-  onLayoutSaved: (name: string, layout: object) => void;
+  /* The dock's answer to a 'save': the arrangement as dockview writes it, with
+     the tools' placement and the edges' sizes, for the shell to keep under the
+     name it asked for. */
+  onLayoutSaved: (preset: Preset) => void;
   appCommands: Command[];
   /* Whether the palette is up is the shell's: it owns the keyboard and the
      typing guard, so ⌘K cannot toggle the palette while a field is being
@@ -1319,12 +1327,28 @@ export default function Dock({
         rebuild(dv, host, layoutAction.arg, layoutRef.current);
         saveRef.current();
         break;
-      case "apply":
-        loadArrangement(dv, host, layoutAction.arg, layoutRef.current, activity.current);
+      case "apply": {
+        /* A preset is applied whole: the placement it was saved with, the
+           sizes, and the arrangement — or, when the arrangement does not load,
+           nothing of it. The window then stays as it was, documents and all,
+           rather than being rebuilt for the activity. */
+        const preset = layoutAction.arg;
+        const was = { layout: layoutRef.current, json: dv.toJSON(), sizes: new Map(sizes) };
+        const placement = preset.tools ? normalizeToolLayout(preset.tools) : was.layout;
+        layoutRef.current = placement;
+        adoptSizes(preset);
+        const loaded = loadArrangement(dv, host, preset.layout, placement, () => {
+          layoutRef.current = was.layout;
+          sizes.clear();
+          for (const [edge, px] of was.sizes) sizes.set(edge, px);
+          loadArrangement(dv, host, was.json, was.layout, () => arrange(dv, host, activity.current));
+        });
+        if (loaded && JSON.stringify(placement) !== JSON.stringify(was.layout)) keepLayout(placement);
         saveRef.current();
         break;
+      }
       case "save":
-        onLayoutSaved(layoutAction.arg, dv.toJSON());
+        onLayoutSaved({ name: layoutAction.arg, layout: dv.toJSON(), tools: layoutRef.current, sizes: Object.fromEntries(sizes) });
         break;
       case "newShell":
         newShell();
@@ -1548,14 +1572,14 @@ export default function Dock({
         setToolLayout(layoutRef.current);
         if (!restored.current) {
           restored.current = true;
-          loadArrangement(dv, host, p.dock, layoutRef.current, activity.current);
+          loadArrangement(dv, host, p.dock, layoutRef.current, () => arrange(dv, host, activity.current));
         }
         finish();
       })
       .catch(() => {
         if (!restored.current) {
           restored.current = true;
-          loadArrangement(dv, host, undefined, layoutRef.current, activity.current);
+          loadArrangement(dv, host, undefined, layoutRef.current, () => arrange(dv, host, activity.current));
         }
         finish();
       });
@@ -1655,16 +1679,21 @@ function rebuild(dv: DockviewApi, host: ToolHost, which: Activity, layout: ToolL
   arrange(dv, host, which);
 }
 
-/* loadArrangement brings a saved arrangement up — the last one, or a preset.
+/* loadArrangement brings a saved arrangement up — the last one, or a preset —
+ * and says whether it loaded.
  *
  * What was saved before the tools had edges is made into one where they do
- * first (layoutMigrate): out of the grid, the ones that were in front named.
- * An arrangement that does not load is not half applied: the window is built
- * for the activity instead, never left blank. Then the edges are put right —
- * each one there, its tab strip hidden, drops refused — every tool is put on
- * the edge his layout says, and the tools that were in front of the old grid
- * are shown, one per edge. A grid with nothing in it gets the board. */
-function loadArrangement(dv: DockviewApi, host: ToolHost, saved: unknown, layout: ToolLayout, which: Activity): void {
+ * first (layoutMigrate): out of the grid, the ones that were in front named,
+ * the documents kept. An arrangement that does not load is not half applied:
+ * `otherwise` builds the window instead — for the activity, or back to what
+ * was there — never leaving it blank. Then the edges are put right — each one
+ * there, its tab strip hidden, drops refused — and every tool is put on the
+ * edge `layout` says. A tool window the arrangement showed shows again, on
+ * that tool's edge now, and every other edge is hidden; an arrangement from
+ * before the edges showed none, so the tools that were in front of its old
+ * groups are shown instead, one per edge. A grid with nothing in it gets the
+ * board. */
+function loadArrangement(dv: DockviewApi, host: ToolHost, saved: unknown, layout: ToolLayout, otherwise: () => void): boolean {
   const { layout: json, openTools } = migrateLayout(saved);
   let loaded = false;
   if (json) {
@@ -1676,21 +1705,23 @@ function loadArrangement(dv: DockviewApi, host: ToolHost, saved: unknown, layout
     }
   }
   host.ensure();
-  host.reconcile(layout);
   if (!loaded) {
-    arrange(dv, host, which);
-    return;
+    host.reconcile(layout);
+    otherwise();
+    return false;
   }
   const front = dv.activeGroup && dv.activeGroup.api.location.type === "grid" ? dv.activeGroup : undefined;
+  followLayout(host, layout);
   const pick = new Map<Edge, ToolId>();
   for (const id of openTools) {
     const edge = host.edgeOf(id);
     if (edge) pick.set(edge, id);
   }
   for (const id of pick.values()) host.show(id, false);
-  if (front && pick.size) front.api.setActive();
+  if (front && EDGES.some((edge) => host.shown(edge))) front.api.setActive();
   if (!dv.panels.some((p) => p.group.api.location.type === "grid")) openBoard(dv);
   hold(dv);
+  return true;
 }
 
 /* readToolLayout takes his placement of the tools out of prefs. A window that
@@ -1747,6 +1778,19 @@ export function readSizes(prefs: Record<string, unknown>): void {
       sizes.set(k, Math.round(v));
     }
   }
+}
+
+/* adoptSizes takes the widths a preset was saved with as the ones he gave the
+   edges, so main's floor grows an edge back towards the preset's width and
+   not towards one dragged since. A preset from before it kept them offers the
+   sizes its edges had; one from before the edges offers none, and the widths
+   stay as they are. */
+function adoptSizes(preset: Preset): void {
+  const edges = (preset.layout as { edgeGroups?: Partial<Record<Edge, { size?: unknown }>> }).edgeGroups;
+  const given = preset.sizes && typeof preset.sizes === "object" ? preset.sizes : edges ? Object.fromEntries(EDGES.map((e) => [e, edges[e]?.size])) : null;
+  if (!given) return;
+  sizes.clear();
+  readSizes({ dockSizes: given });
 }
 
 function shownOf(host: ToolHost): ShownTools {

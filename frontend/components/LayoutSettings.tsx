@@ -19,6 +19,7 @@ export type LayoutControls = {
   rename: () => void;
   remove: () => void;
   reset: () => void;
+  resetTools: () => void;
 };
 
 /* The named arrangements, on a page of their own: the same entries the
@@ -36,7 +37,7 @@ export default function LayoutSettings({ layouts }: { layouts: LayoutControls })
             </Button>
           ))}
         </span>
-        <span className="notice">{tr("layouts.activitiesHint", "A fresh arrangement of the panels for that kind of work; what is open stays open in the service.")}</span>
+        <span className="notice">{tr("layouts.activitiesHint", "A fresh arrangement for that kind of work: the board in main and the tool it needs beside it, on whichever edge that tool stands; what is open stays open in the service.")}</span>
       </div>
 
       <div className="field">
@@ -58,7 +59,7 @@ export default function LayoutSettings({ layouts }: { layouts: LayoutControls })
           </div>
         )}
         <span className="rowInline">
-          <Tooltip text={tr("layouts.saveDetail", "The panels as they stand now, under a name of your own. Saving under a name already in the list replaces it.")}>
+          <Tooltip text={tr("layouts.saveDetail", "The panels as they stand now, with the tool windows, their sizes and where each tool stands, under a name of your own. Saving under a name already in the list replaces it.")}>
             <Button data-do="save-layout" onClick={layouts.saveAs}>
               {tr("layouts.saveAs", "Save current as…")}
             </Button>
@@ -79,6 +80,13 @@ export default function LayoutSettings({ layouts }: { layouts: LayoutControls })
             {tr("palette.resetLayout", "Reset the panel layout")}
           </Button>
           <span className="notice">{tr("header.resetLayout", "Reset the panel layout to the default")}</span>
+        </span>
+        {/* Applying a saved layout moves tools too; this is the way back to
+            where every tool started, and it leaves the panels alone. */}
+        <span className="rowInline">
+          <Button data-do="reset-tools" onClick={layouts.resetTools}>
+            {tr("tool.reset", "Reset tool positions")}
+          </Button>
         </span>
       </div>
     </div>

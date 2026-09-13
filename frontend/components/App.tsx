@@ -473,10 +473,10 @@ export default function App() {
     void api.setPrefs({ dockPresets: { dvMajor: DV_MAJOR, items } }).catch(() => undefined);
   }, []);
   const savePreset = useCallback(
-    (name: string, layout: object) => {
-      const kept = presets.filter((p) => p.name !== name);
-      writePresets([...kept, { name, layout }]);
-      setCurrentPreset(name);
+    (preset: Preset) => {
+      const kept = presets.filter((p) => p.name !== preset.name);
+      writePresets([...kept, preset]);
+      setCurrentPreset(preset.name);
     },
     [presets, writePresets],
   );
@@ -498,7 +498,7 @@ export default function App() {
   const applyPreset = useCallback(
     (p: Preset) => {
       setCurrentPreset(p.name);
-      direct({ type: "apply", arg: p.layout });
+      direct({ type: "apply", arg: p });
     },
     [direct],
   );
@@ -509,6 +509,7 @@ export default function App() {
   const layoutItems = useCallback((): MenuItem[] => {
     const items: MenuItem[] = ACTIVITIES.map((a) => ({
       label: tr("layouts.arrange", "Arrange for {activity}", { activity: activityLabel(a) }),
+      do: `arrange-${a}`,
       onClick: () => direct({ type: "activity", arg: a }),
     }));
     items.push({ separator: true });
@@ -516,11 +517,11 @@ export default function App() {
       items.push({ label: tr("layouts.none", "no saved layouts yet"), onClick: () => undefined, disabled: true });
     } else {
       for (const p of presets) {
-        items.push({ label: tr("layouts.apply", "Apply {name}", { name: p.name }), onClick: () => applyPreset(p) });
+        items.push({ label: tr("layouts.apply", "Apply {name}", { name: p.name }), do: "apply-layout", onClick: () => applyPreset(p) });
       }
     }
     items.push({ separator: true });
-    items.push({ label: tr("layouts.saveAs", "Save current as…"), onClick: () => setLayoutAsk("save") });
+    items.push({ label: tr("layouts.saveAs", "Save current as…"), do: "save-layout", onClick: () => setLayoutAsk("save") });
     // Rename and Delete act on the preset in use; with none they say so and
     // wait, rather than naming nothing.
     items.push({
@@ -535,7 +536,9 @@ export default function App() {
       danger: true,
     });
     items.push({ separator: true });
-    items.push({ label: tr("palette.resetLayout", "Reset the panel layout"), onClick: () => direct({ type: "reset" }) });
+    items.push({ label: tr("palette.resetLayout", "Reset the panel layout"), do: "reset-layout", onClick: () => direct({ type: "reset" }) });
+    // A saved layout moves tools as well; this puts every one back where it started.
+    items.push({ label: tr("tool.reset", "Reset tool positions"), do: "reset-tools", onClick: () => direct({ type: "resetTools" }) });
     return items;
   }, [presets, currentPreset, direct, applyPreset]);
 
@@ -667,6 +670,7 @@ export default function App() {
       rename: () => setLayoutAsk("rename"),
       remove: () => setLayoutAsk("delete"),
       reset: () => direct({ type: "reset" }),
+      resetTools: () => direct({ type: "resetTools" }),
     }),
     [presets, currentPreset, direct, applyPreset],
   );
@@ -933,7 +937,7 @@ export default function App() {
       {layoutAsk === "save" ? (
         <Ask
           heading={tr("layouts.saveHead", "Save this arrangement")}
-          detail={tr("layouts.saveDetail", "The panels as they stand now, under a name of your own. Saving under a name already in the list replaces it.")}
+          detail={tr("layouts.saveDetail", "The panels as they stand now, with the tool windows, their sizes and where each tool stands, under a name of your own. Saving under a name already in the list replaces it.")}
           field={tr("layouts.name", "name")}
           value={currentPreset}
           confirmLabel={tr("common.save", "SAVE")}
