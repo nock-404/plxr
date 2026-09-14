@@ -1645,6 +1645,10 @@ export default function Dock({
               defaultTabComponent={PanelTab}
               watermarkComponent={MainWatermark}
               dndEdges={false}
+              /* A floated panel is dragged by its tab strip. dockview's default
+                 is a blank bar above it, which read as a second, empty header
+                 over the tab that already names the panel. */
+              floatingGroupDragHandle="tabbar"
               onReady={onReady}
             />
           </div>
