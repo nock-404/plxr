@@ -102,19 +102,40 @@ const endBrowser = () => {
   try { rmSync(profile, { recursive: true, force: true, maxRetries: 3 }); } catch { /* it lives in the temp directory */ }
 };
 process.on("exit", endBrowser);
-for (const bad of ["uncaughtException", "unhandledRejection"]) {
-  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); process.exit(1); });
-}
-process.on("SIGINT", () => process.exit(130));
-process.on("SIGTERM", () => process.exit(143));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function stop(code, why) {
+
+/* What the service remembers, put back afterwards.
+ *
+ * Changing the skin is what this check does, and the skin is stored. Left
+ * where the first window put it, the next check on this service came up in
+ * win95 — in check.sh that is tabs.mjs, which failed four claims about the tab
+ * close on a look it never chose. So the settings are read before either page
+ * opens and written back once the browser is gone, when neither page can write
+ * them again, with the keys this run added removed. */
+const prefs = (init = {}) =>
+  fetch(`${base}/api/prefs`, { ...init, headers: { "X-Plxr-Token": info.token, "Content-Type": "application/json" } });
+const held = await prefs().then((r) => r.json()).catch(() => null);
+
+/* One way out, awaited — from the end of the check, from a crash and from ^C.
+ * A second stop while the first is still putting things back does not wait. */
+let stopping = false;
+async function stop(code, why) {
+  if (stopping) process.exit(code);
+  stopping = true;
   if (why) console.log("  " + why);
+  const exited = new Promise((r) => (child.exitCode !== null || child.signalCode !== null ? r() : child.once("exit", r)));
   try {
     child.kill();
   } catch {
     /* already gone */
+  }
+  await Promise.race([exited, sleep(5000)]);
+  if (held && typeof held === "object") {
+    const now = await prefs().then((r) => r.json()).catch(() => null);
+    const back = { ...held };
+    for (const k of Object.keys(now ?? {})) if (!(k in held)) back[k] = null;
+    await prefs({ method: "PUT", body: JSON.stringify(back) }).catch(() => undefined);
   }
   try {
     rmSync(profile, { recursive: true, force: true, maxRetries: 3 });
@@ -123,6 +144,13 @@ function stop(code, why) {
   }
   process.exit(code);
 }
+for (const bad of ["uncaughtException", "unhandledRejection"]) {
+  process.on(bad, (why) => { console.log(`  ${bad}: ${why?.stack ?? why}`); void stop(1); });
+}
+process.on("SIGINT", () => void stop(130));
+process.on("SIGTERM", () => void stop(143));
+
+if (!held || typeof held !== "object") await stop(1, "the service's settings could not be read — nothing checked, nothing changed");
 
 let up = false;
 for (let i = 0; i < 60 && !up; i++) {
@@ -133,7 +161,7 @@ for (let i = 0; i < 60 && !up; i++) {
   }
   if (!up) await sleep(250);
 }
-if (!up) stop(1, "the browser did not come up — nothing checked");
+if (!up) await stop(1, "the browser did not come up — nothing checked");
 
 async function openPage(url) {
   const tab = await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: "PUT" })
@@ -197,7 +225,7 @@ const changed = await first(`
 `);
 
 if (!changed || changed === started) {
-  stop(1, `the first window could not change its skin (still ${started})`);
+  await stop(1, `the first window could not change its skin (still ${started})`);
 }
 
 // Give it longer than the poll it depends on, so a slow machine is not a failure.
@@ -209,6 +237,6 @@ for (let i = 0; i < 12; i++) {
 }
 
 if (followed !== changed) {
-  stop(1, `the second window stayed on ${followed} while the first went to ${changed}`);
+  await stop(1, `the second window stayed on ${followed} while the first went to ${changed}`);
 }
-stop(0, `both windows on ${changed} — the second followed the first`);
+await stop(0, `both windows on ${changed} — the second followed the first`);

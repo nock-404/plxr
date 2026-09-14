@@ -10,6 +10,12 @@ fail=0
 # A scanning step prints how much it read, and that stays on screen. Three
 # checks here once matched no files at all and reported ok for hours; a coverage
 # number nobody can see is a coverage number nobody checks.
+#
+# A failing step prints what did not hold, not its first twenty lines. A gate
+# lists every claim, the ones that hold included, and "dock tabs" failed twice
+# with twenty lines of "ok" on screen and its four failing claims cut off below
+# them. So a line that says "ok" goes, with the evidence lines indented under
+# it, and everything else stays.
 step() {
 	printf '  %-22s ' "$1"
 	shift
@@ -17,8 +23,18 @@ step() {
 		coverage=$(echo "$out" | grep -oE '[0-9]+ files' | tail -1)
 		if [ -n "$coverage" ]; then echo "ok — $coverage"; else echo "ok"; fi
 	else
+		status=$?
 		echo "FAILED"
-		echo "$out" | sed 's/^/      /' | head -20
+		failing=$(echo "$out" | awk '
+			/^[ \t]*ok([ \t]|$)/ { held = 1; next }
+			held && /^[ \t][ \t][ \t][ \t][ \t]+[^ \t]/ { next }
+			{ held = 0; print }
+		')
+		if [ -n "$(echo "$failing" | tr -d ' \t\n')" ]; then
+			echo "$failing" | sed 's/^/      /'
+		else
+			echo "      every line it printed says ok, and it exited with $status"
+		fi
 		fail=1
 	fi
 }

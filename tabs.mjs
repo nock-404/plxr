@@ -25,7 +25,8 @@
  *
  * Held against a service started from this build, the way clicked.mjs does it;
  * the session and the folder it needs are made for the check and taken away
- * afterwards, and the arrangement the service had is put back.
+ * afterwards, and it starts from none of the settings the service had — not
+ * the arrangement and not the look an earlier check left — and puts them back.
  */
 import { spawn, execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
@@ -98,16 +99,34 @@ if (!identity.ok) {
   process.exit(1);
 }
 
-/* The window this check drives starts from a known arrangement.
+/* The window this check drives starts from nothing the service remembers.
  *
- * Every claim below is about where a panel lands, and where a panel lands
- * depends on what is already on screen — so a leftover arrangement from the
- * last window would decide half of them. The saved one is put aside for the
- * run and written back at the end, so the service is left as it was found. */
-const KEYS = ["dock", "dockSizes", "toolLayout", "dockRegions"];
-const before = await api("/api/prefs").catch(() => ({}));
-const held = Object.fromEntries(KEYS.map((k) => [k, before?.[k] ?? null]));
-await api("/api/prefs", { method: "PUT", body: JSON.stringify(Object.fromEntries(KEYS.map((k) => [k, null]))) }).catch(() => undefined);
+ * Every claim below is about where a panel lands or how a tab is drawn, and
+ * both depend on what the service has stored. A leftover arrangement from the
+ * last window decides half of the placements. And a stored look decides the
+ * close: only the arrangement used to be put aside, and in check.sh agree.mjs
+ * runs on the same service first and leaves the skin it switched to. The page
+ * came up in win95 and went back to it in the middle of the close's first
+ * skin, crt, and four claims failed on a look this check never chose — while
+ * the same build held all 35 on a fresh service, and all 35 with every other
+ * check of check.sh run before it on one.
+ *
+ * So everything stored is put aside for the run — the service reads the way a
+ * fresh one does, and that is held before anything is driven — and written
+ * back at the end with the keys this run added removed, so the service is
+ * left as it was found. */
+const held = await api("/api/prefs").catch(() => null);
+if (!held || typeof held !== "object") {
+  console.log("  the service's settings could not be read — nothing checked, nothing changed");
+  process.exit(1);
+}
+await api("/api/prefs", { method: "PUT", body: JSON.stringify(Object.fromEntries(Object.keys(held).map((k) => [k, null]))) }).catch(() => undefined);
+const cleared = await api("/api/prefs").catch(() => null);
+if (!cleared || Object.keys(cleared).length > 0) {
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify(held) }).catch(() => undefined);
+  console.log(`  the service's settings could not be put aside — still holding ${JSON.stringify(Object.keys(cleared ?? {}))}`);
+  process.exit(1);
+}
 
 const port = 9500 + Math.floor(Number(process.pid) % 400);
 const profile = mkdtempSync(join(tmpdir(), "plxr-tabs-"));
@@ -188,10 +207,16 @@ async function stop(code) {
     /* already gone */
   }
   await Promise.race([exited, sleep(5000)]);
-  if (made) await api(`/api/sessions/${encodeURIComponent(made.id)}`, { method: "DELETE" }).catch(() => undefined);
+  /* Purged, not only ended: an ended session stays listed, and after a run
+     the service still listed plxr-tabs-check, ended, beside what it had held. */
+  if (made) await api(`/api/sessions/${encodeURIComponent(made.id)}?purge=1`, { method: "DELETE" }).catch(() => undefined);
   if (space) await api(`/api/workspaces/${encodeURIComponent(space.id)}`, { method: "DELETE" }).catch(() => undefined);
-  // The arrangement the service had before this ran, back where it was.
-  await api("/api/prefs", { method: "PUT", body: JSON.stringify(held) }).catch(() => undefined);
+  // The settings the service had before this ran, back where they were, and
+  // whatever the window wrote during the run taken away again.
+  const now = (await api("/api/prefs").catch(() => null)) ?? {};
+  const back = { ...held };
+  for (const k of Object.keys(now)) if (!(k in held)) back[k] = null;
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify(back) }).catch(() => undefined);
   try {
     rmSync(work, { recursive: true, force: true, maxRetries: 3 });
   } catch {
