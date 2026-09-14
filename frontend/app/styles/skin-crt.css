@@ -97,7 +97,11 @@
 [data-skin="crt"] .paceLimitLabel { color: var(--dead); }
 [data-skin="crt"] .paceNote { color: var(--dim); }
 /* The stripes: the tube's line where each meets the dock, the glass's
-   highlight along the top, and a lit icon glowing in the phosphor. */
+   highlight along the top, and a lit icon's mark glowing in the phosphor — or
+   in the blocked colour when its account is nearly out, so a red mark is not
+   wrapped in a mint haze. The mark glows, not the icon: a glow on the whole
+   icon draws its plate a second time underneath and around itself, and lifts
+   a quiet tint back toward a light square. */
 [data-skin="crt"] .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--dim); }
@@ -106,7 +110,8 @@
 [data-skin="crt"] .stripeGap { border-radius: 0; }
 [data-skin="crt"] .stripeGhost { border-radius: 0; box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent), 0 .5rem 1.5rem var(--shadow); }
 [data-skin="crt"] .stripeIcon { border-radius: 0; }
-[data-skin="crt"] .stripeIcon[data-lit="yes"] { filter: drop-shadow(0 0 .25rem var(--accent)); }
+[data-skin="crt"] .stripeIcon[data-lit="yes"] .uiIcon { filter: drop-shadow(0 0 var(--glow) var(--accent)); }
+[data-skin="crt"] .stripeIcon[data-nearly-out="yes"][data-lit="yes"] .uiIcon { filter: drop-shadow(0 0 var(--glow) var(--blocked)); }
 [data-skin="crt"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent); }
 [data-skin="crt"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--blocked) 60%, transparent); }
 /* The bottom stripe with no icon: the tube's line and no glass behind it. An

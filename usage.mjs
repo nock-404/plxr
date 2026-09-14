@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GATEKIT } from "./gatekit.mjs";
+import { readPng } from "./pngkit.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -444,6 +445,233 @@ const picker = await tab.run(`${HELPERS}
 claim("the account picker marks the one that is nearly out, before a session starts on it",
   picker?.hot === 1 && (picker?.marks ?? []).some((m) => /9[0-9]%|100%/.test(m)),
   `${(picker?.marks ?? []).join(" | ") || "no picker rendered"} · ${picker?.hot ?? 0} marked, after ${picker?.ms} ms`);
+
+// ---- what an icon stands on, in every look ------------------------------------
+/* A lit icon stands on a plate, and the plate is a ground, not a light. It was
+ * a quarter of the accent laid over the stripe — and the tube's accent is a
+ * pale mint — so on the tube the lit Usage icon stood on a milky square,
+ * #4a6d57 on a stripe of #06160d (3.2:1), and with an account nearly out its
+ * red mark stood on that at 2.25:1. He saw it in the right-hand stripe: "red,
+ * fine. But why is the ground behind it so light?" Nothing here looked: the
+ * claims above ask whether the icon is marked, not what it stands on.
+ *
+ * A first version read each skin's default palette only, and what got past it
+ * was the same square elsewhere: the blueprint palette's paper plate under the
+ * pointer and its grey highlighter on the dark blue; a lit icon that lost its
+ * plate under the pointer; and the tube as it is really set, with glass far
+ * thinner than the defaults. So every palette the service serves is put on
+ * with the skin it was made for, with the tube's own two and the tube with thin
+ * glass, over a black desktop — the window is see-through, and a headless
+ * browser puts white behind the glass. The plates are read off screenshots
+ * against the stripe's own ground: Files under the pointer, Files lit, Files
+ * lit under the pointer, Usage lit while nearly out, the same under the
+ * pointer, and Usage nearly out under the pointer. On a dark ground a tint
+ * stays dark, at most 1.8:1 against the stripe and no brighter than 0.08 in
+ * luminance, and the bar on the outer edge says "open" at 3:1. On every ground
+ * the mark reads on its plate at 3:1, a nearly-out mark is in the blocked
+ * colour, and a lit icon under the pointer keeps the plate it has when lit.
+ *
+ * A dark tint alone is not enough: lit has to read as lit, not as the pointer
+ * passing by. A dark tile tried on pixel's Game Boy palette came out fainter
+ * than the tile under the pointer (#20480f against #244924), and there the
+ * accent is the text's own green, so the mark did not change either: only the
+ * bar on the edge said a window was open. So a lit icon's mark is in another
+ * colour than the one under the pointer, or its plate stands 1.5:1 apart from
+ * that one's. The bar does not count; it is a hair.
+ *
+ * pixel is the one skin whose lit icon is not a tint but its tile turned over:
+ * the accent for ground, the page's colour for the mark and the count, no bar.
+ * That is a light block on a dark stripe by design, written into its skin, and
+ * on it a nearly-out mark is the page's colour, not red — red on that block is
+ * the very thing he pointed at. On pixel the lit claims ask for that tile. */
+await tab.cdp.send("Emulation.setDefaultBackgroundColorOverride", { color: { r: 0, g: 0, b: 0, a: 1 } });
+const DEFAULT_GLASS = { panelSolid: 62, windowSolid: 46, tint: 14, glow: 0.35 };
+const THIN_GLASS = { panelSolid: 13, windowSolid: 30, tint: 9, glow: 0.3 };
+const servedThemes = await (await api("/api/themes")).json();
+const LOOKS = [
+  { skin: "crt", palette: "green", glass: DEFAULT_GLASS, name: "crt/green" },
+  { skin: "crt", palette: "green", glass: THIN_GLASS, name: "crt/green with thin glass" },
+  { skin: "crt", palette: "amber", glass: DEFAULT_GLASS, name: "crt/amber" },
+  ...servedThemes
+    .filter((t) => t.skin)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((t) => ({ skin: t.skin, palette: t.name, glass: DEFAULT_GLASS, name: `${t.skin}/${t.name}` })),
+];
+claim("every palette the service serves is among the looks the plates are read in",
+  servedThemes.length >= 7 && servedThemes.every((t) => LOOKS.some((l) => l.palette === t.name && l.skin === t.skin)),
+  `${servedThemes.length} served · ${LOOKS.map((l) => l.name).join(" · ")}`);
+
+const channel = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+const luminance = (c) => 0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2]);
+const ratio = (a, b) => { const x = luminance(a); const y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const hexOf = (c) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+const medianOf = (cols) => [0, 1, 2].map((k) => cols.map((c) => c[k]).sort((a, b) => a - b)[Math.floor(cols.length / 2)]);
+const pixelAt = (img, x, y) => { const i = (y * img.width + x) * 3; return [img.rgb[i], img.rgb[i + 1], img.rgb[i + 2]]; };
+const areaOf = (img, x0, y0, x1, y1) => {
+  const out = [];
+  for (let y = Math.round(y0); y < Math.round(y1); y++) for (let x = Math.round(x0); x < Math.round(x1); x++) out.push(pixelAt(img, x, y));
+  return out;
+};
+const apart = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));
+/* One icon read off a screenshot: the stripe's ground below its last icon,
+   clear of every plate and glow; the plate from a band just inside the icon's
+   box along three edges, clear of its corners, of the count in the top corner
+   and of the mark in the middle; the bar on the stripe's outer edge. */
+const plateOf = (img, g) => {
+  const { icon: b, stripe: s } = g;
+  const gy = Math.min(g.lastBottom + 40, s.y + s.h - 20);
+  return {
+    ground: medianOf(areaOf(img, s.x + 12, gy, s.x + s.w - 12, gy + 10)),
+    plate: medianOf([
+      ...areaOf(img, b.x + 2, b.y + 10, b.x + 5, b.y + b.h - 10),
+      ...areaOf(img, b.x + b.w - 5, b.y + 12, b.x + b.w - 2, b.y + b.h - 10),
+      ...areaOf(img, b.x + 10, b.y + b.h - 5, b.x + b.w - 10, b.y + b.h - 2),
+    ]),
+    bar: pixelAt(img, Math.round(g.edge === "right" ? s.x + s.w - 2 : s.x + 1), Math.round(b.y + b.h / 2)),
+    mark: g.colour,
+  };
+};
+const ICON_GEOMETRY = `
+  const rgbOf = (colour) => {
+    const scale = colour.startsWith('color(') ? 255 : 1;
+    return (colour.match(/[0-9.]+/g) || []).slice(0, 3).map((v) => Math.round(Number(v) * scale));
+  };
+  const iconGeometry = (id) => {
+    const icon = stripeIcon(id);
+    const stripe = icon.closest('.stripe');
+    const r = icon.getBoundingClientRect();
+    const s = stripe.getBoundingClientRect();
+    const probe = document.createElement('span');
+    document.body.appendChild(probe);
+    probe.style.color = 'var(--blocked)';
+    const blocked = getComputedStyle(probe).color;
+    probe.style.color = 'var(--accent)';
+    const accent = getComputedStyle(probe).color;
+    probe.remove();
+    return { icon: { x: r.left, y: r.top, w: r.width, h: r.height }, stripe: { x: s.left, y: s.top, w: s.width, h: s.height },
+      lastBottom: [...stripe.querySelectorAll('.stripeIcon')].pop().getBoundingClientRect().bottom, edge: stripe.dataset.edge,
+      lit: icon.dataset.lit === 'yes', hot: icon.dataset.nearlyOut === 'yes', under: icon.matches(':hover'),
+      colour: rgbOf(getComputedStyle(icon).color), blocked: rgbOf(blocked), accent: rgbOf(accent) };
+  };
+  const badgeGeometry = (id) => {
+    const badge = stripeIcon(id).querySelector('.stripeBadge');
+    if (!badge) return null;
+    const b = badge.getBoundingClientRect();
+    const cs = getComputedStyle(badge);
+    return { x: b.left, y: b.top, w: b.width, h: b.height, text: badge.textContent.trim(), bg: rgbOf(cs.backgroundColor), fg: rgbOf(cs.color) };
+  };
+`;
+const shotNow = async () => readPng(Buffer.from((await tab.cdp.send("Page.captureScreenshot", { format: "png" })).data, "base64"));
+const pointerAt = (x, y) => tab.cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+const centreOf = (g) => [Math.round(g.icon.x + g.icon.w / 2), Math.round(g.icon.y + g.icon.h / 2)];
+// The pointer on an icon, then the screen and the icon as they are with it there.
+const underPointer = async (g, id) => {
+  await pointerAt(...centreOf(g));
+  await sleep(400);
+  const shot = await shotNow();
+  return { shot, g: await tab.run(`${HELPERS} ${ICON_GEOMETRY} return iconGeometry(${JSON.stringify(id)});`) };
+};
+for (const look of LOOKS) {
+  const theme = { skin: look.skin, palette: look.palette, ...look.glass };
+  await tab.run(`
+    const theme = { ...JSON.parse(localStorage.getItem('plxr.theme') || '{}'), ...${JSON.stringify(theme)} };
+    localStorage.setItem('plxr.theme', JSON.stringify(theme));
+    await fetch('/api/prefs', { method: 'PUT', headers: { 'X-Plxr-Token': ${JSON.stringify(info.token)}, 'Content-Type': 'application/json' }, body: JSON.stringify({ theme }) });
+    return true;
+  `);
+  const want = `${look.skin}/${look.palette}/${look.glass.panelSolid}%`;
+  let dressed = "";
+  for (let i = 0; i < 20 && dressed !== want; i++) {
+    await tab.cdp.send("Page.navigate", { url: PAGE });
+    await sleep(900);
+    dressed = await tab.run(`${GATEKIT} if (!appUp() || stripeIcon('usage').dataset.nearlyOut !== 'yes') return ''; await document.fonts.ready;
+      const root = document.documentElement; return root.dataset.skin + '/' + root.dataset.theme + '/' + root.style.getPropertyValue('--panelSolid');`).catch(() => "");
+  }
+  if (dressed !== want) {
+    claim(`${look.name}: the window comes up in this look with the Usage icon nearly out`, false, `came up as "${dressed}", wanted "${want}"`);
+    continue;
+  }
+  await pointerAt(800, 60);
+  const lit = await tab.run(`${HELPERS} ${ICON_GEOMETRY}
+    openTool('files');
+    openTool('usage');
+    await until(() => toolLit('files') && toolLit('usage'), 3000);
+    return { files: iconGeometry('files'), usage: iconGeometry('usage'), badge: badgeGeometry('usage') };
+  `);
+  await sleep(400);
+  const litShot = await shotNow();
+  const filesLitUnder = await underPointer(lit.files, "files");
+  const usageLitUnder = await underPointer(lit.usage, "usage");
+  await pointerAt(800, 60);
+  const shut = await tab.run(`${HELPERS} ${ICON_GEOMETRY}
+    stripeIcon('usage').click();
+    await until(() => !toolLit('usage'), 3000);
+    stripeIcon('files').click();
+    await until(() => !toolLit('files'), 3000);
+    return { files: iconGeometry('files'), usage: iconGeometry('usage'), badge: badgeGeometry('usage') };
+  `);
+  const usageUnder = await underPointer(shut.usage, "usage");
+  const filesUnder = await underPointer(shut.files, "files");
+  await pointerAt(800, 60);
+
+  const m = {
+    filesUnder: plateOf(filesUnder.shot, filesUnder.g),
+    filesLit: plateOf(litShot, lit.files),
+    filesLitUnder: plateOf(filesLitUnder.shot, filesLitUnder.g),
+    usageLit: plateOf(litShot, lit.usage),
+    usageLitUnder: plateOf(usageLitUnder.shot, usageLitUnder.g),
+    usageUnder: plateOf(usageUnder.shot, usageUnder.g),
+  };
+  const dark = (p) => luminance(p.ground) < 0.2;
+  const quiet = (p) => ratio(p.plate, p.ground) <= 1.8 && luminance(p.plate) <= 0.08;
+  const reads = (p) => ratio(p.mark, p.plate) >= 3;
+  const barReads = (p) => ratio(p.bar, p.ground) >= 3;
+  const inBlocked = (g) => apart(g.colour, g.blocked) <= 2;
+  const say = (p) => `ground ${hexOf(p.ground)} · plate ${hexOf(p.plate)}, ${ratio(p.plate, p.ground).toFixed(2)}:1 against it, luminance ${luminance(p.plate).toFixed(3)} · mark ${hexOf(p.mark)} on it ${ratio(p.mark, p.plate).toFixed(2)}:1 · bar ${hexOf(p.bar)} ${ratio(p.bar, p.ground).toFixed(2)}:1`;
+  const on = (p, what) => (dark(p) ? `a dark plate${what}` : "a plate its mark reads on");
+  // pixel's lit icon: the tile turned over, the accent itself for ground, its mark reading on it.
+  const turnedOver = look.skin === "pixel";
+  const isTile = (p, g) => apart(p.plate, g.accent) <= 6 && reads(p);
+
+  claim(`${look.name}: an icon under the pointer stands on ${on(m.filesUnder, "")}`,
+    filesUnder.g.under && !filesUnder.g.lit && reads(m.filesUnder) && (!dark(m.filesUnder) || quiet(m.filesUnder)),
+    say(m.filesUnder));
+  if (turnedOver) {
+    claim(`${look.name}: a lit icon is its tile turned over, the accent for ground and its mark reading on it`,
+      lit.files.lit && isTile(m.filesLit, lit.files),
+      `accent ${hexOf(lit.files.accent)} · ${say(m.filesLit)}`);
+  } else {
+    claim(`${look.name}: a lit icon stands on ${on(m.filesLit, ", a quiet tint of the stripe, with the bar saying it is open")}`,
+      lit.files.lit && apart(m.filesLit.plate, m.filesLit.ground) >= 6 && reads(m.filesLit) &&
+        (!dark(m.filesLit) || (quiet(m.filesLit) && barReads(m.filesLit))),
+      say(m.filesLit));
+  }
+  claim(`${look.name}: a lit icon under the pointer keeps the plate it has when lit`,
+    filesLitUnder.g.under && filesLitUnder.g.lit && apart(m.filesLitUnder.plate, m.filesLit.plate) <= 6 && reads(m.filesLitUnder),
+    `lit ${hexOf(m.filesLit.plate)} · under the pointer ${hexOf(m.filesLitUnder.plate)} · ${say(m.filesLitUnder)}`);
+  claim(`${look.name}: a lit icon is told from one under the pointer by its mark or its plate, not by the bar alone`,
+    lit.files.lit && filesUnder.g.under && !filesUnder.g.lit &&
+      (apart(lit.files.colour, filesUnder.g.colour) >= 40 || ratio(m.filesLit.plate, m.filesUnder.plate) >= 1.5),
+    `mark under the pointer ${hexOf(filesUnder.g.colour)}, lit ${hexOf(lit.files.colour)} · plate under the pointer ${hexOf(m.filesUnder.plate)}, lit ${hexOf(m.filesLit.plate)}, ${ratio(m.filesLit.plate, m.filesUnder.plate).toFixed(2)}:1 apart`);
+  if (turnedOver) {
+    claim(`${look.name}: lit with an account nearly out, the Usage icon keeps the turned-over tile, its mark reads on it and its count still shows`,
+      lit.usage.lit && lit.usage.hot && isTile(m.usageLit, lit.usage) && (lit.badge?.text ?? "").length > 0,
+      `accent ${hexOf(lit.usage.accent)} · count "${lit.badge?.text ?? ""}" · ${say(m.usageLit)}`);
+  } else {
+    claim(`${look.name}: the Usage icon lit with an account nearly out is in the blocked colour on ${on(m.usageLit, " beside the bar")}`,
+      lit.usage.lit && lit.usage.hot && inBlocked(lit.usage) && reads(m.usageLit) &&
+        (!dark(m.usageLit) || (quiet(m.usageLit) && barReads(m.usageLit))),
+      `blocked ${hexOf(lit.usage.blocked)} · ${say(m.usageLit)}`);
+  }
+  claim(`${look.name}: lit and nearly out under the pointer, the Usage icon keeps that plate`,
+    usageLitUnder.g.under && usageLitUnder.g.lit && usageLitUnder.g.hot && (turnedOver || inBlocked(usageLitUnder.g)) &&
+      apart(m.usageLitUnder.plate, m.usageLit.plate) <= 6 && reads(m.usageLitUnder),
+    `lit ${hexOf(m.usageLit.plate)} · under the pointer ${hexOf(m.usageLitUnder.plate)} · ${say(m.usageLitUnder)}`);
+  claim(`${look.name}: under the pointer the nearly-out Usage icon keeps ${on(m.usageUnder, "")}`,
+    usageUnder.g.under && usageUnder.g.hot && !usageUnder.g.lit && inBlocked(usageUnder.g) && reads(m.usageUnder) &&
+      (!dark(m.usageUnder) || quiet(m.usageUnder)),
+    say(m.usageUnder));
+}
 
 // ---- the report ------------------------------------------------------------
 let failed = 0;

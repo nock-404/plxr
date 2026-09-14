@@ -1135,11 +1135,19 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--line); }
 .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 12%, var(--panel)); }
 /* An idle icon is in the text's own colour, not the dim one: dim on the
-   stripe's surface was a mark nobody could find. Lit, it is the accent on a
-   ground of the accent that is seen as a ground. */
+   stripe's surface was a mark nobody could find. Under the pointer and lit it
+   stands on a plate that is the stripe's own ground with a quiet tint over it,
+   never a wash: what says a window is open is the mark in the accent and the
+   bar on the outer edge. The lit plate used to be a quarter of the accent, and
+   on the tube the accent is a pale mint — the lit Usage icon stood on a milky
+   square (#4a6d57 on a stripe of #06160d, 3.2:1), and with its account nearly
+   out the red mark on it read at 2.25:1. Nearly out turns the mark and its
+   count red and nothing else: the plate and the bar stay those of the icon's
+   state. A skin that draws its own lit plate keeps its own: win95's sunken
+   button, sketch's highlighter, pixel's tile turned over. */
 .stripeIcon { color: var(--fg); background: none; border: 0; border-radius: .375rem; cursor: pointer; }
 .stripeIcon:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 10%, transparent); }
-.stripeIcon[data-lit="yes"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 24%, transparent); }
+.stripeIcon[data-lit="yes"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .stripeIcon[data-lit="yes"]::before { background: var(--accent); }
 .stripeIcon[data-nearly-out="yes"] { color: var(--blocked); }
 .stripeIcon:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: calc(var(--hair) * -1); }

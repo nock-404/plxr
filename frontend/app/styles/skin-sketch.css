@@ -157,6 +157,15 @@
 [data-skin="sketch"] .stripeGhost { color: var(--fg); background: var(--panel); box-shadow: 0 0 0 var(--ink) var(--fg); border-radius: .5rem .25rem .44rem .3rem / .3rem .44rem .25rem .5rem; }
 [data-skin="sketch"] .stripeIcon:hover { background: #efe9d8; }
 [data-skin="sketch"] .stripeIcon[data-lit="yes"] { background: color-mix(in srgb, var(--accent) 25%, transparent); border-radius: .5rem .25rem .44rem .3rem / .3rem .44rem .25rem .5rem; }
+/* The blueprint is the sketch palette on a dark ground, and there the paper's
+   marks turn into light squares: the paper's #efe9d8 under the pointer stood
+   behind the light mark #e6f1ff at 1.07:1, and a quarter of the yellow accent
+   laid a grey plate over the blue (the lit Usage icon: #4a6166 on #0d3b65,
+   1.74:1, luminance 0.110). On it the pointer and a lit icon get the quiet
+   tint every dark stripe has; lit comes last, so a lit icon under the pointer
+   keeps its own. */
+[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
+[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon[data-lit="yes"] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 [data-skin="sketch"] .stripeBadge { background: transparent; color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent); border-radius: 50%; }
 [data-skin="sketch"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { background: transparent; color: var(--blocked); box-shadow: 0 0 0 var(--hair) var(--blocked); }
 /* A count in handwriting at badge size is a smudge: its figures are typed. */

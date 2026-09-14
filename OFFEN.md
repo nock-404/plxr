@@ -1149,6 +1149,30 @@ Left open:
 - **pixel's folder overview crushes its value column** to two glyphs a line
   in a group of a third of the window; the same before this change.
 
+### Stripe icon plate (14.09.2026, wip9/stripeplate)
+
+A lit stripe icon stood on 24% of the accent, which on crt's pale mint was a
+milky square (nearly out and lit: #4e654e on #06160d, the red mark at 2.25:1).
+The plate is 12% now and the glow sits on the mark, red when nearly out
+(#1f2b1f, mark 5.21:1). Blueprint had the same fault on hover (a cream plate,
+the mark at 1.07:1) and got the same quiet plates. usage.mjs holds 94 claims,
+among them that a lit icon differs from a hovered one by mark or plate.
+
+Left open (style calls for him, option shots in
+~/Downloads/plxr-screenshots-2026-09-13/leisten-flaeche/optionen/):
+
+- **crt nearly out and lit:** only the mark turns red; alternative red plate
+  and red bar (option-red-crt-*). The bar stays the pale accent beside a red mark.
+- **sketch paper nearly out and lit:** red mark on the blue highlighter at
+  3.22:1, as before; alternative red highlighter (option-red-sketch-*).
+- **pixel lit:** the turned-over yellow tile hides every red when nearly out;
+  alternatives dark tile or framed tile (option-dark-tile-*, option-framed-tile-*).
+- **pixel badge notch:** the "!" is inked from the badge's top row; a clean fix
+  needs a 9-row badge in layout.css.
+- **Pointer over a lit icon** shows no change in any skin.
+- **Blueprint rules key on the palette name** sketch-blueprint; a new dark
+  sketch palette would fail usage.mjs.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
