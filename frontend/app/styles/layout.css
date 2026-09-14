@@ -26,9 +26,11 @@
   --strip-h: 2.8125rem;  /* 45px — session bar, list bar */
   --thead-h: 2.125rem;   /* 34px — the tile's title row */
   --tfoot-h: 1.625rem;   /* 26px — the tile's status row */
-  --label-h: 1.15rem;    /* the pane's tab label, pinned so the terminal can
-                            reserve room for it — its height must not follow
-                            the skin's typeface, or it lands on the first line */
+  --label-h: 1.15rem;    /* the pane's tab label, the floor for the room the
+                            terminal leaves it. The pane raises it with the
+                            interface type below, because a label pinned to a
+                            fixed height while the type grew ended up behind
+                            the terminal's first line. */
 
   /* The window manager's four regions. A tool region opens this wide and may
      never fall below its minimum or grow past its share; main has a floor and
@@ -261,7 +263,7 @@ body {
    keeps it in the middle of the room the switches and the buttons leave; it
    gives up width before they do, never all of it, and is as tall as a switch. */
 :root { --bar-search-w: 20rem; --bar-search-min: 9rem; }
-.barSearch { display: flex; align-items: center; gap: 0.375rem; flex: 0 1 var(--bar-search-w); min-width: var(--bar-search-min); height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; cursor: text; }
+.barSearch { display: flex; align-items: center; gap: 0.375rem; flex: 1 1 var(--bar-search-w); min-width: var(--bar-search-min); height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; cursor: text; }
 .barSearchIcon { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .barSearch .barSearchInput { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; }
 .barSearchKey { flex: 0 0 auto; padding: 0.125rem 0.3125rem; line-height: 1; white-space: nowrap; }
@@ -670,7 +672,9 @@ body {
 .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 .panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; padding: 0.625rem 0.75rem 0.75rem; }
-.pane { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; }
+/* The label's room follows the type it is set in — the terminal's top padding
+   is measured from the same token, so both move together. */
+.pane { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; --label-h: max(1.15rem, 1.4em); }
 .panelabel {
   position: absolute; left: 0.625rem; z-index: 2; padding: 0 0.375rem;
   top: calc(var(--label-h) / -2);

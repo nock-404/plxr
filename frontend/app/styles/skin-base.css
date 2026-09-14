@@ -925,14 +925,21 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .dockHost,
 .dockHost .dv-shell > * {
   --dv-group-view-background-color: transparent;
+  /* dockview's theme sets the tab strip to 13px and every tab inherits it, so
+     the interface type size moved every word in the window except the tabs.
+     One em here, and the strip as tall as that type needs, with the height it
+     had as the floor. */
+  --dv-tabs-and-actions-container-font-size: 1em;
+  --dv-tab-font-size: inherit;
+  --dv-tabs-and-actions-container-height: max(2.1875rem, 2.7em);
   --dv-tabs-and-actions-container-background-color: var(--panel-glass);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-glass);
   --dv-activegroup-visiblepanel-tab-color: var(--fg);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel-glass);
   --dv-activegroup-hiddenpanel-tab-color: var(--dim);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-glass);
   --dv-inactivegroup-visiblepanel-tab-color: var(--dim);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel-glass);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--dim);
   --dv-separator-border: var(--line);
   --dv-tab-divider-color: var(--line);

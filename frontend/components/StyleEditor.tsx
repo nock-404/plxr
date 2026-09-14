@@ -157,31 +157,43 @@ export default function StyleEditor({
       {state.glowOn ? (
         <div className="field">
           <span className="fieldName">{tr("style.glowLevel", "glow strength")}</span>
-          <Slider value={state.glow} min={0} max={1} step={0.05} onChange={(glow) => change({ glow })} />
+          <span className="rowInline">
+            <Slider value={state.glow} min={0} max={1} step={0.05} onChange={(glow) => change({ glow })} />
+            <span className="styleNumber">{Math.round(state.glow * 100)}%</span>
+          </span>
         </div>
       ) : null}
 
       {state.scanOn ? (
         <div className="field">
           <span className="fieldName">{tr("style.scanlines", "scan lines")}</span>
-          <Slider value={state.scan} min={0} max={0.3} step={0.01} onChange={(scan) => change({ scan })} />
+          <span className="rowInline">
+            <Slider value={state.scan} min={0} max={0.3} step={0.01} onChange={(scan) => change({ scan })} />
+            <span className="styleNumber">{Math.round((state.scan / 0.3) * 100)}%</span>
+          </span>
         </div>
       ) : null}
 
       <div className="field">
         <span className="fieldName">{tr("style.fontUi", "interface font size")}</span>
-        <Slider value={state.size} min={0.75} max={1.25} step={0.0625} onChange={(size) => change({ size })} />
+        <span className="rowInline">
+          <Slider value={state.size} min={0.75} max={1.25} step={0.0625} onChange={(size) => change({ size })} />
+          <span className="styleNumber">{Math.round(state.size * 16)}px</span>
+        </span>
       </div>
 
       <div className="field">
         <span className="fieldName">{tr("style.fontTerm", "terminal font size")}</span>
-        <Slider
-          value={state.termSize}
-          min={0.625}
-          max={1.125}
-          step={0.0625}
-          onChange={(termSize) => change({ termSize })}
-        />
+        <span className="rowInline">
+          <Slider
+            value={state.termSize}
+            min={0.625}
+            max={1.125}
+            step={0.0625}
+            onChange={(termSize) => change({ termSize })}
+          />
+          <span className="styleNumber">{Math.round(state.termSize * 16)}px</span>
+        </span>
       </div>
 
       <div className="field">

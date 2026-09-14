@@ -5,6 +5,7 @@ import Tile from "@/components/Tile";
 import Button from "@/components/ui/Button";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import TopStrip from "@/components/ui/TopStrip";
+import OverflowBar from "@/components/ui/OverflowBar";
 import Tooltip from "@/components/ui/Tooltip";
 import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
@@ -80,23 +81,43 @@ export default function Overview({
     ...(onTemplates ? [{ label: tr("palette.templates", "Templates"), onClick: onTemplates }] : []),
   ];
 
+  /* The two density buttons go through the overflow bar like every other row
+     of buttons: in a narrow panel they fold into its ⋯ instead of wrapping to
+     a second line and pushing the tiles down. */
   const strip = (
     <TopStrip>
-      <div className="listbar">
-        <span className="prompt">{tr("overview.prompt", "sessions>")}</span>
-        <span className="meta">{tiles.length}</span>
-        <span className="spacer" />
-        <Tooltip text={tr("overview.densityTip", "How tightly the tiles are packed: room to read, or every session at a glance")}>
-          <span className="rowInline">
-            <Button tiny on={!dense} data-do="comfortable" onClick={() => setDense(false)}>
-              {tr("overview.comfortable", "COMFORTABLE")}
-            </Button>
-            <Button tiny on={dense} data-do="dense" onClick={() => setDense(true)}>
-              {tr("overview.dense", "DENSE")}
-            </Button>
-          </span>
-        </Tooltip>
-      </div>
+      <OverflowBar
+        className="listbar"
+        moreTitle={tr("common.more", "More")}
+        left={
+          <>
+            <span className="prompt">{tr("overview.prompt", "sessions>")}</span>
+            <span className="meta">{tiles.length}</span>
+          </>
+        }
+        items={[
+          {
+            key: "comfortable",
+            node: (
+              <Tooltip text={tr("overview.densityTip", "How tightly the tiles are packed: room to read, or every session at a glance")}>
+                <Button tiny on={!dense} data-do="comfortable" onClick={() => setDense(false)}>
+                  {tr("overview.comfortable", "COMFORTABLE")}
+                </Button>
+              </Tooltip>
+            ),
+          },
+          {
+            key: "dense",
+            node: (
+              <Tooltip text={tr("overview.densityTip", "How tightly the tiles are packed: room to read, or every session at a glance")}>
+                <Button tiny on={dense} data-do="dense" onClick={() => setDense(true)}>
+                  {tr("overview.dense", "DENSE")}
+                </Button>
+              </Tooltip>
+            ),
+          },
+        ]}
+      />
     </TopStrip>
   );
 
