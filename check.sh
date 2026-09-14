@@ -15,7 +15,9 @@ fail=0
 # lists every claim, the ones that hold included, and "dock tabs" failed twice
 # with twenty lines of "ok" on screen and its four failing claims cut off below
 # them. So a line that says "ok" goes, with the evidence lines indented under
-# it, and everything else stays.
+# it, and everything else stays. A step that printed nothing at all — killed,
+# or dead before its first line — says so, rather than reading as if it had
+# printed lines that held.
 step() {
 	printf '  %-22s ' "$1"
 	shift
@@ -30,7 +32,9 @@ step() {
 			held && /^[ \t][ \t][ \t][ \t][ \t]+[^ \t]/ { next }
 			{ held = 0; print }
 		')
-		if [ -n "$(echo "$failing" | tr -d ' \t\n')" ]; then
+		if [ -z "$(echo "$out" | tr -d ' \t\n')" ]; then
+			echo "      it printed nothing, and exited with $status"
+		elif [ -n "$(echo "$failing" | tr -d ' \t\n')" ]; then
 			echo "$failing" | sed 's/^/      /'
 		else
 			echo "      every line it printed says ok, and it exited with $status"

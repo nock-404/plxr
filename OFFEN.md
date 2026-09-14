@@ -1018,7 +1018,10 @@ that I do not agree with the menu as such."
   real window.
 - **tabs.mjs ends its session without purging it,** which is what left clicked.mjs
   a dead session to trip over on a second run. Read from its code; tabs.mjs was
-  not run twice against one service.
+  not run twice against one service. (fixed 14.09 on wip9/tabsflake: stop()
+  deletes it with ?purge=1. Before, a run left plxr-tabs-check listed as ended;
+  after, the service state read right after tabs.mjs in check.sh's order lists
+  only the service's own session and no folder)
 
 ### Left open by documents opening beside their source (13.09.2026)
 
@@ -1117,7 +1120,40 @@ Left open, seen while fixing these:
   build (89fe552, binary from 21:24) on a fresh service. In check.sh it runs on
   the service the earlier gates already used, so it is most likely the
   leftover-state problem clicked.mjs had until 80bbce6: tabs.mjs should bring its
-  own session and folder and clean up after itself the same way.
+  own session and folder and clean up after itself the same way. (fixed 14.09 on
+  wip9/tabsflake; it failed again on 73938d5. The guess was half wrong: tabs.mjs
+  already brought its own session and folder. Measured cause: agree.mjs switched
+  the stored skin to win95 and never put it back, and tabs.mjs set aside only the
+  arrangement. Four close claims failed, crt read win95's hover colour and its
+  title moved 9.36px, and step() showed only the first 20 lines, all ok.
+  Bisected on fresh services: tabs alone 35/35; every earlier gate but agree,
+  then tabs, 35/35; agree then tabs, the same 4 failures; only
+  {"theme":{"skin":"win95"}} stored, then tabs, the same 4. Now agree.mjs writes
+  the settings back once its browser is gone, and tabs.mjs starts from empty
+  settings, holds that before it drives anything and writes them back. A failing
+  step prints its lines that are not ok, or that it printed nothing. With win95
+  stored, the old tabs.mjs failed 4 of 35 and the new one held 35/35 and put the
+  settings back exactly. check.sh's browser gates in its order, run twice, each
+  time on a fresh service against a Turbopack build: tabs 35/35 both times,
+  accent #b6ffd1, crt title moved 0px, no theme stored after agree, only the
+  service's own session after tabs)
+- **What turned crt back to win95 in the middle of the loop is read, not
+  measured.** Two paths re-apply the look. App.tsx follow() polls the settings
+  revision every 1.5 s and applies prefs.theme on each new one, including those
+  from the window's own arrangement writes. Settings' reloadThemes runs
+  apply(load()). tabs.mjs sets data-skin by hand, so either one undoes that
+  while a theme is stored.
+- **stripes.mjs leaves its session and its folder on the shared service.** It
+  deletes plxr-stripes-check without ?purge=1, so the session stays listed as
+  ended, and the folder stays listed after its directory is gone. Measured after
+  stripes.mjs in check.sh's order. tabs.mjs runs before it, and it held 35/35
+  with both present on a second pass over one service.
+- **icons.mjs failed one claim once:** "win95 + pixel at 2x: the pixel pack is
+  crisp", with tab/overview's ink 0.20 half-toned. It ran right after stripes
+  and focus in check.sh's order, against a service whose settings matched the
+  earlier runs where it held. Run again straight away on the same service with
+  the same settings: 239/239, and 239/239 again in the second full run. The
+  cause was not found.
 
 ### Main's documents on a surface again (13.09.2026, wip9/surfaces)
 
