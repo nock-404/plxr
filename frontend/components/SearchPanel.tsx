@@ -33,7 +33,7 @@ export default function SearchPanel({
   here: string;
   /* The session to follow; empty until one has been active in this layout. */
   sessionId?: string;
-  /* How to name what is followed, for the line at the top. */
+  /* The folder being searched, for the line at the top — not the session. */
   label?: string;
   onOpen: (rootId: string, path: string, line: number) => void;
 }) {
@@ -81,7 +81,7 @@ export default function SearchPanel({
     <div className="searchPanel">
       {label ? (
         <Tooltip text={tr("searchPanel.followTip", "Searches the project: the session in front, or the folder picked at the top")}>
-          <span className="notice">{tr("searchPanel.following", "searching {name}", { name: label })}</span>
+          <span className="notice">{tr("searchPanel.following", "searching in {name}", { name: label })}</span>
         </Tooltip>
       ) : null}
       {/* One search per folder: the id keys it, so switching sessions starts

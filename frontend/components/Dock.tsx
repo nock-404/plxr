@@ -394,6 +394,15 @@ function ReviewDockPanel() {
   );
 }
 
+/* What a search says it is searching: the folder, never the session's name.
+   The panel follows a session, but what a search reads is that session's
+   folder. Naming the session put a conversation's title there, and a
+   conversation is not a thing that can be searched. */
+function searchLabel(project: Project, followed: Tile | undefined): string | undefined {
+  const path = followed?.cwd || project.path;
+  return path.split("/").filter(Boolean).pop() || undefined;
+}
+
 /* The one search panel follows the same project the changes panel does, with
    the same tolerance for a session the service does not know yet or any
    more. A hit opens the editor at its line, beside the terminal. */
@@ -406,7 +415,7 @@ function SearchDockPanel() {
     <SearchPanel
       here={d.project.path || d.here}
       sessionId={gone ? undefined : id || undefined}
-      label={followLabel(d.project, followed, gone)}
+      label={searchLabel(d.project, gone ? undefined : followed)}
       onOpen={(rootId, path, line) => d.openEditor(rootId, path, line)}
     />
   );

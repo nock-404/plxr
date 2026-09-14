@@ -1211,9 +1211,9 @@ Left open (style calls for him, option shots in
 
 ### The window was see-through in name only (14.09.2026)
 
-He saw it first: "die transparent aller tab inhalte ist im arsch". With the
-window see-through, the panels at 5 % and the glass at 17, everything but the
-title bar stood opaque. The readability fix of 0.79.0 (470faf9) had given the
+He saw it first, in his own words, and they are not repeated here: the rule of
+this repo is that German lives in de.json. With the window see-through, the
+panels at 5 % and the glass at 17, everything but the title bar stood opaque. The readability fix of 0.79.0 (470faf9) had given the
 tab strip, every document of main and the stripes `var(--panel)` — the flat
 colour — where a tool window takes `var(--panel-glass)`, which mixes in the
 solidity slider. So the slider moved nothing for a whole release.
