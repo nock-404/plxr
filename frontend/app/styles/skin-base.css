@@ -1112,16 +1112,19 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 /* The strip the tabs sit in, and every document of main filling its panel —
    the settings, an editor, a diff, a preview, the board, the folders: all take
    the panel's own surface, the one a tool window stands on, so a region reads
-   as one box rather than two. Main's own ground stays transparent and shows
+   as one box rather than two. The surface is the glass, not the flat colour:
+   painted flat, every tab's content and every stripe stood opaque over a
+   see-through window, and the solidity slider moved nothing. Text that has to
+   be read keeps its own reading field (.viewerwrap), which each skin dresses. Main's own ground stays transparent and shows
    only in the gaps between its groups; a document standing on it was dark
    blue code on Windows 95's teal desktop. */
-.plxrDock .dv-tabs-container { background: var(--panel); }
+.plxrDock .dv-tabs-container { background: var(--panel-glass); }
 .settingsPanel,
 .editorPanel,
 .diffPanel,
 .preview,
 .overviewPanel,
-.foldersPanel { background: var(--panel); color: var(--fg); }
+.foldersPanel { background: var(--panel-glass); color: var(--fg); }
 
 /* The tool stripes: the panel's surface, with the line where each meets the
    dock drawn inside it, so no skin's line takes a pixel from the icons. An icon
@@ -1129,7 +1132,7 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    shows, with a bar on the stripe's outer edge. An edge asked to show with
    nothing on it glows for a moment in the blocked colour. */
 .dockShell { background: transparent; }
-.stripe { background: var(--panel); }
+.stripe { background: var(--panel-glass); }
 .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--line); }
 .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--line); }
 .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--line); }

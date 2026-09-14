@@ -269,6 +269,13 @@ step "surfaces reachable" node surfaces.mjs
 # come and go, the close that asks while a session is running or an editor is
 # dirty, float and dock, and the keys between panels and groups — against the
 # same service as above.
+# The window says how much of the desktop it lets through: two sliders and a
+# switch. The readability fix in 0.79.0 painted every document of main, the tab
+# strip and the stripes in the flat panel colour, and the panel slider moved
+# nothing for a whole release — no check had ever read an alpha. This one does,
+# in every skin, and holds the readable field the same fix bought.
+step "glass follows the slider" node glass.mjs
+
 step "dock tabs" node tabs.mjs
 
 # The tools as icons on three stripes and windows at the edges of the dock:

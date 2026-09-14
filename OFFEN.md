@@ -1209,6 +1209,31 @@ Left open (style calls for him, option shots in
 - **Blueprint rules key on the palette name** sketch-blueprint; a new dark
   sketch palette would fail usage.mjs.
 
+### The window was see-through in name only (14.09.2026)
+
+He saw it first: "die transparent aller tab inhalte ist im arsch". With the
+window see-through, the panels at 5 % and the glass at 17, everything but the
+title bar stood opaque. The readability fix of 0.79.0 (470faf9) had given the
+tab strip, every document of main and the stripes `var(--panel)` — the flat
+colour — where a tool window takes `var(--panel-glass)`, which mixes in the
+solidity slider. So the slider moved nothing for a whole release.
+
+Measured in headless Chrome over a checkerboard, crt at 5 %: the tab strip and
+the overview read rgb(10, 31, 20) before, alpha .05 of the same colour after;
+the same in all four skins. The field a document's text is read off keeps its
+own dress — white and opaque in win95 — so the editor stays readable.
+
+No check had ever read an alpha: the surface checks measure contrast, and a
+flat colour has the best contrast there is. glass.mjs reads the grounds that
+must follow the slider at 5 % and at 90 %, in every skin, and holds win95's
+reading field opaque. 17 claims.
+
+Left open:
+
+- **Two claims in surfaces.mjs about the order of sessions** failed on a
+  service of mine ("idle working", "busy working") and hold in the full
+  check.sh run. Same smell as the tabs flake: state the gate did not bring.
+
 ### V — classic IDE features: deliberately NOT wanted (13.09.2026)
 
 He read this list and answered, translated: "you don't need any of that rubbish
