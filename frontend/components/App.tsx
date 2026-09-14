@@ -850,7 +850,8 @@ export default function App() {
           </Tooltip>
           <Tooltip text={bindingOf("newSession") ? `${tr("palette.newSession", "New session")} ${caption(bindingOf("newSession"))}` : tr("palette.newSession", "New session")}>
             <Button primary data-do="new-session" onClick={() => setCreating(true)}>
-              {tr("header.new", "+ NEW")}
+              <Icon name="plus" />
+              {tr("header.new", "NEW")}
             </Button>
           </Tooltip>
         </div>

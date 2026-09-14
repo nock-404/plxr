@@ -572,7 +572,7 @@
   "header.layoutsTip": "Arrange the panels: for an activity, or as you saved them",
   "header.menuName": "Menu",
   "header.menuTip": "Every action and setting, grouped",
-  "header.new": "+ NEW",
+  "header.new": "NEW",
   "header.pauseAll": "Pause all sessions",
   "header.resetLayout": "Reset the panel layout to the default",
   "header.resumeAll": "Resume all sessions",

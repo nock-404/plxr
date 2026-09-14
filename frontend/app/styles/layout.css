@@ -189,6 +189,11 @@ body {
 
 .app { position: relative; height: 100%; display: flex; flex-direction: column; }
 
+/* dockview puts a floating group at 997, over everything of ours: a menu
+   opened from a floating window (z 300) stood behind the window it belongs to.
+   It rides the floating rung of the ladder below instead. */
+.dockHost { --dv-overlay-z-index: 152; }
+
 /* ---------- the z-ladder ----------
    Every floating thing has a rung, and the rungs are named here so nothing is
    ever given a number in the dark. Reading upwards:
@@ -257,7 +262,10 @@ body {
 .switchBranch { margin-left: 0.5rem; font-size: 0.85em; }
 .switchBadge { flex: 0 0 auto; min-width: var(--badge-h); height: var(--badge-h); padding: 0 0.1875rem; line-height: var(--badge-h); text-align: center; font-size: 0.7em; }
 
-.draghandle { flex: 1; min-width: 1.25rem; align-self: stretch; }
+/* Room to grab the window between the controls — a gap, not a claim on the
+   bar's free space: while these grew, the search field beside them could never
+   take any of it. */
+.draghandle { flex: 0 1 1.25rem; min-width: 1.25rem; align-self: stretch; }
 /* The search field in the middle of the bar (OFFEN.md D5): its mark, the
    field, and the palette's chord written at its end. A handle on each side
    keeps it in the middle of the room the switches and the buttons leave; it
@@ -349,10 +357,14 @@ body {
 
 /* ---------- tile grid ---------- */
 
+/* A tile is 21rem wide where there is room for one, and the panel's own width
+   where there is not: a fixed minimum in a narrower panel cut the tiles off at
+   the edge, with nothing to scroll. What still does not fit can be scrolled
+   to. */
 .grid {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
+  flex: 1; overflow-y: auto; overflow-x: auto;
   display: grid; gap: 0.875rem; padding: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(21rem, 100%), 1fr));
   align-content: start;
 }
 .tile { position: relative; display: flex; flex-direction: column; height: 14.5rem; cursor: pointer; overflow: hidden; }
@@ -671,7 +683,10 @@ body {
 .ficon { flex: 0 0 auto; width: max(1em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
 .fname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
-.panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; padding: 0.625rem 0.75rem 0.75rem; }
+/* The top padding is the room the pane's label needs above the pane: the label
+   straddles the pane's top border, and with less room than half of it the bar
+   over the panes covered its top half. */
+.panes { flex: 1; min-width: 0; display: flex; gap: 0.5rem; --label-h: max(1.15rem, 1.4em); padding: calc(var(--label-h) / 2 + 0.25rem) 0.75rem 0.75rem; }
 /* The label's room follows the type it is set in — the terminal's top padding
    is measured from the same token, so both move together. */
 .pane { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; --label-h: max(1.15rem, 1.4em); }
@@ -1375,7 +1390,7 @@ body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
 .overviewPanel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .overviewPanel > .grid, .overviewPanel > .empty { min-height: 0; }
 /* Dense — the session grid: more columns, shorter tiles, less air. */
-.grid[data-dense="yes"] { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.5rem; padding: 0.5rem; }
+.grid[data-dense="yes"] { grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 0.5rem; padding: 0.5rem; }
 .grid[data-dense="yes"] .tile { height: 8.5rem; }
 /* ---- terminal: the ended overlay, the bell, the session tab ------------ */
 /* The note over an ended session lies on the terminal's last screen, inside

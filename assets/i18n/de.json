@@ -571,7 +571,7 @@
   "header.layoutsTip": "Panels anordnen: für eine Tätigkeit, oder wie du sie gespeichert hast",
   "header.menuName": "Menü",
   "header.menuTip": "Jede Aktion und jede Einstellung, gruppiert",
-  "header.new": "+ NEU",
+  "header.new": "NEU",
   "header.pauseAll": "Alle Sessions pausieren",
   "header.resetLayout": "Panel-Layout auf die Vorgabe zurücksetzen",
   "header.resumeAll": "Alle Sessions fortsetzen",
