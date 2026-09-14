@@ -92,14 +92,23 @@
 [data-skin="win95"] .diffno { color: var(--dim); }
 
 /* ---- head ---- */
+/* The window's own bands carry the chrome layer. The bands inside a panel —
+   a list's own bar, the files bar, the workbench's — carry nothing: the panel
+   under them is already one pane of glass, and a second one over it is the
+   stacking he kept finding ("is that all the same transparency?"). They keep
+   the bevel, which is what makes them read as a bar in this skin. */
 [data-skin="win95"] .bar,
 [data-skin="win95"] .sessbar,
+[data-skin="win95"] .updatebar {
+  background: var(--chrome-glass);
+  border-bottom: var(--bevel) solid var(--hi);
+  box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--sh);
+}
 [data-skin="win95"] .listbar,
 [data-skin="win95"] .overlayBar,
-[data-skin="win95"] .updatebar,
 [data-skin="win95"] .filesbar,
 [data-skin="win95"] .wbBar {
-  background: var(--chrome-glass);
+  background: transparent;
   border-bottom: var(--bevel) solid var(--hi);
   box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--sh);
 }

@@ -1171,12 +1171,20 @@ button.diffline { cursor: pointer; }
    moves under the pointer. */
 .dockShell[data-bottom="empty"] { grid-template-rows: minmax(0, 1fr) var(--stripe-rest); }
 .stripe[data-empty="yes"] { padding-block: 0; }
-body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
-.stripe[data-empty="yes"][data-flash="yes"] { position: absolute; grid-row: 1 / 3; left: 0; right: 0; bottom: 0; height: var(--stripe-w); padding: var(--stripe-pad); z-index: 45; }
+body[data-dragging-tool="yes"] .floor[data-empty="yes"],
+.floor[data-empty="yes"]:has(.stripe[data-flash="yes"]) { position: absolute; grid-row: 1 / 3; left: 0; right: 0; bottom: 0; height: var(--stripe-w); z-index: 45; }
+body[data-dragging-tool="yes"] .floor[data-empty="yes"] > .stripe,
+.floor[data-empty="yes"]:has(.stripe[data-flash="yes"]) > .stripe { padding: var(--stripe-pad); }
 .stripe { display: flex; align-items: center; gap: var(--stripe-gap); padding: var(--stripe-pad); min-width: 0; min-height: 0; overflow: hidden; }
 .stripe[data-edge="left"] { grid-column: 1; grid-row: 1; flex-direction: column; }
 .stripe[data-edge="right"] { grid-column: 3; grid-row: 1; flex-direction: column; }
-.stripe[data-edge="bottom"] { grid-column: 1 / 4; grid-row: 2; flex-direction: row; }
+/* The row under everything holds both halves of the bottom section: the left
+   half's icons start at the left end, the right half's end at the right one,
+   and each half owns the reach over it — an icon let go there lands in it. */
+.floor { grid-column: 1 / 4; grid-row: 2; display: flex; align-items: stretch; min-width: 0; min-height: 0; }
+.floor > .stripe { flex: 1 1 0; }
+.stripe[data-edge="bottom"], .stripe[data-edge="bottomRight"] { flex-direction: row; }
+.stripe[data-edge="bottomRight"] { justify-content: flex-end; }
 /* An icon is carried by the window's own pointer handling, not the browser's:
    nothing in a stripe is selected on the way, a press has to move further than
    --stripe-drag before it counts as carrying, the carried icon is out of sight
@@ -1276,7 +1284,7 @@ body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
 /* The command palette: a centred box near the top, over a dim scrim. */
 .paletteScrim { position: fixed; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; }
 .palette { width: min(40rem, 92vw); max-height: 70vh; display: flex; flex-direction: column; }
-.palette .input { width: 100%; font-size: 1.05rem; padding: 0.6rem 0.8rem; }
+.palette .input { width: 100%; font-size: 1.05em; padding: 0.6rem 0.8rem; }
 .paletteList { overflow-y: auto; margin-top: 0.4rem; }
 .paletteRow { display: flex; align-items: baseline; gap: 0.6rem; width: 100%; padding: 0.4rem 0.7rem; text-align: left; background: none; border: 0; font: inherit; cursor: pointer; }
 .paletteGroup { flex: 0 0 auto; font-size: 0.78em; text-transform: uppercase; letter-spacing: 0.04em; min-width: 4.5rem; }

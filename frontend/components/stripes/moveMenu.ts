@@ -12,7 +12,8 @@ export function moveRows(id: ToolId, layout: ToolLayout, onMove: (id: ToolId, to
   const names: Record<Edge, string> = {
     left: tr("edge.left", "Left"),
     right: tr("edge.right", "Right"),
-    bottom: tr("edge.bottom", "Bottom"),
+    bottom: tr("edge.bottom", "Bottom left"),
+    bottomRight: tr("edge.bottomRight", "Bottom right"),
   };
   return [
     { header: true, label: tr("tool.moveTo", "Move to") },

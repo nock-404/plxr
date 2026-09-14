@@ -10,6 +10,7 @@ import {
   type IDockviewPanel,
   type IDockviewPanelHeaderProps,
   type IDockviewPanelProps,
+  type IWatermarkPanelProps,
   type Position,
 } from "dockview-react";
 import "dockview-react/dist/styles/dockview.css";
@@ -37,6 +38,7 @@ import {
   EDGES,
   chordOf,
   defaultToolLayout,
+  FLOOR,
   edgeOf,
   fromRegions,
   isTool,
@@ -124,7 +126,7 @@ export type ShownTools = Record<Edge, ToolId | null>;
 /* The panel in front of main, for the status bar's breadcrumb: its id, its
    title and what it was opened on. id "" when main is empty. */
 export type FrontPanel = { id: string; title: string; params: Record<string, unknown> };
-const NONE_SHOWN: ShownTools = { left: null, right: null, bottom: null };
+export const NONE_SHOWN: ShownTools = Object.fromEntries(EDGES.map((edge) => [edge, null])) as ShownTools;
 
 type DockData = {
   tiles: Tile[];
@@ -680,12 +682,15 @@ function SettingsPanel(props: IDockviewPanelProps) {
   return <Settings framed={false} layouts={d.layouts} openSession={d.openSession} onClose={() => props.api.close()} />;
 }
 
-/* Main with nothing in it. dockview draws this wherever the grid has no group
-   left — the tool windows at the edges do not count — and a blank area is a
-   dead end, so it offers the three ways to put something there: the board, a
-   new session, and every command. */
-function MainWatermark() {
+/* Main with nothing in it. dockview draws this in any group that has nothing
+   in it, and an edge with no tool on it is such a group — hidden, no size, and
+   still carrying this whole note in the page, where anything looking for
+   "main is empty" finds it. So a note outside main draws nothing. In main a
+   blank area is a dead end, so it offers the three ways to put something
+   there: the board, a new session, and every command. */
+function MainWatermark({ group }: IWatermarkPanelProps) {
   const d = useDock();
+  if (group && group.api.location.type !== "grid") return null;
   const said = (label: string, chord: string) => (chord ? `${label} ${chord}` : label);
   return (
     <div className="emptyNote mainWatermark">
@@ -1610,7 +1615,7 @@ export default function Dock({
             the dock between them holds the tool windows at its edges and main
             in the middle. dockview puts the dock's own class on main alone, so
             the box that holds all of it is a wrapper of its own. */}
-        <div className="dockShell" data-bottom={toolLayout.order.bottom.length ? undefined : "empty"}>
+        <div className="dockShell" data-bottom={FLOOR.some((edge) => toolLayout.order[edge].length) ? undefined : "empty"}>
           <Stripes
             layout={toolLayout}
             shown={shownTools}
@@ -1783,6 +1788,10 @@ const sizes = new Map<Edge, number>();
 function noteSizes(host: ToolHost): void {
   for (const edge of EDGES) {
     if (!host.shown(edge)) continue;
+    /* The right half of the bottom section is only as wide as it is while the
+       left half stands beside it: alone it has the whole row, and writing that
+       down would leave the left half nothing the next time it comes up. */
+    if (edge === "bottomRight" && !host.shown("bottom")) continue;
     const px = host.size(edge);
     if (px > 0) sizes.set(edge, px);
   }
@@ -1795,8 +1804,8 @@ export function readSizes(prefs: Record<string, unknown>): void {
   const saved = prefs.dockSizes;
   if (!saved || typeof saved !== "object") return;
   for (const [k, v] of Object.entries(saved as Record<string, unknown>)) {
-    if ((k === "left" || k === "right" || k === "bottom") && typeof v === "number" && Number.isFinite(v) && v > 0) {
-      sizes.set(k, Math.round(v));
+    if (EDGES.includes(k as Edge) && typeof v === "number" && Number.isFinite(v) && v > 0) {
+      sizes.set(k as Edge, Math.round(v));
     }
   }
 }
@@ -1815,7 +1824,7 @@ function adoptSizes(preset: Preset): void {
 }
 
 function shownOf(host: ToolHost): ShownTools {
-  return { left: host.shown("left"), right: host.shown("right"), bottom: host.shown("bottom") };
+  return Object.fromEntries(EDGES.map((edge) => [edge, host.shown(edge)])) as ShownTools;
 }
 
 /* clampMain keeps main at least as wide as the frame declares, and no side

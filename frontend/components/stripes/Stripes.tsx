@@ -7,10 +7,12 @@ import Stripe, { type StripeDrop, type StripeMarks } from "@/components/stripes/
 import { tr } from "@/lib/i18n";
 import { accountName } from "@/lib/format";
 import { isHot, useLimits, worst } from "@/lib/useLimits";
-import { COUNTED, EDGES, dropIndex, viewDef, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
+import { COUNTED, EDGES, FLOOR, dropIndex, viewDef, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
 
-/* The three stripes around the dock: left, right and the bottom one under all
- * of it.
+/* The stripes around the dock: left, right, and the row under all of it, which
+ * is two — the bottom section has a left half and a right half, each with its
+ * own tools and its own tabs, and each half's icons stand at its own end of
+ * the row.
  *
  * They replace a wide column of words that stood beside the work: the views,
  * a command, and every session, all in one list. The sessions
@@ -49,11 +51,13 @@ function dropAt(x: number, y: number, carried: ToolId): StripeDrop {
     const shell = document.querySelector(".dockShell")?.getBoundingClientRect();
     const reach = 2 * tokenPx("--stripe-w", "2.5rem");
     if (shell && x >= shell.left && x <= shell.right && y >= shell.top && y <= shell.bottom) {
+      // Along the bottom, which half of the section the pointer is over.
+      const floor: Edge = x < (shell.left + shell.right) / 2 ? "bottom" : "bottomRight";
       const near = (
         [
           ["left", x - shell.left],
           ["right", shell.right - x],
-          ["bottom", shell.bottom - y],
+          [floor, shell.bottom - y],
         ] as [Edge, number][]
       )
         .filter(([, d]) => d <= reach)
@@ -61,9 +65,9 @@ function dropAt(x: number, y: number, carried: ToolId): StripeDrop {
       if (near) stripe = document.querySelector<HTMLElement>(`.stripe[data-edge="${near[0]}"]`);
     }
   }
-  const edge = stripe?.dataset.edge;
-  if (!stripe || (edge !== "left" && edge !== "right" && edge !== "bottom")) return null;
-  const across = edge === "bottom";
+  const edge = stripe?.dataset.edge as Edge | undefined;
+  if (!stripe || !edge || !EDGES.includes(edge)) return null;
+  const across = edge !== "left" && edge !== "right";
   const centres = [...stripe.querySelectorAll<HTMLElement>(".stripeIcon[data-tool]")]
     .filter((el) => el.dataset.tool !== carried)
     .map((el) => {
@@ -226,7 +230,7 @@ export default function Stripes({
   const half = carry ? tokenPx("--stripe-icon-box", "2rem") / 2 : 0;
   return (
     <>
-      {EDGES.map((edge) => (
+      {EDGES.filter((edge) => !FLOOR.includes(edge)).map((edge) => (
         <Stripe
           key={edge}
           edge={edge}
@@ -244,6 +248,27 @@ export default function Stripes({
           onResetTools={onResetTools}
         />
       ))}
+      {/* The two halves of the bottom section, each at its own end of the row. */}
+      <div className="floor" data-empty={FLOOR.some((edge) => layout.order[edge].length) ? undefined : "yes"}>
+        {FLOOR.map((edge) => (
+          <Stripe
+            key={edge}
+            edge={edge}
+            layout={layout}
+            shown={shown[edge]}
+            flash={flash === edge}
+            marks={marks}
+            carried={carry?.id ?? null}
+            drop={carry?.drop ?? null}
+            onPress={press}
+            onToggle={toggle}
+            onReveal={onReveal}
+            onHide={onHide}
+            onMove={onMove}
+            onResetTools={onResetTools}
+          />
+        ))}
+      </div>
       {carry
         ? createPortal(
             <div className="stripeGhost" aria-hidden="true" style={{ transform: `translate(${Math.round(carry.x - half)}px, ${Math.round(carry.y - half)}px)` }}>

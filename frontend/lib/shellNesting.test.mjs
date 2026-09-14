@@ -106,6 +106,29 @@ claim(middle.includes("this.minimumSize = 100;") && middle.includes('orientation
 const edge = between(src, "var EdgeGroupView = class {", "var CenterView = class {");
 claim(edge.includes('this.priority = "low";') && edge.includes("else this._group.layout(orthogonalSize, size);"), "an edge group no longer gives way first, or lays a vertical group out differently");
 
+// ---- the floor: the bottom section in two halves --------------------------------
+/* The right half of the bottom section is dockview's own top edge group, laid
+   out beside the bottom one instead of above main. What that rests on: the
+   top edge going through the same middle column, an edge view for a top or a
+   bottom edge being built for a vertical splitview (so both halves have their
+   lengths swapped back on the way into a horizontal one), a top edge carrying
+   its size as a height whatever that size means, one group per position, and
+   an empty edge folding itself away to a strip. */
+claim(/case "top":\n\t\t\t\tthis\._middleColumn\.addTopView\(view, initialSize\);/.test(shell) && shell.includes('this._middleColumn.removeView("top");'),
+  "the top edge is no longer added and removed through the middle column");
+claim(shell.includes('case "top":\n\t\t\tcase "bottom":\n\t\t\t\tthis._middleColumn.setViewVisible(position, visible);'),
+  "the top edge's visibility no longer goes through the middle column");
+claim(shell.includes('const isHorizontal = position === "left" || position === "right";') && shell.includes('const orientation = isHorizontal ? "horizontal" : "vertical";'),
+  "an edge view for the top or the bottom is no longer built for a vertical splitview");
+claim(src.includes('const size = position === "left" || position === "right" ? event.width : event.height;'),
+  "a top or bottom edge group no longer carries the size asked for as a height");
+claim(src.includes("dockview: edge group already exists at position") || src.includes("dockview: edge group already registered at position"),
+  "dockview no longer keeps one group per edge position, which is why the right half is the top one");
+claim(src.includes("else this.setEdgeGroupCollapsed(group, true);"), "an emptied edge group no longer folds itself away, and the floor's height would follow it down");
+const split = between(src, "var Splitview = class {", "//#region");
+for (const name of ["distributeViewSizes() {", "resizeView(index, size) {", "removeView(index", "isViewVisible(index) {", "getViewSize(index) {"])
+  claim(split.includes(name), `Splitview lost ${name.replace(/\(.*/, "")}, which the floor is built on`);
+
 if (failed) {
   console.error(`  ${failed} claims failed — dockview changed under components/dock/shellNesting.ts`);
   process.exit(1);

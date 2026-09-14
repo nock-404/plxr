@@ -16,8 +16,15 @@
 import { bindingOf, caption, type Action } from "./keymap";
 import type { IconName } from "./icons";
 
-export type Edge = "left" | "right" | "bottom";
-export const EDGES: readonly Edge[] = ["left", "right", "bottom"];
+/* The edges a tool window can stand on. The bottom section runs the whole
+   width under everything and holds two of them side by side, each with its own
+   tabs — his words (translated): "in the bottom section I want a left and a
+   right tabs". The left half kept the name "bottom" it always had, so every
+   layout saved before the section was split still finds its tools. */
+export type Edge = "left" | "right" | "bottom" | "bottomRight";
+export const EDGES: readonly Edge[] = ["left", "right", "bottom", "bottomRight"];
+// The two halves of the bottom section, in the order they stand.
+export const FLOOR: readonly Edge[] = ["bottom", "bottomRight"];
 
 export type ToolId = "files" | "changes" | "search" | "review" | "inbox" | "usage" | "ports" | "archive" | "notes";
 
@@ -84,14 +91,14 @@ const byId = new Map<string, ToolDef>(TOOLS.map((t) => [t.id, t]));
 
 export const isTool = (id: string): id is ToolId => byId.has(id);
 
-const isEdge = (v: unknown): v is Edge => v === "left" || v === "right" || v === "bottom";
+const isEdge = (v: unknown): v is Edge => EDGES.includes(v as Edge);
 
 /* What a tool or a document is called and which mark it wears. */
 export function viewDef(id: ToolId | DocId): { icon: IconName; key: string; fallback: string } {
   return isTool(id) ? (byId.get(id) as ToolDef) : DOCS[id];
 }
 
-const emptyOrder = (): Record<Edge, ToolId[]> => ({ left: [], right: [], bottom: [] });
+const emptyOrder = (): Record<Edge, ToolId[]> => ({ left: [], right: [], bottom: [], bottomRight: [] });
 
 export function defaultToolLayout(): ToolLayout {
   const order = emptyOrder();
@@ -166,7 +173,13 @@ export function dropIndex(centres: number[], pointer: number): number {
 
 /* The keys that show or hide an edge, and the chord as the keyboard help
    prints it — read from the live binding. */
-export const EDGE_ACTIONS: Record<Edge, Action> = { left: "toggleLeft", right: "toggleRight", bottom: "toggleBottom" };
+export const EDGE_ACTIONS: Record<Edge, Action> = {
+  left: "toggleLeft",
+  right: "toggleRight",
+  // The bottom section is one thing with two halves: one key shows and hides it.
+  bottom: "toggleBottom",
+  bottomRight: "toggleBottom",
+};
 
 export function edgeChordOf(edge: Edge): string {
   const chord = bindingOf(EDGE_ACTIONS[edge]);

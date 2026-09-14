@@ -16,12 +16,21 @@ import { edgeChordOf, type Edge, type ToolId } from "@/lib/tools";
 const ORDER: Edge[] = ["left", "bottom", "right"];
 
 export default function EdgeToggles({ shown, onToggle }: { shown: Record<Edge, ToolId | null>; onToggle: (edge: Edge) => void }) {
+  /* Three buttons for three edges: the bottom one is the whole section, both
+     halves of it, so it needs no fourth. The maps hold every edge all the same,
+     because ORDER is what decides what is drawn. */
   const texts: Record<Edge, string> = {
     left: tr("keys.toggleLeft", "Show or hide the left tool window"),
     right: tr("keys.toggleRight", "Show or hide the right tool window"),
     bottom: tr("keys.toggleBottom", "Show or hide the bottom tool window"),
+    bottomRight: tr("keys.toggleBottom", "Show or hide the bottom tool window"),
   };
-  const icons = { left: "panel-left", right: "panel-right", bottom: "panel-bottom" } as const;
+  const icons: Record<Edge, "panel-left" | "panel-right" | "panel-bottom"> = {
+    left: "panel-left",
+    right: "panel-right",
+    bottom: "panel-bottom",
+    bottomRight: "panel-bottom",
+  };
   return (
     <span className="edgeToggles">
       {ORDER.map((edge) => {

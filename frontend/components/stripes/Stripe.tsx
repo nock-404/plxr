@@ -28,7 +28,7 @@ import { chordOf, edgeChordOf, viewDef, type Edge, type ToolId, type ToolLayout 
  * up as a whole stripe to be dropped on (layout.css). */
 
 // Where a tooltip goes: beside the icon, towards the work.
-const PLACE: Record<Edge, TipPlace> = { left: "right", right: "left", bottom: "above" };
+const PLACE: Record<Edge, TipPlace> = { left: "right", right: "left", bottom: "above", bottomRight: "above" };
 
 export type StripeMarks = {
   // A number or a mark on the icon, empty for none: two glyphs at most.
@@ -81,7 +81,8 @@ export default function Stripe({
   const names: Record<Edge, string> = {
     left: tr("stripe.left", "Tools on the left"),
     right: tr("stripe.right", "Tools on the right"),
-    bottom: tr("stripe.bottom", "Tools at the bottom"),
+    bottom: tr("stripe.bottom", "Tools at the bottom left"),
+    bottomRight: tr("stripe.bottomRight", "Tools at the bottom right"),
   };
 
   /* Under the right button: the same show or hide the click does, said with
@@ -160,7 +161,7 @@ export default function Stripe({
       data-drop={landing >= 0 ? "yes" : undefined}
       data-empty={ids.length === 0 ? "yes" : undefined}
       role="toolbar"
-      aria-orientation={edge === "bottom" ? "horizontal" : "vertical"}
+      aria-orientation={edge === "left" || edge === "right" ? "vertical" : "horizontal"}
       aria-label={names[edge]}
     >
       {items}

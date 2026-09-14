@@ -29,9 +29,12 @@ STYLES = os.path.join(HERE, "frontend", "app", "styles")
 # list is where a check quietly stops checking, so a name earns its place here
 # only by carrying no colour, border or typeface in any skin at all.
 LAYOUT_ONLY = {
-    # Boxes and rails that only place what sits inside them.
+    # Boxes and rails that only place what sits inside them. ".floor" is the row
+    # under everything that holds the two stripes of the bottom section: it puts
+    # them at their ends of the row and carries nothing of its own — each stripe
+    # is dressed by every skin.
     "app", "body", "stage", "content", "grid", "list", "listbody", "panes",
-    "work", "workstrip", "workrow",
+    "work", "workstrip", "workrow", "floor",
     # The status line's rows: the breadcrumb's row, a crumb's name that gives way
     # to an ellipsis, and the row of facts. Each crumb and fact dresses itself.
     "statusCrumbs", "statusCrumbName", "statusFacts",

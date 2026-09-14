@@ -1,32 +1,49 @@
 "use client";
 
-/* The bottom tool window under everything.
+/* The bottom tool window under everything, in two halves.
  *
  * He described the frame in one line (translated): "left - main - right. under
  * everything, the bottom" — the way PhpStorm has it, the bottom window running
- * the whole width under the left window, main and the right window. dockview
- * 8.3.1 builds its shell the other way round: an outer horizontal splitview
- * [left | middle column | right] whose middle column is vertical [top | grid |
- * bottom], so its bottom edge is only ever as wide as main. The class that
- * builds it is not exported and dockview makes it itself, so it can be neither
- * subclassed nor handed in.
+ * the whole width under the left window, main and the right window, and later
+ * (translated): "in the bottom section I want a left and a right tabs" — two
+ * windows side by side down there, each with its own tabs, the way that same
+ * program has a terminal beside a build log. dockview 8.3.1 gives neither: it
+ * builds its shell the other way round — an outer horizontal splitview [left |
+ * middle column | right] whose middle column is vertical [top | grid |
+ * bottom], so its bottom edge is only ever as wide as main — and it keeps one
+ * group per edge, refusing a second at the same position. The class that
+ * builds the shell is not exported and dockview makes it itself, so it can be
+ * neither subclassed nor handed in.
  *
  * So the nesting is rebuilt once, on the live instance, before any edge group
  * exists:
  *
  *   .dv-shell
- *     a vertical Splitview, new here          [row, bottom]
+ *     a vertical Splitview, new here          [row, floor]
  *       row: dockview's own outer splitview, moved in whole   [left | middle | right]
- *       bottom: the bottom edge group
+ *       floor: a horizontal Splitview, new here  [bottom edge | top edge]
+ *
+ * The floor's two halves are dockview's own "bottom" and "top" edge groups.
+ * There is no third position to ask for, and the top edge is a place this
+ * window has no use for — the header is not a dock — so "top" is where the
+ * right half lives. Everything dockview does to an edge goes on working:
+ * adding it, showing it, hiding it, sizing it, writing it out and reading it
+ * back. Two things read differently, and only here:
+ *
+ *   - the size of "bottom" is the floor's height, the height both halves
+ *     share, and the size of "top" is the right half's width;
+ *   - an edge view dockview built for a vertical splitview is laid out in a
+ *     horizontal one, so both halves have their axes swapped back on the way
+ *     in (see `beside`).
  *
  * dockview's shell goes on doing everything it did — adding an edge, showing,
  * hiding and sizing it, toJSON and fromJSON. It reaches the middle column
- * through one field, and for "bottom" that field now leads to the new
- * splitview; "top" still goes to the real middle column, which stays where it
- * was and still holds main. The shell's layout is shadowed on the instance so
- * the new splitview is laid out first and hands the row its height. Nothing
- * that is stored changes: an edge's size and visibility are read back through
- * the same calls, so a layout saved before this reads the same after it.
+ * through one field, and that field now leads to the new column and its floor;
+ * the real middle column stays where it was and still holds main. The shell's
+ * layout is shadowed on the instance so the new column is laid out first and
+ * hands the row its height. Nothing that is stored changes: an edge's size and
+ * visibility are read back through the same calls, so a layout saved before
+ * this reads the same after it.
  *
  * What this relies on in dockview, none of it promised, all of it held against
  * the installed dockview by frontend/lib/shellNesting.test.mjs:
@@ -146,11 +163,116 @@ export function spanBottom(dv: DockviewApi): boolean {
   };
   column.addView(row, Sizing.Distribute, 0);
 
-  /* What the shell calls its middle column, for "bottom": the column's second
-     view. Asked about a bottom edge that is not there, it answers the way the
-     real one does — not visible, no size — and never throws. */
-  const BOTTOM = 1;
-  let hasBottom = false;
+  /* The floor: the two halves of the bottom section, side by side, with a
+     sash between them. Both are dockview's own edge views, built for a
+     vertical splitview — "bottom" and, standing in for the right half, "top" —
+     so each is laid out through `beside`, which swaps the two lengths back.
+
+     Everything the shell asks about "bottom" is about the floor as a whole:
+     it is the height both halves share. Everything it asks about "top" is
+     about the right half alone: there, a size is a width. */
+  const pair = new Splitview(el, { orientation: Orientation.HORIZONTAL, proportionalLayout: false, margin: shell._gap });
+  const pairEl = (pair as unknown as { element: HTMLElement }).element;
+  pairEl.classList.add("dv-shell-floor");
+  pairEl.remove();
+
+  const beside = (view: IView): IView => ({
+    get element() {
+      return view.element;
+    },
+    get minimumSize() {
+      return view.minimumSize;
+    },
+    get maximumSize() {
+      return view.maximumSize;
+    },
+    get priority() {
+      return view.priority;
+    },
+    get snap() {
+      return view.snap;
+    },
+    onDidChange: view.onDidChange,
+    layout: (size, orthogonalSize) => view.layout(orthogonalSize, size),
+    setVisible: (visible) => view.setVisible?.(visible),
+    // dockview made the view and disposes it; this is only a way in.
+    dispose: () => undefined,
+  });
+
+  const FLOOR = 1;
+  let onFloor: Position[] = [];
+  const indexOf = (position: Position) => onFloor.indexOf(position);
+  const half = (position: Position) => (indexOf(position) < 0 ? null : indexOf(position));
+  /* The floor stands in the column while a half is on it, and is only as tall
+     as the halves let it be. */
+  const floorChanged = new DockviewEmitter<{ size?: number; orthogonalSize?: number }>();
+  const floor: IView = {
+    element: pairEl,
+    get minimumSize() {
+      const floors = onFloor.map((position) => pairView(position)?.minimumSize ?? 0);
+      return floors.length ? Math.max(...floors) : 0;
+    },
+    maximumSize: Number.POSITIVE_INFINITY,
+    priority: LayoutPriority.Low,
+    onDidChange: floorChanged.event,
+    layout: (size, orthogonalSize) => {
+      pair.layout(orthogonalSize, size);
+      const at = indexOf("top");
+      if (rightWidth !== null && at >= 0 && pair.size > 0 && pair.isViewVisible(at)) {
+        const want = rightWidth;
+        rightWidth = null;
+        pair.resizeView(at, want);
+      }
+    },
+    setVisible: () => undefined,
+    dispose: () => floorChanged.dispose(),
+  };
+  const views = new Map<Position, IView>();
+  const pairView = (position: Position) => views.get(position);
+  /* A half dockview has folded away to its strip: it is empty, and the size it
+     asks for then is the strip's, not the section's. */
+  const folded = (position: Position) => Boolean((pairView(position) as unknown as { isCollapsed?: boolean } | undefined)?.isCollapsed);
+  let standing = false;
+  let up = false;
+  /* The height of the section, kept here because it belongs to neither half:
+     both share it, and an empty half folding away must not take it with it.
+     The width the right half was last given waits here until the floor has the
+     room to hand it over. */
+  let floorHeight = 0;
+  let rightWidth: number | null = null;
+
+  /* The floor is in the column exactly while a half wants to be seen, and it
+     comes back up at the height it went away with. */
+  const settle = (): void => {
+    if (!standing) return;
+    const seen = onFloor.filter((position) => pair.isViewVisible(indexOf(position)));
+    const wanted = seen.length > 0;
+    if (up && !wanted) {
+      const last = column.getViewSize(FLOOR);
+      if (last > 0) floorHeight = last;
+    }
+    column.setViewVisible(FLOOR, wanted);
+    if (wanted && floorHeight > 0) column.resizeView(FLOOR, floorHeight);
+    /* A half that stood there alone had the whole width. When the other one
+       joins it, the width it kept from being alone would leave nothing for it,
+       so the two share the row and he moves the sash from there. */
+    if (seen.length === 2 && pair.size > 0 && seen.some((position) => pair.getViewSize(indexOf(position)) > pair.size * 0.85)) {
+      rightWidth = null;
+      pair.distributeViewSizes();
+    }
+    up = wanted;
+  };
+  const stand = (first: number): void => {
+    if (standing) return;
+    floorHeight = first;
+    column.addView(floor, first, FLOOR);
+    standing = true;
+    up = true;
+  };
+
+  /* What the shell calls its middle column. Asked about an edge that is not
+     there, it answers the way the real one does — not visible, no size — and
+     never throws. */
   const facade: MiddleLike = {
     get minimumSize() {
       return real.minimumSize;
@@ -158,33 +280,72 @@ export function spanBottom(dv: DockviewApi): boolean {
     get axisSize() {
       return column.size;
     },
-    addTopView: (view, size) => real.addTopView(view, size),
+    addTopView: (view, size) => {
+      /* The right half can be the first one there — dockview reads a saved
+         layout back in its own order — and then the section starts as tall as
+         that half is wide is no answer at all, so it starts at its own floor
+         and the next height asked for wins. */
+      stand(Math.max(floor.minimumSize, view.minimumSize));
+      onFloor = [...onFloor.filter((p) => p !== "top"), "top"];
+      views.set("top", view);
+      pair.addView(beside(view), size, indexOf("top"));
+      rightWidth = size;
+      settle();
+    },
     addBottomView: (view, size) => {
-      column.addView(view, size, BOTTOM);
-      hasBottom = true;
+      stand(size);
+      floorHeight = size;
+      onFloor = ["bottom", ...onFloor.filter((p) => p !== "bottom")];
+      views.set("bottom", view);
+      pair.addView(beside(view), Sizing.Distribute, 0);
+      column.resizeView(FLOOR, size);
+      settle();
     },
     removeView: (position) => {
-      if (position === "top") real.removeView("top");
-      else if (hasBottom) {
-        column.removeView(BOTTOM);
-        hasBottom = false;
-      }
+      const at = half(position);
+      if (at === null) return;
+      pair.removeView(at);
+      onFloor = onFloor.filter((p) => p !== position);
+      views.delete(position);
+      if (onFloor.length === 0 && standing) {
+        column.removeView(FLOOR);
+        standing = false;
+      } else settle();
     },
     setViewVisible: (position, visible) => {
-      if (position === "top") real.setViewVisible("top", visible);
-      else if (hasBottom) column.setViewVisible(BOTTOM, visible);
+      const at = half(position);
+      if (at === null) return;
+      pair.setViewVisible(at, visible);
+      settle();
     },
-    isViewVisible: (position) => (position === "top" ? real.isViewVisible("top") : hasBottom && column.isViewVisible(BOTTOM)),
-    getViewSize: (position) => (position === "top" ? real.getViewSize("top") : hasBottom ? column.getViewSize(BOTTOM) : 0),
-    getViewCachedVisibleSize: (position) =>
-      position === "top" ? real.getViewCachedVisibleSize("top") : hasBottom ? column.getViewCachedVisibleSize(BOTTOM) : undefined,
+    isViewVisible: (position) => {
+      const at = half(position);
+      if (at === null || !standing) return false;
+      return column.isViewVisible(FLOOR) && pair.isViewVisible(at);
+    },
+    getViewSize: (position) => {
+      const at = half(position);
+      if (at === null || !standing) return 0;
+      return position === "bottom" ? column.getViewSize(FLOOR) : pair.getViewSize(at);
+    },
+    getViewCachedVisibleSize: (position) => {
+      const at = half(position);
+      if (at === null || !standing) return undefined;
+      return position === "bottom" ? column.getViewCachedVisibleSize(FLOOR) : pair.getViewCachedVisibleSize(at);
+    },
     resizeView: (position, size) => {
-      if (position === "top") real.resizeView("top", size);
-      else if (hasBottom) column.resizeView(BOTTOM, size);
+      const at = half(position);
+      if (at === null || !standing || folded(position)) return;
+      if (position === "bottom") {
+        floorHeight = size;
+        column.resizeView(FLOOR, size);
+      } else if (pair.size > 0 && pair.isViewVisible(at)) pair.resizeView(at, size);
+      else rightWidth = size;
     },
     updateMargin: (gap) => {
       real.updateMargin(gap);
       column.margin = gap;
+      pair.margin = gap;
     },
   };
   shell._middleColumn = facade;
@@ -198,15 +359,15 @@ export function spanBottom(dv: DockviewApi): boolean {
     column.layout(height, width);
     flush.call(shell);
   };
-  shell._disposables.addDisposables(column, row);
+  shell._disposables.addDisposables(column, pair, row, floor);
   el.dataset.bottomSpan = "full";
 
   /* dockview laid the shell out before handing the dock over, but its own
      record of the size stays at zero until its resize observer runs, so the
      size is read off the element: without this the row would stand at its
      floor for a frame. */
-  const width = el.clientWidth;
-  const height = el.clientHeight;
-  if (width > 0 && height > 0) shell.layout(width, height);
+  const across = el.clientWidth;
+  const down = el.clientHeight;
+  if (across > 0 && down > 0) shell.layout(across, down);
   return true;
 }

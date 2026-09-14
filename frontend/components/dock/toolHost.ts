@@ -71,9 +71,19 @@ export type HostOptions = {
   main: () => DockviewGroupPanel | undefined;
 };
 
+/* Where each window stands in dockview's own words. dockview keeps one group
+   per edge and knows four edges, and this window uses three of them as they
+   read plus its top for the right half of the bottom section — the section is
+   split in two down there (shellNesting.ts), and "top" is the position left
+   over. Nothing outside this file and that one says "top". */
+const AT: Record<Edge, "left" | "right" | "bottom" | "top"> = { left: "left", right: "right", bottom: "bottom", bottomRight: "top" };
+const EDGE_AT = new Map<string, Edge>(Object.entries(AT).map(([edge, position]) => [position, edge as Edge]));
+// The bottom section's halves share one height; a size of its own is a width.
+const acrossAt = (edge: Edge): boolean => edge === "bottom";
+
 const edgeOfLocation = (g: DockviewGroupPanel): Edge | null => {
   const at = g.api.location;
-  return at.type === "edge" && at.position !== "top" ? at.position : null;
+  return at.type === "edge" ? EDGE_AT.get(at.position) ?? null : null;
 };
 
 /* focusTool puts the keyboard in a tool window: on the first thing in its body
@@ -135,13 +145,18 @@ export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
 
   function ensure(): void {
     for (const edge of EDGES) {
-      if (!dv.getEdgeGroup(edge)) {
-        const side = edge !== "bottom";
-        const minimumSize = options.px(side ? "--side-min" : "--bottom-min", side ? "11rem" : "5rem");
-        const declared = options.px(side ? "--side-w" : "--bottom-h", side ? "20rem" : "18rem");
+      if (!dv.getEdgeGroup(AT[edge])) {
+        /* Three sizes, one per kind of window: a side window is as wide as
+           --side-w, the bottom section as tall as --bottom-h, and its right
+           half as wide as --floor-w. The floor's halves are measured across
+           like the side windows are. */
+        const across = acrossAt(edge);
+        const minimumSize = options.px(across ? "--bottom-min" : "--side-min", across ? "5rem" : "11rem");
+        const token = across ? "--bottom-h" : edge === "bottomRight" ? "--floor-w" : "--side-w";
+        const declared = options.px(token, across ? "18rem" : edge === "bottomRight" ? "24rem" : "20rem");
         const initialSize = Math.max(minimumSize, Math.round(options.size(edge) ?? declared));
-        dv.addEdgeGroup(edge, { id: edge, initialSize, minimumSize });
-        dv.setEdgeGroupVisible(edge, false);
+        dv.addEdgeGroup(AT[edge], { id: edge, initialSize, minimumSize });
+        dv.setEdgeGroupVisible(AT[edge], false);
       }
       dress(edge);
     }
@@ -168,10 +183,10 @@ export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
     }
     for (const edge of EDGES) {
       const group = groupOf(edge);
-      if (!group || !dv.isEdgeGroupVisible(edge)) continue;
+      if (!group || !dv.isEdgeGroupVisible(AT[edge])) continue;
       // An edge with nothing in it shows a blank strip; one collapsed while it
       // was emptied ignores its size until it is opened out again.
-      if (group.panels.length === 0) dv.setEdgeGroupVisible(edge, false);
+      if (group.panels.length === 0) dv.setEdgeGroupVisible(AT[edge], false);
       else if (group.api.isCollapsed()) group.api.expand();
     }
     emit();
@@ -179,7 +194,7 @@ export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
 
   function shown(edge: Edge): ToolId | null {
     const group = groupOf(edge);
-    if (!group || !dv.isEdgeGroupVisible(edge) || group.api.isCollapsed()) return null;
+    if (!group || !dv.isEdgeGroupVisible(AT[edge]) || group.api.isCollapsed()) return null;
     return active(edge);
   }
 
@@ -200,17 +215,17 @@ export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
     if (dv.hasMaximizedGroup()) dv.exitMaximizedGroup();
     if (panel.group.activePanel !== panel || focus) panel.api.setActive();
     if (panel.group.api.isCollapsed()) panel.group.api.expand();
-    dv.setEdgeGroupVisible(edge, true);
+    dv.setEdgeGroupVisible(AT[edge], true);
     emit();
     if (focus) focusTool(id);
   }
 
   function hide(edge: Edge): void {
-    if (!dv.isEdgeGroupVisible(edge)) return;
+    if (!dv.isEdgeGroupVisible(AT[edge])) return;
     const group = groupOf(edge);
     const had = Boolean(group && document.activeElement && group.element.contains(document.activeElement));
     if (had) (document.activeElement as HTMLElement).blur();
-    dv.setEdgeGroupVisible(edge, false);
+    dv.setEdgeGroupVisible(AT[edge], false);
     // The keyboard was in the tool, or the tool was the group in front: either
     // way what ⌘W and the arrows act on next is the work, not a hidden window.
     if (had || (group && dv.activeGroup === group)) options.main()?.api.setActive();
@@ -223,17 +238,22 @@ export function edgeHost(dv: DockviewApi, options: HostOptions): ToolHost {
     if (!panel || !group) return;
     const from = edgeOfLocation(panel.group);
     panel.api.moveTo({ group, position: "center", index });
-    if (from && from !== to && (groupOf(from)?.panels.length ?? 0) === 0) dv.setEdgeGroupVisible(from, false);
+    if (from && from !== to && (groupOf(from)?.panels.length ?? 0) === 0) dv.setEdgeGroupVisible(AT[from], false);
     emit();
   }
 
   function size(edge: Edge): number {
-    const api = dv.getEdgeGroup(edge);
-    return api ? Math.round(edge === "bottom" ? api.height : api.width) : 0;
+    const api = dv.getEdgeGroup(AT[edge]);
+    return api ? Math.round(acrossAt(edge) ? api.height : api.width) : 0;
   }
 
+  /* dockview carries the size of a top or bottom edge as a height, whatever
+     that size means where it lands — and for the floor's right half it means
+     its width (shellNesting.ts). So the number goes in the field dockview
+     reads, and the shell reads it as the length that half is measured in. */
   function setSize(edge: Edge, px: number): void {
-    dv.getEdgeGroup(edge)?.setSize(edge === "bottom" ? { height: px } : { width: px });
+    const asHeight = AT[edge] === "bottom" || AT[edge] === "top";
+    dv.getEdgeGroup(AT[edge])?.setSize(asHeight ? { height: px } : { width: px });
   }
 
   return {

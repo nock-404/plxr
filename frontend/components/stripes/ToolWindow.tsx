@@ -26,7 +26,7 @@ import { ToolActionSlot, ToolShown } from "@/lib/toolShown";
  * are what a person expects to find again. They are told they are put away
  * (lib/toolShown), and the tree stops asking git until it is shown again. */
 
-const EDGE_CHORD: Record<Edge, Action> = { left: "toggleLeft", right: "toggleRight", bottom: "toggleBottom" };
+const EDGE_CHORD: Record<Edge, Action> = { left: "toggleLeft", right: "toggleRight", bottom: "toggleBottom", bottomRight: "toggleBottom" };
 
 export default function ToolWindow({
   id,

@@ -409,8 +409,8 @@ const iconMenu = await tab.run(`${HELPERS}
   await wait(100);
   return { rows, open: Boolean(open), hint, ticked, heads, ms: got.ms };
 `);
-claim("right-click on a tool's icon offers Open with its key, Move to Left / Right / Bottom with its edge ticked, and Reset tool positions",
-  iconMenu.open && iconMenu.rows.join(" · ") === "Open · Left · Right · Bottom · Reset tool positions" && iconMenu.hint === "⌘2" && iconMenu.heads.includes("Move to") && iconMenu.ticked.join(",") === "Right",
+claim("right-click on a tool's icon offers Open with its key, Move to Left / Right / Bottom left / Bottom right with its edge ticked, and Reset tool positions",
+  iconMenu.open && iconMenu.rows.join(" · ") === "Open · Left · Right · Bottom left · Bottom right · Reset tool positions" && iconMenu.hint === "⌘2" && iconMenu.heads.includes("Move to") && iconMenu.ticked.join(",") === "Right",
   `${iconMenu.rows.join(" · ")} under ${iconMenu.heads.join(", ")} · ticked ${iconMenu.ticked.join(",")} · Open's key ${iconMenu.hint} · after ${iconMenu.ms} ms`);
 
 // ---- the session switch: every session, its menu, and the keyboard ------------------

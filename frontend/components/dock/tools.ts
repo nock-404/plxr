@@ -18,7 +18,7 @@
  *
  * All of it goes through ToolHost; nothing here knows what an edge group is.
  */
-import { EDGES, defaultToolLayout, edgeOf as edgeIn, moveInLayout, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
+import { EDGES, FLOOR, defaultToolLayout, edgeOf as edgeIn, moveInLayout, type Edge, type ToolId, type ToolLayout } from "@/lib/tools";
 import { focusTool, focusedTool, type ToolHost } from "./toolHost";
 
 export type ToolOps = {
@@ -81,17 +81,23 @@ export function toolOps(
       else if (focusedTool() !== id) focusTool(id);
       else h.hide(edge);
     },
+    /* The bottom section is one thing with two halves, so its key shows and
+       hides the section: what is up goes away, and what has tools comes back.
+       A half with nothing on it stays away and takes no room — only one half
+       filled means one window across the whole width. */
     toggleEdge(edge) {
       const h = host();
       if (!h) return;
-      if (h.shown(edge)) {
-        h.hide(edge);
+      const both = FLOOR.includes(edge) ? FLOOR : [edge];
+      const up = both.filter((e) => h.shown(e));
+      if (up.length) {
+        for (const e of up) h.hide(e);
         return;
       }
-      const id = h.active(edge) ?? layout().order[edge][0];
+      const wanted = both.map((e) => [e, h.active(e) ?? layout().order[e][0]] as const).filter(([, id]) => id);
       // An edge with no tool on it has nothing to show; it says so instead.
-      if (!id) flash(edge);
-      else h.show(id);
+      if (!wanted.length) flash(edge);
+      else for (const [, id] of wanted) h.show(id);
     },
     hideFocusedTool() {
       const h = host();

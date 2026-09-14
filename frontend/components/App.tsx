@@ -21,7 +21,7 @@ import ProjectSwitch from "@/components/topbar/ProjectSwitch";
 import SessionSwitch from "@/components/topbar/SessionSwitch";
 import EdgeToggles from "@/components/topbar/EdgeToggles";
 import BarSearch from "@/components/topbar/BarSearch";
-import Dock, { ACTIVITIES, DV_MAJOR, readPresets, type Activity, type Focus, type FrontPanel, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
+import Dock, { ACTIVITIES, DV_MAJOR, NONE_SHOWN, readPresets, type Activity, type Focus, type FrontPanel, type LayoutAction, type LayoutRequest, type Preset, type ShellActions, type ShownTools } from "@/components/Dock";
 import { type Command } from "@/components/CommandPalette";
 import { type LayoutControls } from "@/components/LayoutSettings";
 import { titleOf } from "@/lib/state";
@@ -456,7 +456,7 @@ export default function App() {
 
   const [focus, setFocus] = useState<Focus>(null);
   // Which tool shows at each edge, as the dock reports it, for the MENU's ticks.
-  const [openTools, setOpenTools] = useState<ShownTools>({ left: null, right: null, bottom: null });
+  const [openTools, setOpenTools] = useState<ShownTools>(NONE_SHOWN);
   /* What the dock is asked to do with its arrangement. One channel, one
      request at a time, each new by its seq — a reset, a preset to apply, a
      name to save under, an activity to arrange for. */

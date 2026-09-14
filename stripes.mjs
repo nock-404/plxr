@@ -412,7 +412,7 @@ const frame = await run(`${HELPERS}
   const stripe = e => box(document.querySelector('.stripe[data-edge="' + e + '"]'));
   const px = v => Math.round(parseFloat(getComputedStyle(document.documentElement).getPropertyValue(v)) * parseFloat(getComputedStyle(document.documentElement).fontSize));
   return {
-    shell: box(document.querySelector('.dockShell')), left: stripe('left'), right: stripe('right'), bottom: stripe('bottom'), grid: grid(), thick: px('--stripe-w'), rest: px('--stripe-rest'), dock: box(document.querySelector('.dockHost')),
+    shell: box(document.querySelector('.dockShell')), left: stripe('left'), right: stripe('right'), bottom: stripe('bottom'), bottomRight: stripe('bottomRight'), floor: box(document.querySelector('.floor')), grid: grid(), thick: px('--stripe-w'), rest: px('--stripe-rest'), dock: box(document.querySelector('.dockHost')),
     icons: stripeIcons().map(e => ({ tool: e.dataset.tool, edge: e.closest('.stripe').dataset.edge, mark: (e.querySelector('.uiIcon use')?.getAttribute('href') || '').split('#')[1] || '', inDock: Boolean(e.closest('.dockHost')) })),
     rail: document.querySelectorAll('.rail, .railHost, .railitem, .railhome').length,
   };
@@ -425,12 +425,12 @@ const frame = await run(`${HELPERS}
     `shell ${show(f.shell)} · left ${show(f.left)} · right ${show(f.right)} · --stripe-w ${f.thick}px`,
   );
   claim(
-    "the bottom stripe with no icon on it is only its line: as high as --stripe-rest, across the whole shell under the dock, and the dock has the height",
-    f.bottom && near(f.bottom.h, f.rest) && near(f.bottom.x, f.shell.x) && near(f.bottom.w, f.shell.w) && near(f.bottom.y + f.bottom.h, f.shell.y + f.shell.h) && f.dock && near(f.dock.y + f.dock.h, f.bottom.y),
-    `bottom ${show(f.bottom)} · shell ${show(f.shell)} · --stripe-rest ${f.rest}px · dock ${show(f.dock)}`,
+    "the row under everything with no icon on it is only its line: as high as --stripe-rest, across the whole shell under the dock, and the dock has the height",
+    f.floor && near(f.floor.h, f.rest) && near(f.floor.x, f.shell.x) && near(f.floor.w, f.shell.w) && near(f.floor.y + f.floor.h, f.shell.y + f.shell.h) && f.dock && near(f.dock.y + f.dock.h, f.floor.y),
+    `row ${show(f.floor)} · halves ${show(f.bottom)} | ${show(f.bottomRight)} · shell ${show(f.shell)} · --stripe-rest ${f.rest}px · dock ${show(f.dock)}`,
   );
-  const inside = f.grid && f.left && f.right && f.bottom && f.grid.x >= f.left.x + f.left.w - 1 && f.grid.x + f.grid.w <= f.right.x + 1 && f.grid.y + f.grid.h <= f.bottom.y + 1;
-  claim("main sits inside all three stripes, no icon is inside the dock, and no rail is left", inside && f.icons.every((i) => !i.inDock) && f.rail === 0,
+  const inside = f.grid && f.left && f.right && f.floor && f.grid.x >= f.left.x + f.left.w - 1 && f.grid.x + f.grid.w <= f.right.x + 1 && f.grid.y + f.grid.h <= f.floor.y + 1;
+  claim("main sits inside the stripes, no icon is inside the dock, and no rail is left", inside && f.icons.every((i) => !i.inDock) && f.rail === 0,
     `main ${show(f.grid)} · icons inside the dock ${f.icons.filter((i) => i.inDock).length} · rail elements ${f.rail}`);
   const order = f.icons.map((i) => `${i.edge}:${i.tool}`).join(" ");
   claim("every tool is an icon exactly once, in the default order, wearing its registry mark",
@@ -567,8 +567,8 @@ const header = await run(`${HELPERS}
   claim("the header names the tool the way its icon does", h.title !== "" && h.title.toLowerCase() === h.icon.toLowerCase(), `header "${h.title}" · icon "${h.icon}"`);
   claim("there is no × anywhere in a tool window", h.closes === 0, `${h.closes} closes in the edges`);
   claim(
-    "⋮ reads Move to Left, Right, Bottom with the tool's own edge ticked, then Hide with the edge's chord, then Reset tool positions",
-    JSON.stringify(h.rows) === JSON.stringify(["# Move to", "Left", "Right", "Bottom", "---", `${h.hideLabel} [${chord}]`, "Reset tool positions"]) && JSON.stringify(h.ticked) === '["Left"]',
+    "⋮ reads Move to Left, Right, Bottom left, Bottom right with the tool's own edge ticked, then Hide with the edge's chord, then Reset tool positions",
+    JSON.stringify(h.rows) === JSON.stringify(["# Move to", "Left", "Right", "Bottom left", "Bottom right", "---", `${h.hideLabel} [${chord}]`, "Reset tool positions"]) && JSON.stringify(h.ticked) === '["Left"]',
     `${h.rows.join(" | ")} · ticked ${h.ticked.join(",")}`,
   );
   claim("the middle button inside a tool window closes nothing", h.afterMiddle.lit && Boolean(h.afterMiddle.box), JSON.stringify(h.afterMiddle));
@@ -738,7 +738,7 @@ const chord = await run(`${HELPERS}
 /* The pointer the way a hand moves it, through the debugging protocol: pressed
    on an icon, moved in steps, let go. Measured half way: the copy under the
    pointer, the stripe it would land on marked, one gap on it. */
-const order = async () => run(`${HELPERS} return { left: order('left'), right: order('right'), bottom: order('bottom') };`);
+const order = async () => run(`${HELPERS} return { left: order('left'), right: order('right'), bottom: order('bottom'), bottomRight: order('bottomRight') };`);
 const centreOf = async (selector) => run(`${HELPERS} const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect(); return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;`);
 async function carry(tool, to, { escape = false, shot = "" } = {}) {
   const from = await centreOf(`.stripe .stripeIcon[data-tool="${tool}"]`);
@@ -752,7 +752,7 @@ async function carry(tool, to, { escape = false, shot = "" } = {}) {
   }
   await sleep(200);
   const mid = await run(`${HELPERS}
-    return { standing: box(document.querySelector('.stripe[data-edge="bottom"]')), dock: box(document.querySelector('.dockHost')), ghost: box(document.querySelector('.stripeGhost')), dropOn: [...document.querySelectorAll('.stripe[data-drop="yes"]')].map(s => s.dataset.edge),
+    return { standing: box(document.querySelector('.floor')), dock: box(document.querySelector('.dockHost')), ghost: box(document.querySelector('.stripeGhost')), dropOn: [...document.querySelectorAll('.stripe[data-drop="yes"]')].map(s => s.dataset.edge),
       gaps: document.querySelectorAll('.stripeGap').length, carried: [...document.querySelectorAll('.stripeIcon[data-dragging="yes"]')].map(e => e.dataset.tool),
       marked: document.body.dataset.draggingTool ?? '' };
   `);
@@ -782,7 +782,7 @@ const landed = await run(`${HELPERS} return { left: order('left'), right: order(
     `${JSON.stringify(m)} · pointer at ${Math.round(bottomSpot.x)},${Math.round(bottomSpot.y)}`,
   );
   claim(
-    "carried, the empty bottom stripe stands over the foot of the dock as thick as --stripe-w, and the dock under it does not move",
+    "carried, the empty row under everything stands over the foot of the dock as thick as --stripe-w, and the dock under it does not move",
     m.standing && near(m.standing.h, frame.thick) && near(m.standing.y + m.standing.h, frame.shell.y + frame.shell.h) && near(m.standing.w, frame.shell.w) && m.dock && boxNear(m.dock, frame.dock),
     `bottom stripe ${show(m.standing)} · dock ${show(m.dock)} against ${show(frame.dock)} · --stripe-w ${frame.thick}px`,
   );
@@ -940,8 +940,8 @@ const viaIcon = await run(`${HELPERS}
   return { rows, ticked, bottom: order('bottom'), right: order('right'), lit: toolLit('ports'), filesLit: toolLit('files') };
 `);
 claim(
-  "right-click on an icon reads Open with its key, Move to Left, Right, Bottom with its edge ticked, and Reset tool positions; Bottom moves Ports there and leaves it dark",
-  !viaIcon.why && JSON.stringify(viaIcon.rows) === JSON.stringify(["Open [⌘5]", "---", "# Move to", "Left", "Right", "Bottom", "---", "Reset tool positions"]) && JSON.stringify(viaIcon.ticked) === '["Right"]'
+  "right-click on an icon reads Open with its key, Move to Left, Right, Bottom left, Bottom right with its edge ticked, and Reset tool positions; Bottom left moves Ports there and leaves it dark",
+  !viaIcon.why && JSON.stringify(viaIcon.rows) === JSON.stringify(["Open [⌘5]", "---", "# Move to", "Left", "Right", "Bottom left", "Bottom right", "---", "Reset tool positions"]) && JSON.stringify(viaIcon.ticked) === '["Right"]'
     && viaIcon.bottom[viaIcon.bottom.length - 1] === "ports" && !viaIcon.right.includes("ports") && !viaIcon.lit && viaIcon.filesLit,
   viaIcon.why ?? `${viaIcon.rows.join(" | ")} · ticked ${viaIcon.ticked.join(",")} · bottom ${viaIcon.bottom.join(",")} · ports lit ${viaIcon.lit} · files still showing ${viaIcon.filesLit}`,
 );
@@ -1905,15 +1905,15 @@ const LAYOUTS = `${HELPERS}
     await wait(1500);
     return true;
   };
-  const edgeOfTool = id => ['left', 'right', 'bottom'].find(e => order(e).includes(id)) || null;
+  const edgeOfTool = id => ['left', 'right', 'bottom', 'bottomRight'].find(e => order(e).includes(id)) || null;
   const arrangement = () => {
     const lit = showing();
     const at = e => lit.find(t => edgeOfTool(t) === e) || null;
     const size = e => { const t = at(e); const b = t ? edgeBox(t) : null; return b ? (e === 'bottom' ? b.h : b.w) : 0; };
     return {
-      shows: { left: at('left'), right: at('right'), bottom: at('bottom') },
-      size: { left: size('left'), right: size('right'), bottom: size('bottom') },
-      order: { left: order('left'), right: order('right'), bottom: order('bottom') },
+      shows: { left: at('left'), right: at('right'), bottom: at('bottom'), bottomRight: at('bottomRight') },
+      size: { left: size('left'), right: size('right'), bottom: size('bottom'), bottomRight: size('bottomRight') },
+      order: { left: order('left'), right: order('right'), bottom: order('bottom'), bottomRight: order('bottomRight') },
       main: gridGroups().filter(g => g.b.w > 0 && g.b.h > 0).map(g => ({ tabs: g.tabs, b: g.b })).sort((p, q) => p.b.x - q.b.x || p.b.y - q.b.y),
       tabs: gridTabs(),
     };
@@ -1962,13 +1962,13 @@ async function dragBottomEdge(tool, height) {
 }
 const sides = (a) =>
   a ? `left ${a.shows.left ?? "none"} ${a.size.left} · right ${a.shows.right ?? "none"} ${a.size.right} · bottom ${a.shows.bottom ?? "none"} ${a.size.bottom} · stripes ${a.order.left.join(",")} | ${a.order.right.join(",")} | ${a.order.bottom.join(",") || "-"} · main ${a.main.map((g) => g.tabs.join("+")).join(" | ")}` : "none";
-const sameShows = (a, b) => Boolean(a && b) && ["left", "right", "bottom"].every((e) => a.shows[e] === b.shows[e] && near(a.size[e], b.size[e]));
+const sameShows = (a, b) => Boolean(a && b) && ["left", "right", "bottom", "bottomRight"].every((e) => a.shows[e] === b.shows[e] && near(a.size[e], b.size[e]));
 const sameOrder = (a, b) => Boolean(a && b) && JSON.stringify(a.order) === JSON.stringify(b.order);
 const sameMain = (a, b, tol = 2) => Boolean(a && b) && a.main.length === b.main.length && a.main.every((g, i) => g.tabs.join("+") === b.main[i].tabs.join("+") && boxNear(g.b, b.main[i].b, tol));
 const sameTabs = (a, b) => Boolean(a && b) && JSON.stringify(a.main.map((g) => g.tabs.join("+"))) === JSON.stringify(b.main.map((g) => g.tabs.join("+")));
 /* JSON compared as data: the service hands objects back with their keys sorted. */
 const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([p], [q]) => (p < q ? -1 : p > q ? 1 : 0))) : x));
-const DEFAULT_ORDER = { left: ["files", "changes", "search", "review"], right: ["inbox", "usage", "ports", "archive", "notes"], bottom: [] };
+const DEFAULT_ORDER = { left: ["files", "changes", "search", "review"], right: ["inbox", "usage", "ports", "archive", "notes"], bottom: [], bottomRight: [] };
 const bottomSpotNow = () => run(`${HELPERS} const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { x: b.x + 90, y: b.y + b.h / 2 };`);
 
 await view(1600);

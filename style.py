@@ -12,6 +12,7 @@ The rules:
   2. No styles inside components — except a computed value, which cannot live
      in a stylesheet because it is worked out at runtime.
   3. Nothing native: feature code goes through the Ui components.
+  4. Text is sized in em, so every word follows the type size.
 """
 import os
 import re
@@ -124,6 +125,42 @@ for rel, path in walk((".tsx",)):
         if found:
             bad.append(f"{rel}:{n}  {found.group(1)}() is the system's dialog — use Ask")
 fail |= report("nothing native", seen, bad)
+
+# 4 — text in em.
+#
+# The type size rides on the body (layout.css) and rem is what the layout is
+# measured in, so a font size given in rem or px is a word that stays where it
+# is while everything around it grows. He found those one at a time, for weeks:
+# "interface font size does not take everywhere", "the tab text is much bigger
+# than the others", "the text size in ports is off too". Counting them by hand
+# is how they came back; this counts them.
+#
+# A size that fills a box the layout fixed is not text following the type size —
+# it is a glyph fitted to a badge — so the two badges are named here, with the
+# box they have to fit in.
+FIT_A_BOX = {
+    ".stripeBadge": "the count in the corner of a stripe icon fills --stripe-badge-h",
+    ".switchBadge": "the count in the switches fills --badge-h",
+}
+seen, bad = 0, []
+size_of = re.compile(r"font-size:\s*([^;}]+)")
+for rel, path in walk((".css",)):
+    seen += 1
+    text = open(path, encoding="utf-8").read()
+    text = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group(0)), text, flags=re.S)
+    for n, line in enumerate(text.splitlines(), 1):
+        found = size_of.search(line)
+        if not found:
+            continue
+        value = found.group(1).strip()
+        # The one anchor: the body, where the setting itself is put on.
+        if "var(--size" in value:
+            continue
+        if any(name in line for name in FIT_A_BOX):
+            continue
+        if re.search(r"[0-9.]+(rem|px)", value):
+            bad.append(f"{rel}:{n}  font-size: {value[:60]} — em, or name it with the box it fills")
+fail |= report("text in em", seen, bad)
 
 if not fail:
     print(f"  {TOTAL[0]} files read in all")
