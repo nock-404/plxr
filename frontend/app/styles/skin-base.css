@@ -353,15 +353,17 @@
   border-right: 0;
   background: transparent;
 }
+/* No ground of its own: it stands over the panel's, and an opaque block here
+   was the one dark rectangle in a see-through window. */
 .panelabel {
-  background: var(--bg);
+  background: transparent;
   color: var(--dim);
   letter-spacing: .18em;
   text-transform: uppercase;
   font-size: .7em;
 }
 .paneclose {
-  background: var(--bg);
+  background: transparent;
   color: var(--dead);
   font-size: .8em;
 }

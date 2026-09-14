@@ -221,7 +221,10 @@
   --term-brightCyan: #ffeab0;
   --term-brightWhite: #fff3d6;
 }
-[data-skin="crt"] .endedOverlay { background: color-mix(in srgb, var(--bg) 70%, transparent); -webkit-backdrop-filter: blur(.06rem); backdrop-filter: blur(.06rem); }
+/* The note over an ended session is a note, not a second pane of glass: the
+   panel it lies in already carries the window's transparency, and a wash on
+   top made that one region darker than every other. */
+[data-skin="crt"] .endedOverlay { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
 [data-skin="crt"] .pane[data-bell="yes"] .pterm { border-color: var(--accent); box-shadow: 0 0 var(--glow) var(--accent), 0 0 0 .2rem color-mix(in srgb, var(--accent) 35%, transparent); }
 [data-skin="crt"] .sessionTabBell { background: var(--accent); box-shadow: 0 0 .35rem var(--accent); }
 
