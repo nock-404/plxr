@@ -19,7 +19,7 @@ export const SPRITE_VERSIONS: Record<IconPack, string> = {
   tabler: "28e347188982",
   phosphor: "9be03c208a8e",
   lucide: "0c059a6105bc",
-  pixel: "e1fe00596bb9",
+  pixel: "0041febb7c51",
 };
 
 export const ICON_NAMES = [
@@ -99,7 +99,7 @@ export interface ThirdPartySet {
   commit: string;
   licence: string;
   licenceFile: string;
-  uses: { pack: IconPack; part: "icons" | "files" }[];
+  uses: { pack: IconPack; part: "icons" | "files" | "drawn after" }[];
 }
 
 export const THIRD_PARTY: ThirdPartySet[] = [
@@ -155,12 +155,12 @@ export const THIRD_PARTY: ThirdPartySet[] = [
     commit: "8275e0af7c16aa40c54ea2b90b7af83b1fe4eb4c",
     licence: "MIT", // german-ok: the licence's name
     licenceFile: "licenses/pixelarticons.txt",
-    uses: [{ pack: "pixel", part: "files" }, { pack: "pixel", part: "icons" }],
+    uses: [{ pack: "pixel", part: "drawn after" }],
   },
 ];
 
 /* Icons no set had, drawn for plxr in the style of the pack they sit in. */
 export const DRAWN_FOR_PLXR: { pack: IconPack; names: IconName[] }[] = [
   { pack: "phosphor", names: ["panel-right", "panel-bottom"] },
-  { pack: "pixel", names: ["changes", "ports", "diff", "panel-left", "panel-right", "panel-bottom"] },
+  { pack: "pixel", names: ["overview", "inbox", "folder", "changes", "review", "search", "ports", "usage", "archive", "notes", "settings", "terminal", "file", "close", "chevron-right", "chevron-down", "play", "pause", "stop", "warning", "check", "git-branch", "diff", "help", "reset", "plus", "preview", "files", "hide", "more", "move", "panel-left", "panel-right", "panel-bottom", "layout", "menu", "templates", "file-code", "file-ts", "file-tsx", "file-js", "file-jsx", "file-go", "file-py", "file-rs", "file-php", "file-shell", "file-css", "file-html", "file-json", "file-config", "file-env", "file-sql", "file-csv", "file-markdown", "file-text", "file-png", "file-jpg", "file-svg", "file-image", "file-zip", "file-archive", "file-lock", "file-manifest", "file-build", "file-readme"] },
 ];

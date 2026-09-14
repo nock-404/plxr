@@ -692,6 +692,7 @@
   "layouts.saveDetail": "Die Panels, wie sie jetzt stehen, mit den Werkzeugfenstern, ihren Größen und dem Platz jedes Werkzeugs, unter einem eigenen Namen. Ein Name, der schon in der Liste steht, wird ersetzt.",
   "layouts.saveHead": "Diese Anordnung speichern",
   "layouts.saved": "gespeicherte Layouts",
+  "licences.after": "Das Paket {pack} ist nach diesem Satz gezeichnet",
   "licences.drawn": "Für plxr gezeichnet, im Stil des Pakets {pack}: {names}.",
   "licences.files": "Dateiarten im Paket {pack}",
   "licences.icons": "Symbole im Paket {pack}",

@@ -18,11 +18,11 @@ import { DRAWN_FOR_PLXR, PACK_LABELS, THIRD_PARTY, type ThirdPartySet } from "@/
 
 function usedFor(set: ThirdPartySet): string {
   return set.uses
-    .map((use) =>
-      use.part === "files"
-        ? tr("licences.files", "File kinds in the {pack} pack", { pack: PACK_LABELS[use.pack] })
-        : tr("licences.icons", "Icons in the {pack} pack", { pack: PACK_LABELS[use.pack] }),
-    )
+    .map((use) => {
+      if (use.part === "files") return tr("licences.files", "File kinds in the {pack} pack", { pack: PACK_LABELS[use.pack] });
+      if (use.part === "drawn after") return tr("licences.after", "The {pack} pack is drawn after this set", { pack: PACK_LABELS[use.pack] });
+      return tr("licences.icons", "Icons in the {pack} pack", { pack: PACK_LABELS[use.pack] });
+    })
     .join(" · ");
 }
 

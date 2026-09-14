@@ -127,6 +127,18 @@ SETS = {
         "viewBox": "0 0 24 24",
         "colours": "keep",
         "crisp": True,
+        # This set is drawn on 24 units and the window shows a mark at 16 CSS
+        # pixels, where one unit is two thirds of a pixel: two of every three
+        # edges land inside a pixel and the renderer blends them — measured at
+        # 60 to 93 % of a mark's ink in in-between tones, which is what makes
+        # pixel art look like mush. Rewriting the coordinates onto a 16 grid
+        # put every edge back on a boundary but doubled some lines and dropped
+        # others, three cells becoming two. So the marks of this pack are drawn
+        # on 16 units by hand, in the board under ~/Downloads/plxr-icon-zeichner,
+        # and kept in the file below. The set above is what they are drawn
+        # after, and its licence is the one that covers that.
+        "grid": 16,
+        "drawn": "pixel16.json",
     },
 }
 
@@ -513,8 +525,54 @@ def candidates(spec, pack):
             yield PACKS[pack]["set"], item
 
 
+DRAWN_CACHE = {}
+
+
+def drawn_mark(set_id, name):
+    """The mark drawn by hand on the set's own grid, if there is one.
+
+    The file comes out of the drawing board: sixteen rows of '#' and '.' per
+    mark. Runs along a row become one rectangle, so the path stays short and
+    every edge sits on a whole unit.
+    """
+    file = SETS[set_id].get("drawn")
+    if not file:
+        return None
+    if file not in DRAWN_CACHE:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), file), encoding="utf-8") as fh:
+            DRAWN_CACHE[file] = json.load(fh)
+    rows = DRAWN_CACHE[file].get(name)
+    if not rows:
+        return None
+    parts = []
+    for y, row in enumerate(rows):
+        x = 0
+        while x < len(row):
+            if row[x] != "#":
+                x += 1
+                continue
+            w = 0
+            while x + w < len(row) and row[x + w] == "#":
+                w += 1
+            parts.append(f"M{x} {y}h{w}v1h-{w}Z")
+            x += w
+    if not parts:
+        return None
+    return f'<path d="{"".join(parts)}"/>'
+
+
 def resolve(pack, name, spec, fetched):
     refusals = []
+    own_set = PACKS[pack]["set"]
+    own_drawing = drawn_mark(own_set, name)
+    if own_drawing is not None:
+        base = SETS[own_set]
+        grid = base.get("grid", 16)
+        symbol = {"fill": "currentColor"}
+        if base.get("crisp"):
+            symbol["shape-rendering"] = "crispEdges"
+        return ({"set": "plxr", "what": f"drawn on {grid} units for plxr, after {base['title']}"},
+                f"0 0 {grid} {grid}", symbol, own_drawing, refusals)
     for set_id, icon in candidates(spec, pack):
         if set_id == "plxr":
             own = OWN.get(pack, {}).get(icon)
@@ -588,6 +646,12 @@ def main():
             origin, view, symbol, body, refusals = resolve(pack, name, table[name][pack], fetched)
             if origin["set"] == "plxr":
                 where = f"drawn for plxr: {origin['what']}"
+                # A pack whose marks are drawn after another set keeps that set
+                # credited, licence and all: the shapes come from looking at
+                # it, even where not one of its files ships any more.
+                after = SETS[PACKS[pack]["set"]].get("drawn") and PACKS[pack]["set"]
+                if after:
+                    used_by.setdefault(after, {}).setdefault(pack, set()).add("drawn after")
             else:
                 s = SETS[origin["set"]]
                 where = f"{s['repo']}@{s['commit'][:12]} {origin['path']}"
@@ -693,7 +757,7 @@ def write_ts(versions, third_party, drawn):
         "  commit: string;",
         "  licence: string;",
         "  licenceFile: string;",
-        '  uses: { pack: IconPack; part: "icons" | "files" }[];',
+        '  uses: { pack: IconPack; part: "icons" | "files" | "drawn after" }[];',
         "}",
         "",
         "export const THIRD_PARTY: ThirdPartySet[] = [",

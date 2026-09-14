@@ -922,268 +922,268 @@
     },
     "pixel": {
       "overview": {
-        "set": "pixelarticons",
-        "path": "svg/grid-2x2-2.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "inbox": {
-        "set": "pixelarticons",
-        "path": "svg/inbox.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "folder": {
-        "set": "pixelarticons",
-        "path": "svg/folder.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "changes": {
         "set": "plxr",
-        "what": "plus over minus"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "review": {
-        "set": "pixelarticons",
-        "path": "svg/git-pull-request.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "search": {
-        "set": "pixelarticons",
-        "path": "svg/search.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "ports": {
         "set": "plxr",
-        "what": "a network socket with three contacts and its latch"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "usage": {
-        "set": "pixelarticons",
-        "path": "svg/chart-bar-big.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "archive": {
-        "set": "pixelarticons",
-        "path": "svg/archive.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "notes": {
-        "set": "pixelarticons",
-        "path": "svg/notes.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "settings": {
-        "set": "pixelarticons",
-        "path": "svg/settings-cog.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "terminal": {
-        "set": "pixelarticons",
-        "path": "svg/terminal.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file": {
-        "set": "pixelarticons",
-        "path": "svg/file.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "close": {
-        "set": "pixelarticons",
-        "path": "svg/close.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "chevron-right": {
-        "set": "pixelarticons",
-        "path": "svg/chevron-right.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "chevron-down": {
-        "set": "pixelarticons",
-        "path": "svg/chevron-down.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "play": {
-        "set": "pixelarticons",
-        "path": "svg/play.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "pause": {
-        "set": "pixelarticons",
-        "path": "svg/pause.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "stop": {
-        "set": "pixelarticons",
-        "path": "svg/stop.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "warning": {
-        "set": "pixelarticons",
-        "path": "svg/warning-diamond.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "check": {
-        "set": "pixelarticons",
-        "path": "svg/check.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "git-branch": {
-        "set": "pixelarticons",
-        "path": "svg/git-branch.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "diff": {
         "set": "plxr",
-        "what": "plus over minus"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "help": {
-        "set": "pixelarticons",
-        "path": "svg/circle-question.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "reset": {
-        "set": "pixelarticons",
-        "path": "svg/reload.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "plus": {
-        "set": "pixelarticons",
-        "path": "svg/plus.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "preview": {
-        "set": "pixelarticons",
-        "path": "svg/monitor.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "files": {
-        "set": "pixelarticons",
-        "path": "svg/files.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "hide": {
-        "set": "pixelarticons",
-        "path": "svg/minus.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "more": {
-        "set": "pixelarticons",
-        "path": "svg/more-vertical.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "move": {
-        "set": "pixelarticons",
-        "path": "svg/move.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "panel-left": {
         "set": "plxr",
-        "what": "a window with a column along its left side"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "panel-right": {
         "set": "plxr",
-        "what": "a window with a column along its right side"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "panel-bottom": {
         "set": "plxr",
-        "what": "a window with a row along its bottom"
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "layout": {
-        "set": "pixelarticons",
-        "path": "svg/layout.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "menu": {
-        "set": "pixelarticons",
-        "path": "svg/menu.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "templates": {
-        "set": "pixelarticons",
-        "path": "svg/copy.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-code": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-ts": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-tsx": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-js": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-jsx": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-go": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-py": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-rs": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-php": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-shell": {
-        "set": "pixelarticons",
-        "path": "svg/script.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-css": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-html": {
-        "set": "pixelarticons",
-        "path": "svg/code.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-json": {
-        "set": "pixelarticons",
-        "path": "svg/braces.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-config": {
-        "set": "pixelarticons",
-        "path": "svg/sliders.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-env": {
-        "set": "pixelarticons",
-        "path": "svg/key.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-sql": {
-        "set": "pixelarticons",
-        "path": "svg/database.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-csv": {
-        "set": "pixelarticons",
-        "path": "svg/file-text.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-markdown": {
-        "set": "pixelarticons",
-        "path": "svg/article.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-text": {
-        "set": "pixelarticons",
-        "path": "svg/file-text.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-png": {
-        "set": "pixelarticons",
-        "path": "svg/image.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-jpg": {
-        "set": "pixelarticons",
-        "path": "svg/image.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-svg": {
-        "set": "pixelarticons",
-        "path": "svg/image.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-image": {
-        "set": "pixelarticons",
-        "path": "svg/image.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-zip": {
-        "set": "pixelarticons",
-        "path": "svg/archive.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-archive": {
-        "set": "pixelarticons",
-        "path": "svg/archive.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-lock": {
-        "set": "pixelarticons",
-        "path": "svg/lock.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-manifest": {
-        "set": "pixelarticons",
-        "path": "svg/package.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-build": {
-        "set": "pixelarticons",
-        "path": "svg/tools.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       },
       "file-readme": {
-        "set": "pixelarticons",
-        "path": "svg/book-open.svg"
+        "set": "plxr",
+        "what": "drawn on 16 units for plxr, after Pixelarticons"
       }
     }
   }
