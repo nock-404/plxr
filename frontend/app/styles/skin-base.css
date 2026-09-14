@@ -94,7 +94,7 @@
    the breadcrumb that is in front reads in the foreground colour. */
 .statusbar {
   color: var(--dim);
-  background: var(--panel);
+  background: var(--panel-glass);
   border-top: var(--hair) solid var(--line);
   letter-spacing: normal;
   text-transform: none;
@@ -604,12 +604,12 @@
 
 /* An empty box waiting to be filled: the same surface as a panel, marked out so
    the emptiness reads as a place rather than as a gap. */
-.emptybox { background: var(--panel); border: var(--hair) solid var(--line); }
+.emptybox { background: var(--panel-glass); border: var(--hair) solid var(--line); }
 
 /* The floating window. On the opaque surface like every popover — it is read
    over a terminal — with the title bar set off from the body. */
 .window { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 1rem 3rem var(--shadow); }
-.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--panel); }
+.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--panel-glass); }
 .windowTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
 .windowClose { color: var(--dim); }
 .windowClose:hover { color: var(--accent); }
@@ -765,7 +765,7 @@
 
 /* The readout. Green while it keeps up, the warning colour when it does not,
    so it can be read at a glance from across the desk. */
-.meter { background: var(--panel); border: var(--hair) solid var(--line); color: var(--dim); }
+.meter { background: var(--panel-glass); border: var(--hair) solid var(--line); color: var(--dim); }
 .meterBig { color: var(--fg); }
 .meter[data-slow="yes"] .meterBig { color: var(--blocked); }
 .meterGap[data-bad="yes"] { color: var(--blocked); }
@@ -925,7 +925,7 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .dockHost,
 .dockHost .dv-shell > * {
   --dv-group-view-background-color: transparent;
-  --dv-tabs-and-actions-container-background-color: var(--panel);
+  --dv-tabs-and-actions-container-background-color: var(--panel-glass);
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg);
   --dv-activegroup-visiblepanel-tab-color: var(--fg);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--panel);
@@ -985,9 +985,9 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    in the accent while that group has the keyboard, dim while another group
    has it, so at a glance the window says where typing goes. The others sit
    back on the strip in the dim colour and come forward on hover. */
-.plxrDock .dv-tab { font: inherit; color: var(--dim); background: var(--panel); }
+.plxrDock .dv-tab { font: inherit; color: var(--dim); background: var(--panel-glass); }
 .plxrDock .dv-tab + .dv-tab { border-left: var(--hair) solid var(--line); }
-.plxrDock .dv-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+.plxrDock .dv-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, var(--panel-glass)); }
 .plxrDock .dv-tab.dv-active-tab { color: var(--fg); background: var(--bg); }
 .plxrDock .dv-tab.dv-active-tab::before { background: var(--dim); }
 .plxrDock .dv-active-group .dv-tab.dv-active-tab { color: var(--accent); }
@@ -1173,7 +1173,7 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 /* A tool window: the panel surface, a hairline under its header, the name in
    spaced capitals and its mark dim — lit in the accent while the keyboard is
    in the window, so the window says where typing goes. */
-.toolWindow { background: var(--panel); color: var(--fg); }
+.toolWindow { background: var(--panel-glass); color: var(--fg); }
 /* The header's line is drawn inside it, like a stripe's: a border took a pixel
    from its 36 and put its 28 px buttons, and their marks, on half pixels. */
 .toolHead { box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--line); }
