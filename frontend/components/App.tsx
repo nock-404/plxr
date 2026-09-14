@@ -35,6 +35,7 @@ import { api } from "@/lib/api";
 import { chosenLanguage, loadLanguage, tr } from "@/lib/i18n";
 import { freshFocus, requestedFocus } from "@/lib/focus";
 import { arm, changed } from "@/lib/notify";
+import { zoomWindow } from "@/lib/zoom";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
 import { CHORD_ORDER, DOCS, TOOLS, chordOf, isTool } from "@/lib/tools";
@@ -732,7 +733,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="bar">
+      <header className="bar" onDoubleClick={(event) => zoomWindow(event.target)}>
         <div className="brand">
           <span className="mark"><Logo /></span>
           <span className="wordmark">plxr</span>
