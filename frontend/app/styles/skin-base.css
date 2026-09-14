@@ -946,7 +946,10 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
      the interface type size moved every word in the window except the tabs.
      One em here, and the strip as tall as that type needs, with the height it
      had as the floor. */
-  --dv-tabs-and-actions-container-font-size: 1em;
+  /* The tab's name reads with the quiet chrome — a tree row, the status line —
+     not with the interface's full size: at one em it stood two pixels taller
+     than everything around it. It still follows the type-size slider. */
+  --dv-tabs-and-actions-container-font-size: 0.85em;
   --dv-tab-font-size: inherit;
   --dv-tabs-and-actions-container-height: max(2.1875rem, 2.7em);
   --dv-tabs-and-actions-container-background-color: var(--chrome-glass);
