@@ -430,6 +430,23 @@ function FilesToolPanel() {
   const id = d.project.sessionId;
   const followed = id ? d.tiles.find((t) => t.id === id) : undefined;
   const gone = Boolean(id) && d.connected && !followed;
+  /* With no session and no project picked, the tree shows the home folder
+     rather than a sentence about how to get one: a file tree with nothing in
+     it is a tool that does nothing, and the folder somebody starts from is
+     the one they are in. */
+  const [home, setHome] = useState<{ id: string; path: string } | null>(null);
+  const needHome = !d.project.sessionId && !d.project.path && !d.here;
+  useEffect(() => {
+    if (!needHome || home) return;
+    let gone2 = false;
+    api
+      .openWorkspace("~")
+      .then((w) => !gone2 && setHome({ id: w.id, path: w.path }))
+      .catch(() => undefined);
+    return () => {
+      gone2 = true;
+    };
+  }, [needHome, home]);
   if (id && !followed && !gone) {
     return (
       <div className="emptyNote">
@@ -440,12 +457,14 @@ function FilesToolPanel() {
   const folder = d.project.path || d.here;
   const rootId = followed ? followed.id : folder ? `dir:${folder}` : "";
   const root = followed ? followed.cwd : folder;
-  if (!rootId) {
+  const showId = rootId || home?.id || "";
+  const showRoot = root || home?.path || "";
+  if (!showId) {
     return <div className="emptyNote">{tr("tool.noFolder", "No folder to show: open a session, or pick a project in the project switch at the top.")}</div>;
   }
   return (
     <div className="filesPanel">
-      <Files rootId={rootId} root={root} memory="files" onPick={(path, baseId) => d.openEditor(baseId, path, undefined, undefined, "files")} />
+      <Files rootId={showId} root={showRoot} memory="files" onPick={(path, baseId) => d.openEditor(baseId, path, undefined, undefined, "files")} />
     </div>
   );
 }

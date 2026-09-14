@@ -1137,12 +1137,16 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .overviewPanel,
 .foldersPanel { background: var(--panel-glass); color: var(--fg); }
 
-/* A floating group — a panel pulled out of the dock — is read like a popover,
-   so it stands on the opaque surface and not on the glass its panel would
-   otherwise take. Floated out over the work, a see-through window had the
-   terminal's text running through its own. */
+/* A floating group — a panel pulled out of the dock — is a window of the
+   window: it takes the panel's glass and the skin's blur behind it, so it
+   follows "how solid the panels are" like everything else. Its shadow is the
+   one under a floating surface. */
 .dv-floating-overlay-host > .dv-resize-container {
-  background: var(--surface);
+  /* Through dockview's own variable, not over its rule: its stylesheet is not
+     in this layer, so an unlayered background-color of its own beats anything
+     of ours however specific. What it reads, we set. */
+  --dv-group-view-background-color: var(--panel-glass);
+  background: var(--panel-glass);
   box-shadow: 0 .5rem 1.5rem var(--shadow);
 }
 
