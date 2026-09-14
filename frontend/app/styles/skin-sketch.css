@@ -64,7 +64,7 @@
 /* ---- head ---- */
 [data-skin="sketch"] .bar {
   border-bottom: var(--ink) solid var(--fg);
-  background: transparent;
+  background: var(--chrome-glass);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -106,7 +106,7 @@
 [data-skin="sketch"] .statusbar {
   color: var(--dim);
   border-top: var(--hair) dashed var(--line);
-  background: transparent;
+  background: var(--chrome-glass);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   text-transform: none;
@@ -147,7 +147,7 @@
 /* ---- stripes ---- */
 /* Paper, with a line drawn in ink where each stripe meets the dock. A lit icon
    is marked the way a highlighter marks a word, a little off true. */
-[data-skin="sketch"] .stripe { background: transparent; }
+[data-skin="sketch"] .stripe { background: var(--chrome-glass); }
 [data-skin="sketch"] .stripe[data-edge="left"] { box-shadow: inset calc(var(--ink) * -1) 0 0 var(--fg); }
 [data-skin="sketch"] .stripe[data-edge="right"] { box-shadow: inset var(--ink) 0 0 var(--fg); }
 [data-skin="sketch"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--ink) 0 var(--fg); }

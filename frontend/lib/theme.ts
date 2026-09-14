@@ -47,6 +47,10 @@ export interface ThemeState {
   tint: number;
   windowSolid: number;
   panelSolid: number;
+  /* The bars: the top bar, the status line, tab strips, tool heads, the
+     stripes. Their own solidity, so the chrome can stand while the content
+     under it is glass, or the other way round. */
+  chromeSolid: number;
   blur: number;
   gradientStrength: number;
   glow: number;
@@ -74,7 +78,7 @@ export interface ThemeState {
 export const DEFAULTS: ThemeState = {
   skin: "crt", palette: "green",
   seethrough: true, gradient: true, glowOn: true, scanOn: true,
-  tint: 14, windowSolid: 46, panelSolid: 62, blur: 1.375, gradientStrength: 7,
+  tint: 14, windowSolid: 46, panelSolid: 62, chromeSolid: 62, blur: 1.375, gradientStrength: 7,
   colours: {},
   flickerOn: false,
   backdrop: "frosted",
@@ -228,6 +232,7 @@ export function apply(state: ThemeState): void {
   root.style.setProperty("--tintStrength", String(state.tint));
   root.style.setProperty("--bgSolid", `${state.windowSolid}%`);
   root.style.setProperty("--panelSolid", `${state.panelSolid}%`);
+  root.style.setProperty("--chromeSolid", `${state.chromeSolid ?? state.panelSolid}%`);
   root.style.setProperty("--blur", `${state.blur}rem`);
   root.style.setProperty("--gradient", String(state.gradientStrength));
   root.style.setProperty("--glow", `${state.glowOn ? state.glow : 0}rem`);

@@ -135,6 +135,19 @@ export default function StyleEditor({
               <span className="styleNumber">{state.panelSolid}%</span>
             </span>
           </div>
+          <div className="field">
+            <span className="fieldName">{tr("style.chromeSolid", "how solid the bars are")}</span>
+            <span className="rowInline">
+              <Slider
+                value={state.chromeSolid}
+                min={0}
+                max={100}
+                step={1}
+                onChange={(chromeSolid) => change({ chromeSolid })}
+              />
+              <span className="styleNumber">{state.chromeSolid}%</span>
+            </span>
+          </div>
         </>
       ) : null}
 

@@ -34,11 +34,9 @@
 
 /* ---- stripes --------------------------------------------------------- */
 [data-skin="crt"] .stripe {
-  /* --panel-glass already mixes --panel with --panelSolid; consuming it here
-     verbatim (not mixed a second time) keeps the solidity slider 1:1. It used to
-     be double-mixed, so at a 43% slider the frame sat near 18% and terminal text
-     bled through the chrome. */
-  background-color: var(--panel-glass);
+  /* The bars carry the chrome layer, not the panel one: consumed verbatim (not
+     mixed a second time) their slider stays 1:1. */
+  background-color: var(--chrome-glass);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }
@@ -110,8 +108,8 @@
 [data-skin="crt"] .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--dim), inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }
 [data-skin="crt"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--dim); }
-[data-skin="crt"] .stripe[data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--panel-glass)); }
-[data-skin="crt"] .stripe[data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--panel-glass)); }
+[data-skin="crt"] .stripe[data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--chrome-glass)); }
+[data-skin="crt"] .stripe[data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--chrome-glass)); }
 [data-skin="crt"] .stripeGap { border-radius: 0; }
 [data-skin="crt"] .stripeGhost { border-radius: 0; box-shadow: 0 0 var(--glow) color-mix(in srgb, var(--accent) 60%, transparent), 0 .5rem 1.5rem var(--shadow); }
 [data-skin="crt"] .stripeIcon { border-radius: 0; }
@@ -123,9 +121,9 @@
    icon carried brings the glass up, edged in the phosphor. */
 [data-skin="crt"] .stripe[data-empty="yes"] { background-color: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: inset 0 var(--hair) 0 var(--dim); }
 [data-skin="crt"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"],
-[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: var(--panel-glass); -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat)); backdrop-filter: blur(var(--blur)) saturate(var(--sat)); box-shadow: inset 0 var(--hair) 0 var(--accent), 0 0 var(--glow) color-mix(in srgb, var(--accent) 40%, transparent); }
-[data-skin="crt"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"][data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--panel-glass)); }
-[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--panel-glass)); box-shadow: inset 0 var(--hair) 0 var(--blocked); }
+[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: var(--chrome-glass); -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat)); backdrop-filter: blur(var(--blur)) saturate(var(--sat)); box-shadow: inset 0 var(--hair) 0 var(--accent), 0 0 var(--glow) color-mix(in srgb, var(--accent) 40%, transparent); }
+[data-skin="crt"] body[data-dragging-tool="yes"] .stripe[data-empty="yes"][data-drop="yes"] { background-color: color-mix(in srgb, var(--accent) 12%, var(--chrome-glass)); }
+[data-skin="crt"] .stripe[data-empty="yes"][data-flash="yes"] { background-color: color-mix(in srgb, var(--blocked) 16%, var(--chrome-glass)); box-shadow: inset 0 var(--hair) 0 var(--blocked); }
 [data-skin="crt"] .tile { border: var(--hair) solid var(--dim); transition: border-color .12s,transform .12s; }
 
 [data-skin="crt"] .listbar { border-bottom: var(--hair) solid var(--dim); }
@@ -254,13 +252,17 @@
    of, so it takes the same glass. Without a surface of its own it sat straight
    on the tube and the quiet labels down its left edge had nothing to sit on. */
 [data-skin="crt"] .folderinfo {
-  background-color: var(--panel-glass);
+  background-color: transparent;
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
 }
 /* The text of a document takes the tree's glass too. The panel under it is
    opaque, so there is nothing to blur. */
-[data-skin="crt"] .viewerwrap { background-color: var(--panel-glass); }
+/* The field a document's text is read off adds nothing here: the document it
+   lies in already carries the window's glass, and a second pane over it made
+   the notes, the editor and a diff the one dark block in a see-through
+   window. Windows 95 keeps its white field — that skin has no see-through. */
+[data-skin="crt"] .viewerwrap { background-color: transparent; }
 /* A floating window blurs what is behind it like every other pane of glass. */
 [data-skin="crt"] .dv-floating-overlay-host > .dv-resize-container {
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));

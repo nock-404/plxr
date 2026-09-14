@@ -94,7 +94,7 @@
    the breadcrumb that is in front reads in the foreground colour. */
 .statusbar {
   color: var(--dim);
-  background: var(--panel-glass);
+  background: var(--chrome-glass);
   border-top: var(--hair) solid var(--line);
   letter-spacing: normal;
   text-transform: none;
@@ -611,7 +611,7 @@
 /* The floating window. On the opaque surface like every popover — it is read
    over a terminal — with the title bar set off from the body. */
 .window { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 1rem 3rem var(--shadow); }
-.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--panel-glass); }
+.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--chrome-glass); }
 .windowTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
 .windowClose { color: var(--dim); }
 .windowClose:hover { color: var(--accent); }
@@ -669,9 +669,20 @@
    painted their surfaces flat, so the slider moved and nothing happened in
    three quarters of the app. Each skin keeps its own colour — this only decides
    how much of it there is. */
+/* Three layers, three sliders, and every surface belongs to exactly one of
+   them — never two on top of each other:
+     --bg-glass      the window itself and the frame around everything
+     --panel-glass   what a panel's content stands on: documents, tool windows
+     --chrome-glass  the bars: the top bar, the status line, tab strips, tool
+                     heads, the stripes
+   Anything inside a surface that already carries one of these is clear. Two
+   panes over each other read as one dense one — 60 % over 60 % is 84 % — and
+   that is how the window ended up with a different transparency in every
+   corner while one slider claimed to set it. */
 :root {
   --panel-glass: color-mix(in srgb, var(--panel) var(--panelSolid, 62%), transparent);
-  --bg-glass: color-mix(in srgb, var(--bg) var(--panelSolid, 62%), transparent);
+  --chrome-glass: color-mix(in srgb, var(--panel) var(--chromeSolid, 62%), transparent);
+  --bg-glass: color-mix(in srgb, var(--bg) var(--bgSolid, 46%), transparent);
   /* Glass is for chrome you look at the desktop through; --surface is for
      anything laid OVER content and must be read — menus, dropdowns, dialogs,
      tooltips. It is always fully opaque, never mixed with the solidity slider,
@@ -938,14 +949,14 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
   --dv-tabs-and-actions-container-font-size: 1em;
   --dv-tab-font-size: inherit;
   --dv-tabs-and-actions-container-height: max(2.1875rem, 2.7em);
-  --dv-tabs-and-actions-container-background-color: var(--panel-glass);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-glass);
+  --dv-tabs-and-actions-container-background-color: var(--chrome-glass);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--fg);
-  --dv-activegroup-hiddenpanel-tab-background-color: var(--panel-glass);
+  --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-color: var(--dim);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-glass);
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
   --dv-inactivegroup-visiblepanel-tab-color: var(--dim);
-  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--panel-glass);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-hiddenpanel-tab-color: var(--dim);
   --dv-separator-border: var(--line);
   --dv-tab-divider-color: var(--line);
@@ -998,9 +1009,13 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    in the accent while that group has the keyboard, dim while another group
    has it, so at a glance the window says where typing goes. The others sit
    back on the strip in the dim colour and come forward on hover. */
-.plxrDock .dv-tab { font: inherit; color: var(--dim); background: var(--panel-glass); }
+/* A tab carries no pane of its own: it stands on the strip, which is the
+   chrome layer. Glassed a second time, every tab read denser than the strip
+   around it. What tells the tabs apart is their colour and the bar over the
+   one in front, not another sheet of glass. */
+.plxrDock .dv-tab { font: inherit; color: var(--dim); background: transparent; }
 .plxrDock .dv-tab + .dv-tab { border-left: var(--hair) solid var(--line); }
-.plxrDock .dv-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, var(--panel-glass)); }
+.plxrDock .dv-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .plxrDock .dv-tab.dv-active-tab { color: var(--fg); background: var(--bg); }
 .plxrDock .dv-tab.dv-active-tab::before { background: var(--dim); }
 .plxrDock .dv-active-group .dv-tab.dv-active-tab { color: var(--accent); }
@@ -1134,7 +1149,10 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    with no ground of its own it was the one region the desktop shone through at
    full strength while every other one sat at the slider's value — measured 0
    against 0.60 in the same window. */
-.plxrDock .dv-tabs-container { background: var(--panel-glass); }
+/* dockview nests two boxes here: the actions container outside, the tabs
+   container inside. The outer one carries the chrome layer through dockview's
+   own variable; this one would be a second pane over it. */
+.plxrDock .dv-tabs-container { background: transparent; }
 .settingsPanel,
 .editorPanel,
 .diffPanel,
@@ -1162,7 +1180,7 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    shows, with a bar on the stripe's outer edge. An edge asked to show with
    nothing on it glows for a moment in the blocked colour. */
 .dockShell { background: transparent; }
-.stripe { background: var(--panel-glass); }
+.stripe { background: var(--chrome-glass); }
 .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--line); }
 .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--line); }
 .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--line); }

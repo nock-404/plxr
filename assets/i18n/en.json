@@ -1113,6 +1113,7 @@
   "style.bg": "background",
   "style.blocked": "needs you",
   "style.blur": "how much it blurs",
+  "style.chromeSolid": "how solid the bars are",
   "style.dead": "ended",
   "style.dim": "Secondary",
   "style.fg": "text",

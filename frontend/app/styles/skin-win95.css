@@ -99,7 +99,7 @@
 [data-skin="win95"] .updatebar,
 [data-skin="win95"] .filesbar,
 [data-skin="win95"] .wbBar {
-  background: var(--panel-glass);
+  background: var(--chrome-glass);
   border-bottom: var(--bevel) solid var(--hi);
   box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--sh);
 }
@@ -136,7 +136,7 @@
    the navy of a selection. The search field a sunken white field, like the
    switches beside it. */
 [data-skin="win95"] .statusbar {
-  background: var(--panel-glass);
+  background: var(--chrome-glass);
   border-top: var(--hair) solid var(--sh);
   box-shadow: inset 0 var(--hair) 0 var(--hi);
 }
@@ -176,7 +176,7 @@
 /* A raised toolbar: light along the top and the left, shadow along the bottom
    and the right. An icon is flat until the pointer is on it, raised under the
    pointer, and pressed in while its window shows. */
-[data-skin="win95"] .stripe { background: var(--panel-glass); box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
+[data-skin="win95"] .stripe { background: var(--chrome-glass); box-shadow: inset var(--hair) var(--hair) 0 var(--hi), inset calc(var(--hair) * -1) calc(var(--hair) * -1) 0 var(--sh); }
 [data-skin="win95"] .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 18%, var(--panel)); }
 [data-skin="win95"] .stripe[data-drop="yes"] { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
 [data-skin="win95"] .stripeGap { border: var(--hair) dotted var(--dk); border-radius: 0; }

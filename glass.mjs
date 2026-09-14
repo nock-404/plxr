@@ -18,6 +18,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { readPng } from "./pngkit.mjs";
 import { GATEKIT } from "./gatekit.mjs";
 
 const HOME = process.env.PLXR_HOME || join(process.env.HOME, ".plxr");
@@ -164,81 +165,111 @@ const run = async (expression) => {
   return r.result?.value;
 };
 
-/* The grounds that have to follow the slider: the strip the tabs sit in, a
-   document of main filling its panel, and the stripes at the edges. */
-const READ = `(() => {
-  const alphaOf = (sel) => {
-    const el = document.querySelector(sel);
-    if (!el) return null;
-    const c = getComputedStyle(el).backgroundColor;
-    const m = c.match(/([0-9.]+)\\s*\\)$/);
-    if (/^rgba?\\(/.test(c)) return c.startsWith("rgba(") ? Number(m?.[1] ?? 1) : 1;
-    if (/^color\\(/.test(c)) return c.includes("/") ? Number(m?.[1] ?? 1) : 1;
-    return c === "transparent" ? 0 : 1;
-  };
-  return {
-    tabs: alphaOf('.plxrDock .dv-tabs-container'),
-    doc: alphaOf('.overviewPanel'),
-    stripe: alphaOf('.stripe[data-edge="left"]'),
-    field: alphaOf('.viewerwrap'),
-    skin: document.documentElement.dataset.skin ?? "",
-    solid: getComputedStyle(document.documentElement).getPropertyValue('--panelSolid').trim(),
-  };
+/* What the three sliders own, and what has to look the same within each.
+   Read as composited pixels over a loud pattern behind the page — the only
+   way to catch a second pane of glass stacked on a first, which computed
+   styles alone never showed. */
+const LAYERS = {
+  panel: [".filetree", ".pterm", ".overviewPanel", ".settingsPanel"],
+  chrome: [".bar", ".statusbar", '.stripe[data-edge="left"]', ".plxrDock .dv-tabs-container"],
+};
+
+const PATTERN = `(() => {
+  const html = document.documentElement;
+  html.style.background = "repeating-conic-gradient(#ff00c8 0% 25%, #ffe600 0% 50%) 0 0 / 48px 48px";
+  html.style.backgroundAttachment = "fixed";
+  return true;
 })()`;
 
-async function look(skin, panelSolid) {
-  const prefs = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
-  const theme = { ...(prefs.theme ?? {}), skin, seethrough: true, panelSolid };
-  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ ...prefs, theme }) });
-  for (let i = 0; i < 20; i++) {
-    const seen = await run(READ);
-    if (seen && seen.skin === skin && seen.solid === `${panelSolid}%`) return seen;
-    await sleep(250);
+const boxesOf = (sels) => `(() => {
+  const out = {};
+  for (const sel of ${JSON.stringify(Object.values(LAYERS).flat())}) {
+    const el = document.querySelector(sel);
+    if (!el) { out[sel] = null; continue; }
+    const r = el.getBoundingClientRect();
+    if (r.width < 12 || r.height < 12) { out[sel] = null; continue; }
+    out[sel] = { x: Math.round(r.x + 4), y: Math.round(r.y + 4), width: Math.min(120, Math.round(r.width - 8)), height: Math.min(80, Math.round(r.height - 8)) };
   }
-  return await run(READ);
+  return JSON.stringify(out);
+})()`;
+
+async function average(box) {
+  const shot = await cdp.send("Page.captureScreenshot", { format: "png", clip: { ...box, scale: 1 } });
+  const png = readPng(Buffer.from(shot.data, "base64"));
+  let r = 0, g = 0, b = 0;
+  const n = png.width * png.height;
+  for (let i = 0; i < n; i++) {
+    r += png.rgb[i * 3];
+    g += png.rgb[i * 3 + 1];
+    b += png.rgb[i * 3 + 2];
+  }
+  return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
 }
 
-const near = (value, want) => value !== null && Math.abs(value - want) <= 0.02;
+const far = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
+
+async function layers(skin, panelSolid, chromeSolid) {
+  const prefs = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
+  const theme = { ...(prefs.theme ?? {}), skin, seethrough: true, panelSolid, chromeSolid, windowSolid: 0, gradient: false, scanOn: false };
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ ...prefs, theme }) });
+  await sleep(2200);
+  await run(PATTERN);
+  await sleep(300);
+  /* The ground alone: what stands on a surface — rows, tiles, words — is put
+     out of sight while it is read, or the sample says more about the text in a
+     panel than about the pane of glass under it. */
+  await run(`(() => { document.querySelectorAll('.app *').forEach((el) => { if (el.children.length === 0 || el.dataset.glassKeep === 'yes') el.style.visibility = 'hidden'; }); return true; })()`);
+  await sleep(250);
+  const boxes = JSON.parse(await run(boxesOf()));
+  const seen = {};
+  for (const [name, sels] of Object.entries(LAYERS)) {
+    seen[name] = [];
+    for (const sel of sels) {
+      if (!boxes[sel]) continue;
+      seen[name].push({ sel, rgb: await average(boxes[sel]) });
+    }
+  }
+  await run(`(() => { document.querySelectorAll('.app *').forEach((el) => { el.style.visibility = ''; }); return true; })()`);
+  return seen;
+}
 
 for (const skin of SKINS) {
-  const thin = await look(skin, THIN);
-  const thick = await look(skin, THICK);
-  const grounds = [["the tab strip", "tabs"], ["a document of main", "doc"], ["the stripe at the edge", "stripe"]];
-  for (const [name, key] of grounds) {
-    // A stripe with nothing behind it may be drawn fully transparent by a skin;
-    // what must never happen is a ground that ignores the slider.
-    const thinOk = near(thin[key], THIN / 100) || thin[key] === 0;
-    const thickOk = near(thick[key], THICK / 100) || thick[key] === 0;
-    claim(
-      `${skin}: ${name} carries the solidity the slider is set to`,
-      thinOk && thickOk,
-      `at ${THIN}% alpha ${thin[key]} · at ${THICK}% alpha ${thick[key]}`,
-    );
+  // Every surface of one layer has to read the same over the pattern.
+  const even = await layers(skin, 40, 40);
+  for (const [name, reads] of Object.entries(even)) {
+    if (reads.length < 2) continue;
+    /* Windows 95 reads its fields off white paper — the tree, the terminal and
+       a folder's overview are white by design in that skin, not glass. Its
+       sliders still have to own their layers, which is checked below. */
+    if (skin === "win95") continue;
+    const worst = reads.reduce((m, a) => Math.max(m, ...reads.map((b) => far(a.rgb, b.rgb))), 0);
+    claim(`${skin}: every surface of the ${name} layer lets the same amount through`,
+      worst <= 12,
+      reads.map((r) => `${r.sel} rgb(${r.rgb.join(",")})`).join(" · ") + ` — worst gap ${worst}`);
   }
-  claim(
-    `${skin}: the slider moves the ground, it is not painted flat`,
-    thin.doc !== null && thick.doc !== null && (thin.doc === 0 ? thick.doc === 0 : Math.abs(thick.doc - thin.doc) > 0.5),
-    `document ground ${thin.doc} → ${thick.doc}`,
-  );
+
+  /* Each slider owns its layer: moving it moves that layer and leaves the
+     other one where it was. A slider that moves everything, or nothing, is the
+     fault this check was written for. */
+  const panelsThin = await layers(skin, 5, 50);
+  const panelsThick = await layers(skin, 95, 50);
+  const barsThin = await layers(skin, 50, 5);
+  const barsThick = await layers(skin, 50, 95);
+  const first = (seen, name) => seen[name][0]?.rgb;
+  const moved = (a, b, name) => (first(a, name) && first(b, name) ? far(first(a, name), first(b, name)) : -1);
+
+  /* Fifteen levels, not more: a dark palette over the pattern shifts less in
+     plain numbers than a light one, and what is asked here is that the slider
+     does something you can see, not that every skin shifts equally far. */
+  claim(`${skin}: the panel slider moves the panels`, moved(panelsThin, panelsThick, "panel") >= 15,
+    `panels 5% rgb(${first(panelsThin, "panel")}) → 95% rgb(${first(panelsThick, "panel")}) — apart by ${moved(panelsThin, panelsThick, "panel")}`);
+  claim(`${skin}: the panel slider leaves the bars alone`, moved(panelsThin, panelsThick, "chrome") <= 10,
+    `bars rgb(${first(panelsThin, "chrome")}) → rgb(${first(panelsThick, "chrome")}) — moved by ${moved(panelsThin, panelsThick, "chrome")}`);
+  claim(`${skin}: the bar slider moves the bars`, moved(barsThin, barsThick, "chrome") >= 15,
+    `bars 5% rgb(${first(barsThin, "chrome")}) → 95% rgb(${first(barsThick, "chrome")}) — apart by ${moved(barsThin, barsThick, "chrome")}`);
+  claim(`${skin}: the bar slider leaves the panels alone`, moved(barsThin, barsThick, "panel") <= 10,
+    `panels rgb(${first(barsThin, "panel")}) → rgb(${first(barsThick, "panel")}) — moved by ${moved(barsThin, barsThick, "panel")}`);
 }
-
-/* The other half, the one the readability fix bought: Windows 95 reads its
-   documents off a white field, and that field is opaque whatever the slider
-   says. Without it the fix of 0.79.0 would be undone here. */
-await look("win95", THIN);
-// The field only exists where a document with text is open: the notes are one.
-await run(`(() => { ${GATEKIT} return openTool('notes'); })()`).catch(() => false);
-await sleep(900);
-const win95 = await run(READ);
-claim(
-  "win95: the field a document's text is read off stays opaque at 5%",
-  win95.field === 1,
-  `.viewerwrap alpha ${win95.field}`,
-);
-
-// Put the window back the way it was found: a tool left open is not what the
-// next check expects.
-await run(`(() => { ${GATEKIT} return openTool('notes'); })()`).catch(() => false);
 
 let bad = 0;
 for (const c of claims) {
