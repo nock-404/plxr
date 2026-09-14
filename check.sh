@@ -14,8 +14,9 @@ fail=0
 # A failing step prints what did not hold, not its first twenty lines. A gate
 # lists every claim, the ones that hold included, and "dock tabs" failed twice
 # with twenty lines of "ok" on screen and its four failing claims cut off below
-# them. So a line that says "ok" goes, with the evidence lines indented under
-# it, and everything else stays. A step that printed nothing at all — killed,
+# them. So a line that says "ok" goes, with the evidence lines indented deeper
+# than it, and everything else stays: a claim at the same depth as an ok one,
+# as together.mjs prints them, is a claim of its own. A step that printed nothing at all — killed,
 # or dead before its first line — says so, rather than reading as if it had
 # printed lines that held.
 step() {
@@ -28,8 +29,9 @@ step() {
 		status=$?
 		echo "FAILED"
 		failing=$(echo "$out" | awk '
-			/^[ \t]*ok([ \t]|$)/ { held = 1; next }
-			held && /^[ \t][ \t][ \t][ \t][ \t]+[^ \t]/ { next }
+			{ match($0, /^[ \t]*/); indent = RLENGTH }
+			/^[ \t]*ok([ \t]|$)/ { held = 1; under = indent; next }
+			held && indent > under && /[^ \t]/ { next }
 			{ held = 0; print }
 		')
 		if [ -z "$(echo "$out" | tr -d ' \t\n')" ]; then
