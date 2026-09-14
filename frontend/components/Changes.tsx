@@ -49,6 +49,9 @@ export function word(letter: string): string {
   return tr(key, fallback);
 }
 
+// How many commits a page of the history holds.
+const PAGE = 25;
+
 export default function Changes({
   rootId,
   shown,
@@ -82,6 +85,11 @@ export default function Changes({
   const [problem, setProblem] = useState("");
   const [where, setWhere] = useState<GitWhere | null>(null);
   const [history, setHistory] = useState<GitEntry[]>([]);
+  /* How far back the list reaches. Eight was the whole history this panel ever
+     showed, so a folder with more than eight commits looked like it had eight;
+     the row at the end asks for the next page. */
+  const [reach, setReach] = useState(PAGE);
+  useEffect(() => setReach(PAGE), [rootId]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
@@ -104,9 +112,22 @@ export default function Changes({
         setList([]);
       });
     api.position(rootId).then(setWhere).catch(() => setWhere(null));
-    api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
+    api.history(rootId, reach).then(setHistory).catch(() => setHistory([]));
     api.stashes(rootId).then(setStashes).catch(() => setStashes(null));
+    // The reach is left out on purpose: asking for another page goes through
+    // the effect below, which does not read the whole folder again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootId]);
+
+  // Another page of the history, when the row at its end was pressed.
+  useEffect(() => {
+    if (reach === PAGE) return;
+    let gone = false;
+    api.history(rootId, reach).then((h) => !gone && setHistory(h)).catch(() => undefined);
+    return () => {
+      gone = true;
+    };
+  }, [rootId, reach]);
 
   const isLive = live !== undefined;
   const liveRev = live?.rev ?? "";
@@ -133,8 +154,8 @@ export default function Changes({
   // the feed says when that is.
   useEffect(() => {
     if (!isLive) return;
-    api.history(rootId, 8).then(setHistory).catch(() => setHistory([]));
-  }, [isLive, liveHead, rootId]);
+    api.history(rootId, reach).then(setHistory).catch(() => setHistory([]));
+  }, [isLive, liveHead, rootId, reach]);
 
   // The stashes are not in the feed either; a stash or a pop moves the rev,
   // so they are asked for again with every new state.
@@ -467,6 +488,11 @@ export default function Changes({
               <span className="logwhen">{ago(h.when)}</span>
             </span>
           ))}
+          {history.length >= reach ? (
+            <Button bare className="logmore" onClick={() => setReach((n) => n + PAGE)}>
+              {tr("git.older", "older")}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 

@@ -531,6 +531,7 @@
   "git.modified": "changed",
   "git.new": "new files",
   "git.noStashes": "Nothing is put aside.",
+  "git.older": "older",
   "git.open": "CHANGES",
   "git.reading": "reading…",
   "git.recent": "lately",

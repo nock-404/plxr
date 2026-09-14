@@ -888,6 +888,10 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .loghash { color: var(--dim); }
 .logsubject { color: var(--fg); }
 .logwhen { color: var(--dead); font-size: .8em; }
+/* The row that asks for the page before this one: quiet like the hashes above
+   it, the accent under the pointer. */
+.logmore { color: var(--dim); background: none; border: 0; font: inherit; }
+.logmore:hover { color: var(--accent); }
 
 /* The glyph in front of a file, coloured by what kind of file it is. The
    character itself comes from the component — a stylesheet cannot pick one out

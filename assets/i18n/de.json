@@ -530,6 +530,7 @@
   "git.modified": "geändert",
   "git.new": "neue Dateien",
   "git.noStashes": "Nichts ist beiseitegelegt.",
+  "git.older": "älter",
   "git.open": "ÄNDERUNGEN",
   "git.reading": "wird gelesen…",
   "git.recent": "zuletzt",
