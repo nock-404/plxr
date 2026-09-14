@@ -637,21 +637,12 @@ for (const ratio of RATIOS) {
         `worst ${Math.max(0, ...judged.map((r) => r.foreign)).toFixed(2)} of its ink off the skin's colour`
           + (foreign.length ? ` · ${foreign.map((r) => `${r.where}/${r.name} ${r.foreign.toFixed(2)}`).join(", ")}` : ""));
       if (pack === "pixel" && skin !== "crt" && skin !== "sketch") {
-        // Read in the two skins that lay nothing over or behind a mark. The
-        // tube puts a glow around every one on purpose, a soft edge by design;
-        // Sketch rules its panels like paper and dots its buttons, and those
-        // lines cross the icons' boxes, so their pixels read as half-tones of
-        // ink that is not there. Looked at in the close-ups instead: crisp.
-        const crisp = judged.filter((r) => !r.tight);
-        const soft = crisp.filter((r) => r.between > 0.12);
-        const worst = Math.max(0, ...crisp.map((r) => r.between));
-        const size = icons.find((i) => i.where === "stripe")?.w;
-        claim(`${tag}: the pixel pack is crisp — one grid unit on whole device pixels`,
-          soft.length === 0 && size && Number.isInteger((size * ratio) / 24),
-          `icon ${size} CSS px = ${size * ratio} device px = ${(size * ratio) / 24} per unit · worst ${worst.toFixed(2)} of ink half-toned`
-            + (judged.length > crisp.length ? ` · ${judged.length - crisp.length} marks filling a bevelled button's inside read in the row of names instead: ${judged.filter((r) => r.tight).map((r) => `${r.where}/${r.name}`).join(", ")}` : "")
-            + (soft.length ? ` · soft: ${soft.map((r) => `${r.where}/${r.name} ${r.between.toFixed(2)}`).join(", ")}` : ""));
-        record[`between ${tag}`] = worst;
+        /* What the pixel pack costs at the size every pack is drawn at is
+           recorded, not policed: he looked at both and chose the size over the
+           grid. The rule that is held is the one below — every mark sits in
+           the box the other packs sit in. */
+        const judged2 = judged.filter((r) => !r.tight);
+        record[`between ${tag}`] = Math.max(0, ...judged2.map((r) => r.between));
       }
       if (pack !== "pixel" && skin !== "crt" && skin !== "sketch") record[`between ${tag}`] = Math.max(0, ...judged.map((r) => r.between));
 
@@ -693,12 +684,6 @@ for (const ratio of RATIOS) {
       claim(`${tag}: no tool-stripe name keeps a colour of its own`, drawn.length === STRIPE_NAMES.length && own.length === 0,
         `worst ${Math.max(0, ...drawn.map((d) => d.foreign)).toFixed(2)} of its ink off the skin's colour`
           + (own.length ? ` · ${own.map((d) => `${d.name} ${d.foreign.toFixed(2)}`).join(", ")}` : ""));
-      if (pack === "pixel" && skin !== "crt" && skin !== "sketch") {
-        const soft = drawn.filter((d) => d.between > 0.12);
-        claim(`${tag}: the tool-stripe names in the pixel pack are crisp`, drawn.length === STRIPE_NAMES.length && soft.length === 0,
-          `worst ${Math.max(0, ...drawn.map((d) => d.between)).toFixed(2)} of ink half-toned`
-            + (soft.length ? ` · soft: ${soft.map((d) => `${d.name} ${d.between.toFixed(2)}`).join(", ")}` : ""));
-      }
     }
   }
 }

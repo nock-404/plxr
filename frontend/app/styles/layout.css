@@ -78,26 +78,20 @@
   --chev-room: 1em;
 }
 
-/* Pixel art is only crisp when one unit of its 24-unit grid lands on a whole
-   device pixel, so the pixel pack is sized by the screen rather than to match
-   the other packs: 24 CSS pixels on a plain screen, 12 on a 2x one, and on
-   the densities between whatever makes 24 or 48 device pixels. Never a
-   fraction of a unit — that is the one thing that turns it to mush. */
-[data-icons="pixel"] { --icon: 1.5rem; --chev: 1.5rem; --icon-slot: 1.5rem; --chev-slot: 1.5rem; --icon-room: var(--icon); --chev-room: var(--chev); }
-@media (min-resolution: 1.25dppx) { [data-icons="pixel"] { --icon: 1.2rem; --chev: 1.2rem; --icon-slot: 1.2rem; --chev-slot: 1.2rem; --icon-room: var(--icon); --chev-room: var(--chev); } }
-@media (min-resolution: 1.5dppx) { [data-icons="pixel"] { --icon: 1rem; --chev: 1rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
-@media (min-resolution: 1.75dppx) { [data-icons="pixel"] { --icon: 0.857142857rem; --chev: 0.857142857rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
-@media (min-resolution: 2dppx) { [data-icons="pixel"] { --icon: 0.75rem; --chev: 0.75rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
-@media (min-resolution: 2.5dppx) { [data-icons="pixel"] { --icon: 1.2rem; --chev: 1.2rem; --icon-slot: 1.2rem; --chev-slot: 1.2rem; --icon-room: var(--icon); --chev-room: var(--chev); } }
-@media (min-resolution: 3dppx) { [data-icons="pixel"] { --icon: 1rem; --chev: 1rem; --icon-slot: 0rem; --chev-slot: 0rem; --icon-room: 1em; --chev-room: 1em; } }
+/* The pixel pack is drawn at the size every other pack is drawn at.
+   It used to be sized by the screen instead, so one unit of its 24-unit grid
+   landed on whole device pixels: 24 CSS pixels where every other pack draws
+   16 — a mark half again as big as the rest of the window. Measured with the
+   sprite at 16 CSS pixels: on a plain screen 60 % of a mark's ink lands as an
+   in-between tone, on a 2x screen 21 %, and shape-rendering: crispEdges
+   changes neither. He looked at both and chose the size over the grid. */
 
 /* An icon takes no more of its row's height than the glyph it replaced did —
    one line of the row's own type. A little larger than that, it hangs over the
    row's padding instead of pushing every row below it down; smaller, the row
    is still as tall as its text. So a row keeps the height it had before there
-   were icons, in every pack. The exception is the pixel pack where its icon
-   has to be 24 CSS pixels to stay crisp: there a tree row grows to hold it,
-   because the other way is icons stacked into each other. */
+   were icons, in every pack — the pixel pack included, now that it is drawn at
+   the same size as the rest. */
 .uiIcon { display: block; flex: 0 0 auto; width: var(--icon); height: var(--icon); margin-block: min(0em, calc((var(--icon-room) - var(--icon)) / 2)); overflow: visible; }
 .fchev .uiIcon { width: var(--chev); height: var(--chev); margin-block: min(0em, calc((var(--chev-room) - var(--chev)) / 2)); }
 
@@ -1166,17 +1160,6 @@ button.diffline { cursor: pointer; }
      line a skin draws there. */
   --stripe-rest: 0.25rem;
 }
-/* The pixel pack on a stripe: its 24-unit grid on 24, 48 or 72 device pixels,
-   whichever is the largest that still leaves whole device pixels around it in
-   the icon's box. At 2x that is 24 CSS pixels, where a row's mark is 12 — the
-   size that made the stripe's icons all but invisible. */
-[data-icons="pixel"] { --stripe-icon: 1.5rem; }
-@media (min-resolution: 1.25dppx) { [data-icons="pixel"] { --stripe-icon: 1.2rem; } }
-@media (min-resolution: 1.5dppx) { [data-icons="pixel"] { --stripe-icon: 1rem; } }
-@media (min-resolution: 1.75dppx) { [data-icons="pixel"] { --stripe-icon: 1.714285714rem; } }
-@media (min-resolution: 2dppx) { [data-icons="pixel"] { --stripe-icon: 1.5rem; } }
-@media (min-resolution: 2.5dppx) { [data-icons="pixel"] { --stripe-icon: 1.2rem; } }
-@media (min-resolution: 3dppx) { [data-icons="pixel"] { --stripe-icon: 1.5rem; } }
 .dockShell { position: relative; display: grid; grid-template-columns: var(--stripe-w) minmax(0, 1fr) var(--stripe-w); grid-template-rows: minmax(0, 1fr) var(--stripe-w); width: 100%; height: 100%; min-height: 0; }
 /* The bottom stripe with nothing on it stays a place an icon can be put, but
    at rest it is only its line, and main has the height. While an icon is
