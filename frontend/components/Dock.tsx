@@ -70,7 +70,7 @@ import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/key
 import { PREFS_CHANGED, setDense } from "@/lib/prefsEvents";
 import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
-import { tabTitle } from "@/lib/state";
+import { byNeed, tabTitle } from "@/lib/state";
 import { projectLabel, type Project } from "@/lib/project";
 import { errText } from "@/lib/i18n";
 
@@ -213,11 +213,15 @@ const useDock = () => {
 };
 
 // The panels, each reading the live data from the context.
+/* The board shows every session there is, with the project picked at the top
+   sorted to the front. It used to be handed the filtered list, so picking a
+   project made every other session disappear from the board — "0 of 2 shown"
+   while two sessions were running. */
 function OverviewPanel() {
   const d = useDock();
   return (
     <Overview
-      tiles={d.shown}
+      tiles={byNeed(d.tiles, d.project.path || d.here)}
       onOpen={d.openSession}
       onNew={d.shell?.newSession}
       onNewShell={d.shell?.newShell}

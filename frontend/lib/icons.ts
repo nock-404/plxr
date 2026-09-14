@@ -19,7 +19,7 @@ export const SPRITE_VERSIONS: Record<IconPack, string> = {
   tabler: "28e347188982",
   phosphor: "9be03c208a8e",
   lucide: "0c059a6105bc",
-  pixel: "fe03da7eb9a5",
+  pixel: "e1fe00596bb9",
 };
 
 export const ICON_NAMES = [

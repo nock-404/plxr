@@ -33,17 +33,7 @@
 [data-skin="crt"] .statusbar,
 
 /* ---- stripes --------------------------------------------------------- */
-[data-skin="crt"] .stripe,
-
-/* ---- tiles: measuring-instrument brackets ----------------------------- */
-[data-skin="crt"] .tile,
-
-/* ---- lists ------------------------------------------------------------ */
-[data-skin="crt"] .listbar,
-
-/* ---- session ---------------------------------------------------------- */
-[data-skin="crt"] .sessbar,
-[data-skin="crt"] .files {
+[data-skin="crt"] .stripe {
   /* --panel-glass already mixes --panel with --panelSolid; consuming it here
      verbatim (not mixed a second time) keeps the solidity slider 1:1. It used to
      be double-mixed, so at a 43% slider the frame sat near 18% and terminal text
@@ -51,6 +41,21 @@
   background-color: var(--panel-glass);
   -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--sat));
   backdrop-filter: blur(var(--blur)) saturate(var(--sat));
+}
+
+/* One pane of glass per region, never two on top of each other.
+   The file tree, a list's bar and a session's bar all sit inside something
+   that is already glass — the tool window, the document. Glassed a second
+   time, 60 % over 60 % reads as 84 %, and the window had a different
+   transparency in every corner while one slider claimed to set it. They are
+   clear now and take the ground they stand on. */
+[data-skin="crt"] .listbar,
+[data-skin="crt"] .sessbar,
+[data-skin="crt"] .files,
+[data-skin="crt"] .tile {
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 [data-skin="crt"] .tile,
 [data-skin="crt"] .card { box-shadow: inset 0 var(--hair) 0 color-mix(in srgb, var(--fg) 14%, transparent); }

@@ -149,15 +149,20 @@ const ORDER = ["permission", "waiting", "working", "unknown", "frozen", "orphane
    ones at work, then the ones that are only alive, then the ones that are
    over. Within a state the order they came in is kept, so a list does not
    reshuffle while nothing changed. */
-export function byNeed(tiles: Tile[]): Tile[] {
+export function byNeed(tiles: Tile[], first = ""): Tile[] {
   const idle = ORDER.indexOf("unknown");
   const rank = (t: Tile) => {
     const at = ORDER.indexOf(stateOf(t));
     return at < 0 ? idle : at;
   };
+  /* A folder may be named to come first within a state — the project picked at
+     the top. It sorts, it does not filter: the board used to show that project
+     alone, and every other session simply went missing from it. */
+  const here = first.replace(/\/+$/, "");
+  const mine = (t: Tile) => (here && (t.cwd === here || t.cwd.startsWith(`${here}/`)) ? 0 : 1);
   return tiles
     .map((t, i) => ({ t, i, r: rank(t) }))
-    .sort((a, b) => a.r - b.r || (a.r < 2 ? (a.t.since ?? 0) - (b.t.since ?? 0) : 0) || a.i - b.i)
+    .sort((a, b) => a.r - b.r || mine(a.t) - mine(b.t) || (a.r < 2 ? (a.t.since ?? 0) - (b.t.since ?? 0) : 0) || a.i - b.i)
     .map((x) => x.t);
 }
 

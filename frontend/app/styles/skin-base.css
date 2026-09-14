@@ -1128,13 +1128,17 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    see-through window, and the solidity slider moved nothing. Text that has to
    be read keeps its own reading field (.viewerwrap), which each skin dresses. Main's own ground stays transparent and shows
    only in the gaps between its groups; a document standing on it was dark
-   blue code on Windows 95's teal desktop. */
+   blue code on Windows 95's teal desktop. A session is one of those documents:
+   with no ground of its own it was the one region the desktop shone through at
+   full strength while every other one sat at the slider's value — measured 0
+   against 0.60 in the same window. */
 .plxrDock .dv-tabs-container { background: var(--panel-glass); }
 .settingsPanel,
 .editorPanel,
 .diffPanel,
 .preview,
 .overviewPanel,
+.session,
 .foldersPanel { background: var(--panel-glass); color: var(--fg); }
 
 /* A floating group — a panel pulled out of the dock — is a window of the
