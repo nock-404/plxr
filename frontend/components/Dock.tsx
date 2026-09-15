@@ -1487,6 +1487,56 @@ export default function Dock({
       if (e.group?.api.location.type === "edge") e.preventDefault();
     });
 
+    /* Where the room of a closed column goes.
+     *
+     * He put it in one line (translated, 14.09.2026): "when I have set a size
+     * by hand it should stay that way ... the window on the right should grab
+     * the room when something is closed." dockview shares the room out among
+     * every column instead, so each one he had sized moves a little and none
+     * of them is where he put it any more.
+     *
+     * So the widths are kept as they were laid out, and when a column goes,
+     * every other column is put back at its own width and the one to its right
+     * takes the whole of what it left. With nothing to its right — the last
+     * column closing — the one to its left takes it, which is the same rule
+     * read the other way: the room goes to the neighbour, not to everybody. */
+    let widths = new Map<string, { x: number; y: number; w: number; h: number }>();
+    const readWidths = () => {
+      const next = new Map<string, { x: number; y: number; w: number; h: number }>();
+      for (const g of gridGroupsOf(dv)) {
+        const r = g.element.getBoundingClientRect();
+        if (r.width > 0) next.set(g.id, { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) });
+      }
+      if (next.size) widths = next;
+    };
+    const giveRoomToNeighbour = (gone: DockviewGroupPanel) => {
+      const was = widths.get(gone.id);
+      const left = gridGroupsOf(dv);
+      if (!was || left.length === 0) return;
+      /* Its neighbour: the column that stood beside it in the same row — the
+         one on its right, or else the one on its left. */
+      const beside = (side: "right" | "left") =>
+        left
+          .map((g) => ({ g, box: widths.get(g.id) }))
+          .filter((x): x is { g: DockviewGroupPanel; box: { x: number; y: number; w: number; h: number } } => Boolean(x.box))
+          .filter((x) => x.box.y < was.y + was.h && was.y < x.box.y + x.box.h)
+          .filter((x) => (side === "right" ? x.box.x >= was.x + was.w - 2 : x.box.x + x.box.w <= was.x + 2))
+          .sort((a, b) => (side === "right" ? a.box.x - b.box.x : b.box.x - a.box.x))[0];
+      const heir = beside("right") ?? beside("left");
+      if (!heir) return;
+      for (const g of left) {
+        const box = widths.get(g.id);
+        if (!box) continue;
+        const want = g === heir.g ? box.w + was.w : box.w;
+        try {
+          g.api.setSize({ width: want });
+        } catch {
+          /* a column that went with it */
+        }
+      }
+      readWidths();
+    };
+
     /* The frame's bounds are re-asserted whenever a group comes or goes —
        a drag that makes a new group, a column that is closed. Guarded against
        its own echo: setting a size is itself a layout change. */
@@ -1502,8 +1552,14 @@ export default function Dock({
         }, 0);
       }
     };
-    dv.onDidAddGroup(reassert);
-    dv.onDidRemoveGroup(reassert);
+    dv.onDidAddGroup(() => {
+      reassert();
+      readWidths();
+    });
+    dv.onDidRemoveGroup((gone) => {
+      reassert();
+      if (gone.api.location.type === "grid") giveRoomToNeighbour(gone);
+    });
 
     /* Save the arrangement whenever it changes — debounced, because a drag
        fires many times. dockview does not report an edge shown, hidden or
@@ -1523,7 +1579,10 @@ export default function Dock({
       }, 400);
     };
     saveRef.current = save;
-    dv.onDidLayoutChange(save);
+    dv.onDidLayoutChange(() => {
+      readWidths();
+      save();
+    });
 
     /* Main's floor. dockview lets the grid shrink under a tool window when the
        window is narrow, down to a hundred pixels of its own; so after every
