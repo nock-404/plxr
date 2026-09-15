@@ -686,6 +686,7 @@ export default function App() {
   const shell = useMemo<ShellActions>(
     () => ({
       newSession: () => setCreating(true),
+      pickProject,
       newShell: () =>
         void api
           .create(project.path, [])
@@ -694,7 +695,7 @@ export default function App() {
       templates: () => setTemplates(true),
       resetLayout: () => direct({ type: "reset" }),
     }),
-    [project.path, direct],
+    [project.path, direct, pickProject],
   );
   // Opening a session from outside the dock — a new one just created, a row of
   // the session switch — asks the dock to bring it up; inside the dock the

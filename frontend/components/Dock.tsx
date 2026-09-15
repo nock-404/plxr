@@ -20,6 +20,7 @@ import { InlineStrip } from "@/components/ui/TopStrip";
 import { showFront } from "@/lib/front";
 
 import Overview from "@/components/views/Overview";
+import Projects from "@/components/views/Projects";
 import Inbox from "@/components/views/Inbox";
 import Folders from "@/components/views/Folders";
 import Ports from "@/components/views/Ports";
@@ -115,6 +116,8 @@ const diffId = (rootId: string, path: string, staged: boolean, base = "") =>
    right-click on nothing in particular is not a dead end. */
 export type ShellActions = {
   newSession: () => void;
+  // The project the tools follow, picked from a panel rather than the switch.
+  pickProject: (path: string) => void;
   newShell: () => void;
   templates: () => void;
   resetLayout: () => void;
@@ -230,6 +233,10 @@ function OverviewPanel() {
       onTemplates={d.shell?.templates}
     />
   );
+}
+function ProjectsPanel() {
+  const d = useDock();
+  return <Projects tiles={d.tiles} project={d.project} onPick={(path) => d.shell?.pickProject(path)} />;
 }
 function InboxPanel() {
   const d = useDock();
@@ -736,6 +743,7 @@ function tool(id: ToolId, Body: () => ReactNode) {
    own id — the compiler holds that below. */
 const components = {
   overview: OverviewPanel,
+  projects: tool("projects", ProjectsPanel),
   preview: PreviewPanel,
   diff: DiffPanel,
   editor: EditorPanel,

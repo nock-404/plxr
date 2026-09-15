@@ -1263,6 +1263,14 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 
 /* A port row: the number in the accent, because that is what is looked up. */
 .row.port .hitDate { color: var(--accent); }
+/* A project row: the one that is followed is lit, the sessions waiting in a
+   project are said in the colour the board says them in. */
+.row.project[data-lit="yes"] { color: var(--accent); }
+.row.project[data-lit="yes"] .projectMark { color: var(--accent); }
+.projectMark { color: var(--dim); }
+.projectAsks { color: var(--blocked); }
+.projectBusy { color: var(--working); }
+.projectCounts { font-size: 0.82em; }
 
 /* The limits on the status row: the share used in the text colour, the
    warning colour past the threshold, the blocked colour once a window is

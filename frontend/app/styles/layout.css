@@ -425,6 +425,13 @@ body {
  * to go: the number is as narrow as its digits, the name takes what is left,
  * and the details drop out as the column gets narrower. */
 .row.port { gap: 0.5rem; padding: 0.2rem 0.625rem; }
+/* A project row: its mark, its name, its path and what is going on in it. A
+   folder under a project is indented by the width of that mark. */
+.row.project { gap: 0.5rem; padding: 0.25rem 0.625rem; text-align: left; width: 100%; }
+.projectMark { flex: 0 0 auto; display: inline-flex; width: 1em; height: 1em; }
+.projectCounts { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+.row.project .hitTitle { flex: 0 1 auto; min-width: 3rem; }
+.row.project .hitProject { flex: 1 1 auto; min-width: 0; max-width: none; }
 .row.port .hitDate { width: auto; min-width: 3.25rem; text-align: right; }
 .row.port .hitTitle { flex: 1 1 auto; min-width: 3rem; }
 .row.port .hitProject { flex: 0 1 auto; min-width: 0; max-width: 8rem; }

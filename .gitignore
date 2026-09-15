@@ -4,6 +4,10 @@ frontend/.next/
 frontend/node_modules/
 build/plxr.app/
 build/darwin/
+# The packaged archives and the cross-built exe: they belong on a release, not
+# in the history — they were adding about 24 MB to it per version.
+build/*.zip
+build/plxr.exe
 
 # Machine-local records, not part of the source.
 .seen

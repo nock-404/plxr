@@ -26,7 +26,7 @@ export const EDGES: readonly Edge[] = ["left", "right", "bottom", "bottomRight"]
 // The two halves of the bottom section, in the order they stand.
 export const FLOOR: readonly Edge[] = ["bottom", "bottomRight"];
 
-export type ToolId = "files" | "changes" | "search" | "review" | "inbox" | "usage" | "ports" | "archive" | "notes";
+export type ToolId = "projects" | "files" | "changes" | "search" | "review" | "inbox" | "usage" | "ports" | "archive" | "notes";
 
 export type ToolDef = {
   id: ToolId;
@@ -45,6 +45,9 @@ export type ToolDef = {
 /* In the order they stand on their edges. The file tree wears a mark of its
    own; the folder's stays the project's. */
 export const TOOLS: readonly ToolDef[] = [
+  /* Every project there is, and what is going on in each: the one tool that is
+     not about the project being worked in but about all of them. */
+  { id: "projects", icon: "folder", key: "tool.projects", fallback: "Projects", scope: "global", edge: "left", keepMounted: false },
   { id: "files", icon: "files", key: "tool.files", fallback: "Files", scope: "project", edge: "left", keepMounted: true },
   { id: "changes", icon: "changes", key: "tool.changes", fallback: "Changes", scope: "project", edge: "left", keepMounted: false },
   { id: "search", icon: "search", key: "tool.search", fallback: "Search", scope: "project", edge: "left", keepMounted: false },

@@ -138,7 +138,10 @@ const oldNesting = JSON.parse(readFileSync(join(HERE, "frontend", "lib", "dock-b
    the page: dockview takes a tool that is not in front of its edge out of the
    page once that edge has been shown, so counting windows on screen would
    count only the ones in front. */
-const TOOL_IDS = ["archive", "changes", "files", "inbox", "notes", "ports", "review", "search", "usage"];
+const TOOL_IDS = ["archive", "changes", "files", "inbox", "notes", "ports", "projects", "review", "search", "usage"];
+/* A tool wears the mark of its own name, except where the registry says
+   otherwise: the projects tool wears the folder, which is what a project is. */
+const MARKS = { projects: "folder" };
 const leafViews = (node) => (!node ? [] : node.type === "leaf" ? node.data?.views ?? [] : (node.data ?? []).flatMap(leafViews));
 const placed = (dock) => ({
   edges: Object.values(dock?.edgeGroups ?? {}).flatMap((e) => e?.group?.views ?? []),
@@ -374,7 +377,7 @@ const HELPERS = `${GATEKIT}
   const menuRows = () => [...document.querySelectorAll('body > .menu > *')].map(e => e.classList.contains('menuSep') ? '---' : e.classList.contains('menuHeader') ? '# ' + e.textContent.trim() : ((e.querySelector('.menuLabel') || {}).textContent || '').trim() + ((e.querySelector('.menuHint') || {}).textContent ? ' [' + e.querySelector('.menuHint').textContent.trim() + ']' : ''));
   const closeMenu = async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(150); };
   const near = (a, b, t) => a !== null && b !== null && Math.abs(a - b) <= (t || 1);
-  const TOOL_IDS = ['files', 'changes', 'search', 'review', 'inbox', 'usage', 'ports', 'archive', 'notes'];
+  const TOOL_IDS = ['projects', 'files', 'changes', 'search', 'review', 'inbox', 'usage', 'ports', 'archive', 'notes'];
   const order = e => [...document.querySelectorAll('.stripe[data-edge="' + e + '"] .stripeIcon[data-tool]')].map(i => i.dataset.tool);
   const menuChecked = () => [...document.querySelectorAll('body > .menu .menuItem[aria-checked="true"]')].map(e => ((e.querySelector('.menuLabel') || {}).textContent || '').trim());
 `;
@@ -434,7 +437,7 @@ const frame = await run(`${HELPERS}
     `main ${show(f.grid)} · icons inside the dock ${f.icons.filter((i) => i.inDock).length} · rail elements ${f.rail}`);
   const order = f.icons.map((i) => `${i.edge}:${i.tool}`).join(" ");
   claim("every tool is an icon exactly once, in the default order, wearing its registry mark",
-    order === "left:files left:changes left:search left:review right:inbox right:usage right:ports right:archive right:notes" && f.icons.every((i) => i.mark === i.tool),
+    order === "left:projects left:files left:changes left:search left:review right:inbox right:usage right:ports right:archive right:notes" && f.icons.every((i) => i.mark === (MARKS[i.tool] ?? i.tool)),
     `${order} · marks ${f.icons.map((i) => i.mark).join(",")}`);
 }
 
@@ -767,7 +770,7 @@ async function carry(tool, to, { escape = false, shot = "" } = {}) {
   return { from, mid };
 }
 const settledPlaces = (p) => JSON.stringify([p.left, p.right, p.bottom]);
-const DEFAULT_PLACES = JSON.stringify([["files", "changes", "search", "review"], ["inbox", "usage", "ports", "archive", "notes"], []]);
+const DEFAULT_PLACES = JSON.stringify([["projects", "files", "changes", "search", "review"], ["inbox", "usage", "ports", "archive", "notes"], []]);
 
 await run(`${HELPERS} await hideAll(); document.activeElement?.blur?.();`);
 const bottomSpot = await run(`${HELPERS} const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { x: b.x + 90, y: b.y + b.h / 2 };`);
@@ -1054,8 +1057,8 @@ if (!documents.why) {
     JSON.stringify(moved),
   );
   claim(
-    "a document dragged onto a tool window's centre, its edges, the grid's outer edge or a stripe stays in main, every edge holds tools only and every stripe its nine icons",
-    drops.length === 7 && drops.every((d) => d.intercepted && d.inMain && d.inTools === 0 && (d.onStripes ?? 0) === 0 && (d.icons ?? 9) === 9),
+    "a document dragged onto a tool window's centre, its edges, the grid's outer edge or a stripe stays in main, every edge holds tools only and every stripe its ten icons",
+    drops.length === 7 && drops.every((d) => d.intercepted && d.inMain && d.inTools === 0 && (d.onStripes ?? 0) === 0 && (d.icons ?? 10) === 10),
     drops.map((d) => `${d.zone}: in main ${d.inMain}, non-tools in edges ${d.inTools}${d.icons !== undefined ? `, on the stripes ${d.onStripes}, icons ${d.icons}` : ""}`).join(" · "),
   );
 }
@@ -1204,7 +1207,7 @@ for (const w of [1600, 1100, 900, 700, 1600]) {
    is kept, in prefs, and the window is loaded again. */
 await run(`${HELPERS} await hideAll();`);
 await sleep(900);
-await api("/api/prefs", { method: "PUT", body: JSON.stringify({ toolLayout: { v: 1, order: { left: ["files", "changes", "search", "review"], right: ["usage", "ports", "archive", "notes"], bottom: ["inbox"] } } }) });
+await api("/api/prefs", { method: "PUT", body: JSON.stringify({ toolLayout: { v: 1, order: { left: ["projects", "files", "changes", "search", "review"], right: ["usage", "ports", "archive", "notes"], bottom: ["inbox"] } } }) });
 await load();
 /* Two splits in main: whatever group holds more than one tab gives up its
    last tab downwards, beside the column the drops above left. */
@@ -1539,7 +1542,7 @@ if (splitSetup.why || splitSetup.groups.length < 3) {
   }
 
   // The sections after this one start from the Inbox on the bottom edge and nothing else changed.
-  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ dock: null, dockSizes: null, toolLayout: { v: 1, order: { left: ["files", "changes", "search", "review"], right: ["usage", "ports", "archive", "notes"], bottom: ["inbox"] } } }) });
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ dock: null, dockSizes: null, toolLayout: { v: 1, order: { left: ["projects", "files", "changes", "search", "review"], right: ["usage", "ports", "archive", "notes"], bottom: ["inbox"] } } }) });
   await load();
   await run(`${HELPERS} await hideAll(); await openSession(/plxr-stripes-check/); await wait(1500);`);
 }
@@ -1804,11 +1807,11 @@ const heads = await run(`${HELPERS}
   return res;
 `);
 {
-  const own = { files: ["files-refresh"], usage: ["usage-reload"], ports: ["ports-reload"] };
+  const own = { projects: ["projects-reload"], files: ["files-refresh"], usage: ["usage-reload"], ports: ["ports-reload"] };
   const ids = Object.keys(heads);
   claim(
-    "no tool window carries a prompt, and the tools with actions of their own wear them in the header: Files its refresh, Usage and Ports their reload",
-    ids.length === 9 && ids.every((id) => heads[id].prompts === 0 && JSON.stringify(heads[id].actions) === JSON.stringify(own[id] ?? [])),
+    "no tool window carries a prompt, and the tools with actions of their own wear them in the header: Files its refresh, Projects, Usage and Ports their reload",
+    ids.length === 10 && ids.every((id) => heads[id].prompts === 0 && JSON.stringify(heads[id].actions) === JSON.stringify(own[id] ?? [])),
     ids.map((id) => `${id}: ${heads[id].prompts} prompts, ${heads[id].actions.join(",") || "no actions"}`).join(" · "),
   );
   claim(
@@ -1968,7 +1971,7 @@ const sameMain = (a, b, tol = 2) => Boolean(a && b) && a.main.length === b.main.
 const sameTabs = (a, b) => Boolean(a && b) && JSON.stringify(a.main.map((g) => g.tabs.join("+"))) === JSON.stringify(b.main.map((g) => g.tabs.join("+")));
 /* JSON compared as data: the service hands objects back with their keys sorted. */
 const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([p], [q]) => (p < q ? -1 : p > q ? 1 : 0))) : x));
-const DEFAULT_ORDER = { left: ["files", "changes", "search", "review"], right: ["inbox", "usage", "ports", "archive", "notes"], bottom: [], bottomRight: [] };
+const DEFAULT_ORDER = { left: ["projects", "files", "changes", "search", "review"], right: ["inbox", "usage", "ports", "archive", "notes"], bottom: [], bottomRight: [] };
 const bottomSpotNow = () => run(`${HELPERS} const b = box(document.querySelector('.stripe[data-edge="bottom"]')); return { x: b.x + 90, y: b.y + b.h / 2 };`);
 
 await view(1600);

@@ -32,12 +32,12 @@ const complete = (layout) => {
 const def = defaultToolLayout();
 claim(def.v === 1, "the default layout is not version 1");
 claim(complete(def), `the default layout does not hold every tool exactly once: ${JSON.stringify(def.order)}`);
-claim(same(def.order.left, ["files", "changes", "search", "review"]), `the left edge starts wrong: ${def.order.left}`);
+claim(same(def.order.left, ["projects", "files", "changes", "search", "review"]), `the left edge starts wrong: ${def.order.left}`);
 claim(same(def.order.right, ["inbox", "usage", "ports", "archive", "notes"]), `the right edge starts wrong: ${def.order.right}`);
 claim(def.order.bottom.length === 0, `the bottom edge does not start empty: ${def.order.bottom}`);
 claim(defaultToolLayout() !== def && defaultToolLayout().order.left !== def.order.left, "two defaults share their lists");
 claim(isTool("files") && isTool("notes") && !isTool("overview") && !isTool("session:abc") && !isTool(""), "isTool says the wrong thing");
-claim(new Set(ids).size === ids.length && ids.length === 9, `the registry does not list nine different tools: ${ids}`);
+claim(new Set(ids).size === ids.length && ids.length === 10, `the registry does not list ten different tools: ${ids}`);
 
 // ---- normalizing what was saved -----------------------------------------------
 const messy = normalizeToolLayout({
@@ -49,7 +49,7 @@ const messy = normalizeToolLayout({
   },
 });
 claim(complete(messy), `a messy layout did not come out with every tool once: ${JSON.stringify(messy.order)}`);
-claim(same(messy.order.left, ["changes", "files", "search", "review"]), `unknown ids and duplicates were not dropped on the left, or a missing tool not appended: ${messy.order.left}`);
+claim(same(messy.order.left, ["changes", "files", "projects", "search", "review"]), `unknown ids and duplicates were not dropped on the left, or a missing tool not appended: ${messy.order.left}`);
 claim(same(messy.order.right, ["inbox", "ports", "archive", "notes"]), `a tool named twice was not kept where it was named first: ${messy.order.right}`);
 claim(same(messy.order.bottom, ["usage"]), `a tool he put at the bottom did not stay there: ${messy.order.bottom}`);
 const partial = normalizeToolLayout({ v: 1, order: { right: ["notes"] } });
@@ -67,14 +67,14 @@ claim(edgeOf(old, "usage") === "right" && !old.order.right.includes("inbox"), `u
 claim(same(old.order.left, def.order.left), `the editor's region or the folders changed the tools: ${old.order.left}`);
 const across = fromRegions({ changes: "right", notes: "left", search: "left" });
 claim(same(across.order.right, ["inbox", "usage", "ports", "archive", "changes"]), `a moved tool does not come after the tools that start there: ${across.order.right}`);
-claim(same(across.order.left, ["files", "search", "review", "notes"]), `a region a tool already starts in moved it: ${across.order.left}`);
+claim(same(across.order.left, ["projects", "files", "search", "review", "notes"]), `a region a tool already starts in moved it: ${across.order.left}`);
 for (const junk of [null, undefined, "left", 5, { inbox: "sideways" }, { toString: "bottom" }]) {
   claim(same(fromRegions(junk), def), `old regions ${JSON.stringify(junk)} did not come out as the default layout`);
 }
 
 // ---- moving a tool ------------------------------------------------------------
 const first = moveInLayout(def, "inbox", "left", 0);
-claim(same(first.order.left, ["inbox", "files", "changes", "search", "review"]) && !first.order.right.includes("inbox"), `a move to the first index went wrong: ${JSON.stringify(first.order)}`);
+claim(same(first.order.left, ["inbox", "projects", "files", "changes", "search", "review"]) && !first.order.right.includes("inbox"), `a move to the first index went wrong: ${JSON.stringify(first.order)}`);
 const last = moveInLayout(def, "files", "right", 5);
 claim(same(last.order.right, ["inbox", "usage", "ports", "archive", "notes", "files"]) && !last.order.left.includes("files"), `a move to the last index went wrong: ${JSON.stringify(last.order)}`);
 const beyond = moveInLayout(def, "files", "bottom", 99);
@@ -83,9 +83,9 @@ const below = moveInLayout(def, "files", "right", -3);
 claim(below.order.right[0] === "files", `a negative index did not land first: ${below.order.right}`);
 // Within one edge the index counts the icons without the one being moved.
 const down = moveInLayout(def, "files", "left", 2);
-claim(same(down.order.left, ["changes", "search", "files", "review"]), `a reorder down the same edge went wrong: ${down.order.left}`);
+claim(same(down.order.left, ["projects", "changes", "files", "search", "review"]), `a reorder down the same edge went wrong: ${down.order.left}`);
 const up = moveInLayout(def, "review", "left", 0);
-claim(same(up.order.left, ["review", "files", "changes", "search"]), `a reorder up the same edge went wrong: ${up.order.left}`);
+claim(same(up.order.left, ["review", "projects", "files", "changes", "search"]), `a reorder up the same edge went wrong: ${up.order.left}`);
 claim([first, last, beyond, below, down, up].every(complete), "a move lost or doubled a tool");
 claim(same(def, defaultToolLayout()), "a move changed the layout it was given");
 claim(edgeOf(first, "inbox") === "left" && edgeOf(def, "inbox") === "right", "edgeOf does not follow the layout");

@@ -265,8 +265,8 @@ claim("the menu is opaque (background alpha 1)", menu && menu.alpha === 1, menu 
 claim("every group is there: Actions, Tools, Tool windows, Documents, Help", menu && ["Actions", "Tools", "Tool windows", "Documents", "Help"].every((h) => menu.heads.includes(h)), menu ? menu.heads.join(" · ") : "");
 const wantRows = ["Search commands…", "New session", "Templates", "Settings", "PAUSE ALL", "Reset the panel layout", "Workbench", "Workshop", "frame-rate readout", "Files", "Inbox", "Changes", "Ports", "Usage", "Archive", "Overview", "Project overview", "Keyboard"];
 claim("every action row is there (" + wantRows.length + ")", menu && wantRows.every((r) => menu.rows.includes(r)), menu ? `${menu.rows.length} rows: ${menu.rows.join(" · ")}` : "");
-// The three tools of the window and the nine tool windows are switches, each with its tick cell.
-claim("the tools and the tool windows carry a check cell and the rows their keys", menu && menu.checks === 12 && menu.hints.includes("⌘K") && menu.hints.includes("⌘1") && menu.hints.includes("⌘3"), menu ? `${menu.checks} checks · hints ${menu.hints.join(" ")}` : "");
+// The three tools of the window and the ten tool windows are switches, each with its tick cell.
+claim("the tools and the tool windows carry a check cell and the rows their keys", menu && menu.checks === 13 && menu.hints.includes("⌘K") && menu.hints.includes("⌘1") && menu.hints.includes("⌘3"), menu ? `${menu.checks} checks · hints ${menu.hints.join(" ")}` : "");
 
 // Workbench from the menu, by the pointer alone.
 const wbRow = await tab.run(`${HELPERS} const b = menuRow(/^Workbench$/); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);
@@ -1152,7 +1152,7 @@ const portsN = await api("/api/ports").then((r) => r.json()).then((l) => l?.leng
 const archiveN = await api("/api/archive").then((r) => r.json()).then((l) => l?.length ?? 0).catch(() => -1);
 const numbered = iconBadges.filter((i) => i.badge && i.id !== "usage");
 claim("of the stripe icons only the inbox carries a number, the sessions waiting for an answer — the ports and the archive none",
-  iconBadges.length === 9 && numbered.length === 1 && numbered[0].id === "inbox" && numbered[0].badge === String(waitingN),
+  iconBadges.length === 10 && numbered.length === 1 && numbered[0].id === "inbox" && numbered[0].badge === String(waitingN),
   `${iconBadges.filter((i) => i.badge).map((i) => `${i.id} "${i.badge}"`).join(" · ") || "no badges"} · the service counts ${portsN} ports and ${archiveN} archived conversations`);
 for (const id of Object.values(herdIds)) await api(`/api/sessions/${encodeURIComponent(id)}?purge=1`, { method: "DELETE" }).catch(() => undefined);
 

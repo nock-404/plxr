@@ -148,6 +148,11 @@ def main():
             # article, in a shell script. Skip that one word there — real
             # German in .sh is still caught by every other word and by umlauts.
             words = WORDS - ({'die'} if rel.endswith('.sh') else set())
+            # `alt` is HTML's attribute for what a picture says, not the German
+            # word, wherever markup is written. A picture without one is a
+            # picture a screen reader cannot read, so this may not be avoided.
+            if 'alt="' in line or "alt='" in line:
+                words = words - {'alt'}
             for w in WORD_RE.findall(low):
                 if w in words:
                     hits.append((rel, nr, f'Wort "{w}"', line.strip()[:70]))

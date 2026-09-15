@@ -26,7 +26,7 @@
 export const GATEKIT = `
   /* Nonzero once the window has rendered its frame: all nine tool icons on
      their stripes. */
-  function appUp() { const n = stripeIcons().length; return n === 9 ? n : 0; }
+  function appUp() { const n = stripeIcons().length; return n === 10 ? n : 0; }
 
   /* Every tool's icon, the left stripe's from the top, then the right one's,
      then the bottom one's from the left. */
