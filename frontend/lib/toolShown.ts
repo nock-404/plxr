@@ -21,3 +21,9 @@ export function useToolShown(): boolean {
    ⋮ and the —. Undefined outside a tool window, null for the moment before
    the header is on the page (components/stripes/ToolActions). */
 export const ToolActionSlot = createContext<HTMLElement | null | undefined>(undefined);
+
+/* Where a tool's one line about itself goes — "9 listening", "12 changes" —
+   beside its name in the header. It used to be a strip of its own under the
+   header, a whole row of the window for one short phrase: "that only eats
+   room" (15.09.2026). Same rules as the actions above. */
+export const ToolNoteSlot = createContext<HTMLElement | null | undefined>(undefined);

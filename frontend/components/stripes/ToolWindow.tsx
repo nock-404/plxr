@@ -8,7 +8,7 @@ import { useMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
 import { bindingOf, caption, type Action } from "@/lib/keymap";
 import { TOOLS, type Edge, type ToolId } from "@/lib/tools";
-import { ToolActionSlot, ToolShown } from "@/lib/toolShown";
+import { ToolActionSlot, ToolNoteSlot, ToolShown } from "@/lib/toolShown";
 
 /* A tool window: a header, and the tool under it.
  *
@@ -53,6 +53,8 @@ export default function ToolWindow({
   const [focused, setFocused] = useState(false);
   // The header's slot for the tool's own actions (ToolActions draws into it).
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
+  // The header's slot for the tool's one line about itself (ToolNote draws into it).
+  const [noteSlot, setNoteSlot] = useState<HTMLElement | null>(null);
   const chord = edge ? caption(bindingOf(EDGE_CHORD[edge])) : "";
   const title = tr(def.key, def.fallback);
   const hideText = tr("tool.hide", "Hide");
@@ -78,6 +80,7 @@ export default function ToolWindow({
           <Icon name={def.icon} />
         </span>
         <span className="toolTitle">{title}</span>
+        <span className="toolNote" ref={setNoteSlot} />
         <span className="toolActions" ref={setActionSlot} />
         <Tooltip text={tr("tool.more", "More")}>
           <Button
@@ -100,7 +103,9 @@ export default function ToolWindow({
       </div>
       <div className="toolBody">
         <ToolShown.Provider value={lit}>
-          <ToolActionSlot.Provider value={actionSlot}>{lit || def.keepMounted ? children : null}</ToolActionSlot.Provider>
+          <ToolActionSlot.Provider value={actionSlot}>
+            <ToolNoteSlot.Provider value={noteSlot}>{lit || def.keepMounted ? children : null}</ToolNoteSlot.Provider>
+          </ToolActionSlot.Provider>
         </ToolShown.Provider>
       </div>
     </div>

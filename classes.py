@@ -35,6 +35,9 @@ LAYOUT_ONLY = {
     # is dressed by every skin.
     "app", "body", "stage", "content", "grid", "list", "listbody", "panes",
     "work", "workstrip", "workrow", "floor",
+    # The slot in a tool's header for its one line about itself: it holds the
+    # line, the line carries its own colour (.meta).
+    "toolNote",
     # The status line's rows: the breadcrumb's row, a crumb's name that gives way
     # to an ellipsis, and the row of facts. Each crumb and fact dresses itself.
     "statusCrumbs", "statusCrumbName", "statusFacts",

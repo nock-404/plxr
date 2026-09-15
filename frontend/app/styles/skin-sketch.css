@@ -150,7 +150,7 @@
 [data-skin="sketch"] .stripe { background: var(--chrome-glass); }
 [data-skin="sketch"] .stripe[data-edge="left"] { box-shadow: inset calc(var(--ink) * -1) 0 0 var(--fg); }
 [data-skin="sketch"] .stripe[data-edge="right"] { box-shadow: inset var(--ink) 0 0 var(--fg); }
-[data-skin="sketch"] .stripe[data-edge="bottom"] { box-shadow: inset 0 var(--ink) 0 var(--fg); }
+[data-skin="sketch"] .stripe[data-edge="bottom"], [data-skin="sketch"] .stripe[data-edge="bottomRight"] { box-shadow: inset 0 var(--ink) 0 var(--fg); }
 [data-skin="sketch"] .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 14%, transparent); }
 [data-skin="sketch"] .stripe[data-drop="yes"] { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 [data-skin="sketch"] .stripeGap { border: var(--ink) dashed var(--accent); border-radius: .5rem .25rem .44rem .3rem / .3rem .44rem .25rem .5rem; }

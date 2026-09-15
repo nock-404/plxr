@@ -170,9 +170,18 @@ const run = async (expression) => {
    way to catch a second pane of glass stacked on a first, which computed
    styles alone never showed. */
 const LAYERS = {
-  panel: [".filetree", ".pterm", ".overviewPanel", ".settingsPanel"],
-  chrome: [".bar", ".statusbar", '.stripe[data-edge="left"]', ".plxrDock .dv-tabs-container"],
+  panel: [".filetree", ".pterm", ".overviewPanel", ".settingsPanel", ".toolWindow"],
+  /* The tab strip's pane is on the outer box — the actions container. The inner
+     tabs container is clear, and reading it read whatever was behind it. */
+  chrome: [".bar", ".statusbar", '.stripe[data-edge="left"]', ".plxrDock .dv-tabs-and-actions-container"],
 };
+
+const PLAIN = `(() => {
+  const html = document.documentElement;
+  html.style.background = "#808080";
+  html.style.backgroundAttachment = "fixed";
+  return true;
+})()`;
 
 const PATTERN = `(() => {
   const html = document.documentElement;
@@ -208,25 +217,63 @@ async function average(box) {
 
 const far = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
 
+/* The status line runs the whole width of the window, so it is the one surface
+   that can be read at both edges and in the middle. */
+async function ends(skin) {
+  const prefs = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
+  const theme = { ...(prefs.theme ?? {}), skin, seethrough: true, panelSolid: 40, chromeSolid: 40, windowSolid: 40, gradient: false, scanOn: true };
+  await api("/api/prefs", { method: "PUT", body: JSON.stringify({ ...prefs, theme }) });
+  await sleep(2200);
+  await run(PLAIN);
+  await sleep(300);
+  const box = await run(`(() => {
+    const el = document.querySelector(".statusbar");
+    if (!el) return "";
+    el.dataset.glassRead = "yes";
+    for (const kid of el.querySelectorAll("*")) kid.style.visibility = "hidden";
+    const r = el.getBoundingClientRect();
+    return JSON.stringify({ x: Math.round(r.x), y: Math.round(r.y + 3), width: Math.round(r.width), height: Math.max(6, Math.round(r.height - 6)) });
+  })()`);
+  if (!box) return null;
+  const r = JSON.parse(box);
+  const wide = Math.min(120, Math.round(r.width / 6));
+  const left = await average({ x: r.x + 2, y: r.y, width: wide, height: r.height });
+  const middle = await average({ x: Math.round(r.x + r.width / 2 - wide / 2), y: r.y, width: wide, height: r.height });
+  const right = await average({ x: r.x + r.width - wide - 2, y: r.y, width: wide, height: r.height });
+  await run(`(() => { const el = document.querySelector('[data-glass-read="yes"]'); if (!el) return false; for (const kid of el.querySelectorAll("*")) kid.style.visibility = ""; delete el.dataset.glassRead; return true; })()`);
+  return { left, middle, right, worst: Math.max(far(left, middle), far(middle, right), far(left, right)) };
+}
+
 async function layers(skin, panelSolid, chromeSolid) {
   const prefs = await api("/api/prefs").then((r) => r.json()).catch(() => ({}));
   const theme = { ...(prefs.theme ?? {}), skin, seethrough: true, panelSolid, chromeSolid, windowSolid: 0, gradient: false, scanOn: false };
   await api("/api/prefs", { method: "PUT", body: JSON.stringify({ ...prefs, theme }) });
   await sleep(2200);
-  await run(PATTERN);
+  /* One colour behind the page, not a pattern: then two samples can only differ
+     by the glass over them, never by which part of a chequerboard they happened
+     to sit on. What the pattern was for — a second pane stacked on a first —
+     reads here just as well, as a darker sample. */
+  await run(PLAIN);
   await sleep(300);
-  /* The ground alone: what stands on a surface — rows, tiles, words — is put
-     out of sight while it is read, or the sample says more about the text in a
-     panel than about the pane of glass under it. */
-  await run(`(() => { document.querySelectorAll('.app *').forEach((el) => { if (el.children.length === 0 || el.dataset.glassKeep === 'yes') el.style.visibility = 'hidden'; }); return true; })()`);
-  await sleep(250);
-  const boxes = JSON.parse(await run(boxesOf()));
   const seen = {};
   for (const [name, sels] of Object.entries(LAYERS)) {
     seen[name] = [];
     for (const sel of sels) {
-      if (!boxes[sel]) continue;
-      seen[name].push({ sel, rgb: await average(boxes[sel]) });
+      /* The surface alone: everything standing on it — rows, fields, words —
+         is out of sight while it is read. Hiding only the childless ones left
+         the search field lying over the top bar, and the bar's sample was the
+         field's. */
+      const box = await run(`(() => {
+        const el = [...document.querySelectorAll(${JSON.stringify(sel)})].find((e) => { const r = e.getBoundingClientRect(); return r.width >= 24 && r.height >= 16; });
+        if (!el) return "";
+        el.dataset.glassRead = "yes";
+        for (const kid of el.querySelectorAll("*")) kid.style.visibility = "hidden";
+        const r = el.getBoundingClientRect();
+        return JSON.stringify({ x: Math.round(r.x + 4), y: Math.round(r.y + 4), width: Math.min(120, Math.round(r.width - 8)), height: Math.min(80, Math.round(r.height - 8)) });
+      })()`);
+      if (!box) continue;
+      seen[name].push({ sel, rgb: await average(JSON.parse(box)) });
+      await run(`(() => { const el = document.querySelector('[data-glass-read="yes"]'); if (!el) return false; for (const kid of el.querySelectorAll("*")) kid.style.visibility = ""; delete el.dataset.glassRead; return true; })()`);
     }
   }
   await run(`(() => { document.querySelectorAll('.app *').forEach((el) => { el.style.visibility = ''; }); return true; })()`);
@@ -269,6 +316,17 @@ for (const skin of SKINS) {
     `bars 5% rgb(${first(barsThin, "chrome")}) → 95% rgb(${first(barsThick, "chrome")}) — apart by ${moved(barsThin, barsThick, "chrome")}`);
   claim(`${skin}: the bar slider leaves the panels alone`, moved(barsThin, barsThick, "panel") <= 10,
     `panels rgb(${first(barsThin, "panel")}) → rgb(${first(barsThick, "panel")}) — moved by ${moved(barsThin, barsThick, "panel")}`);
+
+  /* One surface, read at both ends of the window and in its middle. Anything
+     laid over the whole window that is not even — the tube's vignette was up
+     to 34 % black at the edges — shows here and nowhere else: every surface
+     stays exactly as see-through as its slider says, and the frame still reads
+     darker than the middle. That is what he pointed at on 15.09.2026. */
+  const across = await ends(skin);
+  if (across) {
+    claim(`${skin}: the status line reads the same from end to end`, across.worst <= 10,
+      `left rgb(${across.left}) · middle rgb(${across.middle}) · right rgb(${across.right}) — worst gap ${across.worst}`);
+  }
 }
 
 let bad = 0;

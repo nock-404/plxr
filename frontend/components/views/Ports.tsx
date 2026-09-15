@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import TopStrip from "@/components/ui/TopStrip";
+import ToolNote from "@/components/stripes/ToolNote";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
 import Tooltip from "@/components/ui/Tooltip";
@@ -59,11 +59,9 @@ export default function Ports({ onPreview }: { onPreview?: (url: string, title: 
 
   return (
     <section className="list">
-      <TopStrip>
-        <div className="listbar">
-          <span className="meta">{error || `${ports?.length ?? 0} ${tr("ports.open", "listening")}`}</span>
-        </div>
-      </TopStrip>
+      <ToolNote>
+        <span className="meta">{error || `${ports?.length ?? 0} ${tr("ports.open", "listening")}`}</span>
+      </ToolNote>
       <ToolActions>
         <Tooltip text={tr("ports.reloadTip", "Ask again which process holds which port")}>
           <Button icon data-do="ports-reload" aria-label={tr("common.reload", "RELOAD")} onClick={load}>

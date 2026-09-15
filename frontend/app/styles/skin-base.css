@@ -42,7 +42,14 @@
   --term-fg: #ffb000;
 }
 [data-glow="off"] body { text-shadow: none; }
-[data-scan="off"] .fx { background: radial-gradient(#0000 62%,#00000057 100%); }
+/* Scanlines off means nothing over the window. There used to be a vignette
+   here as well — the tube's dark corners, up to 34 % black at the edges of the
+   window — and it could not be turned off at all. Measured on a plain ground
+   with his settings: it took the top bar from 114 to 78 and the status line
+   from 113 to 77 while the board in the middle stayed at 121, so the frame
+   read far darker than the panels and one slider could not make them agree.
+   That is the "doubled glass" he pointed at (15.09.2026). */
+[data-scan="off"] .fx { background: none; }
 .mark { color: var(--accent); }
 .wordmark {
   letter-spacing: .16em;
@@ -95,6 +102,8 @@
 .statusbar {
   color: var(--dim);
   background: var(--chrome-glass);
+  -webkit-backdrop-filter: var(--frost);
+  backdrop-filter: var(--frost);
   border-top: var(--hair) solid var(--line);
   letter-spacing: normal;
   text-transform: none;
@@ -611,7 +620,7 @@
 /* The floating window. On the opaque surface like every popover — it is read
    over a terminal — with the title bar set off from the body. */
 .window { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 1rem 3rem var(--shadow); }
-.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--chrome-glass); }
+.windowHead { border-bottom: var(--hair) solid var(--line); background: var(--chrome-glass); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 .windowTitle { color: var(--accent); letter-spacing: .18em; text-transform: uppercase; font-size: .95em; }
 .windowClose { color: var(--dim); }
 .windowClose:hover { color: var(--accent); }
@@ -683,6 +692,18 @@
   --panel-glass: color-mix(in srgb, var(--panel) var(--panelSolid, 62%), transparent);
   --chrome-glass: color-mix(in srgb, var(--panel) var(--chromeSolid, 62%), transparent);
   --bg-glass: color-mix(in srgb, var(--bg) var(--bgSolid, 46%), transparent);
+  /* What a pane of glass does to what is behind it, besides its own colour.
+     One name, read by every surface that carries a pane, so a skin can only
+     ever frost all of them or none.
+     It is none, and here is why it stays none: frosting was on the bars and
+     not on the panels, which made the frame read far darker than the middle
+     over a busy desktop — the "doubled glass" he pointed at (15.09.2026).
+     Measured with it on everywhere, a blur still pulls the colours of whatever
+     lies beside a surface into its edges, so two surfaces of one layer read up
+     to 24 apart on a plain ground. The window's own material frosts what is
+     behind the whole window (the backdrop setting, main.go); a pane inside it
+     is glass, nothing more. */
+  --frost: none;
   /* Glass is for chrome you look at the desktop through; --surface is for
      anything laid OVER content and must be read — menus, dropdowns, dialogs,
      tooltips. It is always fully opaque, never mixed with the solidity slider,
@@ -1023,7 +1044,8 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .plxrDock .dv-tab.dv-active-tab::before { background: var(--dim); }
 .plxrDock .dv-active-group .dv-tab.dv-active-tab { color: var(--accent); }
 .plxrDock .dv-active-group .dv-tab.dv-active-tab::before { background: var(--accent); }
-.plxrDock .dv-tabs-and-actions-container { border-bottom: var(--hair) solid var(--line); }
+.plxrDock .dv-tabs-and-actions-container { border-bottom: var(--hair) solid var(--line); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
+.bar { -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 /* The group that has the keyboard is outlined on the side it meets its
    neighbour, not around the whole box: a frame around every group turns the
    window into a grid of boxes. */
@@ -1162,7 +1184,12 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .preview,
 .overviewPanel,
 .session,
-.foldersPanel { background: var(--panel-glass); color: var(--fg); }
+.foldersPanel {
+  background: var(--panel-glass);
+  color: var(--fg);
+  -webkit-backdrop-filter: var(--frost);
+  backdrop-filter: var(--frost);
+}
 
 /* A floating group — a panel pulled out of the dock — is a window of the
    window: it takes the panel's glass and the skin's blur behind it, so it
@@ -1183,10 +1210,12 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    shows, with a bar on the stripe's outer edge. An edge asked to show with
    nothing on it glows for a moment in the blocked colour. */
 .dockShell { background: transparent; }
-.stripe { background: var(--chrome-glass); }
+.stripe { background: var(--chrome-glass); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 .stripe[data-edge="left"] { box-shadow: inset calc(var(--hair) * -1) 0 0 var(--line); }
 .stripe[data-edge="right"] { box-shadow: inset var(--hair) 0 0 var(--line); }
-.stripe[data-edge="bottom"] { box-shadow: inset 0 var(--hair) 0 var(--line); }
+/* The line where the dock ends runs across the whole row: both halves of the
+   bottom section draw it, or it stops at the split half way across the window. */
+.stripe[data-edge="bottom"], .stripe[data-edge="bottomRight"] { box-shadow: inset 0 var(--hair) 0 var(--line); }
 .stripe[data-flash="yes"] { background: color-mix(in srgb, var(--blocked) 12%, var(--panel)); }
 /* An idle icon is in the text's own colour, not the dim one: dim on the
    stripe's surface was a mark nobody could find. Under the pointer and lit it
@@ -1224,7 +1253,7 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 /* A tool window: the panel surface, a hairline under its header, the name in
    spaced capitals and its mark dim — lit in the accent while the keyboard is
    in the window, so the window says where typing goes. */
-.toolWindow { background: var(--panel-glass); color: var(--fg); }
+.toolWindow { background: var(--panel-glass); color: var(--fg); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
 /* The header's line is drawn inside it, like a stripe's: a border took a pixel
    from its 36 and put its 28 px buttons, and their marks, on half pixels. */
 .toolHead { box-shadow: inset 0 calc(var(--hair) * -1) 0 var(--line); }
