@@ -12,6 +12,7 @@ import { THEME_CHANGED } from "@/lib/theme";
 import { editorPrefs } from "@/lib/prefs";
 import { pluginExtensions, pluginReconfigure } from "@/components/ui/editor/registry";
 import { hasChangeGutter, setBaseline } from "@/components/ui/editor/gutter";
+import { codeColours } from "@/components/ui/editor/syntax";
 
 /* A real editor, wrapped so the rest of the app never sees the library.
  *
@@ -50,6 +51,7 @@ function look() {
   const line = token("line", "#333");
   const blocked = token("blocked", "#f66");
   const working = token("working", "#6c6");
+  const code = codeColours(token);
   return [
     EditorView.theme(
       {
@@ -70,22 +72,25 @@ function look() {
       },
       { dark: true },
     ),
+    /* Every kind of token its own colour (ui/editor/syntax.ts): a string is not
+       a number is not a type is not a function name. They used to share four,
+       so code read as one block. */
     syntaxHighlighting(
       HighlightStyle.define([
-        { tag: tags.keyword, color: accent },
-        { tag: [tags.name, tags.deleted, tags.character, tags.propertyName, tags.macroName], color: fg },
-        { tag: [tags.function(tags.variableName), tags.labelName], color: working },
-        { tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: accent },
-        { tag: [tags.typeName, tags.className, tags.number, tags.changed, tags.annotation, tags.self, tags.namespace], color: working },
-        { tag: [tags.operator, tags.operatorKeyword, tags.url, tags.escape, tags.regexp, tags.link], color: dim },
-        { tag: [tags.meta, tags.comment], color: dim, fontStyle: "italic" },
+        { tag: [tags.keyword, tags.moduleKeyword, tags.controlKeyword, tags.definitionKeyword, tags.operatorKeyword], color: code.keyword },
+        { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.labelName, tags.macroName], color: code.func },
+        { tag: [tags.typeName, tags.className, tags.namespace, tags.annotation, tags.self, tags.standard(tags.name)], color: code.type },
+        { tag: [tags.string, tags.special(tags.string), tags.processingInstruction, tags.inserted, tags.character], color: code.string },
+        { tag: [tags.number, tags.bool, tags.atom, tags.constant(tags.name), tags.color, tags.unit], color: code.number },
+        { tag: [tags.name, tags.variableName, tags.propertyName, tags.attributeName, tags.deleted], color: code.variable },
+        { tag: [tags.operator, tags.punctuation, tags.separator, tags.bracket, tags.derefOperator, tags.escape, tags.regexp], color: code.operator },
+        { tag: [tags.url, tags.link], color: code.string, textDecoration: "underline" },
+        { tag: [tags.meta, tags.comment, tags.lineComment, tags.blockComment, tags.docComment], color: code.comment, fontStyle: "italic" },
         { tag: tags.strong, fontWeight: "bold" },
         { tag: tags.emphasis, fontStyle: "italic" },
         { tag: tags.strikethrough, textDecoration: "line-through" },
-        { tag: tags.heading, fontWeight: "bold", color: accent },
-        { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: working },
-        { tag: [tags.processingInstruction, tags.string, tags.inserted], color: working },
-        { tag: tags.invalid, color: blocked },
+        { tag: tags.heading, fontWeight: "bold", color: code.keyword },
+        { tag: tags.invalid, color: code.invalid },
       ]),
     ),
   ];

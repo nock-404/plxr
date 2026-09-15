@@ -721,8 +721,17 @@ body {
 
 /* rules, the diff and playback lie across the layout */
 .overlay { position: absolute; inset: 0; z-index: 4; display: flex; flex-direction: column; }
-.overlayBar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.75rem; }
-.overlayName { flex: 0 0 auto; }
+/* The editor's own bar: the file, what is going on with it, and the buttons.
+   In a narrow column the row used to run over its own height — the line about
+   the keys wrapped across SAVE and CLOSE — so nothing wraps here, the buttons
+   keep their size, and the words give way in the order they can be missed:
+   the keys first, then the name. */
+.overlayBar { display: flex; align-items: center; gap: 0.625rem; flex: 0 0 auto; height: var(--strip-h); padding: 0 0.75rem; flex-wrap: nowrap; overflow: hidden; }
+.overlayName { flex: 0 1 auto; min-width: 3rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overlayBar > .notice { flex: 0 2 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overlayBar > .meta, .overlayBar > .dirty { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.overlayBar > .btn, .overlayBar > .spacer { flex: 0 0 auto; }
+.overlayBar > .spacer { flex: 1 1 auto; }
 .viewerwrap { position: relative; flex: 1; min-height: 0; display: flex; }
 .editor { flex: 1; min-height: 0; overflow: hidden; }
 .viewerbody {
