@@ -62,3 +62,29 @@ func TestWaitingAtPrompt(t *testing.T) {
 		}
 	}
 }
+
+// A shell at its prompt is idle, not working: it has just printed the prompt,
+// so the idle timer has not run yet, and every quiet shell used to be counted
+// among the busy ones for idle_seconds after each command.
+func TestShellAtItsPromptIsNotWorking(t *testing.T) {
+	p := Profile{Name: "generic", Source: "screen", IdleSeconds: 4, IdleStatus: Unknown, Blocked: []string{"Do you want"}}
+	p.compile()
+	for _, screen := range []string{
+		"plxr $ ",
+		"user@box ~/work %",
+		"root@box:/srv#",
+		"$ ls\nBUILD.md  README.md\nplxr $",
+	} {
+		if got := p.Classify(screen, 0); got != Unknown {
+			t.Errorf("a shell at its prompt reads %q, want %q:\n%s", got, Unknown, screen)
+		}
+	}
+	// What is not a prompt still follows the idle timer.
+	if got := p.Classify("building the frontend", 0); got != Working {
+		t.Errorf("output that is not a prompt reads %q, want %q", got, Working)
+	}
+	// A question still beats it: the prompt below a question is where the answer goes.
+	if got := p.Classify("Do you want to continue?\nplxr $", 0); got != Permission {
+		t.Errorf("a question above the prompt reads %q, want %q", got, Permission)
+	}
+}

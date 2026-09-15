@@ -175,10 +175,35 @@ func (p *Profile) Classify(screen string, idle time.Duration) string {
 			return Working
 		}
 	}
+	/* A shell standing at its prompt is not working, however recently it printed
+	   that prompt. Without this every session was "working" for idle_seconds
+	   after each command — a shell that had just printed "$ " among them — so the
+	   board sorted quiet sessions in with the busy ones and the status line
+	   counted them as running. The prompt characters are the shell's own, the
+	   ones waitingAtPrompt leaves out because a shell waiting for input is not a
+	   question. */
+	if atShellPrompt(screen) {
+		return p.IdleStatus
+	}
 	if idle.Seconds() >= p.IdleSeconds {
 		return p.IdleStatus
 	}
 	return Working
+}
+
+// atShellPrompt reports whether the screen ends on a shell's own prompt: a
+// short last line running out into $, # or % with nothing behind it.
+func atShellPrompt(screen string) bool {
+	last := lastNonEmptyLines(screen, 1)
+	trimmed := strings.TrimRight(last, " \t")
+	if trimmed == "" || len(trimmed) > 200 {
+		return false
+	}
+	switch trimmed[len(trimmed)-1] {
+	case '$', '#', '%':
+		return true
+	}
+	return false
 }
 
 // waitingAtPrompt reports whether the screen ends on an input prompt: a short
