@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # plxr, installed with one command.
 #
-#   curl -fsSL https://plxr.dev/install.sh | sh          (or the raw URL below)
+#   curl -fsSL https://raw.githubusercontent.com/nock-404/plxr/main/install.sh | sh
 #
 # What it does: works out which system this is, asks GitHub for the newest
 # release, downloads the archive for that system, and puts the program where

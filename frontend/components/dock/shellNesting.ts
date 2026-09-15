@@ -245,14 +245,23 @@ export function spanBottom(dv: DockviewApi): boolean {
      comes back up at the height it went away with. */
   const settle = (): void => {
     if (!standing) return;
+    /* Whatever height the section has right now is the height it has: he may
+       have dragged it since it came up, and that is the one to come back to.
+       Read before anything is changed, and only while it is up — hidden, the
+       column reports nothing to keep. */
+    if (up) {
+      const live = column.getViewSize(FLOOR);
+      if (live > 0) floorHeight = live;
+    }
     const seen = onFloor.filter((position) => pair.isViewVisible(indexOf(position)));
     const wanted = seen.length > 0;
-    if (up && !wanted) {
-      const last = column.getViewSize(FLOOR);
-      if (last > 0) floorHeight = last;
-    }
+    const back = wanted && !up;
     column.setViewVisible(FLOOR, wanted);
-    if (wanted && floorHeight > 0) column.resizeView(FLOOR, floorHeight);
+    /* Only on the way back up. A half going away while the other stays is no
+       reason to touch the height at all — putting the remembered one back then
+       threw away the height he had just dragged ("then it goes back to the old
+       height! why?", 15.09.2026). */
+    if (back && floorHeight > 0) column.resizeView(FLOOR, floorHeight);
     /* A half that stood there alone had the whole width. When the other one
        joins it, the width it kept from being alone would leave nothing for it,
        so the two share the row and he moves the sash from there. */
