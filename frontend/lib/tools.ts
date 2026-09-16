@@ -26,7 +26,7 @@ export const EDGES: readonly Edge[] = ["left", "right", "bottom", "bottomRight"]
 // The two halves of the bottom section, in the order they stand.
 export const FLOOR: readonly Edge[] = ["bottom", "bottomRight"];
 
-export type ToolId = "projects" | "files" | "changes" | "search" | "review" | "inbox" | "usage" | "ports" | "archive" | "notes";
+export type ToolId = "projects" | "files" | "changes" | "search" | "review" | "inbox" | "usage" | "accounts" | "ports" | "archive" | "notes";
 
 export type ToolDef = {
   id: ToolId;
@@ -54,6 +54,12 @@ export const TOOLS: readonly ToolDef[] = [
   { id: "review", icon: "review", key: "tool.review", fallback: "Review", scope: "project", edge: "left", keepMounted: false },
   { id: "inbox", icon: "inbox", key: "tool.inbox", fallback: "Inbox", scope: "global", edge: "right", keepMounted: false },
   { id: "usage", icon: "usage", key: "tool.usage", fallback: "Usage", scope: "global", edge: "right", keepMounted: false },
+  /* What is left per account and nothing else — the one question the work asks
+     of the usage. It starts beside the usage it is a short form of; he keeps it
+     in the bottom row, and that placement is his, like every other. It wears
+     the usage's own mark: the icon sets have none for an account, and the pixel
+     pack is drawn by hand. */
+  { id: "accounts", icon: "usage", key: "tool.accounts", fallback: "Accounts", scope: "global", edge: "right", keepMounted: false },
   { id: "ports", icon: "ports", key: "tool.ports", fallback: "Ports", scope: "global", edge: "right", keepMounted: false },
   { id: "archive", icon: "archive", key: "tool.archive", fallback: "Archive", scope: "global", edge: "right", keepMounted: false },
   { id: "notes", icon: "notes", key: "tool.notes", fallback: "Notes", scope: "global", edge: "right", keepMounted: true },

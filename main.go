@@ -414,9 +414,14 @@ func chosenBackdrop() application.MacBackdrop {
 		// Apple's own, macOS 15+; it falls back to frosted where there is none.
 		return application.MacBackdropLiquidGlass
 	case "solid":
-		// Nothing translucent at all: the system draws an opaque window and has
-		// nothing behind it to blend, which is the cheapest of the four.
-		return application.MacBackdropNormal
+		/* Built see-through all the same, and made opaque by followBackdrop the
+		   moment it runs. A window built with MacBackdropNormal never has its web
+		   view made transparent — Wails only does that for the see-through
+		   backdrops, at creation — so a window that started on SOLID stayed a
+		   solid block for its whole life, and picking LIQUID GLASS afterwards
+		   changed the frame around it and nothing inside ("I set it to liquid
+		   glass and then nothing was transparent", 16.09.2026). */
+		return application.MacBackdropTransparent
 	default:
 		return application.MacBackdropTranslucent
 	}

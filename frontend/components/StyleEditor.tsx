@@ -104,7 +104,12 @@ export default function StyleEditor({
         </span>
       </div>
 
-      {state.seethrough && state.backdrop !== "solid" ? (
+      {state.backdrop === "solid" ? (
+        <span className="notice warn">
+          {tr("style.solidOn", "SOLID is on, so nothing below takes effect. Your values are kept — pick FROSTED, LIQUID GLASS or CLEAR above and they apply again.")}
+        </span>
+      ) : null}
+      {state.seethrough ? (
         <>
           <div className="field">
             <span className="fieldName">{tr("style.tint", "how much colour is in the glass")}</span>

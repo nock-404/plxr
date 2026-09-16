@@ -19,6 +19,7 @@ import pkg from "@/package.json";
 import { InlineStrip } from "@/components/ui/TopStrip";
 import { showFront } from "@/lib/front";
 
+import Accounts from "@/components/views/Accounts";
 import Overview from "@/components/views/Overview";
 import Projects from "@/components/views/Projects";
 import Inbox from "@/components/views/Inbox";
@@ -277,6 +278,9 @@ function PortsPanel() {
 }
 function UsagePanel() {
   return <Usage />;
+}
+function AccountsPanel() {
+  return <Accounts />;
 }
 function ArchivePanel() {
   const d = useDock();
@@ -775,6 +779,7 @@ const components = {
   search: tool("search", SearchDockPanel),
   inbox: tool("inbox", InboxPanel),
   usage: tool("usage", UsagePanel),
+  accounts: tool("accounts", AccountsPanel),
   ports: tool("ports", PortsPanel),
   archive: tool("archive", ArchivePanel),
   notes: tool("notes", NotesPanel),

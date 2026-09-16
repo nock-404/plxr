@@ -38,6 +38,10 @@ LAYOUT_ONLY = {
     # The slot in a tool's header for its one line about itself: it holds the
     # line, the line carries its own colour (.meta).
     "toolNote",
+    # The accounts window and one line in it: boxes that place the name and the
+    # two figures. Every word inside them carries its own colour (.accName is
+    # the panel's text, .accWhat, .accLeft and .accBack are dressed).
+    "accounts", "accRow",
     # The status line's rows: the breadcrumb's row, a crumb's name that gives way
     # to an ellipsis, and the row of facts. Each crumb and fact dresses itself.
     "statusCrumbs", "statusCrumbName", "statusFacts",

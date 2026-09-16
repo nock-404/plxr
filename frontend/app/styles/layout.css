@@ -431,6 +431,16 @@ body {
 .frow[data-project] { cursor: pointer; }
 /* A session of this project, in its overview: what it is called, and what it is
    doing or when it ended. */
+/* What is left, per account: one line each, the name and two figures. It is a
+   window the eye crosses, not a page it reads, so the lines are wide and short
+   and the figures sit where they can be compared down the column. */
+.accounts { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.4rem 0.625rem; overflow: auto; min-height: 0; }
+.accRow { display: flex; align-items: baseline; gap: 1rem; min-width: 0; }
+.accName { flex: 0 1 8rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accFigure { flex: 0 0 auto; display: flex; align-items: baseline; gap: 0.35rem; }
+.accWhat { flex: 0 0 auto; }
+.accLeft { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.accBack { flex: 0 0 auto; }
 .sessrow { display: flex; align-items: baseline; gap: 0.5rem; width: 100%; text-align: left; padding: 0.15rem 0; min-width: 0; }
 .sessname { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sessstate { flex: 0 0 auto; margin-left: auto; }

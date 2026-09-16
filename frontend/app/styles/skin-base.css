@@ -1266,6 +1266,15 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 /* A project row: the sessions waiting in a project are said in the colour the
    board says them in, the rest of the count quietly. The row that is followed
    is marked by the tree's own rule for where you are. */
+/* What is left of an account: the figure itself is the thing to read, the word
+   before it and the time it comes back are quiet, and a window that is nearly
+   spent says so in the colour everything else says it in. */
+.accWhat { color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72em; }
+.accBack { color: var(--dim); font-size: 0.78em; }
+.accLeft { color: var(--fg); }
+.accName { color: var(--fg); }
+.accFigure[data-low="yes"] .accLeft { color: var(--blocked); }
+
 /* A session row in a project's overview: its state says itself in the colour
    the board says it in, an ended one quietly. */
 .sessstate { color: var(--dim); font-size: 0.82em; }
