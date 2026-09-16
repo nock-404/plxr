@@ -73,6 +73,24 @@ export function rowsOf(places: Workspace[], tiles: Tile[]): Row[] {
   for (const w of [...places].sort((a, b) => b.used_at - a.used_at)) add(w.path, w);
   for (const t of tiles) if (t.cwd) add(t.cwd);
 
+  /* A folder somebody's shell happened to stand in is not a project.
+   *
+   * Every folder a session ever ran in used to stand here, and a shell started
+   * in the home folder or in /Volumes put those in the list — with the real
+   * projects underneath them, as if the disk were the thing being worked on
+   * ("and what the fuck is that supposed to be?", 15.09.2026).
+   *
+   * So a folder stays only when it is one of two things: one he opened himself
+   * — that is what the folders plxr holds open are — or one a session is
+   * actually running in, not merely above. Everything else is a parent that
+   * came along for the ride and goes. */
+  const sessionsIn = (path: string) => tiles.filter((t) => (t.cwd ?? "").replace(/\/+$/, "") === path).length;
+  for (const row of [...known.values()]) {
+    if (row.workspace || sessionsIn(row.path) > 0) continue;
+    const isParent = [...known.keys()].some((other) => other !== row.path && other.startsWith(`${row.path}/`));
+    if (isParent) known.delete(row.path);
+  }
+
   const paths = [...known.keys()];
   for (const row of known.values()) {
     const parents = paths.filter((p) => p !== row.path && row.path.startsWith(`${p}/`));
@@ -158,28 +176,33 @@ export default function Projects({ tiles, project, onPick }: { tiles: Tile[]; pr
             const lit = project.path !== "" && samePath(row.path, project.path);
             return (
               <Tooltip key={row.path} text={row.path} place="right">
-                <Button
-                  bare
-                  className="row project"
+                <div
+                  className="frow"
                   data-project={row.path}
-                  data-lit={lit ? "yes" : "no"}
+                  data-at={lit ? "yes" : "no"}
                   data-under={row.under ? "yes" : "no"}
-                  style={{ paddingLeft: `${0.625 + row.deep * 0.875}rem` }}
+                  role="button"
+                  tabIndex={0}
                   aria-pressed={lit}
                   aria-label={`${row.name} — ${row.path}`}
+                  style={{ paddingLeft: `${0.5 + row.deep * 0.75}rem` }}
                   onClick={() => onPick(row.path)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onPick(row.path);
+                    }
+                  }}
                   onContextMenu={ctx(menuOf(row))}
                 >
-                  <span className="projectMark" aria-hidden="true">
-                    <Icon name={row.under ? "chevron-right" : "folder"} />
+                  <span className="fchev" />
+                  <span className="ficon">
+                    <Icon name="folder" />
                   </span>
-                  <span className="hitTitle">{row.name}</span>
-                  <span className="projectCounts">
-                    {n.asks > 0 ? <span className="projectAsks">{tr("projects.asks", "{n} waiting", { n: n.asks })}</span> : null}
-                    {n.busy > 0 ? <span className="projectBusy">{tr("projects.busy", "{n} working", { n: n.busy })}</span> : null}
-                    {n.total > 0 ? <span className="hitSmall">{n.total}</span> : null}
-                  </span>
-                </Button>
+                  <span className="fname">{row.name}</span>
+                  {n.asks > 0 ? <span className="fgit" data-need="asks">{n.asks}</span> : null}
+                  {n.total > 0 ? <span className="fgit" data-need="all">{n.total}</span> : null}
+                </div>
               </Tooltip>
             );
           })
