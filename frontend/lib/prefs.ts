@@ -149,9 +149,32 @@ function fitEditor(raw: unknown): EditorPrefs {
   };
 }
 
+/* What the window itself remembers: the folder it is about, the session it had
+ * in front, and the folders open in the tree.
+ *
+ * These lived in the browser's own storage alone. In the native window that
+ * storage belongs to the application bundle, and an update replaces the bundle
+ * — so after every update the window came up on no project, no session and a
+ * folded tree, which is what "MY SETTINGS ARE RESET EVERY TIME" was about
+ * (16.09.2026). The theme had been moved to the daemon for this very reason
+ * long ago; these three were left behind.
+ *
+ * The browser's storage stays as the immediate copy, so the first paint is
+ * already right. The daemon holds the one that lasts. */
+let keptHere = "";
+let keptFront = "";
+let keptTreeOpen: string[] = [];
+
+export function kept(): { here: string; front: string; treeOpen: string[] } {
+  return { here: keptHere, front: keptFront, treeOpen: keptTreeOpen };
+}
+
 /* adoptPrefs takes the service's copy — at startup and whenever the revision
    moves — and tells the drawn things only if something they read changed. */
 export function adoptPrefs(prefs: Record<string, unknown>): void {
+  if (typeof prefs.here === "string") keptHere = prefs.here;
+  if (typeof prefs.front === "string") keptFront = prefs.front;
+  if (Array.isArray(prefs.treeOpen)) keptTreeOpen = prefs.treeOpen.filter((p): p is string => typeof p === "string");
   const nextTerminal = fitTerminal(prefs.terminal);
   const nextEditor = fitEditor(prefs.editor);
   const moved = JSON.stringify(nextTerminal) !== JSON.stringify(terminal) || JSON.stringify(nextEditor) !== JSON.stringify(editor);

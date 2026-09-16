@@ -14,6 +14,8 @@ import { errText, tr, trN } from "@/lib/i18n";
 import { bindingOf, caption, matches } from "@/lib/keymap";
 import { atTop, parent, segments } from "@/lib/paths";
 import { fileIcon } from "@/lib/fileIcons";
+import { kept } from "@/lib/prefs";
+import { PREFS_CHANGED } from "@/lib/prefsEvents";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { announceFilesChanged } from "@/lib/useChanges";
 import { useToolShown } from "@/lib/toolShown";
@@ -69,7 +71,11 @@ const OPEN_MAX = 400;
 function keptOpen(): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(OPEN_KEY) ?? "[]") as unknown;
-    return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+    const mine = Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+    /* Nothing here means either a tree nobody has opened yet or a window whose
+       storage went with the bundle an update replaced. The daemon's copy
+       answers both: it is what this window last had open. */
+    return mine.length ? mine : kept().treeOpen;
   } catch {
     // No store, nothing in it, or something else entirely — including a page
     // being rendered where there is no browser at all. An empty tree is the
@@ -79,11 +85,14 @@ function keptOpen(): string[] {
 }
 
 function keepOpen(paths: Set<string>): void {
+  const open = [...paths].slice(-OPEN_MAX);
   try {
-    localStorage.setItem(OPEN_KEY, JSON.stringify([...paths].slice(-OPEN_MAX)));
+    localStorage.setItem(OPEN_KEY, JSON.stringify(open));
   } catch {
     /* a store that refuses to be written to costs the memory, nothing else */
   }
+  // And with the daemon, which an update does not replace.
+  void api.setPrefs({ treeOpen: open }).catch(() => undefined);
 }
 
 // The same folder, whatever a trailing separator says about it.
@@ -246,6 +255,20 @@ export default function Files({
   // unfold from then on.
   const remembered = useRef<Set<string> | null>(null);
   if (remembered.current === null) remembered.current = new Set(keptOpen());
+  /* The daemon's copy may arrive after this tree was built — on the first start
+     after an update it is the only copy there is, because the window's own
+     storage went with the bundle that was replaced. Taken then, and only while
+     this tree has nothing of its own to lose. */
+  useEffect(() => {
+    const take = () => {
+      const theirs = kept().treeOpen;
+      if (!theirs.length || (remembered.current?.size ?? 0) > 0) return;
+      remembered.current = new Set(theirs);
+    };
+    take();
+    window.addEventListener(PREFS_CHANGED, take);
+    return () => window.removeEventListener(PREFS_CHANGED, take);
+  }, []);
 
   /* Where the tree stands, and who the service knows that by.
      Back at the folder it was given, it is that folder's own id again — so a

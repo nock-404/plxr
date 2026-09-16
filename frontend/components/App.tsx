@@ -39,7 +39,7 @@ import { zoomWindow } from "@/lib/zoom";
 import { countsLine, herdOf, roomOf } from "@/lib/state";
 import { bindingOf, caption, hasModifier, matches, type Action, fromTerminal } from "@/lib/keymap";
 import { CHORD_ORDER, DOCS, TOOLS, chordOf, isTool } from "@/lib/tools";
-import { adoptPrefs } from "@/lib/prefs";
+import { adoptPrefs, kept } from "@/lib/prefs";
 import { NO_PROJECT, rootIdOf, type Project } from "@/lib/project";
 import { askReveal } from "@/lib/reveal";
 import { announcePrefs } from "@/lib/prefsEvents";
@@ -74,6 +74,8 @@ function rememberFront(id: string): void {
   } catch {
     /* no storage — it lasts for this page only */
   }
+  // And in the daemon, which survives the bundle being replaced by an update.
+  void api.setPrefs({ front: id || null }).catch(() => undefined);
 }
 function lastFront(): string {
   try {
@@ -113,6 +115,7 @@ export default function App() {
     } catch {
       /* no storage — it lasts for this window only */
     }
+    void api.setPrefs({ here: p || null }).catch(() => undefined);
     if (p) api.openWorkspace(p).catch(() => {/* not a folder, or not there: the overview still filters by it */});
   }, []);
   /* The project the tools follow — see lib/project.ts. A folder picked in the
@@ -245,6 +248,17 @@ export default function App() {
         setPresets(readPresets(p));
         // The terminal's, the editor's and the keyboard's own settings.
         adoptPrefs(p);
+        /* And the three this window keeps for itself. Only where its own
+           storage has nothing: that storage is the newer of the two while the
+           window runs, and it is empty exactly when an update has just
+           replaced the bundle it belonged to. */
+        const mine = kept();
+        if (!here && mine.here) goHere(mine.here);
+        if (!lastFront() && mine.front) rememberFront(mine.front);
+        /* Said out loud on the first read too, not only when another window
+           changes something: a panel built before this answer arrived — the
+           tree with its open folders — has no other way to hear it. */
+        announcePrefs(p as Record<string, unknown>);
         return loadLanguage(chosenLanguage(p.language as string | undefined));
       })
       .catch(() => loadLanguage("en"));
