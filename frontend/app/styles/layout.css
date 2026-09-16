@@ -429,6 +429,11 @@ body {
    of its own is the two numbers at its end — how many sessions want an answer
    there, and how many there are. */
 .frow[data-project] { cursor: pointer; }
+/* A session of this project, in its overview: what it is called, and what it is
+   doing or when it ended. */
+.sessrow { display: flex; align-items: baseline; gap: 0.5rem; width: 100%; text-align: left; padding: 0.15rem 0; min-width: 0; }
+.sessname { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessstate { flex: 0 0 auto; margin-left: auto; }
 .frow[data-project] .fgit { flex: 0 0 auto; margin-left: 0.4rem; }
 .row.port .hitDate { width: auto; min-width: 3.25rem; text-align: right; }
 .row.port .hitTitle { flex: 1 1 auto; min-width: 3rem; }

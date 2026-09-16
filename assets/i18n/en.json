@@ -459,6 +459,8 @@
   "folders.readmeMore": "The beginning of it — open the file for the rest.",
   "folders.remotesHead": "remotes",
   "folders.remove": "Remove folder",
+  "folders.sessionEnded": "ended {when}",
+  "folders.sessionsHead": "sessions here",
   "folders.sizeFloor": "more than {size}",
   "folders.stagedCount.one": "{n} staged",
   "folders.stagedCount.other": "{n} staged",

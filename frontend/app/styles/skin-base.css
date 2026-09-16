@@ -1266,6 +1266,12 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 /* A project row: the sessions waiting in a project are said in the colour the
    board says them in, the rest of the count quietly. The row that is followed
    is marked by the tree's own rule for where you are. */
+/* A session row in a project's overview: its state says itself in the colour
+   the board says it in, an ended one quietly. */
+.sessstate { color: var(--dim); font-size: 0.82em; }
+.sessrow[data-state="permission"] .sessstate, .sessrow[data-state="waiting"] .sessstate { color: var(--blocked); }
+.sessrow[data-state="working"] .sessstate { color: var(--working); }
+.sessrow[data-state="dead"] .sessname { color: var(--dim); }
 .frow[data-project] .fgit[data-need="asks"] { color: var(--blocked); }
 .frow[data-project] .fgit[data-need="all"] { color: var(--dim); }
 

@@ -30,6 +30,7 @@ import type { GitChange, GitWhere, Workspace } from "@/lib/types";
 export default function Folders({
   place,
   onOpenFile,
+  onOpenSession,
 }: {
   place?: string;
   /* A file picked in the tree or found by a search opens as an editor panel
@@ -37,6 +38,8 @@ export default function Folders({
      editor itself, in the column beside the tree; a panel can be put next to
      the terminal the file is about, which the column could not. */
   onOpenFile: (rootId: string, path: string, line?: number) => void;
+  // A session of this project, opened from its overview.
+  onOpenSession?: (id: string) => void;
 }) {
   // null until the answer is in: "no folder open" before the list has even
   // been read is a lie, and it is the first thing this view says. See
@@ -341,6 +344,7 @@ export default function Folders({
               onEdit={(path) => onOpenFile(here.id, path)}
               onOpenChanges={() => setSide("changes")}
               withChanges={side !== "changes"}
+              onOpenSession={onOpenSession}
             />
           )}
         </div>

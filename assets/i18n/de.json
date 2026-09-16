@@ -458,6 +458,8 @@
   "folders.readmeMore": "Nur der Anfang — den Rest in der Datei.",
   "folders.remotesHead": "Remotes",
   "folders.remove": "Ordner entfernen",
+  "folders.sessionEnded": "beendet {when}",
+  "folders.sessionsHead": "Sessions hier",
   "folders.sizeFloor": "mehr als {size}",
   "folders.stagedCount.one": "{n} bereitgestellt",
   "folders.stagedCount.other": "{n} bereitgestellt",

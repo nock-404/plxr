@@ -236,7 +236,22 @@ function OverviewPanel() {
 }
 function ProjectsPanel() {
   const d = useDock();
-  return <Projects tiles={d.tiles} project={d.project} onPick={(path) => d.shell?.pickProject(path)} />;
+  return (
+    <Projects
+      tiles={d.tiles}
+      project={d.project}
+      onPick={(path) => {
+        d.shell?.pickProject(path);
+        /* And the project's own overview with it, in main. Picking a project
+           used to change the switch at the top and nothing else on screen,
+           which reads as nothing happening at all ("if I click there nothing
+           happens" — "and then I want the project overview automatically",
+           16.09.2026). The tree is not opened with it: it stands on the same
+           edge as this list, so showing it would push the projects away. */
+        d.openDoc("folders");
+      }}
+    />
+  );
 }
 function InboxPanel() {
   const d = useDock();
@@ -248,7 +263,11 @@ function FoldersPanel(props: IDockviewPanelProps) {
   const d = useDock();
   return (
     <div className="foldersPanel">
-      <Folders place={d.here} onOpenFile={(rootId, path, line) => d.openEditor(rootId, path, line, undefined, props.api.id)} />
+      <Folders
+        place={d.here}
+        onOpenFile={(rootId, path, line) => d.openEditor(rootId, path, line, undefined, props.api.id)}
+        onOpenSession={d.openSession}
+      />
     </div>
   );
 }

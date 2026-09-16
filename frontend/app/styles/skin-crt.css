@@ -24,8 +24,25 @@
 }
 
 /* ---- the page: frosted glass with a gentle gradient -------------------- */
+/* The tube's glow is a blur around every glyph, and on the surfaces somebody
+   actually reads — a list of files, a row of changes, code in the editor — that
+   is exactly what it looks like: measured, the hard edges of the letters fall
+   from 33% of all edges to 19% with the glow on. So it stays where it reads as
+   a tube (the wordmark, headings, accents, buttons and tabs) and comes off
+   where the eye is working. The glow slider still turns all of it off. */
 [data-skin="crt"] body {
   text-shadow: 0 0 var(--glow) color-mix(in srgb, currentColor 42%, transparent);
+}
+[data-skin="crt"] .filetree,
+[data-skin="crt"] .listbody,
+[data-skin="crt"] .tabbody,
+[data-skin="crt"] .cm-editor,
+[data-skin="crt"] .diffbody,
+[data-skin="crt"] .toolBody,
+[data-skin="crt"] .statusFacts,
+[data-skin="crt"] .row,
+[data-skin="crt"] .frow {
+  text-shadow: none;
 }
 
 /* ---- head ------------------------------------------------------------- */

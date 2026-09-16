@@ -10,7 +10,8 @@ import { copyText } from "@/lib/browser";
 import { ago, bytes, stamp } from "@/lib/format";
 import { errText, tr, trN } from "@/lib/i18n";
 import { FILES_CHANGED } from "@/lib/useChanges";
-import type { FolderReport, GitCommitDetail, GitCommitFile } from "@/lib/types";
+import { sessionLine, stateOf, titleOf } from "@/lib/state";
+import type { ArchiveEntry, FolderReport, GitCommitDetail, GitCommitFile, Tile } from "@/lib/types";
 
 /* What an open folder is, in the half of the view that used to say nothing.
  *
@@ -37,6 +38,7 @@ export default function FolderInfo({
   onEdit,
   onOpenChanges,
   withChanges = true,
+  onOpenSession,
 }: {
   rootId: string;
   /* Which difference is open, so the changes list can light the row it is
@@ -50,8 +52,44 @@ export default function FolderInfo({
   /* False while the column on the left is already showing the changes list.
      The same list twice, side by side, is not twice as much information. */
   withChanges?: boolean;
+  // A session of this folder, opened from the list of them.
+  onOpenSession?: (id: string) => void;
 }) {
   const [report, setReport] = useState<FolderReport | null>(null);
+  /* The sessions of this folder. Live ones are asked for once when the folder
+     changes — this view is opened deliberately, not watched — and the ended
+     ones come from the archive, which keeps the conversation. Both are matched
+     on the folder itself and everything under it. */
+  // Null until the answer is in: a heading that says "no sessions" while it is
+  // still asking is a lie the gates look for by name.
+  const [live, setLive] = useState<Tile[] | null>(null);
+  const [ended, setEnded] = useState<ArchiveEntry[] | null>(null);
+  const mine = useCallback(
+    (path: string) => {
+      const root = (report?.path ?? "").replace(/\/+$/, "");
+      const at = (path ?? "").replace(/\/+$/, "");
+      return Boolean(root) && (at === root || at.startsWith(`${root}/`));
+    },
+    [report?.path],
+  );
+  useEffect(() => {
+    if (!report?.path) return;
+    let living = true;
+    void api.sessions().then((all) => { if (living) setLive((all ?? []).filter((t) => mine(t.cwd)) as unknown as Tile[]); }).catch(() => undefined);
+    void api.archive().then((all) => { if (living) setEnded((all ?? []).filter((a) => mine(a.cwd))); }).catch(() => undefined);
+    return () => {
+      living = false;
+    };
+  }, [report?.path, mine]);
+  const here = live ?? [];
+  const gone = ended ?? [];
+  const resume = useCallback(
+    async (id: string) => {
+      const back = await api.archiveResume(id).catch(() => null);
+      if (back?.id) onOpenSession?.(back.id);
+    },
+    [onOpenSession],
+  );
   const [problem, setProblem] = useState("");
   /* Which commit of the history is open, and what it did. Kept apart: the
      hash lights the row the moment it is clicked, the detail arrives after. */
@@ -264,6 +302,31 @@ export default function FolderInfo({
           </div>
           {report.head.body ? <p className="infotext">{report.head.body}</p> : null}
           {report.head.files.length ? files(report.head.files) : null}
+        </div>
+      ) : null}
+
+      {/* ---- who has been working here ----
+           The project's own sessions: the ones running in it now and the ones
+           that have ended, which is where the conversation is. He asked for
+           exactly this beside the overview (translated, 16.09.2026): "then the
+           overview of that project, including the archive of the sessions in
+           it". A folder with neither says nothing rather than showing an empty
+           heading. */}
+      {here.length || gone.length ? (
+        <div className="infoblock">
+          <span className="infohead">{tr("folders.sessionsHead", "sessions here")}</span>
+          {here.map((t) => (
+            <Button bare key={t.id} className="sessrow" data-state={stateOf(t)} onClick={() => onOpenSession?.(t.id)}>
+              <span className="sessname">{titleOf(t)}</span>
+              <span className="sessstate">{sessionLine(t)}</span>
+            </Button>
+          ))}
+          {gone.map((a) => (
+            <Button bare key={a.id} className="sessrow" data-state="dead" onClick={() => void resume(a.id)}>
+              <span className="sessname">{a.title || a.project || a.id}</span>
+              <span className="sessstate">{tr("folders.sessionEnded", "ended {when}", { when: ago(a.mod) })}</span>
+            </Button>
+          ))}
         </div>
       ) : null}
 
