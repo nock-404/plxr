@@ -8,7 +8,9 @@
 // again. It can be changed: the view can be taken out and put back at any time,
 // which is all this does.
 //
-// 0 clear, 1 frosted, 2 glass.
+// 0 clear, 1 frosted, 2 glass, 3 solid — solid being none of them: an opaque
+// window with nothing behind it to blend, for a machine that cannot spare the
+// drawing.
 void plxrSetBackdrop(void *nsWindow, int kind) {
   NSWindow *window = (__bridge NSWindow *)nsWindow;
   if (window == nil) {
@@ -29,6 +31,12 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
       [view removeFromSuperview];
     }
 
+    if (kind == 3) {
+      // Solid: the system composites nothing, the page paints everything.
+      [window setOpaque:YES];
+      [window setBackgroundColor:[NSColor blackColor]];
+      return;
+    }
     [window setOpaque:NO];
     [window setBackgroundColor:[NSColor clearColor]];
     if (kind == 0) {

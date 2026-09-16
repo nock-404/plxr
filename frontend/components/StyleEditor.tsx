@@ -93,14 +93,18 @@ export default function StyleEditor({
             { value: "frosted", label: tr("style.backdropFrosted", "FROSTED") },
             { value: "glass", label: tr("style.backdropGlass", "LIQUID GLASS") },
             { value: "clear", label: tr("style.backdropClear", "CLEAR") },
+            { value: "solid", label: tr("style.backdropSolid", "SOLID") },
           ]}
         />
         <span className="notice">
-          {tr("style.backdropWhy", "macOS draws this, not the page — so it is a choice of three, not a dial. The window picks it up straight away.")}
+          {tr("style.backdropWhy", "macOS draws this, not the page — so it is a choice, not a dial. The window picks it up straight away.")}
+        </span>
+        <span className="notice">
+          {tr("style.backdropSolidWhy", "SOLID is none of them: an opaque window with no glass, no gradient, no glow and no scan lines. Everything here is kept and comes back when you pick a material again.")}
         </span>
       </div>
 
-      {state.seethrough ? (
+      {state.seethrough && state.backdrop !== "solid" ? (
         <>
           <div className="field">
             <span className="fieldName">{tr("style.tint", "how much colour is in the glass")}</span>

@@ -413,6 +413,10 @@ func chosenBackdrop() application.MacBackdrop {
 	case "glass":
 		// Apple's own, macOS 15+; it falls back to frosted where there is none.
 		return application.MacBackdropLiquidGlass
+	case "solid":
+		// Nothing translucent at all: the system draws an opaque window and has
+		// nothing behind it to blend, which is the cheapest of the four.
+		return application.MacBackdropNormal
 	default:
 		return application.MacBackdropTranslucent
 	}

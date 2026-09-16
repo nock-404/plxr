@@ -28,7 +28,11 @@ export interface ThemeState {
   flickerOn: boolean;
   /* How macOS meets what is behind the window. Not a stylesheet setting: the
      window is built with it, so changing it restarts the window. */
-  backdrop: "clear" | "frosted" | "glass";
+  /* What lies between the window and the desktop. "solid" is not a material:
+     it is none of them — an opaque window with nothing see-through in it, for a
+     machine that cannot spare the drawing ("for low performance PCs and so",
+     16.09.2026). */
+  backdrop: "clear" | "frosted" | "glass" | "solid";
   /* How wide the docked panels are, in rem. Kept with everything else that is
      remembered, so a second window opens the way the first one was left. */
   settingsWidth: number;
@@ -217,26 +221,31 @@ export function apply(state: ThemeState): void {
 
   // The page behind everything: a gradient, and the window being see-through.
   // Both live here rather than in a skin, so every skin can have them.
-  const page = [state.seethrough ? "seethrough" : "", state.gradient ? "gradient" : ""]
+  /* Solid means solid: no glass anywhere, no gradient, no glow, no scanlines,
+     no blur — every one of them is something the machine has to draw on every
+     frame. What he set is left where it is, so switching back to a material
+     brings his own look with it. */
+  const solid = state.backdrop === "solid";
+  const page = [!solid && state.seethrough ? "seethrough" : "", !solid && state.gradient ? "gradient" : ""]
     .filter(Boolean)
     .join(" ");
   if (page) root.setAttribute("data-pagebg", page);
   else root.removeAttribute("data-pagebg");
 
-  root.setAttribute("data-glow", state.glowOn ? "on" : "off");
-  root.setAttribute("data-scan", state.scanOn ? "on" : "off");
-  root.setAttribute("data-flicker", state.flickerOn ? "on" : "off");
+  root.setAttribute("data-glow", !solid && state.glowOn ? "on" : "off");
+  root.setAttribute("data-scan", !solid && state.scanOn ? "on" : "off");
+  root.setAttribute("data-flicker", !solid && state.flickerOn ? "on" : "off");
   // The pack that draws, not what the look stores: the skin's own unless one
   // was picked over it. Every stylesheet rule and every mark reads this.
   root.setAttribute("data-icons", packFor(state.skin, state.icons));
   root.style.setProperty("--tintStrength", String(state.tint));
-  root.style.setProperty("--bgSolid", `${state.windowSolid}%`);
-  root.style.setProperty("--panelSolid", `${state.panelSolid}%`);
-  root.style.setProperty("--chromeSolid", `${state.chromeSolid ?? state.panelSolid}%`);
-  root.style.setProperty("--blur", `${state.blur}rem`);
-  root.style.setProperty("--gradient", String(state.gradientStrength));
-  root.style.setProperty("--glow", `${state.glowOn ? state.glow : 0}rem`);
-  root.style.setProperty("--scan-alpha", String(state.scanOn ? state.scan : 0));
+  root.style.setProperty("--bgSolid", `${solid ? 100 : state.windowSolid}%`);
+  root.style.setProperty("--panelSolid", `${solid ? 100 : state.panelSolid}%`);
+  root.style.setProperty("--chromeSolid", `${solid ? 100 : (state.chromeSolid ?? state.panelSolid)}%`);
+  root.style.setProperty("--blur", `${solid ? 0 : state.blur}rem`);
+  root.style.setProperty("--gradient", String(solid ? 0 : state.gradientStrength));
+  root.style.setProperty("--glow", `${!solid && state.glowOn ? state.glow : 0}rem`);
+  root.style.setProperty("--scan-alpha", String(!solid && state.scanOn ? state.scan : 0));
   root.style.setProperty("--settings-w", `${state.settingsWidth}rem`);
   root.style.setProperty("--files-w", `${state.filesWidth}rem`);
   root.style.setProperty("--size", `${state.size}rem`);

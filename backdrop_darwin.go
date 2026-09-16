@@ -20,6 +20,8 @@ func applyBackdrop(nsWindow unsafe.Pointer, kind string) {
 		n = 0
 	case "glass":
 		n = 2
+	case "solid":
+		n = 3
 	}
 	C.plxrSetBackdrop(nsWindow, C.int(n))
 }
