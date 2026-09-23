@@ -7,7 +7,22 @@ import { FOLLOW_SKIN, ICONS_VERSION, migrateIcons, packFor, type IconChoice } fr
 // data-theme the palette, and a few tokens are tuned live. Persisted per
 // viewer; every storage access is guarded so a locked-down store never breaks
 // the page.
-export type Skin = "crt" | "win95" | "sketch" | "pixel";
+/* A skin's name.
+ *
+ * Not a closed set any more. The four that ship are compiled into the bundle
+ * and are listed here so the window knows which ones it already has; anything
+ * else is a skin somebody brought, and its stylesheet is fetched from the
+ * daemon (~/.plxr/skins/<name>/skin.css, served at /skins/<name>/skin.css).
+ * The service had that path built and tested from the start, and the window
+ * had never once asked for it — so a skin of one's own could be written to
+ * disk and never chosen, which made "bring your own look" a promise of
+ * thirteen colours. */
+export type Skin = string;
+export const BUILT_IN_SKINS = ["crt", "win95", "sketch", "pixel"] as const;
+export type BuiltInSkin = (typeof BUILT_IN_SKINS)[number];
+export function isBuiltInSkin(name: string): name is BuiltInSkin {
+  return (BUILT_IN_SKINS as readonly string[]).includes(name);
+}
 
 /* A palette is either one the daemon ships (by theme name) or the CRT hue
    generator. The skin brings the shape; the palette only swaps tokens. */
@@ -132,6 +147,44 @@ export function save(state: ThemeState): void {
 // the defaults over what is stored.
 let keep: (state: ThemeState) => Promise<void> = async () => {};
 
+/* What a theme asks for beyond its colours.
+ *
+ * The file format has carried a typeface, two sizes and the four effect
+ * switches since the beginning, and not one of them was ever read: a theme
+ * could recolour and no more. They are taken when the theme is chosen — a
+ * look is a look, and half of one is what made every imported theme feel
+ * broken — and never afterwards, so the sliders stay the person's own.
+ */
+export function wishesOf(theme: {
+  font?: string;
+  fontSize?: number;
+  termFont?: string;
+  termSize?: number;
+  scanlines?: boolean;
+  glow?: boolean;
+  gradient?: number;
+  seethrough?: number;
+}): Partial<ThemeState> {
+  const out: Partial<ThemeState> = {};
+  if (typeof theme.font === "string" && theme.font) out.uiFont = theme.font;
+  if (typeof theme.termFont === "string" && theme.termFont) out.termFont = theme.termFont;
+  // The sizes travel as tenths of a rem, the unit everything in the window is
+  // measured in: 15 is 0.9375rem, which is what the CRT skin has always been.
+  if (typeof theme.fontSize === "number" && theme.fontSize > 0) out.size = theme.fontSize / 16;
+  if (typeof theme.termSize === "number" && theme.termSize > 0) out.termSize = theme.termSize / 16;
+  if (typeof theme.scanlines === "boolean") out.scanOn = theme.scanlines;
+  if (typeof theme.glow === "boolean") out.glowOn = theme.glow;
+  if (typeof theme.gradient === "number") {
+    out.gradient = theme.gradient > 0;
+    out.gradientStrength = Math.max(0, Math.min(100, theme.gradient));
+  }
+  if (typeof theme.seethrough === "number") {
+    out.seethrough = theme.seethrough > 0;
+    out.windowSolid = Math.max(0, Math.min(100, 100 - theme.seethrough));
+  }
+  return out;
+}
+
 export function persistVia(fn: (state: ThemeState) => Promise<void>): void {
   keep = fn;
 }
@@ -147,7 +200,7 @@ export function adopt(state: ThemeState): void {
   }
 }
 
-const TOKENS = [
+export const TOKENS = [
   "bg", "panel", "fg", "accent", "dim", "dead", "line",
   "working", "waiting", "blocked", "onAccent", "term-bg", "term-fg",
 ] as const;
@@ -218,9 +271,35 @@ export function installUserFonts(fonts: { family: string; file: string }[]): voi
     .join("\n");
 }
 
+/* The stylesheet of a skin that is not in the bundle.
+ *
+ * One <link> is kept in the head and pointed at the skin in use; for the four
+ * that ship there is nothing to fetch, so it is taken out again. The daemon
+ * serves these with no-store on purpose — the sheet is written while the
+ * window is looking at it. */
+function linkSkin(name: string): void {
+  const id = "plxr-skin";
+  const held = document.getElementById(id) as HTMLLinkElement | null;
+  if (isBuiltInSkin(name)) {
+    held?.remove();
+    return;
+  }
+  const href = `/skins/${encodeURIComponent(name)}/skin.css`;
+  if (held) {
+    if (!held.getAttribute("href")?.startsWith(href)) held.setAttribute("href", href);
+    return;
+  }
+  const link = document.createElement("link");
+  link.id = id;
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
 export function apply(state: ThemeState): void {
   const root = document.documentElement;
   root.setAttribute("data-skin", state.skin);
+  linkSkin(state.skin);
   root.setAttribute("data-theme", state.palette);
 
   // The page behind everything: a gradient, and the window being see-through.

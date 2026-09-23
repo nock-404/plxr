@@ -10,7 +10,6 @@ package theme
 
 import (
 	"encoding/json"
-	"errors"
 	"io/fs"
 	"log"
 	"net/http"
@@ -54,9 +53,59 @@ type Theme struct {
 	TermFont string `json:"termFont,omitempty"`
 	TermSize int    `json:"termSize,omitempty"`
 
+	// CSS is the skin itself, carried in the theme file.
+	//
+	// A look is more than thirteen colours, and until now a theme could carry
+	// nothing else: the skins were compiled into the application, so anybody
+	// bringing their own look could recolour one of four and no more. A theme
+	// that brings a stylesheet is a whole look in one file — on import the
+	// sheet becomes a skin of its own, named after the theme, and the theme
+	// points at it. Stays out of the file when the theme only recolours a skin
+	// that is already there.
+	CSS string `json:"css,omitempty"`
+
 	// Own marks a theme the user created — only those may be overwritten and
 	// deleted.
 	Own bool `json:"own,omitempty"`
+}
+
+// MaxCSS is as much stylesheet as a theme may carry — the same limit the skin
+// route has, because it ends up in the same file.
+const MaxCSS = 512 * 1024
+
+/* checkCSS refuses a stylesheet that would reach outside the window.
+ *
+ * What a theme brings is somebody else's file, and a stylesheet can fetch: an
+ * @import pulls in another sheet, and url() fetches a picture or a font. Both
+ * would let a look phone home the moment it is applied — from a window that
+ * holds every session and a token. So: no @import at all, and url() only to
+ * what this daemon itself serves (a path beginning with /), never http, never
+ * data. Everything else a stylesheet can do is drawing, which is the point. */
+func checkCSS(css string) error {
+	if len(css) > MaxCSS {
+		return uierr.New("err.skin.tooLarge")
+	}
+	lower := strings.ToLower(css)
+	if strings.Contains(lower, "@import") {
+		return uierr.With("err.theme.cssReaches", "@import")
+	}
+	for rest := lower; ; {
+		at := strings.Index(rest, "url(")
+		if at < 0 {
+			break
+		}
+		rest = rest[at+len("url("):]
+		end := strings.IndexByte(rest, ')')
+		if end < 0 {
+			return uierr.With("err.theme.cssReaches", "url(")
+		}
+		target := strings.Trim(strings.TrimSpace(rest[:end]), `"'`)
+		if !strings.HasPrefix(target, "/") {
+			return uierr.With("err.theme.cssReaches", "url("+target+")")
+		}
+		rest = rest[end:]
+	}
+	return nil
 }
 
 // Allowed limits which palette entries may reach the CSS — an imported theme
@@ -76,13 +125,27 @@ var Allowed = map[string]bool{
 
 func (t *Theme) valid(skins map[string]bool) error {
 	if strings.TrimSpace(t.Name) == "" {
-		return errors.New(`theme braucht ein Feld "name"`)
+		return uierr.New("err.theme.noName")
 	}
 	if strings.ContainsAny(t.Name, `/\.`) {
 		return uierr.New("err.theme.badName")
 	}
+	/* A theme that brings its own stylesheet is its own skin, and need not say
+	   so twice: the skin is the theme's name. Saying something else would mean
+	   a file whose two halves point at different looks. */
+	if t.CSS != "" {
+		if err := checkCSS(t.CSS); err != nil {
+			return err
+		}
+		if strings.TrimSpace(t.Skin) == "" {
+			t.Skin = t.Name
+		}
+		if t.Skin != t.Name {
+			return uierr.With("err.theme.skinNotOwn", t.Skin)
+		}
+	}
 	if strings.TrimSpace(t.Skin) == "" {
-		return errors.New(`theme "` + t.Name + `" braucht ein Feld "skin"`)
+		return uierr.With("err.theme.noSkin", t.Name)
 	}
 	if strings.ContainsAny(t.Skin, `/\.`) {
 		return uierr.New("err.theme.badSkinName")
@@ -204,14 +267,123 @@ func Load(builtin, skinFS fs.FS) []Theme {
 	return out
 }
 
+// Skin is one entry of the list a window offers: the name it is chosen by, the
+// name it is called by, and whether it came from outside.
+type SkinInfo struct {
+	Name  string `json:"name"`
+	Label string `json:"label"`
+	Own   bool   `json:"own"`
+}
+
+/* SkinList is every skin that can be chosen — the ones inside the application
+ * and the ones on disk, in one list.
+ *
+ * The window used to hold that list itself, as four lines of its own, so a
+ * skin somebody wrote could be validated by the service, served by the service
+ * and never appear anywhere a person could pick it. A name on disk may carry a
+ * label in skin.json beside its stylesheet; without one it is called by its
+ * directory's name.
+ */
+func SkinList(skinFS fs.FS) []SkinInfo {
+	out := []SkinInfo{}
+	seen := map[string]bool{}
+	if skinFS != nil {
+		if entries, err := fs.ReadDir(skinFS, "."); err == nil {
+			for _, e := range entries {
+				if !e.IsDir() {
+					continue
+				}
+				seen[e.Name()] = true
+				out = append(out, SkinInfo{Name: e.Name(), Label: labelOfSkin(e.Name())})
+			}
+		}
+	}
+	for name := range OwnSkins() {
+		if seen[name] {
+			continue
+		}
+		out = append(out, SkinInfo{Name: name, Label: labelOfSkin(name), Own: true})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Own != out[j].Own {
+			return !out[i].Own
+		}
+		return out[i].Label < out[j].Label
+	})
+	return out
+}
+
+// writeSkinAbout puts the name a skin calls itself beside its stylesheet.
+func writeSkinAbout(name, label, author string) error {
+	p := SkinPath(name)
+	if p == "" {
+		return uierr.New("err.skin.badName")
+	}
+	about := struct {
+		Label  string `json:"label"`
+		Author string `json:"author,omitempty"`
+	}{Label: strings.TrimSpace(label), Author: strings.TrimSpace(author)}
+	if about.Label == "" {
+		about.Label = name
+	}
+	b, err := json.MarshalIndent(about, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(p), "skin.json"), b, 0o644); err != nil {
+		return uierr.With("err.skin.saveFailed", err.Error())
+	}
+	return nil
+}
+
+// labelOfSkin reads the name a skin calls itself, from skin.json beside its
+// stylesheet. A skin without one is called by its directory.
+func labelOfSkin(name string) string {
+	p := SkinPath(name)
+	if p == "" {
+		return name
+	}
+	b, err := os.ReadFile(filepath.Join(filepath.Dir(p), "skin.json"))
+	if err != nil {
+		return name
+	}
+	var about struct {
+		Label string `json:"label"`
+	}
+	if json.Unmarshal(b, &about) != nil || strings.TrimSpace(about.Label) == "" {
+		return name
+	}
+	return about.Label
+}
+
 // Import validates an uploaded theme and stores it under ~/.plxr/themes.
 func Import(raw []byte, skinFS fs.FS) (*Theme, error) {
 	var t Theme
 	if err := json.Unmarshal(raw, &t); err != nil {
 		return nil, uierr.With("err.theme.badJSON", err.Error())
 	}
-	if err := t.valid(Skins(skinFS)); err != nil {
+	/* A theme that brings a stylesheet is checked against the skins it would
+	   have after it is installed, not before: its own skin does not exist yet,
+	   and validating against the old list would refuse every complete look on
+	   its first import. */
+	known := Skins(skinFS)
+	if t.CSS != "" && strings.TrimSpace(t.Name) != "" {
+		known[t.Name] = true
+	}
+	if err := t.valid(known); err != nil {
 		return nil, err
+	}
+	if t.CSS != "" {
+		if err := WriteSkin(t.Name, t.CSS); err != nil {
+			return nil, err
+		}
+		/* And the name it is called by, beside its stylesheet. Without it the
+		   picker can only print the directory: a look called "Brought Look"
+		   appeared as "brought", which is the name of a folder, not of a
+		   look. */
+		if err := writeSkinAbout(t.Name, t.Label, t.Author); err != nil {
+			return nil, err
+		}
 	}
 	if err := os.MkdirAll(UserDir(), 0o755); err != nil {
 		return nil, err
@@ -261,6 +433,28 @@ func OwnSkins() map[string]bool {
 		}
 	}
 	return out
+}
+
+/* WriteSkin puts a stylesheet on disk as a skin of its own.
+ *
+ * The one place a skin file is written: the route the workshop saves through
+ * and the import of a theme that carries its look both end here, so a brought
+ * sheet is held to the same check wherever it came from. */
+func WriteSkin(name, css string) error {
+	p := SkinPath(name)
+	if p == "" {
+		return uierr.New("err.skin.badName")
+	}
+	if err := checkCSS(css); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return uierr.With("err.skin.saveFailed", err.Error())
+	}
+	if err := os.WriteFile(p, []byte(css), 0o644); err != nil {
+		return uierr.With("err.skin.saveFailed", err.Error())
+	}
+	return nil
 }
 
 // SkinPath is the file of a skin of your own — empty for a name that is not

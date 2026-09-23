@@ -1,7 +1,7 @@
 "use client";
 
 import { base, token } from "./token";
-import type { Account, AccountUsageReport, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port, NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia, FolderReport, GitCommitDetail, NamesReport } from "./types";
+import type { SkinInfo, Account, AccountUsageReport, Agent, AgentProfile, ArchiveEntry, Baseline, FileBody, FileEntry, HookState, Mark, MarkChange, Port, NotifySettings, Pace, QueueItem, UpdateStatus, Reply, Rule, SearchHit, FindQuery, FindReport, GitBranch, GitChange, RemoteState, RemoteCode, GitDiff, GitEntry, GitWhere, Session, Template, Theme, TimelineMark, Usage, VersionInfo, Waiting, Workspace, UserFont, GitReview, GitStash, NotifyInfo, NotifyVia, FolderReport, GitCommitDetail, NamesReport } from "./types";
 
 async function req<T>(path: string, opts: RequestInit & { text?: boolean } = {}): Promise<T> {
   const { text, headers, ...rest } = opts;
@@ -52,7 +52,9 @@ export const api = {
     req<void>("/api/prefs", { method: "PUT", body: JSON.stringify(change) }),
 
   themes: () => req<Theme[]>("/api/themes"),
-  themeImport: (text: string) => req<void>("/api/themes", { method: "POST", body: text }),
+  /* Answers with the theme as it was stored — the window puts it on, so it
+     needs to know what it got: its name, its skin, and what else it asks for. */
+  themeImport: (text: string) => req<Theme>("/api/themes", { method: "POST", body: text }),
   themeDelete: (name: string) =>
     req<void>(`/api/themes/${encodeURIComponent(name)}`, { method: "DELETE" }),
 
@@ -203,6 +205,13 @@ export const api = {
      makes nothing — there is no browser around it — so this asks the daemon,
      which hands the address to the machine's opener. A page in an ordinary
      browser never gets here: there window.open works. */
+  /* Every skin that can be chosen — the four in the application and any on
+     disk. The window used to hold this list itself, which is why a skin
+     somebody wrote could never be picked. */
+  skins: () => req<SkinInfo[]>("/api/skins"),
+  skinRead: (name: string) => req<string>(`/api/skins/${encodeURIComponent(name)}`, { text: true }),
+  skinWrite: (name: string, css: string) =>
+    req<void>(`/api/skins/${encodeURIComponent(name)}`, { method: "PUT", body: css, headers: { "Content-Type": "text/css" } }),
   openLink: (url: string) => req<void>("/api/open", { method: "POST", body: JSON.stringify({ url }) }),
   readFile: (id: string, path: string) =>
     req<FileBody>(`/api/file/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),

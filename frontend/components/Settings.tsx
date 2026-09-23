@@ -20,8 +20,8 @@ import StyleEditor from "@/components/StyleEditor";
 import { api } from "@/lib/api";
 import { askVersionNow, watchVersion } from "@/lib/version";
 import { chosenLanguage, loadLanguage, tr, errText } from "@/lib/i18n";
-import { DEFAULTS, apply, fitPalette, installUserFonts, load, rememberThemes, save, type Palette, type Skin, type ThemeState } from "@/lib/theme";
-import type { Theme, UserFont, VersionInfo } from "@/lib/types";
+import { BUILT_IN_SKINS, DEFAULTS, TOKENS, apply, fitPalette, installUserFonts, load, rememberThemes, save, wishesOf, type Palette, type Skin, type ThemeState } from "@/lib/theme";
+import type { SkinInfo, Theme, UserFont, VersionInfo } from "@/lib/types";
 import { ICON_PACKS, PACK_LABELS } from "@/lib/icons";
 import { FOLLOW_SKIN, SKIN_PACKS, type IconChoice } from "@/lib/iconChoice";
 
@@ -65,6 +65,12 @@ function fontOptions(fonts: UserFont[], defaultLabel: string) {
  * about the look had to be found somewhere else. Now it is a window: opened
  * where the column stood, dragged wherever it is not in the way, and holding
  * the terminal, the editor, the keys, the accounts and the layouts as well. */
+/* What the four that ship are called. A skin on disk brings its own name in
+   skin.json beside its stylesheet; these four are named here because their
+   names are words of this window, not files on somebody's machine. */
+const SHIPPED_LABELS: Record<string, string> = { crt: "CRT", win95: "Windows 95", sketch: "Sketch", pixel: "Pixel" };
+const skinLabel = (name: string) => SHIPPED_LABELS[name] ?? name;
+
 export default function Settings({
   onClose,
   layouts,
@@ -122,7 +128,12 @@ export default function Settings({
     // Opening the settings is somebody asking, so it is asked again now rather
     // than showing whatever the last beat happened to find.
     askVersionNow();
-    api.themes().then((t) => setThemes(t ?? [])).catch(() => setThemes([]));
+    /* Told to the part that dresses the window, not only to this list.
+       Setting the list alone left apply() with whatever it had learned when
+       the window started, so a theme that arrived since — imported in another
+       window, or put in the folder by hand — could be picked from the list and
+       changed nothing at all. */
+    void reloadThemes();
     reloadFonts();
   }, []);
 
@@ -150,24 +161,92 @@ export default function Settings({
     }
   }
 
-  const reloadThemes = () =>
-    api
-      .themes()
-      .then((t) => {
-        setThemes(t ?? []);
-        rememberThemes(t ?? []);
-        apply(load());
-      })
-      .catch(() => undefined);
+  const reloadThemes = async (): Promise<Theme[]> => {
+    const list = await api.themes().catch(() => [] as Theme[]);
+    setThemes(list ?? []);
+    rememberThemes(list ?? []);
+    apply(load());
+    return list ?? [];
+  };
+  /* The skins the service offers, asked for once and again whenever a brought
+     theme may have added one. Until it answers, the four that ship — so the
+     picker is never empty. */
+  const [skins, setSkins] = useState<SkinInfo[]>(() =>
+    BUILT_IN_SKINS.map((name) => ({ name, label: skinLabel(name), own: false })),
+  );
+  const reloadSkins = async () => {
+    const list = await api.skins().catch(() => [] as SkinInfo[]);
+    if (list?.length) setSkins(list.map((s) => ({ ...s, label: s.own ? s.label : skinLabel(s.name) })));
+  };
+  useEffect(() => {
+    void reloadSkins();
+  }, []);
 
   // A theme is a small JSON file. Importing one is how a look moves between
   // machines, and it lands beside the shipped ones.
+  /* A theme brought in is worn, not merely filed.
+   *
+   * Importing used to add a line to a dropdown: the person then had to find
+   * the skin it belonged to, pick that, find the theme, pick that — and a
+   * theme for another skin was not even listed until they had guessed which
+   * one. Now the file says what it is and the window puts it on, with
+   * everything else the file asks for: the typeface, the sizes, the effects. */
   async function importTheme(file: File) {
     setNote("");
     try {
-      await api.themeImport(await file.text());
-      await reloadThemes();
-      setNote(tr("theme.imported", "{name} imported", { name: file.name }));
+      const brought = await api.themeImport(await file.text());
+      const list = await reloadThemes();
+      await reloadSkins();
+      const wanted = list.find((t) => t.name === brought.name) ?? brought;
+      change({ ...wishesOf(wanted), skin: wanted.skin, palette: wanted.name });
+      setNote(tr("theme.imported", "{name} imported", { name: wanted.label || file.name }));
+    } catch (e) {
+      setNote(errText(e));
+    }
+  }
+
+  /* The look that is on, as a file to keep or hand on.
+   *
+   * There was no way to produce one at all: a person could import a theme and
+   * never write one, which made "bring your own look" something only somebody
+   * with an editor and the format in their head could do. What goes in is what
+   * is on screen — the colours, and, when the skin is one of one's own, the
+   * stylesheet with it, so the file is the whole look rather than a reference
+   * to something the other machine does not have. */
+  async function exportTheme() {
+    setNote("");
+    try {
+      const palette: Record<string, string> = {};
+      const root = getComputedStyle(document.documentElement);
+      for (const key of TOKENS) {
+        const value = root.getPropertyValue(`--${key}`).trim();
+        if (value) palette[key] = value;
+      }
+      const own = skins.find((s) => s.name === state.skin)?.own ?? false;
+      const name = themes.find((t) => t.name === state.palette)?.label ?? state.palette;
+      const file = {
+        name: own ? state.skin : `${state.skin}-${state.palette}`,
+        label: own ? (skins.find((s) => s.name === state.skin)?.label ?? state.skin) : `${name}`,
+        skin: own ? state.skin : state.skin,
+        palette,
+        font: state.uiFont || undefined,
+        termFont: state.termFont || undefined,
+        fontSize: Math.round(state.size * 16),
+        termSize: Math.round(state.termSize * 16),
+        scanlines: state.scanOn,
+        glow: state.glowOn,
+        gradient: state.gradient ? state.gradientStrength : 0,
+        seethrough: state.seethrough ? 100 - state.windowSolid : 0,
+        ...(own ? { css: await api.skinRead(state.skin).catch(() => "") } : {}),
+      };
+      const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${file.name}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setNote(tr("theme.exported", "{name} saved", { name: `${file.name}.json` }));
     } catch (e) {
       setNote(errText(e));
     }
@@ -217,12 +296,10 @@ export default function Settings({
                   <Select
                     value={state.skin}
                     onChange={(skin: Skin) => change(fitPalette({ ...state, skin }))}
-                    options={[
-                      { value: "crt", label: "CRT" },
-                      { value: "win95", label: "Windows 95" },
-                      { value: "sketch", label: "Sketch" },
-                      { value: "pixel", label: "Pixel" },
-                    ]}
+                    /* What the service says can be worn, not what this file
+                       knows: a skin somebody brought stands beside the four
+                       that ship. Until the service answers, the four. */
+                    options={skins.map((s) => ({ value: s.name, label: s.label }))}
                   />
                   <Select
                     value={state.palette}
@@ -326,13 +403,22 @@ export default function Settings({
                 <span className="fieldName">{tr("settings.themeFile", "theme file")}</span>
                 <span className="rowInline">
                   <span className="notice">
-                    {note || tr("settings.importHint", "A theme is one JSON file: a skin plus a palette.")}
+                    {note ||
+                      tr(
+                        "settings.importHint",
+                        "A theme is one JSON file: the colours, and the stylesheet that makes the look when it brings one.",
+                      )}
                   </span>
                   <FilePick
                     accept=".json,application/json"
                     label={tr("settings.import", "IMPORT")}
                     onPick={importTheme}
                   />
+                  {/* And out again. Until now a look could be brought in and
+                      never written out, so nobody could hand theirs on. */}
+                  <Button data-do="export-theme" onClick={() => void exportTheme()}>
+                    {tr("settings.export", "EXPORT")}
+                  </Button>
                   {themes.find((t) => t.name === state.palette) ? (
                     <Button
                       onClick={async () => {

@@ -2302,21 +2302,12 @@ func (c *Core) SkinRead(name string) (string, error) {
 // state while writing one, and a save that refuses because a brace is still
 // open would make the workbench unusable. A broken sheet costs the look, not
 // the data.
+// SkinList is every skin that can be chosen: the ones in the application and
+// the ones somebody put on disk.
+func (c *Core) SkinList() []theme.SkinInfo { return theme.SkinList(c.skins) }
+
 func (c *Core) SkinWrite(name, css string) error {
-	p := theme.SkinPath(name)
-	if p == "" {
-		return uierr.New("err.skin.badName")
-	}
-	if len(css) > 512*1024 {
-		return uierr.New("err.skin.tooLarge")
-	}
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return uierr.With("err.skin.saveFailed", err.Error())
-	}
-	if err := os.WriteFile(p, []byte(css), 0o644); err != nil {
-		return uierr.With("err.skin.saveFailed", err.Error())
-	}
-	return nil
+	return theme.WriteSkin(name, css)
 }
 
 // Waiting is the waiting account: how long the agents worked and how long they

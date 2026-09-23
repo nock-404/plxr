@@ -82,7 +82,11 @@ seen, bad = 0, []
 for rel, path in walk((".tsx", ".ts")):
     seen += 1
     for n, line in enumerate(open(path, encoding="utf-8"), 1):
-        if re.search(r"<style|styled\.|css`", line):
+        # `css` as a tag on a template literal — styled-components' way of
+        # writing rules in a component. Not a filename that ends in .css: the
+        # line that points a <link> at /skins/<name>/skin.css is an address,
+        # not a stylesheet, and this read it as one.
+        if re.search(r"<style|styled\.|(?<![\w.])css`", line):
             bad.append(f"{rel}:{n}  {line.strip()[:90]}")
         if "style={{" in line:
             # A computed value cannot live in a stylesheet: it is worked out at

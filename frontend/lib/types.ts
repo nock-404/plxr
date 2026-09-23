@@ -48,11 +48,33 @@ export interface Agent {
   found: boolean;
 }
 
+/* One skin a window may wear: what it is chosen by, what it is called, and
+   whether it came from outside the application. */
+export interface SkinInfo {
+  name: string;
+  label: string;
+  own: boolean;
+}
+
 export interface Theme {
   name: string;
   label: string;
   skin: string;
   palette: Record<string, string>;
+  /* Everything else a look is made of. All of it has been in the file format
+     from the beginning and none of it was ever read, so a theme could change
+     thirteen colours and nothing else — no typeface, no sizes, no effects. */
+  css?: string;
+  author?: string;
+  font?: string;
+  fontSize?: number;
+  termFont?: string;
+  termSize?: number;
+  scanlines?: boolean;
+  glow?: boolean;
+  gradient?: number;
+  seethrough?: number;
+  own?: boolean;
 }
 
 // Measured against the live daemon, never guessed.

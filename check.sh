@@ -228,6 +228,12 @@ step "terminal view" node terminal.mjs
 # keystroke that should happen once.
 step "sessions spread out" node spread.mjs
 
+# The ground rule of the whole product: somebody can bring their own look.
+# Measured end to end — a file with a stylesheet in it goes in, and the window
+# wears it — because every piece of that path existed for months and the window
+# asked for none of it.
+step "bring your own look" node brought.mjs
+
 # Source control follows the session and moves by itself: two folders, the
 # one panel switching between them as sessions are clicked, files appearing
 # and moving groups within a second of being written — with no AGAIN — the

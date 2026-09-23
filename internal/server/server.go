@@ -987,6 +987,12 @@ func (s *Server) Routes() *http.ServeMux {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Write([]byte(css))
 	})
+	/* Every skin that can be chosen, the four inside and any on disk.
+	 * The window kept this list itself, as four literals, which is why a skin
+	 * somebody wrote could be stored and served and never picked. */
+	mux.HandleFunc("GET /api/skins", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, s.c.SkinList())
+	})
 	mux.HandleFunc("PUT /api/skins/{name}", func(w http.ResponseWriter, r *http.Request) {
 		b, err := io.ReadAll(io.LimitReader(r.Body, 512*1024))
 		if err != nil {
@@ -1160,7 +1166,10 @@ func (s *Server) importFont(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) importTheme(w http.ResponseWriter, r *http.Request) {
-	raw, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	/* Room for the whole look, not only its colours. A theme may carry the
+	   stylesheet that makes it, up to theme.MaxCSS — at 64 KiB every complete
+	   look was cut off mid-file and refused as broken JSON. */
+	raw, err := io.ReadAll(io.LimitReader(r.Body, theme.MaxCSS+64*1024))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
