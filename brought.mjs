@@ -383,46 +383,6 @@ claim("EXPORT writes the look back out as one file, stylesheet and all",
   Boolean(out.name) && back && back.skin === "brought" && typeof back.css === "string" && back.css.includes('[data-skin="brought"]') && back.palette?.bg === "#050607",
   out.why ?? `${out.name} · ${(out.text || "").length} bytes · skin ${back?.skin} · css ${back?.css ? back.css.length + " bytes" : "none"}`);
 
-/* ---- and the look that ships as an example ---------------------------------
-   docs/themes/contrast.json is written the way anybody would write one, and is
-   the proof that the way through is wide enough for a look of one's own —
-   shapes and lettering, not a recolouring. */
-const example = readFileSync(join(HERE, "docs", "themes", "contrast.json"), "utf8");
-const sent = await api("/api/themes", { method: "POST", body: example });
-const asStored = sent.ok ? await sent.json() : { error: await sent.text() };
-claim("the look that ships as an example goes in as it is", sent.ok && asStored.skin === "contrast",
-  sent.ok ? `stored as "${asStored.label}" on skin "${asStored.skin}"` : `refused: ${asStored.error}`);
-
-const wearing = await run(`${HELPERS}
-  /* Shut and opened again: the panel reads the lists when it opens, and this
-     look arrived while it was already up — which is what a person does when
-     they drop a file in from somewhere else. */
-  /* The looks tab clicked again, which is how somebody goes looking: the panel
-     lives on behind its tab, so it asks the service afresh at that moment. */
-  await openSettings();
-  document.querySelector('.tab[data-tab="skins"]')?.click();
-  await wait(900);
-  const got = await choose(0, 'Contrast');
-  if (got.why) return { why: got.why, rows: got.rows, served: await (await fetch('/api/skins', { headers: { 'X-Plxr-Token': new URLSearchParams(location.search).get('token') || '' } })).json().then(l => l.map(s => s.name + ':' + s.label)).catch(e => String(e)) };
-  await wait(1200);
-  const bar = getComputedStyle(document.querySelector('.bar'));
-  const icon = document.querySelector('.stripe[data-edge="left"] .stripeIcon');
-  return {
-    skin: document.documentElement.dataset.skin,
-    bar: bar.backgroundColor,
-    radius: icon ? getComputedStyle(icon).borderRadius : '',
-    caps: getComputedStyle(document.querySelector('.bar .btn') ?? document.body).textTransform,
-    hair: getComputedStyle(document.querySelector('.stripe[data-edge="left"]') ?? document.body).borderRightWidth,
-    font: getComputedStyle(document.body).fontFamily,
-  };
-`);
-/* Worn, it changes more than colour: the shapes and the lettering come from
-   the brought sheet too. That is the whole point of letting a theme carry one. */
-claim("worn, it is the shapes as well, not only the colours",
-  wearing.skin === "contrast" && wearing.bar === "rgb(0, 0, 0)" && wearing.radius === "0px" &&
-    wearing.caps === "uppercase" && wearing.hair === "2px",
-  wearing.why ?? `bar ${wearing.bar} · corners ${wearing.radius} · buttons ${wearing.caps} · line ${wearing.hair} · ${wearing.font}`);
-
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);
 for (const c of failed) console.log(`      ${c.what}${c.detail ? " — " + c.detail : ""}`);

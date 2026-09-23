@@ -5,7 +5,7 @@ A theme that brings its own look is one JSON file with the stylesheet inside
 it, which is not a thing anybody wants to edit by hand. So the look is written
 as CSS beside a small description, and this puts the two together.
 
-    tools/theme.py docs/themes/contrast.css docs/themes/contrast.json
+    tools/theme.py my-look.css my-look.json
 """
 import json
 import os

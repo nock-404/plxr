@@ -29,12 +29,6 @@ ALLOWED_PATHS = (
     'frontend/node_modules/', 'frontend/out/', 'frontend/.next/',
     'frontend/package-lock.json', 'frontend/package.json',
     'frontend/next-env.d.ts', 'BUILD.md',
-    # A theme file is packed by tools/theme.py out of the stylesheet beside it
-    # and a small description; the stylesheet is read here like every other
-    # source, so reading the packed copy is reading the same text twice — once
-    # with every line run together, where a typeface's name lands in the middle
-    # of a sentence.
-    'docs/themes/contrast.json',
     'german.py',             # this file names the words it hunts
     'translations.py',       # and so does that one: it holds the German
                              # spellings it corrects, which are German words
