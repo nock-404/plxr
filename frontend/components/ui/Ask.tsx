@@ -55,9 +55,19 @@ export default function Ask({
   const [typed, setTyped] = useState(value);
   const [browsing, setBrowsing] = useState(false);
 
+  /* Once, when it opens: the field takes the keyboard with what is in it
+     selected, so the first thing typed replaces the old name.
+     Once, and not again. It used to sit in the same effect as the Escape key,
+     and that effect is rebuilt whenever onCancel is — which for a dialog whose
+     opener writes `onCancel={() => …}` is every render of that opener, and a
+     completing field renders it on every keystroke. So each letter typed
+     selected the whole field again and the next letter wrote over everything:
+     "I can't type in that rename field because it keeps selecting everything". */
   useEffect(() => {
     box.current?.focus();
     box.current?.select();
+  }, []);
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel();
     }

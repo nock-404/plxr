@@ -680,6 +680,50 @@ for (const look of LOOKS) {
     say(m.usageUnder));
 }
 
+/* ---- and over the terminal, whose account it is spending -------------------
+ *
+ * "if it said above the terminal which AI account it is and how much percent it
+ * has in the current five-hour session and in the week". The figures are the
+ * ones this check made up, so the line can be held against them exactly. */
+const renamed = await api(`/api/accounts/${encodeURIComponent(report.accounts[0].name)}`, {
+  method: "PATCH",
+  body: JSON.stringify({ label: "Work" }),
+});
+const afterRename = await (await api("/api/usage/accounts")).json();
+claim("an account can be given a name, and the service hands it back",
+  renamed.ok && afterRename.accounts[0].label === "Work",
+  `PATCH ${renamed.status} · label now "${afterRename.accounts[0].label ?? ""}"`);
+await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: fake, cmd: [], name: "spender", account: report.accounts[0].name }) });
+// The window hears about a new session through the tiles, once a second; it
+// cannot be opened from a list it is not on yet.
+await sleep(2500);
+const overTerminal = await tab.run(`${HELPERS}
+  for (let i = 0; i < 10 && !document.querySelector('.plxrDock .session'); i++) {
+    await openSession('spender');
+    await wait(600);
+  }
+  const line = await until(() => document.querySelector('.plxrDock .session .paneacct'), 6000);
+  if (!line.v) return { why: 'no account line over the terminal' };
+  await wait(600);
+  /* The window reads the figures every twenty seconds, and the name rides with
+     them: renamed from outside — as this check does it — the line answers to
+     the old name until the next reading. Waited for rather than slept through. */
+  await until(() => document.querySelector('.plxrDock .session .paneacct .limitName')?.textContent.trim() === 'Work', 25000);
+  const row = document.querySelector('.plxrDock .session .paneacct');
+  return {
+    name: row.querySelector('.limitName')?.textContent.trim() ?? '',
+    figures: [...row.querySelectorAll('.limitPct')].map(e => e.textContent.trim()),
+    bars: [...row.querySelectorAll('.ufill')].map(e => e.style.width),
+    account: row.dataset.account ?? '',
+  };
+`);
+claim("over the terminal stands the account it spends, with the window and the week",
+  overTerminal.name === "Work" && JSON.stringify(overTerminal.figures) === JSON.stringify(["28%", "41%"]),
+  overTerminal.why ?? `"${overTerminal.name}" · ${(overTerminal.figures ?? []).join(" · ")} · bars ${(overTerminal.bars ?? []).join(" · ")}`);
+claim("the bars are drawn to those percentages, not to a total",
+  JSON.stringify(overTerminal.bars) === JSON.stringify(["28%", "41%"]),
+  (overTerminal.bars ?? []).join(" · "));
+
 // ---- the report ------------------------------------------------------------
 let failed = 0;
 for (const c of claims) {

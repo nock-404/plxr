@@ -504,6 +504,7 @@ func (c *Core) AddAccount(dir, label string, share *bool) ([]accounts.Account, e
 		return nil, err
 	}
 	c.welcomeAccounts(before, list)
+	c.forgetLimits()
 	return accountsForPage(list, nil)
 }
 
@@ -515,6 +516,7 @@ func (c *Core) CreateAccount(label string, share *bool) (accounts.Account, []acc
 		return accounts.Account{}, nil, err
 	}
 	c.welcomeAccounts(before, list)
+	c.forgetLimits()
 	list, _ = accountsForPage(list, nil)
 	for _, a := range list {
 		if a.Dir == acc.Dir {
@@ -535,13 +537,27 @@ func (c *Core) ShareAccountHistory(name string) ([]accounts.Account, error) {
 }
 
 // RenameAccount changes what an account is called on screen.
+//
+// The cached report goes with it. What changed is the name, not the figures,
+// and the report is kept for as long as the figures stay fresh — so a renamed
+// account went on answering to its old name for a quarter of a minute, in the
+// status row and over the terminal, which reads as a rename that did nothing.
+// The same holds for an account added, made or made the default.
 func (c *Core) RenameAccount(name, label string) ([]accounts.Account, error) {
-	return accountsForPage(accounts.Rename(name, label))
+	list, err := accounts.Rename(name, label)
+	if err == nil {
+		c.forgetLimits()
+	}
+	return accountsForPage(list, err)
 }
 
 // SetDefaultAccount picks the account a new session starts under.
 func (c *Core) SetDefaultAccount(name string) ([]accounts.Account, error) {
-	return accountsForPage(accounts.SetDefault(name))
+	list, err := accounts.SetDefault(name)
+	if err == nil {
+		c.forgetLimits()
+	}
+	return accountsForPage(list, err)
 }
 
 // RemoveAccount takes an account out of the list; its directory stays.

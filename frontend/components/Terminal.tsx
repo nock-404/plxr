@@ -8,6 +8,7 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import Button from "@/components/ui/Button";
+import PaneUsage from "@/components/PaneUsage";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
@@ -214,6 +215,7 @@ export default function Terminal({
   onSplit,
   splitOn = false,
   sessionItems,
+  account = "",
 }: {
   id: string;
   label: string;
@@ -243,6 +245,9 @@ export default function Terminal({
      which way it stands. */
   onSplit?: () => void;
   splitOn?: boolean;
+  /* Which account this session spends, so the line over the terminal can say
+     what is left of it. Empty for a shell that runs under nobody's. */
+  account?: string;
   /* What the session around this terminal offers — its views, pausing,
      terminating. Read when the menu opens, so every row says the state it has
      at that moment. In the terminal view the session's own bar is not drawn,
@@ -350,9 +355,24 @@ export default function Terminal({
         });
       },
     });
+    /* A URL under ⌘-click goes to the browser.
+     *
+     * Which browser, though: in an ordinary tab this window is one page among
+     * others and window.open makes another tab, which is right. In the native
+     * window there is nothing around the page to make a tab in, and window.open
+     * returns nothing at all — so for a long time clicking a link in a terminal
+     * did nothing whatsoever. What it gives back says which of the two this is,
+     * and when it is nothing the daemon opens the address the way the machine
+     * opens addresses. */
     const web = new WebLinksAddon((e, uri) => {
       if (!withModifier(e)) return;
-      window.open(uri, "_blank", "noopener,noreferrer");
+      let opened: Window | null = null;
+      try {
+        opened = window.open(uri, "_blank", "noopener,noreferrer");
+      } catch {
+        opened = null;
+      }
+      if (!opened) void api.openLink(uri).catch(() => say(tr("term.linkRefused", "This link could not be opened")));
     });
     term.loadAddon(web);
 
@@ -756,6 +776,7 @@ export default function Terminal({
       }}
     >
       <span className="panelabel">{label}</span>
+      <PaneUsage account={account} />
       {onClose ? (
         <Button bare className="paneclose" onClick={onClose} aria-label="Close pane">
           ✕

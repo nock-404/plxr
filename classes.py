@@ -47,6 +47,11 @@ LAYOUT_ONLY = {
     "statusCrumbs", "statusCrumbName", "statusFacts",
     # A card with a width, and a readout that is nothing but a row of numbers.
     "folderpick", "meter",
+    # The line over a terminal that says what the session is spending, and one
+    # window in it: both are arrangement only — the account's name is .limitName,
+    # the figure .limitPct and the bar .ubar/.ufill, each dressed by every skin
+    # where it already stood on the status row.
+    "paneacct", "paneWindow",
     # The box a picture is shown in and the picture itself: both are nothing
     # but a fit — centred, never wider than the panel, scrolled when even that
     # is not enough. The ground under them is the viewer's, which every skin

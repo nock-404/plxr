@@ -850,6 +850,10 @@ export type LayoutRequest =
      overview panel) lives in the dock. */
   | { type: "newShell" }
   | { type: "grid" }
+  /* Every open session in a place of its own, all of them the same size: as a
+     row of columns, or as a rectangle when a row would leave them too narrow
+     to read. */
+  | { type: "spread"; arg: "columns" | "grid" }
   // An edge shown or hidden from the top bar, the way its key does it.
   | { type: "toggleEdge"; arg: Edge }
   /* Everything but the work out of the way, and back again. */
@@ -1459,6 +1463,10 @@ export default function Dock({
         // panel comes up dense rather than switching after it has drawn.
         setDense(true);
         openDoc("overview");
+        break;
+      case "spread":
+        spread(dv, layoutAction.arg);
+        saveRef.current();
         break;
       case "bare":
         setBare(layoutAction.on);
@@ -2121,6 +2129,63 @@ function shareWidth(dv: DockviewApi, a: DockviewGroupPanel, b: DockviewGroupPane
   for (const { g } of others) g.api.setConstraints({ minimumWidth: g.api.width, maximumWidth: g.api.width });
   b.api.setSize({ width: Math.floor((a.api.width + b.api.width) / 2) });
   for (const { g, min, max } of others) g.api.setConstraints({ minimumWidth: min, maximumWidth: max });
+}
+
+/* spread puts every open session in a place of its own, all the same size.
+ *
+ * Four sessions and a window to watch them in meant four drags, every time —
+ * and the arrangement was gone the next time a panel opened. This is the drag
+ * done by the window: each session leaves whatever tab strip it shared and
+ * takes a place beside the last one, as a row of columns, or as a rectangle
+ * when a row of columns would leave nothing readable in them.
+ *
+ * Only what is in the grid: a session in a tool window at an edge, or floating
+ * over the work, was put there on purpose and stays. Documents and the board
+ * keep their places in the row as well — what is levelled is the room, so a
+ * board beside three sessions is a quarter like everything else.
+ */
+function spread(dv: DockviewApi, shape: "columns" | "grid"): void {
+  const sessions = dv.panels.filter((p) => p.id.startsWith("session:") && p.group.api.location.type === "grid");
+  if (sessions.length < 2) return;
+  const columns = shape === "columns" ? sessions.length : Math.ceil(Math.sqrt(sessions.length));
+
+  /* Each one alone in its place — the first as well: it usually shares a tab
+     strip with the board it was opened from, and a session behind a tab is not
+     spread out, it is hidden. */
+  if (sessions[0].group.panels.length > 1) sessions[0].api.moveTo({ group: sessions[0].group, position: "right" });
+  const row: IDockviewPanel[] = [sessions[0]];
+  for (let i = 1; i < sessions.length; i++) {
+    const panel = sessions[i];
+    if (i < columns) {
+      panel.api.moveTo({ group: row[i - 1].group, position: "right" });
+      row.push(panel);
+    } else {
+      panel.api.moveTo({ group: row[i % columns].group, position: "bottom" });
+    }
+  }
+
+  /* And the same room each. Dockview keeps a group inside the bounds it was
+     given, so the ones that are not being sized are pinned first — the same
+     way shareWidth does it for two — and handed their bounds back after. */
+  const grid = gridGroupsOf(dv);
+  const rows = Math.ceil(sessions.length / columns);
+  /* A row of columns levels every column there is, the board among them — it
+     is one of the things being looked at. A rectangle levels the cells. */
+  const across = shape === "columns" ? grid.length : columns;
+  const width = Math.floor(dv.width / Math.max(1, across));
+  const height = Math.floor(dv.height / Math.max(1, rows));
+  /* Twice: dockview gives what one group loses to its neighbour, so the first
+     pass leaves the ones sized early narrower than the ones sized late — 256,
+     256 and 440 where all three asked for 350. The second pass starts from a
+     row that is already close and settles it. */
+  for (let pass = 0; pass < 2; pass++) {
+    for (const g of grid) {
+      const bounds = { minimumWidth: g.minimumWidth, maximumWidth: g.maximumWidth, minimumHeight: g.minimumHeight, maximumHeight: g.maximumHeight };
+      g.api.setSize({ width, height: rows > 1 ? height : undefined });
+      g.api.setConstraints(bounds);
+    }
+  }
+  hold(dv);
 }
 
 /* ---------- moving panels: float, dock, split ---------- */

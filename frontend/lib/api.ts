@@ -199,6 +199,11 @@ export const api = {
     req<NamesReport>(`/api/names/${encodeURIComponent(id)}?q=${encodeURIComponent(q)}`),
   listDir: (id: string, dir = "") =>
     req<FileEntry[]>(`/api/files/${encodeURIComponent(id)}?dir=${encodeURIComponent(dir)}`),
+  /* A link opened where this person's links open. The window's own window.open
+     makes nothing — there is no browser around it — so this asks the daemon,
+     which hands the address to the machine's opener. A page in an ordinary
+     browser never gets here: there window.open works. */
+  openLink: (url: string) => req<void>("/api/open", { method: "POST", body: JSON.stringify({ url }) }),
   readFile: (id: string, path: string) =>
     req<FileBody>(`/api/file/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
   /* The file itself, not a reading of it: a picture is looked at, not edited.

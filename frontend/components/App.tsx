@@ -550,6 +550,19 @@ export default function App() {
       do: `arrange-${a}`,
       onClick: () => direct({ type: "activity", arg: a }),
     }));
+    /* The drag the window can do itself: every session in a place of its own,
+       all the same size. Two shapes, because a row of eight columns on a
+       laptop is eight strips nobody can read. */
+    items.push({
+      label: tr("layouts.spreadColumns", "Spread the sessions in columns"),
+      do: "spread-columns",
+      onClick: () => direct({ type: "spread", arg: "columns" }),
+    });
+    items.push({
+      label: tr("layouts.spreadGrid", "Spread the sessions as a grid"),
+      do: "spread-grid",
+      onClick: () => direct({ type: "spread", arg: "grid" }),
+    });
     items.push({ separator: true });
     if (presets.length === 0) {
       items.push({ label: tr("layouts.none", "no saved layouts yet"), onClick: () => undefined, disabled: true });
@@ -679,6 +692,8 @@ export default function App() {
       { id: "cmd:grid", group: tr("palette.action", "Action"), label: tr("palette.sessionGrid", "Session grid"), run: () => direct({ type: "grid" }) },
       { id: "cmd:settings", group: tr("palette.action", "Action"), label: tr("palette.settings", "Settings"), run: openSettings },
       { id: "cmd:templates", group: tr("palette.action", "Action"), label: tr("palette.templates", "Templates"), run: () => setTemplates(true) },
+      { id: "cmd:spreadcolumns", group: tr("palette.action", "Action"), label: tr("layouts.spreadColumns", "Spread the sessions in columns"), run: () => direct({ type: "spread", arg: "columns" }) },
+      { id: "cmd:spreadgrid", group: tr("palette.action", "Action"), label: tr("layouts.spreadGrid", "Spread the sessions as a grid"), run: () => direct({ type: "spread", arg: "grid" }) },
       { id: "cmd:reset", group: tr("palette.action", "Action"), label: tr("palette.resetLayout", "Reset the panel layout"), run: () => direct({ type: "reset" }) },
       { id: "cmd:resettools", group: tr("palette.action", "Action"), label: tr("tool.reset", "Reset tool positions"), run: () => direct({ type: "resetTools" }) },
       {

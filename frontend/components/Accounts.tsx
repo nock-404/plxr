@@ -6,6 +6,7 @@ import Toggle from "@/components/ui/Toggle";
 import Tooltip from "@/components/ui/Tooltip";
 import Ask from "@/components/ui/Ask";
 import { api } from "@/lib/api";
+import { refreshLimits } from "@/lib/useLimits";
 import { accountName, ago } from "@/lib/format";
 import { errText, tr } from "@/lib/i18n";
 import { adoptAccounts, useAccounts, watchSignIn } from "@/lib/useAccounts";
@@ -130,6 +131,11 @@ export default function Accounts({ openSession }: { openSession?: (id: string) =
     setNote("");
     try {
       adoptAccounts(await what());
+      /* And the figures are asked for again. They are read at most every
+         twenty seconds, and they carry the name: renaming an account left it
+         answering to the old name on the status row and over the terminal for
+         that long, which reads as a rename that did nothing. */
+      refreshLimits();
     } catch (e) {
       setProblem(errText(e));
     }

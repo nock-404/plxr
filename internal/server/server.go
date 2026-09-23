@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"plxr/internal/browse"
 	"plxr/internal/theme"
 	"reflect"
 	"strconv"
@@ -943,6 +944,23 @@ func (s *Server) Routes() *http.ServeMux {
 	mux.HandleFunc("DELETE /api/file/{id}", s.removeFile)
 	mux.HandleFunc("GET /api/git/{id}", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.c.GitStatus(r.PathValue("id")))
+	})
+	/* A link clicked in a terminal, opened where the person's links open.
+	 * The window's own window.open makes nothing — there is no browser around
+	 * it — so the page asks for it here when that returns nothing. */
+	mux.HandleFunc("POST /api/open", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			URL string `json:"url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := browse.Open(body.URL); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/reveal/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if err := s.c.RevealFile(r.PathValue("id"), r.URL.Query().Get("path")); err != nil {

@@ -357,6 +357,7 @@ export default function Session({
                terminal: in the terminal view its bar is not drawn, and this is
                the only place they are. */
             sessionItems={() => titleMenu}
+            account={tile.account ?? ""}
           />
           {split ? (
             <Terminal
@@ -379,6 +380,7 @@ export default function Session({
               cwd={others.find((o) => o.id === split)?.cwd}
               onSplit={() => setSplit(null)}
               splitOn
+              account={others.find((o) => o.id === split)?.account ?? ""}
             />
           ) : null}
         </div>

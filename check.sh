@@ -223,6 +223,11 @@ step "paths from the terminal" node pictures.mjs
 # back without anybody noticing.
 step "terminal view" node terminal.mjs
 
+# Every session in a place of its own, all the same size — and the field in a
+# dialog, which had the same shape of fault: something happening on every
+# keystroke that should happen once.
+step "sessions spread out" node spread.mjs
+
 # Source control follows the session and moves by itself: two folders, the
 # one panel switching between them as sessions are clicked, files appearing
 # and moving groups within a second of being written — with no AGAIN — the
