@@ -45,6 +45,18 @@ rm -rf "$(dirname "$iconset")"
 
 # Signed to itself: unsigned, macOS treats every launch as a new, unknown
 # program and the notification permission is asked for again each time.
-codesign --force --deep --sign - "$app" >/dev/null 2>&1 || true
+#
+# Against an empty keychain, made for this one call and thrown away after it.
+# The signature needs no key — it is ad-hoc, and there is no signing identity
+# on this machine at all — but codesign searches the keychains all the same,
+# and on a machine whose login keychain holds a private key it stops the build
+# with a password prompt about a key it has no use for ("what is this for if
+# nobody needs it?", 23.09.2026). Measured: same signature, 0.04 s, no prompt.
+signing_keychain="$(mktemp -d)/signing.keychain-db"
+security create-keychain -p "" "$signing_keychain" >/dev/null 2>&1
+codesign --force --deep --sign - --keychain "$signing_keychain" "$app" >/dev/null 2>&1 ||
+	codesign --force --deep --sign - "$app" >/dev/null 2>&1 || true
+security delete-keychain "$signing_keychain" >/dev/null 2>&1 || true
+rm -rf "$(dirname "$signing_keychain")"
 
 echo "  $app  ($version)"
