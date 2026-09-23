@@ -1268,6 +1268,23 @@ a wish list.
 The two drafts carry the same shape: what it would do, what it must never do,
 what it costs, and the one question left over.
 
+## Decided, waiting for its day
+
+- **A session outlives the daemon** (23.09.2026). Every update restarts the
+  daemon, and the terminals are its children, so every running agent dies with
+  it: "a shame I can never restart while other agents are running. We just have
+  to wait." Three ways were put up — plxr waiting for the last session to go
+  idle before it installs, handing the file descriptors to the new daemon
+  (SCM_RIGHTS), or a session host of its own that the daemon connects to. His
+  answer was the third and nothing less: "if we do it, we build C. No
+  half-measures. But not now and not today."
+
+  What that means, in short: the terminals live in a small process that almost
+  never changes; the daemon speaks to it over a socket and finds its sessions
+  again when it starts. It survives the daemon being updated and the daemon
+  crashing, and it is the only one of the three that works on Windows as well,
+  where a ConPTY cannot be passed down a socket.
+
 ## On his machine, not in this code
 
 - **Two installed daemons are running right now** — PIDs 10092 (since 29.08.
