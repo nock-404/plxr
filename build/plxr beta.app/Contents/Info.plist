@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>plxr beta</string>
+	<key>CFBundleExecutable</key>
+	<string>plxr beta</string>
+	<key>CFBundleIconFile</key>
+	<string>iconfile</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.plxr.app.beta</string>
+	<key>CFBundleName</key>
+	<string>plxr beta</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.97.0</string>
+	<key>CFBundleVersion</key>
+	<string>0.97.0</string>
+	<key>LSEnvironment</key>
+	<dict>
+		<key>PLXR_CHANNEL</key>
+		<string>beta</string>
+	</dict>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.0</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Project folders on the desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Project folders in Documents.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Project folders in Downloads.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>plxr beta</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>plxr shows and starts sessions in project folders, which may live on external drives.</string>
+</dict>
+</plist>

@@ -7,3 +7,16 @@
 @font-face { font-family: "Caveat"; src: url("/fonts/caveat.woff2") format("woff2"); font-display: swap; }
 @font-face { font-family: "SpaceMono"; src: url("/fonts/spacemono.woff2") format("woff2"); font-display: swap; }
 @font-face { font-family: "PressStart"; src: url("/fonts/pressstart.woff2") format("woff2"); font-display: swap; }
+
+/* A condensed grotesque, for looks built on tall narrow capitals.
+ *
+ * One file for the whole weight axis: Antonio is a variable font, so 400 and
+ * 700 come out of the same 26 KB rather than two faces. Self-hosted like the
+ * rest — the window renders the same with no network at all. */
+@font-face {
+  font-family: "Antonio";
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url("/fonts/antonio.woff2") format("woff2");
+}

@@ -134,6 +134,9 @@ export default function Settings({
        window, or put in the folder by hand — could be picked from the list and
        changed nothing at all. */
     void reloadThemes();
+    // And which skins there are, for the same reason: one may have arrived
+    // with a theme imported in another window.
+    void reloadSkins();
     reloadFonts();
   }, []);
 
@@ -178,10 +181,6 @@ export default function Settings({
     const list = await api.skins().catch(() => [] as SkinInfo[]);
     if (list?.length) setSkins(list.map((s) => ({ ...s, label: s.own ? s.label : skinLabel(s.name) })));
   };
-  useEffect(() => {
-    void reloadSkins();
-  }, []);
-
   // A theme is a small JSON file. Importing one is how a look moves between
   // machines, and it lands beside the shipped ones.
   /* A theme brought in is worn, not merely filed.
@@ -280,7 +279,18 @@ export default function Settings({
               aria-selected={tab === id}
               data-tab={id}
               className={`tab${tab === id ? " on" : ""}`}
-              onClick={() => setTab(id)}
+              onClick={() => {
+                setTab(id);
+                /* Asked for again when the looks are looked at. The panel
+                   stays alive behind its tab — it is a panel of the dock, not
+                   a window that opens — so reading the lists when it is built
+                   meant a theme or a skin that arrived afterwards was not
+                   there when somebody went looking for it. */
+                if (id === "skins") {
+                  void reloadThemes();
+                  void reloadSkins();
+                }
+              }}
             >
               {label()}
             </Button>

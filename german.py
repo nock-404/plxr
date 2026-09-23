@@ -29,6 +29,12 @@ ALLOWED_PATHS = (
     'frontend/node_modules/', 'frontend/out/', 'frontend/.next/',
     'frontend/package-lock.json', 'frontend/package.json',
     'frontend/next-env.d.ts', 'BUILD.md',
+    # A theme file is packed by tools/theme.py out of the stylesheet beside it
+    # and a small description; the stylesheet is read here like every other
+    # source, so reading the packed copy is reading the same text twice — once
+    # with every line run together, where a typeface's name lands in the middle
+    # of a sentence.
+    'docs/themes/lcars.json',
     'german.py',             # this file names the words it hunts
     'translations.py',       # and so does that one: it holds the German
                              # spellings it corrects, which are German words
@@ -153,6 +159,11 @@ def main():
             # picture a screen reader cannot read, so this may not be avoided.
             if 'alt="' in line or "alt='" in line or "alt={" in line:
                 words = words - {'alt'}
+            # A typeface's name is a name. "Helvetica Neue" is what the face is
+            # called on every machine that has it, and a look that asks for it
+            # writes it exactly like that or gets something else.
+            if re.search(r"font-family|--font|--term-font|--mono|font:", line):
+                low = re.sub(r'"[^"]*"', lambda m: m.group(0).lower().replace("neue", ""), low)
             for w in WORD_RE.findall(low):
                 if w in words:
                     hits.append((rel, nr, f'Wort "{w}"', line.strip()[:70]))

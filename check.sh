@@ -59,6 +59,11 @@ step "error codes" python3 errors.py
 # the German window quietly shows English sentences among the German ones.
 step "both languages" python3 translations.py
 
+# Every typeface that ships is named with its licence, and both are in the
+# build: four of them travelled inside every copy for months and the page that
+# exists to carry such notices said nothing about any of them.
+step "typefaces named" python3 licences.py
+
 # The window is served from a new port at every start, and a new port is a new
 # storage: anything kept only there is thrown away by the next start.
 step "nothing kept only locally" python3 storage.py

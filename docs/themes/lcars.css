@@ -1,0 +1,362 @@
+/* LCARS — the panels of a starship, as a look somebody brings.
+ *
+ * Built to the grammar rather than to a memory of it. The numbers below come
+ * from the standards the fan community measured off the sets (LCARS 101, and
+ * TheLCARS.com's reference implementation), and the rules that matter are the
+ * ones people get wrong:
+ *
+ *   The ground is black, and the seams between blocks are that ground showing
+ *   through — never a border, never a dark grey.
+ *   The frame changes gauge at every turn. The vertical arm is wide, the
+ *   horizontal arm is thin, and the ratio is about five to one. Equal arms are
+ *   the one unforgivable mistake.
+ *   Only free ends are round, at exactly half the block's thickness, so
+ *   nothing square is ever exposed to the black. A joined edge is flat.
+ *   An elbow has two radii, the outer twice the inner.
+ *   No gradients, no shadows, no bevels, no glow, no outlines. The original
+ *   was film behind a light box; there is nothing to cast a shadow.
+ *   Blocks carry their labels in the lower right, uppercase, black on colour.
+ *   Colour is a role, not a taste: warm for structure, cool for data, red for
+ *   what is wrong.
+ *
+ * Everything here is colour, shape and lettering, plus the handful of measures
+ * plxr itself offers as tokens — the width of the side columns, the height of
+ * the rows, the one seam. Nothing reaches into how the window is arranged.
+ */
+
+[data-skin="lcars"] {
+  /* The two gauges, and the one seam. The column against the foot arm is
+     4.5 : 1.375, which is the five-to-one the frame is built on. */
+  --stripe-w: 4.5rem;
+  /* A block on a column fills the column, less the seam on either side: a mark
+     floating in the middle of a wide stripe is a toolbar, not a frame. */
+  --stripe-icon-box: 4rem;
+  --statusbar-h: 1.375rem;
+  --seam: 0.25rem;
+  --stripe-gap: var(--seam);
+  --stripe-pad: var(--seam);
+  --hair: 0.25rem;
+
+  /* The elbow: the outer curve is half the width of the vertical arm, the
+     inner curve half of that again. */
+  --elbow-out: 3.5rem;
+  --elbow-in: 1.75rem;
+
+  /* The block colours, by role. Warm is structure, cool is data. */
+  --lcars-gold: #ffcc66;
+  --lcars-tangerine: #ff9900;
+  --lcars-peach: #ff9966;
+  --lcars-lilac: #cc99cc;
+  --lcars-bluebell: #9999cc;
+  --lcars-ice: #99ccff;
+  --lcars-violet: #cc88ff;
+  --lcars-mars: #ff2200;
+
+  --font: "Antonio", "Helvetica Neue", "Arial Narrow", sans-serif;
+  --mono: "IBMPlexMono", ui-monospace, Menlo, monospace;
+  --term-font: "IBMPlexMono", ui-monospace, Menlo, monospace;
+}
+
+/* Nothing is see-through, nothing glows, nothing is drawn over the screen.
+   Every one of those is a thing LCARS does not have. */
+[data-skin="lcars"] .fx { display: none; }
+[data-skin="lcars"] * {
+  text-shadow: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+[data-skin="lcars"] body,
+[data-skin="lcars"] .app,
+[data-skin="lcars"] .stage,
+[data-skin="lcars"] .content,
+[data-skin="lcars"] .work {
+  background: #000;
+  color: var(--lcars-gold);
+}
+
+/* Capitals, everywhere, and the weight the lettering was drawn at. */
+[data-skin="lcars"] body {
+  font-family: var(--font);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 500;
+}
+
+/* ---- the top bar: the horizontal arm ------------------------------------ */
+/* The horizontal arm. It is the thin gauge of the frame, and it is one block
+   with the ground between its segments — the controls are the segments. Its
+   free end, at the right, is capped; the left joins the column and stays
+   flat. */
+[data-skin="lcars"] .bar {
+  background: var(--lcars-tangerine);
+  color: #000;
+  border: 0;
+  gap: var(--seam);
+  border-radius: 0 0 var(--elbow-in) 0;
+}
+[data-skin="lcars"] .bar .meta,
+[data-skin="lcars"] .bar .notice,
+[data-skin="lcars"] .bar .switchName { color: #000; }
+[data-skin="lcars"] .barLeft,
+[data-skin="lcars"] .barRight { gap: var(--seam); }
+[data-skin="lcars"] .logo,
+[data-skin="lcars"] .logoMark { color: #000; }
+
+/* Every control in the bar is a block: solid colour, black label, flat where
+   it joins and capped where it ends. */
+[data-skin="lcars"] .btn,
+[data-skin="lcars"] .switch,
+[data-skin="lcars"] .selectButton {
+  background: var(--lcars-gold);
+  color: #000;
+  border: 0;
+  border-radius: 0 var(--elbow-in) var(--elbow-in) 0;
+  font-family: var(--font);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  justify-content: flex-end;
+}
+[data-skin="lcars"] .btn:hover,
+[data-skin="lcars"] .switch:hover,
+[data-skin="lcars"] .selectButton:hover { background: var(--lcars-peach); color: #000; }
+[data-skin="lcars"] .btn[data-on="yes"],
+[data-skin="lcars"] .btn.on,
+[data-skin="lcars"] .switch[data-open="yes"] { background: var(--lcars-violet); color: #000; }
+[data-skin="lcars"] .btn.primary { background: var(--lcars-tangerine); color: #000; }
+[data-skin="lcars"] .btn.danger { background: var(--lcars-mars); color: #000; }
+[data-skin="lcars"] .btn:disabled { background: #666688; color: #000; }
+[data-skin="lcars"] .btn.bare { background: transparent; color: var(--lcars-gold); border-radius: 0; }
+[data-skin="lcars"] .btn.bare:hover { background: transparent; color: var(--lcars-peach); }
+
+/* On the arm the segments are its own tints, so the arm reads as one run of
+   blocks rather than as buttons lying on a stripe. */
+[data-skin="lcars"] .bar .btn { background: var(--lcars-gold); }
+[data-skin="lcars"] .bar .btn.primary { background: var(--lcars-violet); }
+[data-skin="lcars"] .bar .switch,
+[data-skin="lcars"] .bar .selectButton { background: var(--lcars-peach); }
+[data-skin="lcars"] .bar .input { background: #000; color: var(--lcars-gold); border-color: #000; }
+
+/* ---- the side columns: the vertical arms, with the elbow ----------------- */
+[data-skin="lcars"] .stripe {
+  background: #000;
+  border: 0;
+  gap: var(--seam);
+  padding: var(--seam);
+}
+/* A column is not one long pill: it is a stack of blocks with the ground
+   showing between them. Each mark on it is such a block — and the one at the
+   top of the left column carries the elbow, whose outer curve is half the
+   column's width and whose inner curve is half of that again. */
+[data-skin="lcars"] .stripe[data-edge="left"],
+[data-skin="lcars"] .stripe[data-edge="right"],
+[data-skin="lcars"] .stripe[data-edge="bottom"],
+[data-skin="lcars"] .stripe[data-edge="bottomRight"] { background: #000; }
+
+[data-skin="lcars"] .stripeIcon {
+  background: var(--lcars-gold);
+  color: #000;
+  border: 0;
+  border-radius: 0;
+}
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:first-child { border-radius: var(--elbow-out) 0 0 0; }
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:last-child { border-radius: 0 0 0 var(--elbow-out); }
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon { background: var(--lcars-bluebell); }
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon:first-child { border-radius: 0 var(--elbow-out) 0 0; }
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon:last-child { border-radius: 0 0 var(--elbow-out) 0; }
+[data-skin="lcars"] .stripe[data-edge="bottom"] .stripeIcon,
+[data-skin="lcars"] .stripe[data-edge="bottomRight"] .stripeIcon { background: var(--lcars-lilac); border-radius: var(--elbow-in); }
+/* And the column runs to the end. Below the last mark an LCARS column carries
+   one long filler block — without it the frame stops in mid-air, which is the
+   difference between a frame and a row of buttons. It is a block of the
+   column, so it takes the bottom elbow. */
+[data-skin="lcars"] .stripe[data-edge="left"]::after,
+[data-skin="lcars"] .stripe[data-edge="right"]::after {
+  content: "";
+  flex: 1 1 auto;
+  /* The column lays its marks out down the middle, so a block with nothing in
+     it has no width of its own: it is told to fill the column instead. */
+  align-self: stretch;
+  min-height: var(--elbow-out);
+}
+[data-skin="lcars"] .stripe[data-edge="left"]::after {
+  background: var(--lcars-gold);
+  border-radius: 0 0 0 var(--elbow-out);
+}
+[data-skin="lcars"] .stripe[data-edge="right"]::after {
+  background: var(--lcars-bluebell);
+  border-radius: 0 0 var(--elbow-out) 0;
+}
+/* With a filler under them the marks no longer carry the bottom curve. */
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:last-child,
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon:last-child { border-radius: 0; }
+
+[data-skin="lcars"] .stripeIcon:hover { background: var(--lcars-peach); color: #000; }
+[data-skin="lcars"] .stripeIcon[data-lit="yes"] { background: var(--lcars-tangerine); color: #000; }
+[data-skin="lcars"] .stripeIcon[data-nearly-out="yes"] { background: var(--lcars-mars); color: #000; }
+[data-skin="lcars"] .stripeBadge { background: var(--lcars-mars); color: #000; border-radius: 50%; }
+
+/* ---- the dock: panels on black, tabs as blocks --------------------------- */
+[data-skin="lcars"] .plxrDock .dv-groupview,
+[data-skin="lcars"] .panel,
+[data-skin="lcars"] .card,
+[data-skin="lcars"] .list,
+[data-skin="lcars"] .listbody { background: #000; border: 0; }
+[data-skin="lcars"] .plxrDock .dv-tabs-and-actions-container {
+  background: #000;
+  border: 0;
+  gap: var(--seam);
+}
+/* dockview paints its tabs from its own variables, in rules six selectors deep
+   — a rule on .dv-tab cannot reach them, and the shared layer sets the
+   variables on .dockHost, so they have to be set at least as close. */
+[data-skin="lcars"] .dockHost,
+[data-skin="lcars"] .dockHost .dv-shell > *,
+[data-skin="lcars"] .plxrDock {
+  --dv-tabs-and-actions-container-background-color: #000;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--lcars-tangerine);
+  --dv-activegroup-visiblepanel-tab-color: #000;
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--lcars-bluebell);
+  --dv-activegroup-hiddenpanel-tab-color: #000;
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--lcars-lilac);
+  --dv-inactivegroup-visiblepanel-tab-color: #000;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--lcars-bluebell);
+  --dv-inactivegroup-hiddenpanel-tab-color: #000;
+  --dv-separator-border: #000;
+  --dv-tab-divider-color: #000;
+}
+/* A tab is a block. Said as background-color and for each of the states
+   dockview draws — the shared layer sets them one by one, and a shorthand
+   against it leaves the ones it does not name standing. */
+[data-skin="lcars"] .plxrDock .dv-tab,
+[data-skin="lcars"] .plxrDock .dv-tab.dv-inactive-tab,
+[data-skin="lcars"] .plxrDock .dv-groupview .dv-tab {
+  background-color: var(--lcars-bluebell);
+  color: #000;
+  border: 0;
+  border-radius: var(--elbow-in) var(--elbow-in) 0 0;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+[data-skin="lcars"] .plxrDock .dv-tab.dv-active-tab,
+[data-skin="lcars"] .plxrDock .dv-groupview .dv-tab.dv-active-tab,
+[data-skin="lcars"] .plxrDock .dv-active-group .dv-tab.dv-active-tab {
+  background-color: var(--lcars-tangerine);
+  color: #000;
+}
+[data-skin="lcars"] .plxrDock .dv-tab:hover,
+[data-skin="lcars"] .plxrDock .dv-groupview .dv-tab:hover { background-color: var(--lcars-peach); color: #000; }
+/* The tool windows at the edges carry the same blocks, in the cool family. */
+[data-skin="lcars"] .plxrDock .dv-groupview-edge .dv-tab,
+[data-skin="lcars"] .plxrDock .dv-groupview-edge .dv-tab.dv-active-tab { background-color: var(--lcars-lilac); color: #000; }
+[data-skin="lcars"] .panelTabName { color: inherit; }
+[data-skin="lcars"] .panelTabIcon { color: inherit; }
+
+/* ---- the terminal: black, and the letters in the phosphor of the panels --- */
+[data-skin="lcars"] .pterm {
+  background: #000;
+  border: 0;
+  border-radius: var(--elbow-in) 0 0 var(--elbow-in);
+}
+[data-skin="lcars"] .pane[data-active="yes"] .pterm { border: 0; }
+[data-skin="lcars"] .panelabel,
+[data-skin="lcars"] .paneacct {
+  color: var(--lcars-violet);
+  background: transparent;
+  text-align: right;
+}
+[data-skin="lcars"] .ubar { background: #000; }
+[data-skin="lcars"] .ufill { background: var(--lcars-ice); opacity: 1; }
+
+/* ---- lists, rows, tiles -------------------------------------------------- */
+[data-skin="lcars"] .tile {
+  background: var(--lcars-bluebell);
+  color: #000;
+  border: 0;
+  border-radius: 0 var(--elbow-out) var(--elbow-out) 0;
+}
+[data-skin="lcars"] .tile[data-status="working"] { background: var(--lcars-ice); }
+[data-skin="lcars"] .tile[data-status="waiting"],
+[data-skin="lcars"] .tile[data-status="permission"] { background: var(--lcars-mars); }
+[data-skin="lcars"] .tile[data-status="dead"] { background: #666688; }
+[data-skin="lcars"] .tilehead,
+[data-skin="lcars"] .tilefoot { background: transparent; color: #000; }
+[data-skin="lcars"] .frow,
+[data-skin="lcars"] .listrow { color: var(--lcars-gold); background: transparent; border: 0; }
+[data-skin="lcars"] .frow:hover,
+[data-skin="lcars"] .listrow:hover { background: var(--lcars-gold); color: #000; }
+[data-skin="lcars"] .frow[data-picked="yes"],
+[data-skin="lcars"] .listrow.on { background: var(--lcars-tangerine); color: #000; }
+[data-skin="lcars"] .fname,
+[data-skin="lcars"] .fchev,
+[data-skin="lcars"] .ficon { color: inherit; }
+
+/* ---- menus, dialogs, fields ---------------------------------------------- */
+[data-skin="lcars"] .menu,
+[data-skin="lcars"] .selectList,
+[data-skin="lcars"] .tooltip,
+[data-skin="lcars"] .overlay,
+[data-skin="lcars"] .modal {
+  background: #000;
+  color: var(--lcars-gold);
+  border: var(--seam) solid var(--lcars-violet);
+  border-radius: var(--elbow-in);
+}
+[data-skin="lcars"] .menuItem,
+[data-skin="lcars"] .selectRow {
+  color: var(--lcars-gold);
+  background: transparent;
+  text-transform: uppercase;
+}
+[data-skin="lcars"] .menuItem:hover,
+[data-skin="lcars"] .selectRow:hover { background: var(--lcars-gold); color: #000; }
+[data-skin="lcars"] .menuItem.danger { color: var(--lcars-mars); }
+[data-skin="lcars"] .menuSep { background: var(--lcars-violet); }
+[data-skin="lcars"] .menuHeader { color: var(--lcars-violet); }
+[data-skin="lcars"] .input,
+[data-skin="lcars"] input,
+[data-skin="lcars"] textarea {
+  background: #000;
+  color: var(--lcars-gold);
+  border: var(--seam) solid var(--lcars-bluebell);
+  border-radius: 0 var(--elbow-in) var(--elbow-in) 0;
+  font-family: var(--font);
+  text-transform: none;
+}
+[data-skin="lcars"] .input:focus,
+[data-skin="lcars"] input:focus,
+[data-skin="lcars"] textarea:focus { border-color: var(--lcars-tangerine); outline: 0; }
+
+/* ---- the status line: the thin arm at the foot, capped at its free end ---- */
+[data-skin="lcars"] .statusbar {
+  background: var(--lcars-lilac);
+  color: #000;
+  border: 0;
+  border-radius: var(--elbow-in) 0 0 var(--elbow-in);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+[data-skin="lcars"] .statusItem,
+[data-skin="lcars"] .statusCrumbName,
+[data-skin="lcars"] .meta,
+[data-skin="lcars"] .notice { color: inherit; }
+[data-skin="lcars"] .statusDivider { background: #000; }
+[data-skin="lcars"] .limit { background: transparent; color: #000; }
+[data-skin="lcars"] .limitPct[data-level="hot"] { color: var(--lcars-mars); }
+[data-skin="lcars"] .limitPct[data-level="full"] { color: var(--lcars-mars); }
+
+/* ---- the dots that say what a session is doing --------------------------- */
+[data-skin="lcars"] .dot.working { color: var(--lcars-ice); }
+[data-skin="lcars"] .dot.waiting { color: var(--lcars-peach); }
+[data-skin="lcars"] .dot.permission { color: var(--lcars-mars); }
+
+/* ---- scrollbars: blocks, like everything else ---------------------------- */
+[data-skin="lcars"] ::-webkit-scrollbar { width: 0.75rem; height: 0.75rem; }
+[data-skin="lcars"] ::-webkit-scrollbar-track { background: #000; }
+[data-skin="lcars"] ::-webkit-scrollbar-thumb {
+  background: var(--lcars-bluebell);
+  border-radius: var(--elbow-in);
+  border: 0;
+}
+[data-skin="lcars"] ::-webkit-scrollbar-thumb:hover { background: var(--lcars-violet); }

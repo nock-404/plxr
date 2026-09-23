@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { tr } from "@/lib/i18n";
 import { DRAWN_FOR_PLXR, PACK_LABELS, THIRD_PARTY, type ThirdPartySet } from "@/lib/icons";
+import { TYPEFACES } from "@/lib/typefaces";
 
 /* What plxr ships that other people made, and on what terms.
  *
@@ -34,7 +35,7 @@ export default function Licences() {
   useEffect(() => {
     let live = true;
     void Promise.all(
-      THIRD_PARTY.map(async (set) => {
+      [...THIRD_PARTY, ...TYPEFACES].map(async (set) => {
         try {
           const response = await fetch(`/${set.licenceFile}`);
           return [set.id, response.ok ? await response.text() : null] as const;
@@ -69,6 +70,24 @@ export default function Licences() {
             {texts === null
               ? tr("licences.reading", "Reading the licence …")
               : (texts[set.id] ?? tr("licences.missing", "This licence file is missing from the build."))}
+          </div>
+        </div>
+      ))}
+      {/* And the letters. Every one of these is under a licence that asks for
+          its notice to travel with the files, and until now the page that
+          exists to carry those notices said nothing about a single one. */}
+      {TYPEFACES.map((face) => (
+        <div key={face.id} className="licence" data-set={face.id}>
+          <div className="licenceHead">
+            <span className="licenceTitle">{face.title}</span>
+            <span className="licenceKind">{face.licence}</span>
+          </div>
+          <span className="notice">{face.usedFor}</span>
+          <span className="licenceSource">{face.source}</span>
+          <div className="licenceText">
+            {texts === null
+              ? tr("licences.reading", "Reading the licence …")
+              : (texts[face.id] ?? tr("licences.missing", "This licence file is missing from the build."))}
           </div>
         </div>
       ))}

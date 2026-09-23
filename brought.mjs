@@ -246,7 +246,8 @@ if (!up) {
 const HELPERS = `${GATEKIT}
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const openSettings = async () => {
-    document.querySelector('.bar [data-do="settings"]')?.click();
+    // The button is a switch: clicking it with the panel already up closes it.
+    if (!document.querySelector('.tab[data-tab="skins"]')) document.querySelector('.bar [data-do="settings"]')?.click();
     await kitUntil(() => document.querySelector('.tab[data-tab="skins"]'), 4000);
     document.querySelector('.tab[data-tab="skins"]')?.click();
     await wait(400);
@@ -381,6 +382,43 @@ try {
 claim("EXPORT writes the look back out as one file, stylesheet and all",
   Boolean(out.name) && back && back.skin === "brought" && typeof back.css === "string" && back.css.includes('[data-skin="brought"]') && back.palette?.bg === "#050607",
   out.why ?? `${out.name} · ${(out.text || "").length} bytes · skin ${back?.skin} · css ${back?.css ? back.css.length + " bytes" : "none"}`);
+
+/* ---- and the look that ships as an example ---------------------------------
+   docs/themes/lcars.json is written the way anybody would write one, and is
+   the proof that the way through is wide enough for a whole visual language
+   rather than a recolouring. */
+const example = readFileSync(join(HERE, "docs", "themes", "lcars.json"), "utf8");
+const sent = await api("/api/themes", { method: "POST", body: example });
+const asStored = sent.ok ? await sent.json() : { error: await sent.text() };
+claim("the look that ships as an example goes in as it is", sent.ok && asStored.skin === "lcars",
+  sent.ok ? `stored as "${asStored.label}" on skin "${asStored.skin}"` : `refused: ${asStored.error}`);
+
+const wearing = await run(`${HELPERS}
+  /* Shut and opened again: the panel reads the lists when it opens, and this
+     look arrived while it was already up — which is what a person does when
+     they drop a file in from somewhere else. */
+  /* The looks tab clicked again, which is how somebody goes looking: the panel
+     lives on behind its tab, so it asks the service afresh at that moment. */
+  await openSettings();
+  document.querySelector('.tab[data-tab="skins"]')?.click();
+  await wait(900);
+  const got = await choose(0, 'LCARS');
+  if (got.why) return { why: got.why, rows: got.rows, served: await (await fetch('/api/skins', { headers: { 'X-Plxr-Token': new URLSearchParams(location.search).get('token') || '' } })).json().then(l => l.map(s => s.name + ':' + s.label)).catch(e => String(e)) };
+  await wait(1200);
+  const bar = getComputedStyle(document.querySelector('.bar'));
+  const icon = document.querySelector('.stripe[data-edge="left"] .stripeIcon');
+  return {
+    skin: document.documentElement.dataset.skin,
+    bar: bar.backgroundColor,
+    block: icon ? getComputedStyle(icon).backgroundColor : '',
+    caps: getComputedStyle(document.body).textTransform,
+    font: getComputedStyle(document.body).fontFamily,
+  };
+`);
+claim("worn, it is the frame and not a recolouring: a coloured arm, blocks down the column, capitals",
+  wearing.skin === "lcars" && wearing.bar === "rgb(255, 153, 0)" && wearing.block === "rgb(255, 204, 102)" &&
+    wearing.caps === "uppercase" && /Antonio/.test(wearing.font ?? ""),
+  wearing.why ? `${wearing.why} · rows ${(wearing.rows ?? []).join(", ")} · service says ${JSON.stringify(wearing.served ?? [])}` : `bar ${wearing.bar} · block ${wearing.block} · ${wearing.caps} · ${wearing.font}`);
 
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);

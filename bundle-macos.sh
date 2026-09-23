@@ -17,7 +17,24 @@ set -eu
 cd "$(dirname "$0")"
 
 version="${1:-dev}"
-app="build/plxr.app"
+
+# A lane of its own, for trying a build beside the one that is working.
+#
+# ./bundle-macos.sh 0.97.0 beta makes "plxr beta.app": another bundle
+# identifier, so macOS treats it as its own application — its own Dock entry,
+# its own notification settings, its own folder permissions — and PLXR_CHANNEL
+# in its environment, so it keeps its sessions and settings in ~/.plxr-beta
+# and never touches the ones the ordinary build is holding.
+channel="${2:-}"
+if [ -n "$channel" ]; then
+	app="build/plxr $channel.app"
+	name="plxr $channel"
+	ident="dev.plxr.app.$channel"
+else
+	app="build/plxr.app"
+	name="plxr"
+	ident="dev.plxr.app"
+fi
 
 # Not >/dev/null: build.sh reports its failures on standard output, so throwing
 # that away turned a compile error into a bundle that simply did not appear.
@@ -31,7 +48,12 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 
 go build -ldflags "-X main.version=$version" -o "$app/Contents/MacOS/plxr" . 2>/dev/null
 
-sed "s/VERSION/$version/g" build/darwin/Info.plist > "$app/Contents/Info.plist"
+sed -e "s/VERSION/$version/g" -e "s|dev.plxr.app|$ident|" -e "s|<string>plxr</string>|<string>$name</string>|" build/darwin/Info.plist > "$app/Contents/Info.plist"
+if [ -n "$channel" ]; then
+	# The lane, in the bundle: an application started from the Finder inherits
+	# nobody's shell, so the only way it can know is to carry it.
+	/usr/libexec/PlistBuddy -c "Add :LSEnvironment dict" -c "Add :LSEnvironment:PLXR_CHANNEL string $channel" "$app/Contents/Info.plist" >/dev/null
+fi
 
 # The icon, in every size macOS asks for.
 iconset=$(mktemp -d)/plxr.iconset

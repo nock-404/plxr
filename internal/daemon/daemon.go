@@ -54,12 +54,40 @@ func (i Info) URL() string { return fmt.Sprintf("http://127.0.0.1:%d", i.Port) }
 // build and an installation share the same daemon and the same file with port
 // and token — one ends the other's session, and you end up hunting bugs in files
 // that are not the ones being served.
+/* Where everything of one plxr lives: its sessions, its settings, its themes.
+ *
+ * PLXR_HOME names it outright — that is what the checks use, each in a home of
+ * its own. PLXR_CHANNEL names one beside the ordinary one instead: a build
+ * called "beta" keeps its things in ~/.plxr-beta and therefore has its own
+ * daemon, its own port, its own sessions and its own settings. That is what
+ * lets a new build be tried while the one holding the day's work goes on
+ * running ("can I run plxr in a beta version beside this plxr").
+ *
+ * A channel is a name, not a path: anything but letters, digits and a dash is
+ * dropped, so it can never reach out of the home directory. */
 func Root() string {
 	if d := os.Getenv("PLXR_HOME"); d != "" {
 		return d
 	}
 	home, _ := os.UserHomeDir()
+	if c := Channel(); c != "" {
+		return filepath.Join(home, ".plxr-"+c)
+	}
 	return filepath.Join(home, ".plxr")
+}
+
+// Channel is the name of this build's lane — empty for the ordinary one.
+func Channel() string {
+	out := make([]rune, 0, 16)
+	for _, r := range strings.ToLower(os.Getenv("PLXR_CHANNEL")) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			out = append(out, r)
+		}
+		if len(out) == 16 {
+			break
+		}
+	}
+	return strings.Trim(string(out), "-")
 }
 
 func infoPath() string { return filepath.Join(Root(), "daemon.json") }
