@@ -377,6 +377,7 @@ func keepDaemon(win *application.WebviewWindow) {
  */
 func followBackdrop(win *application.WebviewWindow) {
 	current := ""
+	followScreen(win.NativeWindow())
 	for {
 		theme, _ := daemon.ReadPrefs()["theme"].(map[string]any)
 		want, _ := theme["backdrop"].(string)
@@ -386,6 +387,10 @@ func followBackdrop(win *application.WebviewWindow) {
 		if want != current {
 			current = want
 			applyBackdrop(win.NativeWindow(), want)
+			// The material is put on afresh, so its layers start at whatever
+			// scale they are given: the window is told again which screen it
+			// is on.
+			followScreen(win.NativeWindow())
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

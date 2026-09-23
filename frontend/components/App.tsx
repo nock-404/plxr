@@ -458,6 +458,22 @@ export default function App() {
     document.documentElement.setAttribute("data-room", room);
   }, [room]);
 
+  /* Whether anybody is looking. Everything that moves by itself is stopped
+     while the window is not in front: on a screen driven over a wire, an
+     animation nobody sees still costs a frame's work in three processes. */
+  useEffect(() => {
+    const awake = () => document.documentElement.setAttribute("data-awake", document.hasFocus() && !document.hidden ? "yes" : "no");
+    awake();
+    window.addEventListener("focus", awake);
+    window.addEventListener("blur", awake);
+    document.addEventListener("visibilitychange", awake);
+    return () => {
+      window.removeEventListener("focus", awake);
+      window.removeEventListener("blur", awake);
+      document.removeEventListener("visibilitychange", awake);
+    };
+  }, []);
+
   // Sound needs a gesture before a browser will allow it; the first click is it.
   useEffect(() => {
     const once = () => arm();

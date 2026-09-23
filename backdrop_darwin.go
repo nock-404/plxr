@@ -4,8 +4,9 @@ package main
 
 /*
 #cgo CFLAGS: -x objective-c -fmodules
-#cgo LDFLAGS: -framework Cocoa
+#cgo LDFLAGS: -framework Cocoa -framework QuartzCore
 void plxrSetBackdrop(void *nsWindow, int kind);
+void plxrFollowScreen(void *nsWindow);
 */
 import "C"
 
@@ -24,4 +25,11 @@ func applyBackdrop(nsWindow unsafe.Pointer, kind string) {
 		n = 3
 	}
 	C.plxrSetBackdrop(nsWindow, C.int(n))
+}
+
+// followScreen keeps the window drawing at the scale of the screen it is on.
+// Without it a window moved to a screen of another scale keeps the old one and
+// is drawn soft — see the note in backdrop_darwin.m.
+func followScreen(nsWindow unsafe.Pointer) {
+	C.plxrFollowScreen(nsWindow)
 }

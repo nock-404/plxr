@@ -524,8 +524,28 @@
 .selectRow[data-picked]:before { content: "› "; }
 [data-room="working"] .fx:after,
 [data-room="waiting"] .fx:after { content: ""; }
-[data-room="working"] .fx:after { box-shadow: inset 0 0 5.5rem color-mix(in srgb, var(--working) 10%, transparent); animation: 5s ease-in-out infinite crtbreath; }
-[data-room="waiting"] .fx:after { box-shadow: inset 0 0 7.5rem color-mix(in srgb, var(--blocked) 16%, transparent); animation: 2.2s ease-in-out infinite crtbreath; }
+/* The room light does not breathe any more.
+ *
+ * It was an opacity animation on the layer that lies over the whole window, so
+ * for as long as anything was working the window was composited afresh sixty
+ * times a second — the whole of it, not the part that changed. Measured on a
+ * laptop driving an external screen over DisplayLink: the page itself did 0.05
+ * seconds of work in ten (no script, no layout worth the name) while the web
+ * content process sat at 18%, WindowServer at 34% and the display's own agent
+ * at 11%, because every one of those frames is read back and pushed over the
+ * wire. Nothing on the screen was moving that a person could point at.
+ *
+ * The light stays, as light: the room is tinted while something works and more
+ * strongly while something waits. What moves is what is small — the dots on
+ * the tiles and in the tabs, which damage a few pixels each. */
+[data-room="working"] .fx:after { box-shadow: inset 0 0 5.5rem color-mix(in srgb, var(--working) 10%, transparent); }
+[data-room="waiting"] .fx:after { box-shadow: inset 0 0 7.5rem color-mix(in srgb, var(--blocked) 16%, transparent); }
+/* And nothing animates at all while the window is not the one being looked at:
+   a window in the background that keeps its compositor busy is paying for a
+   picture nobody is watching. */
+:root[data-awake="no"] .fx,
+:root[data-awake="no"] .fx:after,
+:root[data-awake="no"] .dot { animation-play-state: paused; }
 .slider-track { background: color-mix(in srgb, var(--fg) 10%, transparent); border: var(--hair) solid var(--dim); }
 .slider-fill { background: var(--accent); opacity: .75; }
 .slider-knob {
@@ -763,11 +783,6 @@
   50% { opacity: .45; }
 }
 
-@keyframes crtbreath {
-  0%,
-  to { opacity: .55; }
-  50% { opacity: 1; }
-}
 
 /* The handle between two panels. Where the line sits and how thick it is are
    sizes, so they are in layout.css; this only says what colour it is. */
