@@ -760,9 +760,31 @@ export default function Terminal({
     });
     seen.observe(el);
     window.addEventListener("focus", take);
+
+    /* And a click anywhere that is not something else's.
+     *
+     * Coming back from another application the window is activated by a click,
+     * and that click lands on whatever is under the pointer — a panel, a
+     * strip, the empty room beside the tabs. None of those want the keyboard,
+     * so it stayed wherever it had been and the first thing typed went
+     * nowhere: "clicking into the window and having the terminal ready to type
+     * in does not work either". A click on something that does want it — a
+     * field, a button, a list, a tab — is left alone; everything else hands
+     * the keyboard to the terminal one is looking at. */
+    const wants = "input, textarea, select, button, a, [contenteditable='true'], [role='option'], [role='menuitem'], .menu, .selectList, .dv-tab, .cm-editor";
+    const clicked = (e: PointerEvent) => {
+      const on = e.target;
+      if (!(on instanceof Element) || on.closest(wants)) return;
+      // Only for the pane in front, and never over somebody else's terminal.
+      const pane = on.closest(".pane");
+      if (pane && pane !== el) return;
+      window.setTimeout(take, 0);
+    };
+    document.addEventListener("pointerdown", clicked, true);
     return () => {
       seen.disconnect();
       window.removeEventListener("focus", take);
+      document.removeEventListener("pointerdown", clicked, true);
     };
   }, [active]);
 

@@ -227,13 +227,21 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
     window.addEventListener("contextmenu", shut, true);
     window.addEventListener("keydown", key);
     window.addEventListener("blur", onClose);
-    return () => {
+    // What this list needs a column for.
+  const anyChecked = items.some((it) => !it.separator && !it.header && !it.field && it.checked !== undefined);
+  const anyIcon = items.some((it) => !it.separator && !it.header && !it.field && Boolean(it.icon));
+  return () => {
       window.removeEventListener("mousedown", shut, true);
       window.removeEventListener("contextmenu", shut, true);
       window.removeEventListener("keydown", key);
       window.removeEventListener("blur", onClose);
     };
   }, [onClose, anchor]);
+
+  // What this list needs a column for: a tick, a mark, or neither. Decided for
+  // the whole list, so no row hangs out of line.
+  const anyChecked = items.some((it) => !it.separator && !it.header && !it.field && it.checked !== undefined);
+  const anyIcon = items.some((it) => !it.separator && !it.header && !it.field && Boolean(it.icon));
 
   return createPortal(
     <div className="menu" role="menu" ref={ref} style={{ left: `${pos.left}px`, top: `${pos.top}px` }}>
@@ -282,14 +290,19 @@ function MenuSurface({ x, y, items, anchor, back, onReopen, onClose }: Opened & 
                 : undefined
             }
           >
-            {it.checked === undefined ? null : (
+            {/* The columns are the menu's, not the row's. A row that carries
+                no tick used to draw no cell for one, so it started further
+                left than the rows around it — a list of seven where one word
+                hangs out of line. Whenever any row in this menu has a tick, or
+                a mark, every row keeps room for it. */}
+            {anyChecked ? (
               <span className="menuCheck" aria-hidden="true">
                 {it.checked ? "✓" : ""}
               </span>
-            )}
-            {it.icon ? (
+            ) : null}
+            {anyIcon ? (
               <span className={`menuIcon${it.status ? ` dot ${it.status}` : ""}`} aria-hidden="true">
-                <Icon name={it.icon} />
+                {it.icon ? <Icon name={it.icon} /> : null}
               </span>
             ) : null}
             <span className="menuLabel">

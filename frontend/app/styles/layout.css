@@ -762,21 +762,34 @@ body {
   top: calc(var(--label-h) * -1);
   height: var(--label-h); line-height: var(--label-h);
 }
-/* What the session is spending, at the other end of the same line the name
-   stands on: the account's name, then the running window and the week, each a
-   bar with its figure. It keeps to the right so the name can grow, and gives
-   way before the name does when the pane is narrow. */
+/* What the session is spending, over the terminal that is spending it.
+ *
+ * A block above the pane rather than a strip at the end of its label row: one
+ * row per window, each the width of the pane, so the bar is long enough to
+ * read at a glance and the words beside it fit — what it is, how much is gone,
+ * when it comes back. The pane's padding above grows to hold it, and with no
+ * account, or none this window can measure, there is no block and the padding
+ * stays where it was. */
 .paneacct {
-  position: absolute; right: 0.625rem; z-index: 2; padding: 0 0.375rem;
-  top: calc(var(--label-h) * -1);
-  height: var(--label-h); line-height: var(--label-h);
-  display: flex; align-items: center; gap: 0.4rem; min-width: 0; overflow: hidden;
-  font-size: .7em; letter-spacing: .06em;
+  /* A row of the pane, not a thing floating over it. Hung above the pane it
+     reached up into the session's own bar and drew over it; here it simply
+     takes its room and the terminal starts under it. */
+  flex: 0 0 auto; order: -1;
+  display: flex; flex-direction: column; justify-content: center; gap: 0.15rem;
+  padding: 0.15rem 0.25rem 0.3rem; min-width: 0; overflow: hidden;
+  /* At the size the window is set to, not at seven tenths of it: this is a
+     readout somebody reads, and it was too small to ("who is supposed to be
+     able to read that?"). */
+  font-size: 1em; letter-spacing: .02em;
 }
-.paneWindow { display: flex; align-items: center; gap: 0.25rem; }
-.paneacct .ubar { width: 2.25rem; min-width: 2.25rem; flex: 0 0 auto; height: 0.3rem; }
-/* A pane with a ✕ leaves room for it. */
-.pane:has(.paneclose) .paneacct { right: 2rem; }
+.paneacct[data-empty="yes"] { padding-bottom: 0.15rem; }
+.paneUsageRow { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.paneUsageWhat { flex: 0 0 auto; min-width: 4.5rem; }
+.paneacct .ubar { flex: 1 1 auto; min-width: 3rem; height: 0.7rem; }
+.paneacct .limitPct { flex: 0 0 auto; }
+.paneacct .meta { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paneacct .limitName { flex: 0 0 auto; }
+
 .paneclose {
   position: absolute; top: calc(var(--label-h) * -1); right: 0.5rem; z-index: 3;
   cursor: pointer; background: none; border: 0; font: inherit; color: inherit; padding: 0 0.25rem;

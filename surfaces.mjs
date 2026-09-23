@@ -244,7 +244,13 @@ const menu = await tab.run(`${HELPERS}
   const got = await until(() => document.querySelector('body > .menu'), 2000);
   const m = got.v;
   return m ? { heads: menuHeads(), rows: menuRows(), alpha: alphaOf(m), onBody: m.parentElement === document.body,
-    z: getComputedStyle(m).zIndex, checks: [...m.querySelectorAll('.menuCheck')].length,
+    z: getComputedStyle(m).zIndex,
+    /* What is a switch, not who has a cell for one. Every row in a list that
+       holds switches keeps room for the tick now, so the rows line up; the
+       rows that are switches are the ones that say which way they stand. */
+    checks: [...m.querySelectorAll('.menuItem[aria-checked]')].length,
+    cells: [...m.querySelectorAll('.menuCheck')].length,
+    rowsTotal: [...m.querySelectorAll('.menuItem')].length,
     hints: [...m.querySelectorAll('.menuHint')].map(h => h.textContent.trim()), rect: (r => ({ x: r.left, y: r.top, w: r.width, h: r.height }))(m.getBoundingClientRect()), vh: innerHeight, vw: innerWidth } : null;
 `);
 /* Under the button — unless the list is taller than the room under it: the
@@ -266,7 +272,9 @@ claim("every group is there: Actions, Tools, Tool windows, Documents, Help", men
 const wantRows = ["Search commands…", "New session", "Templates", "Settings", "PAUSE ALL", "Reset the panel layout", "Workbench", "Workshop", "frame-rate readout", "Files", "Inbox", "Changes", "Ports", "Usage", "Archive", "Overview", "Project overview", "Keyboard"];
 claim("every action row is there (" + wantRows.length + ")", menu && wantRows.every((r) => menu.rows.includes(r)), menu ? `${menu.rows.length} rows: ${menu.rows.join(" · ")}` : "");
 // The three tools of the window and the ten tool windows are switches, each with its tick cell.
-claim("the tools and the tool windows carry a check cell and the rows their keys", menu && menu.checks === 14 && menu.hints.includes("⌘K") && menu.hints.includes("⌘1") && menu.hints.includes("⌘3"), menu ? `${menu.checks} checks · hints ${menu.hints.join(" ")}` : "");
+claim("the tools and the tool windows are switches, every row keeps room for the tick, and the rows carry their keys",
+  menu && menu.checks === 14 && menu.cells === menu.rowsTotal && menu.hints.includes("⌘K") && menu.hints.includes("⌘1") && menu.hints.includes("⌘3"),
+  menu ? `${menu.checks} switches · ${menu.cells} cells for ${menu.rowsTotal} rows · hints ${menu.hints.join(" ")}` : "");
 
 // Workbench from the menu, by the pointer alone.
 const wbRow = await tab.run(`${HELPERS} const b = menuRow(/^Workbench$/); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };`);

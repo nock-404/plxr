@@ -1841,6 +1841,7 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		}
 	}
 
+	accountDirs := c.accountByDir()
 	out := []Tile{}
 	for _, sess := range c.reg.List() {
 		if pathFilter != "" && !strings.HasPrefix(sess.Cwd, pathFilter) {
@@ -1874,6 +1875,15 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 
 		st, matched := fleetStateFor(sess, byTTY, byPID)
 		useFleet := matched && sess.Alive && prof.Source == "fleet"
+
+		/* The account the program is really signed in as, straight from the
+		   hook inside it — the one thing that knows. What plxr put into the
+		   shell stands until then. */
+		if matched {
+			if name := accountOfState(accountDirs, st.ConfigDir); name != "" {
+				sess.Account = name
+			}
+		}
 
 		// Render once, use twice — preview and status detection.
 		screen := ""
@@ -2302,6 +2312,41 @@ func (c *Core) SkinRead(name string) (string, error) {
 // state while writing one, and a save that refuses because a brace is still
 // open would make the workbench unusable. A broken sheet costs the look, not
 // the data.
+/* Which account each live session is really signed in as.
+ *
+ * Not the one plxr picked when it started the shell: a person with an alias —
+ * `claude2` sets CLAUDE_CONFIG_DIR for one command — runs on another account,
+ * and the window named the one it had chosen while showing that account's
+ * usage, which was empty because nothing ran there (23.09.2026, measured).
+ *
+ * The answer comes from the hook, which runs inside the CLI and writes down
+ * the directory it found in its own environment. Nothing else can know it:
+ * macOS hands out no other process's environment, not even a child's, and
+ * accounts that share their transcripts cannot be told apart by them.
+ */
+func (c *Core) accountByDir() map[string]string {
+	out := map[string]string{}
+	for _, a := range accounts.Discover() {
+		out[filepath.Clean(a.Dir)] = a.Name
+		if real, err := filepath.EvalSymlinks(a.Dir); err == nil {
+			out[filepath.Clean(real)] = a.Name
+		}
+	}
+	return out
+}
+
+// accountOfState maps what the hook wrote to an account's name, empty when it
+// said nothing or named a directory no account claims.
+func accountOfState(dirs map[string]string, dir string) string {
+	if dir == "" {
+		return ""
+	}
+	if real, err := filepath.EvalSymlinks(dir); err == nil {
+		dir = real
+	}
+	return dirs[filepath.Clean(dir)]
+}
+
 // SkinList is every skin that can be chosen: the ones in the application and
 // the ones somebody put on disk.
 func (c *Core) SkinList() []theme.SkinInfo { return theme.SkinList(c.skins) }

@@ -287,6 +287,31 @@ const listHeld = await run(`${GATEKIT}
 `);
 claim("a list that is open keeps the keyboard when the window is focused", listHeld.stayed, `${listHeld.on || listHeld.why || ""}`);
 
+/* And a click into the window, anywhere that is nobody else's, puts the
+   keyboard in the terminal — which is how one comes back from another
+   application: the click that activates the window lands wherever the pointer
+   happens to be, and until now the first thing typed went nowhere. */
+const clickedAbout = await run(`${GATEKIT}
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const pane = document.querySelector('.plxrDock .session .pane');
+  if (!pane) return { why: 'no session pane' };
+  document.querySelector('.bar [data-do="settings"]')?.blur();
+  document.body.focus();
+  // Somewhere that wants nothing: the strip the tabs sit in, beside them.
+  const strip = document.querySelector('.plxrDock .dv-tabs-and-actions-container');
+  const r = strip.getBoundingClientRect();
+  strip.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: Math.round(r.right - 4), clientY: Math.round(r.top + r.height / 2) }));
+  await sleep(400);
+  const after = String(document.activeElement?.className ?? '');
+  // And a click on something that does want the keyboard keeps it.
+  const field = document.querySelector('.bar input');
+  if (field) { field.focus(); field.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await sleep(400); }
+  return { after, field: String(document.activeElement?.className ?? '') };
+`);
+claim("a click on something that wants nothing hands the keyboard to the terminal",
+  /xterm-helper-textarea/.test(clickedAbout.after ?? ""), clickedAbout.why ?? `keyboard on "${clickedAbout.after}"`);
+claim("and a click on a field leaves it there", !/xterm-helper-textarea/.test(clickedAbout.field ?? ""), `keyboard on "${clickedAbout.field}"`);
+
 // ---- a reload does not open the last click again --------------------------
 await open();
 await sleep(2000);

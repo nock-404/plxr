@@ -198,15 +198,19 @@ export default function Session({
    * each row says which way it stands, and the same list is what the title
    * offers under the right button. */
   const viewItems = (): MenuItem[] => [
-    { label: tr("session.files", "FILES"), do: "files", checked: files, onClick: () => setFiles((f) => !f) },
-    ...(onChanges ? [{ label: tr("git.open", "CHANGES"), do: "changes", onClick: onChanges }] : []),
-    { label: tr("queue.open", "QUEUE"), do: "queue", checked: queueOpen, onClick: () => setQueueOpen((q) => !q) },
-    { label: tr("session.rules", "RULES"), do: "rules", checked: pane === "rules", onClick: () => setPane((p) => (p === "rules" ? "none" : "rules")) },
-    { label: tr("player.open", "PLAYBACK"), do: "player", checked: pane === "player", onClick: () => setPane((p) => (p === "player" ? "none" : "player")) },
-    { label: tr("marks.open", "MARKS"), do: "marks", checked: pane === "marks", onClick: () => setPane((p) => (p === "marks" ? "none" : "marks")) },
+    { label: tr("session.files", "FILES"), do: "files", icon: "files", checked: files, onClick: () => setFiles((f) => !f) },
+    /* CHANGES opens a tool window rather than something beside the terminal,
+       so it is not a switch and carries no tick — it keeps the column all the
+       same, which is the menu's business now and not this list's. */
+    ...(onChanges ? [{ label: tr("git.open", "CHANGES"), do: "changes", icon: "changes" as const, onClick: onChanges }] : []),
+    { label: tr("queue.open", "QUEUE"), do: "queue", icon: "templates", checked: queueOpen, onClick: () => setQueueOpen((q) => !q) },
+    { label: tr("session.rules", "RULES"), do: "rules", icon: "notes", checked: pane === "rules", onClick: () => setPane((p) => (p === "rules" ? "none" : "rules")) },
+    { label: tr("player.open", "PLAYBACK"), do: "player", icon: "play", checked: pane === "player", onClick: () => setPane((p) => (p === "player" ? "none" : "player")) },
+    { label: tr("marks.open", "MARKS"), do: "marks", icon: "archive", checked: pane === "marks", onClick: () => setPane((p) => (p === "marks" ? "none" : "marks")) },
     {
       label: tr("session.split", "SPLIT"),
       do: "split",
+      icon: "panel-right",
       checked: Boolean(split),
       disabled: !split && others.length === 0,
       onClick: () => setSplit((v) => (v ? null : (others[0]?.id ?? null))),

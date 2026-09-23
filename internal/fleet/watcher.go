@@ -29,6 +29,10 @@ type State struct {
 	StartedAt      int64  `json:"started_at"`
 	Since          int64  `json:"since"`
 	UpdatedAt      int64  `json:"updated_at"`
+	// The directory this Claude keeps its things in — which is to say, the
+	// account it is really signed in as. Only the hook can know it; see the
+	// note in internal/hook.
+	ConfigDir string `json:"config_dir,omitempty"`
 }
 
 // Dirs are the directories that may hold state files.

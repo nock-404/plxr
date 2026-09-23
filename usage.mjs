@@ -718,7 +718,8 @@ const overTerminal = await tab.run(`${HELPERS}
   };
 `);
 claim("over the terminal stands the account it spends, with the window and the week",
-  overTerminal.name === "Work" && JSON.stringify(overTerminal.figures) === JSON.stringify(["28%", "41%"]),
+  overTerminal.name === "Work" && (overTerminal.figures ?? []).length === 2 &&
+    overTerminal.figures[0].startsWith("28%") && overTerminal.figures[1].startsWith("41%"),
   overTerminal.why ?? `"${overTerminal.name}" · ${(overTerminal.figures ?? []).join(" · ")} · bars ${(overTerminal.bars ?? []).join(" · ")}`);
 claim("the bars are drawn to those percentages, not to a total",
   JSON.stringify(overTerminal.bars) === JSON.stringify(["28%", "41%"]),

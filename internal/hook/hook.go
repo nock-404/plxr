@@ -63,6 +63,20 @@ type State struct {
 	StartedAt   int64  `json:"started_at"`
 	Since       int64  `json:"since"`
 	UpdatedAt   int64  `json:"updated_at"`
+
+	/* Which account this Claude is signed in as, as the directory it keeps its
+	  things in — empty for the default one.
+	*
+	* Nobody else can know it. plxr starts a session's shell with
+	* CLAUDE_CONFIG_DIR set to the account that was picked and believed its
+	* own answer afterwards, so a person with an alias — `claude2` sets that
+	* variable for one command — ran on one account while the window named
+	* another, showing that account's usage, which was empty because nothing
+	* ran there. The environment of a running process cannot be read on macOS,
+	* not even a child's, and the transcripts are one pool when the accounts
+	* share them. This hook runs inside that very process: it has only to look
+	* at its own environment. */
+	ConfigDir string `json:"config_dir,omitempty"`
 }
 
 var validID = regexp.MustCompile(`^[\w-]+$`)
@@ -99,6 +113,7 @@ func Run(r *os.File) error {
 	now := time.Now().UnixMilli()
 	z := old
 	z.SessionID = v.SessionID
+	z.ConfigDir = os.Getenv("CLAUDE_CONFIG_DIR")
 	z.Activity = old.Activity
 	z.Prompt = old.Prompt
 	z.LastMessage = old.LastMessage
