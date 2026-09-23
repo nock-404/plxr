@@ -162,6 +162,9 @@ for (let i = 0; i < 80; i++) {
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
 writeFileSync(join(work, "shot.png"), PNG);
 writeFileSync(join(work, "Bildschirmfoto 2026-09-23 um 10.12.png"), PNG);
+mkdirSync(join(work, "pics"), { recursive: true });
+writeFileSync(join(work, "pics", "inside.txt"), "nothing much\n");
+mkdirSync(join(work, "a folder"), { recursive: true });
 const outside = `/tmp/plxr-far-${process.pid}`;
 mkdirSync(outside, { recursive: true });
 writeFileSync(join(outside, "far.png"), PNG);
@@ -279,7 +282,7 @@ const HELPERS = `${GATEKIT}
     const img = document.querySelector('.picshot');
     const after = [...document.querySelectorAll('.plxrDock .dv-tab .panelTabName')].map(t => t.textContent.trim());
     const opened = after.filter(t => !before.includes(t));
-    return { clicked: row.t.trim().slice(0, 40), underline, opened, tabs: [...document.querySelectorAll('.plxrDock .dv-tab .panelTabName')].map(t => t.textContent.trim()),
+    return { clicked: row.t.trim().slice(0, 60), at: col, row: row.y, underline, opened, tabs: [...document.querySelectorAll('.plxrDock .dv-tab .panelTabName')].map(t => t.textContent.trim()),
              picture: Boolean(img), wide: img ? img.naturalWidth : 0, note: document.querySelector('.emptyNote b')?.textContent.trim() ?? '' };
   };
 `;
@@ -287,7 +290,7 @@ const HELPERS = `${GATEKIT}
 const boot = await run(`${HELPERS}
   await openSession('probe');
   await wait(2500);
-  type("printf '%s\\\\n' shot.png '${globalThis.OUT}/far.png' 'Bildschirmfoto 2026-09-23 um 10.12.png done'\\r");
+  type("printf '%s\\\\n' shot.png '${globalThis.OUT}/far.png' 'Bildschirmfoto 2026-09-23 um 10.12.png done' '${globalThis.OUT}' 'a folder here'\\r");
   await wait(2500);
   return rowsOf().filter(r => r.t.trim()).map(r => r.t.trim());
 `);
@@ -296,14 +299,34 @@ claim("a shell in the session prints the three paths", boot.some((l) => /far\.pn
 
 const cases = [
   ["a picture in the session's folder opens as a picture", "/^shot\\.png/", "shot.png"],
-  ["a picture outside it, named by its absolute path, opens too", "/^\\/tmp\\/plxr-far/", "far.png"],
+  ["a picture outside it, named by its absolute path, opens too", "/far\\.png$/", "far.png"],
   ["a name with spaces in it is one path, not the first word of it", "/^Bildschirmfoto/", "Bildschirmfoto 2026-09-23 um 10.12.png"],
 ];
 for (const [what, re, file] of cases) {
   const got = await run(`${HELPERS} return await clickPath(${re});`);
   claim(what, got.opened?.includes(file) && got.picture && got.wide > 0,
-    `opened ${JSON.stringify(got.opened ?? [])} · picture ${got.picture} · ${got.wide}px wide${got.note ? ' · "' + got.note + '"' : ""}${got.why ? " · " + got.why : ""}`);
+    `clicked row ${got.row} column ${got.at} of "${got.clicked}" · opened ${JSON.stringify(got.opened ?? [])} · picture ${got.picture} · ${got.wide}px wide${got.note ? ' · "' + got.note + '"' : ""}${got.why ? " · " + got.why : ""}`);
 }
+
+/* ---- and a folder is opened as a folder ------------------------------------
+ *
+ * It went to the editor like everything else, and the editor's honest answer to
+ * a directory is "that is a directory" — which is what a click on a path a
+ * program had just printed was worth. */
+const folder = await run(`${HELPERS}
+  const tabOf = (n) => [...document.querySelectorAll('.plxrDock .dv-tab')].find(t => (t.querySelector('.panelTabName')?.textContent ?? '').trim() === n);
+  tabOf('probe · running')?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+  await wait(800);
+  const before = [...document.querySelectorAll('.plxrDock .dv-tab .panelTabName')].map(t => t.textContent.trim());
+  const got = await clickPath(/plxr-far-[0-9]+$/);
+  const after = [...document.querySelectorAll('.plxrDock .dv-tab .panelTabName')].map(t => t.textContent.trim());
+  return { clicked: got.clicked, opened: after.filter(t => !before.includes(t)),
+           tree: Boolean(document.querySelector('.foldersbody, .folderbar')),
+           note: document.querySelector('.emptyNote b')?.textContent.trim() ?? '' };
+`);
+claim("a folder in the output opens as a folder, not as a file nobody can read",
+  folder.tree && !/directory/i.test(folder.note),
+  `clicked "${folder.clicked}" · opened ${JSON.stringify(folder.opened ?? [])} · tree ${folder.tree} · note "${folder.note}"`);
 
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);

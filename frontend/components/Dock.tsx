@@ -304,6 +304,12 @@ function SessionPanel(props: IDockviewPanelProps<{ id: string }>) {
           d.onReplaced(nextId);
         }}
         onOpenFile={(path, line, rootId) => d.openEditor(rootId ?? tile.id, path, line, undefined, props.api.id)}
+        /* A folder clicked in the terminal: taken as the project and shown in
+           the tree — the same two steps as picking it from the projects list. */
+        onOpenFolder={(path) => {
+          d.shell?.pickProject(path);
+          d.openDoc("folders");
+        }}
         /* The changes follow the session focused last, and the click that
            asks for them lands in this panel — so it is this session's folder
            the tool comes up on. */

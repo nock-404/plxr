@@ -129,7 +129,6 @@ function pathsIn(text: string): PathHit[] {
     if (/^https?:/i.test(raw) || raw.startsWith("~")) continue;
     if (/^\d+(\.\d+)*$/.test(raw)) continue;
     const weak = !looksLikeFile;
-    if (weak && raw.length < 2) continue;
     const path = raw.replace(/^\.\//, "");
     out.push({ path, raw, weak, line: m[2] ? parseInt(m[2], 10) : undefined, col: m[3] ? parseInt(m[3], 10) : undefined, start, end });
   }
@@ -139,15 +138,15 @@ function pathsIn(text: string): PathHit[] {
 /* Whether a path exists under a session's folder, by listing its directory
    once and remembering the answer briefly. A hover asks for every path on a
    line; a listing per hover would be the file tree read again and again. */
-const listings = new Map<string, Promise<Set<string>>>();
-function namesIn(id: string, dir: string): Promise<Set<string>> {
+const listings = new Map<string, Promise<Map<string, boolean>>>();
+function namesIn(id: string, dir: string): Promise<Map<string, boolean>> {
   const key = `${id}\u0000${dir}`;
   const held = listings.get(key);
   if (held) return held;
   const p = api
     .listDir(id, dir)
-    .then((entries) => new Set(entries.map((e) => e.name)))
-    .catch(() => new Set<string>());
+    .then((entries) => new Map(entries.map((e) => [e.name, Boolean(e.dir)] as const)))
+    .catch(() => new Map<string, boolean>());
   listings.set(key, p);
   window.setTimeout(() => listings.delete(key), 10000);
   return p;
@@ -176,25 +175,27 @@ function rootFor(id: string, path: string): { rootId: string; dir: string; name:
  * sentence, so the directory is asked: of everything actually lying there, the
  * longest entry the line carries from this point on is the file meant. Nothing
  * lying there, nothing to click. */
-async function fileAt(id: string, hit: PathHit, text: string): Promise<{ path: string; end: number } | null> {
+async function fileAt(id: string, hit: PathHit, text: string): Promise<{ path: string; end: number; dir: boolean } | null> {
   const { rootId, dir, name } = rootFor(id, hit.path);
   if (!name) return null;
   const names = await namesIn(rootId, dir);
-  if (!hit.weak && names.has(name)) return { path: hit.path, end: hit.end };
+  if (!hit.weak && names.has(name)) return { path: hit.path, end: hit.end, dir: Boolean(names.get(name)) };
   const at = hit.start + (hit.raw.length - name.length);
   const rest = text.slice(at);
   let best = "";
-  for (const n of names) {
+  for (const n of names.keys()) {
     if (n.length <= best.length || !n.startsWith(name) || !rest.startsWith(n)) continue;
     /* A word that was not a path on its own only counts as one when the name
-       it grew into really is one: it has a space in it and it ends in an
-       extension. Without that every word in a sentence that happens to be a
-       folder's name would be a link. */
-    if (hit.weak && !(n.includes(" ") && /\.[a-z][a-z0-9]{0,7}$/i.test(n))) continue;
+       it grew into really is one: it has a space in it, and it is either a
+       folder or something with an extension. Without that every word in a
+       sentence that happens to be a name in this directory would be a link —
+       and with the extension alone, no folder with a space in its name could
+       ever be clicked, which is most of the folders people make. */
+    if (hit.weak && !(n.includes(" ") && (names.get(n) || /\.[a-z][a-z0-9]{0,7}$/i.test(n)))) continue;
     best = n;
   }
   if (!best) return null;
-  return { path: hit.path.slice(0, hit.path.length - name.length) + best, end: at + best.length };
+  return { path: hit.path.slice(0, hit.path.length - name.length) + best, end: at + best.length, dir: Boolean(names.get(best)) };
 }
 
 export default function Terminal({
@@ -211,6 +212,7 @@ export default function Terminal({
   endedAt,
   onRestart,
   onOpenPath,
+  onOpenFolder,
   cwd,
   onSplit,
   splitOn = false,
@@ -238,6 +240,9 @@ export default function Terminal({
   /* A path clicked in the output, with the line it named: opens the editor
      beside this terminal. Without it, paths are plain text. */
   onOpenPath?: (path: string, line?: number, rootId?: string) => void;
+  /* A folder clicked in the output: opened as a folder, in the tree, with the
+     project moved there. Without it a folder is not a link. */
+  onOpenFolder?: (path: string) => void;
   /* The session's folder, for the menu's copy — the terminal itself does not
      know where it is. */
   cwd?: string;
@@ -262,6 +267,13 @@ export default function Terminal({
   report.current = onSearch;
   const openPath = useRef(onOpenPath);
   openPath.current = onOpenPath;
+  /* The folder handler and this session's own folder, held the same way: the
+     link handlers are wired once, when the terminal is built, and outlive any
+     one render of the panel around them. */
+  const openFolder = useRef(onOpenFolder);
+  openFolder.current = onOpenFolder;
+  const cwdNow = useRef(cwd);
+  cwdNow.current = cwd;
   /* The socket in use, read by the terminal's own handlers — keystrokes and
      sizes — which are wired once and outlive any one socket. */
   const socket = useRef<WebSocket | null>(null);
@@ -339,12 +351,21 @@ export default function Terminal({
         void Promise.all(hits.map((h) => fileAt(id, h, text))).then((found) => {
           const links: ILink[] = hits
             .map((h, i) => ({ h, at: found[i] }))
-            .filter((row): row is { h: PathHit; at: { path: string; end: number } } => row.at !== null)
+            .filter((row): row is { h: PathHit; at: { path: string; end: number; dir: boolean } } => row.at !== null)
             .map(({ h, at }) => ({
               text: text.slice(h.start, at.end),
               range: { start: { x: h.start + 1, y }, end: { x: at.end, y } },
               activate: (e: MouseEvent) => {
                 if (!withModifier(e)) return;
+                /* A folder is opened as a folder. It used to go to the editor
+                   like everything else, and the editor's honest answer to a
+                   directory is "that is a directory" — which is what a click
+                   on a path a program had just printed was worth. */
+                if (at.dir) {
+                  const full = at.path.startsWith("/") ? at.path : `${(cwdNow.current || "").replace(/\/+$/, "")}/${at.path}`;
+                  openFolder.current?.(full);
+                  return;
+                }
                 /* An absolute path is opened under its own directory, a
                    relative one under this session's folder. */
                 const where = rootFor(id, at.path);

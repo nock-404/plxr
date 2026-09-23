@@ -32,6 +32,7 @@ export default function Session({
   onBack,
   onReplaced,
   onOpenFile,
+  onOpenFolder,
   onChanges,
 }: {
   tile: Tile;
@@ -46,6 +47,9 @@ export default function Session({
      beside this one — the terminal stays where it is — so the session itself
      holds no editor. */
   onOpenFile: (path: string, line?: number, rootId?: string) => void;
+  /* A folder clicked in a terminal: shown as a folder rather than handed to
+     the editor, which has nothing to say about one. */
+  onOpenFolder?: (path: string) => void;
   /* Source control for this session's folder, as a panel beside it. */
   onChanges?: () => void;
 }) {
@@ -358,6 +362,7 @@ export default function Session({
                the only place they are. */
             sessionItems={() => titleMenu}
             account={tile.account ?? ""}
+            onOpenFolder={onOpenFolder}
           />
           {split ? (
             <Terminal
@@ -381,6 +386,7 @@ export default function Session({
               onSplit={() => setSplit(null)}
               splitOn
               account={others.find((o) => o.id === split)?.account ?? ""}
+              onOpenFolder={onOpenFolder}
             />
           ) : null}
         </div>
