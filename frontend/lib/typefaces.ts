@@ -65,6 +65,6 @@ export const TYPEFACES: Typeface[] = [
     licence: "SIL OFL 1.1", // german-ok: the licence's name
     licenceFile: "licenses/antonio.txt",
     file: "fonts/antonio.woff2",
-    usedFor: "An ultra-compressed grotesque for looks that ask for one — the nearest free relative of the lettering on a starship's panels",
+    usedFor: "An ultra-compressed grotesque, for looks built on tall narrow capitals",
   },
 ];

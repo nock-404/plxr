@@ -384,13 +384,13 @@ claim("EXPORT writes the look back out as one file, stylesheet and all",
   out.why ?? `${out.name} · ${(out.text || "").length} bytes · skin ${back?.skin} · css ${back?.css ? back.css.length + " bytes" : "none"}`);
 
 /* ---- and the look that ships as an example ---------------------------------
-   docs/themes/lcars.json is written the way anybody would write one, and is
-   the proof that the way through is wide enough for a whole visual language
-   rather than a recolouring. */
-const example = readFileSync(join(HERE, "docs", "themes", "lcars.json"), "utf8");
+   docs/themes/contrast.json is written the way anybody would write one, and is
+   the proof that the way through is wide enough for a look of one's own —
+   shapes and lettering, not a recolouring. */
+const example = readFileSync(join(HERE, "docs", "themes", "contrast.json"), "utf8");
 const sent = await api("/api/themes", { method: "POST", body: example });
 const asStored = sent.ok ? await sent.json() : { error: await sent.text() };
-claim("the look that ships as an example goes in as it is", sent.ok && asStored.skin === "lcars",
+claim("the look that ships as an example goes in as it is", sent.ok && asStored.skin === "contrast",
   sent.ok ? `stored as "${asStored.label}" on skin "${asStored.skin}"` : `refused: ${asStored.error}`);
 
 const wearing = await run(`${HELPERS}
@@ -402,7 +402,7 @@ const wearing = await run(`${HELPERS}
   await openSettings();
   document.querySelector('.tab[data-tab="skins"]')?.click();
   await wait(900);
-  const got = await choose(0, 'LCARS');
+  const got = await choose(0, 'Contrast');
   if (got.why) return { why: got.why, rows: got.rows, served: await (await fetch('/api/skins', { headers: { 'X-Plxr-Token': new URLSearchParams(location.search).get('token') || '' } })).json().then(l => l.map(s => s.name + ':' + s.label)).catch(e => String(e)) };
   await wait(1200);
   const bar = getComputedStyle(document.querySelector('.bar'));
@@ -410,18 +410,18 @@ const wearing = await run(`${HELPERS}
   return {
     skin: document.documentElement.dataset.skin,
     bar: bar.backgroundColor,
-    block: icon ? getComputedStyle(icon).backgroundColor : '',
-    caps: getComputedStyle(document.body).textTransform,
+    radius: icon ? getComputedStyle(icon).borderRadius : '',
+    caps: getComputedStyle(document.querySelector('.bar .btn') ?? document.body).textTransform,
+    hair: getComputedStyle(document.querySelector('.stripe[data-edge="left"]') ?? document.body).borderRightWidth,
     font: getComputedStyle(document.body).fontFamily,
   };
 `);
-/* The frame, not a recolouring: the ground is black and carries the blocks,
-   the column is a stack of them in the warm family, everything in capitals in
-   an ultra-compressed face. */
-claim("worn, it is the frame and not a recolouring: black ground, blocks down the column, capitals",
-  wearing.skin === "lcars" && wearing.bar === "rgb(0, 0, 0)" && wearing.block === "rgb(255, 204, 102)" &&
-    wearing.caps === "uppercase" && /Antonio/.test(wearing.font ?? ""),
-  wearing.why ? `${wearing.why} · rows ${(wearing.rows ?? []).join(", ")} · service says ${JSON.stringify(wearing.served ?? [])}` : `bar ${wearing.bar} · block ${wearing.block} · ${wearing.caps} · ${wearing.font}`);
+/* Worn, it changes more than colour: the shapes and the lettering come from
+   the brought sheet too. That is the whole point of letting a theme carry one. */
+claim("worn, it is the shapes as well, not only the colours",
+  wearing.skin === "contrast" && wearing.bar === "rgb(0, 0, 0)" && wearing.radius === "0px" &&
+    wearing.caps === "uppercase" && wearing.hair === "2px",
+  wearing.why ?? `bar ${wearing.bar} · corners ${wearing.radius} · buttons ${wearing.caps} · line ${wearing.hair} · ${wearing.font}`);
 
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);

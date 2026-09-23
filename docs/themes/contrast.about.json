@@ -1,0 +1,27 @@
+{
+  "name": "contrast",
+  "label": "Contrast",
+  "author": "an example of a look brought from outside",
+  "skin": "contrast",
+  "palette": {
+    "bg": "#000000",
+    "panel": "#0b0b0b",
+    "line": "#7a7a7a",
+    "fg": "#ffffff",
+    "dim": "#c8c8c8",
+    "dead": "#8a8a8a",
+    "accent": "#ffd400",
+    "onAccent": "#000000",
+    "working": "#3ad07a",
+    "waiting": "#ffb000",
+    "blocked": "#ff3b30",
+    "term-bg": "#000000",
+    "term-fg": "#ffffff"
+  },
+  "fontSize": 15,
+  "termSize": 13,
+  "glow": false,
+  "scanlines": false,
+  "gradient": 0,
+  "seethrough": 0
+}

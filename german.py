@@ -34,7 +34,7 @@ ALLOWED_PATHS = (
     # source, so reading the packed copy is reading the same text twice — once
     # with every line run together, where a typeface's name lands in the middle
     # of a sentence.
-    'docs/themes/lcars.json',
+    'docs/themes/contrast.json',
     'german.py',             # this file names the words it hunts
     'translations.py',       # and so does that one: it holds the German
                              # spellings it corrects, which are German words

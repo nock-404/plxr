@@ -1,0 +1,76 @@
+/* A look brought from outside, as an example of what one can be.
+ *
+ * It exists to show that a theme file reaches further than thirteen colours:
+ * this one changes the shapes as well — square corners, one hairline, no
+ * glass, no glow — and it is what the check measures the whole way through.
+ *
+ * Everything here is colour, shape and lettering, plus the few measures plxr
+ * offers as tokens. Nothing reaches into how the window is arranged.
+ */
+
+[data-skin="contrast"] {
+  --stripe-w: 3rem;
+  --hair: 0.125rem;
+  --seam: 0.25rem;
+  --font: "IBMPlexMono", ui-monospace, Menlo, monospace;
+  --mono: "IBMPlexMono", ui-monospace, Menlo, monospace;
+  --term-font: "IBMPlexMono", ui-monospace, Menlo, monospace;
+}
+
+/* Nothing is see-through and nothing is drawn over the screen: every surface
+   says plainly what it is. */
+[data-skin="contrast"] .fx { display: none; }
+[data-skin="contrast"] * {
+  text-shadow: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 0;
+}
+
+[data-skin="contrast"] body,
+[data-skin="contrast"] .app,
+[data-skin="contrast"] .stage,
+[data-skin="contrast"] .content { background: var(--bg); color: var(--fg); }
+
+/* One line, everywhere, at one weight — the only thing that separates
+   anything from anything else here. */
+[data-skin="contrast"] .bar,
+[data-skin="contrast"] .statusbar,
+[data-skin="contrast"] .plxrDock .dv-tabs-and-actions-container { border-bottom: var(--hair) solid var(--line); background: var(--bg); }
+[data-skin="contrast"] .stripe { background: var(--bg); }
+[data-skin="contrast"] .stripe[data-edge="left"] { border-right: var(--hair) solid var(--line); }
+[data-skin="contrast"] .stripe[data-edge="right"] { border-left: var(--hair) solid var(--line); }
+
+[data-skin="contrast"] .btn,
+[data-skin="contrast"] .switch,
+[data-skin="contrast"] .selectButton {
+  background: var(--bg);
+  color: var(--fg);
+  border: var(--hair) solid var(--line);
+  font-family: var(--font);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+[data-skin="contrast"] .btn:hover { background: var(--accent); color: var(--onAccent); }
+[data-skin="contrast"] .btn.primary { background: var(--accent); color: var(--onAccent); }
+[data-skin="contrast"] .btn.danger { background: var(--blocked); color: var(--onAccent); }
+
+[data-skin="contrast"] .stripeIcon { background: var(--bg); color: var(--dim); border: 0; }
+[data-skin="contrast"] .stripeIcon:hover,
+[data-skin="contrast"] .stripeIcon[data-lit="yes"] { background: var(--accent); color: var(--onAccent); }
+
+[data-skin="contrast"] .plxrDock .dv-tab { background: var(--bg); color: var(--dim); border-right: var(--hair) solid var(--line); text-transform: uppercase; }
+[data-skin="contrast"] .plxrDock .dv-tab.dv-active-tab { background: var(--accent); color: var(--onAccent); }
+
+[data-skin="contrast"] .pterm { background: var(--term-bg); border: var(--hair) solid var(--line); }
+[data-skin="contrast"] .menu,
+[data-skin="contrast"] .selectList,
+[data-skin="contrast"] .tooltip,
+[data-skin="contrast"] .modal { background: var(--panel); color: var(--fg); border: var(--hair) solid var(--fg); }
+[data-skin="contrast"] .menuItem:hover,
+[data-skin="contrast"] .selectRow:hover { background: var(--accent); color: var(--onAccent); }
+[data-skin="contrast"] .input,
+[data-skin="contrast"] input,
+[data-skin="contrast"] textarea { background: var(--bg); color: var(--fg); border: var(--hair) solid var(--line); }
+[data-skin="contrast"] ::-webkit-scrollbar-thumb { background: var(--dim); }

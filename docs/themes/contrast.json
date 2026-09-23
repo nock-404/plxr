@@ -1,0 +1,28 @@
+{
+  "name": "contrast",
+  "label": "Contrast",
+  "author": "an example of a look brought from outside",
+  "skin": "contrast",
+  "palette": {
+    "bg": "#000000",
+    "panel": "#0b0b0b",
+    "line": "#7a7a7a",
+    "fg": "#ffffff",
+    "dim": "#c8c8c8",
+    "dead": "#8a8a8a",
+    "accent": "#ffd400",
+    "onAccent": "#000000",
+    "working": "#3ad07a",
+    "waiting": "#ffb000",
+    "blocked": "#ff3b30",
+    "term-bg": "#000000",
+    "term-fg": "#ffffff"
+  },
+  "fontSize": 15,
+  "termSize": 13,
+  "glow": false,
+  "scanlines": false,
+  "gradient": 0,
+  "seethrough": 0,
+  "css": "/* A look brought from outside, as an example of what one can be.\n *\n * It exists to show that a theme file reaches further than thirteen colours:\n * this one changes the shapes as well — square corners, one hairline, no\n * glass, no glow — and it is what the check measures the whole way through.\n *\n * Everything here is colour, shape and lettering, plus the few measures plxr\n * offers as tokens. Nothing reaches into how the window is arranged.\n */\n\n[data-skin=\"contrast\"] {\n  --stripe-w: 3rem;\n  --hair: 0.125rem;\n  --seam: 0.25rem;\n  --font: \"IBMPlexMono\", ui-monospace, Menlo, monospace;\n  --mono: \"IBMPlexMono\", ui-monospace, Menlo, monospace;\n  --term-font: \"IBMPlexMono\", ui-monospace, Menlo, monospace;\n}\n\n/* Nothing is see-through and nothing is drawn over the screen: every surface\n   says plainly what it is. */\n[data-skin=\"contrast\"] .fx { display: none; }\n[data-skin=\"contrast\"] * {\n  text-shadow: none;\n  box-shadow: none;\n  -webkit-backdrop-filter: none;\n  backdrop-filter: none;\n  border-radius: 0;\n}\n\n[data-skin=\"contrast\"] body,\n[data-skin=\"contrast\"] .app,\n[data-skin=\"contrast\"] .stage,\n[data-skin=\"contrast\"] .content { background: var(--bg); color: var(--fg); }\n\n/* One line, everywhere, at one weight — the only thing that separates\n   anything from anything else here. */\n[data-skin=\"contrast\"] .bar,\n[data-skin=\"contrast\"] .statusbar,\n[data-skin=\"contrast\"] .plxrDock .dv-tabs-and-actions-container { border-bottom: var(--hair) solid var(--line); background: var(--bg); }\n[data-skin=\"contrast\"] .stripe { background: var(--bg); }\n[data-skin=\"contrast\"] .stripe[data-edge=\"left\"] { border-right: var(--hair) solid var(--line); }\n[data-skin=\"contrast\"] .stripe[data-edge=\"right\"] { border-left: var(--hair) solid var(--line); }\n\n[data-skin=\"contrast\"] .btn,\n[data-skin=\"contrast\"] .switch,\n[data-skin=\"contrast\"] .selectButton {\n  background: var(--bg);\n  color: var(--fg);\n  border: var(--hair) solid var(--line);\n  font-family: var(--font);\n  text-transform: uppercase;\n  letter-spacing: .08em;\n}\n[data-skin=\"contrast\"] .btn:hover { background: var(--accent); color: var(--onAccent); }\n[data-skin=\"contrast\"] .btn.primary { background: var(--accent); color: var(--onAccent); }\n[data-skin=\"contrast\"] .btn.danger { background: var(--blocked); color: var(--onAccent); }\n\n[data-skin=\"contrast\"] .stripeIcon { background: var(--bg); color: var(--dim); border: 0; }\n[data-skin=\"contrast\"] .stripeIcon:hover,\n[data-skin=\"contrast\"] .stripeIcon[data-lit=\"yes\"] { background: var(--accent); color: var(--onAccent); }\n\n[data-skin=\"contrast\"] .plxrDock .dv-tab { background: var(--bg); color: var(--dim); border-right: var(--hair) solid var(--line); text-transform: uppercase; }\n[data-skin=\"contrast\"] .plxrDock .dv-tab.dv-active-tab { background: var(--accent); color: var(--onAccent); }\n\n[data-skin=\"contrast\"] .pterm { background: var(--term-bg); border: var(--hair) solid var(--line); }\n[data-skin=\"contrast\"] .menu,\n[data-skin=\"contrast\"] .selectList,\n[data-skin=\"contrast\"] .tooltip,\n[data-skin=\"contrast\"] .modal { background: var(--panel); color: var(--fg); border: var(--hair) solid var(--fg); }\n[data-skin=\"contrast\"] .menuItem:hover,\n[data-skin=\"contrast\"] .selectRow:hover { background: var(--accent); color: var(--onAccent); }\n[data-skin=\"contrast\"] .input,\n[data-skin=\"contrast\"] input,\n[data-skin=\"contrast\"] textarea { background: var(--bg); color: var(--fg); border: var(--hair) solid var(--line); }\n[data-skin=\"contrast\"] ::-webkit-scrollbar-thumb { background: var(--dim); }\n"
+}
