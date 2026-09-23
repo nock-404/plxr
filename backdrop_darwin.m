@@ -110,6 +110,17 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
   if (view == nil) {
     return;
   }
+  /* The web view is left alone, itself and everything under it.
+   *
+   * It keeps its own layers at the scale it wants them and draws its text with
+   * the smoothing that goes with that scale; a scale written into those layers
+   * from outside is a number WebKit did not choose, and the letters come back
+   * without their edges. What was stale was never WebKit's — it was the layers
+   * the window itself puts around it. */
+  if ([view isKindOfClass:NSClassFromString(@"WKWebView")]) {
+    [view setNeedsDisplay:YES];
+    return;
+  }
   [self scaleLayer:[view layer] to:scale];
   [view setNeedsDisplay:YES];
   for (NSView *sub in [view subviews]) {

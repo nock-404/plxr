@@ -59,6 +59,10 @@ step "error codes" python3 errors.py
 # the German window quietly shows English sentences among the German ones.
 step "both languages" python3 translations.py
 
+# The window is served from a new port at every start, and a new port is a new
+# storage: anything kept only there is thrown away by the next start.
+step "nothing kept only locally" python3 storage.py
+
 # --- the layer contract ---
 # Styles live in app/styles, sizes in rem, feature code goes through the Ui
 # components. All three used to be one-line greps here against paths that only

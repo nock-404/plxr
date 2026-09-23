@@ -165,6 +165,15 @@ let keptHere = "";
 let keptFront = "";
 let keptTreeOpen: string[] = [];
 
+/* The CSS written in the workshop, as the daemon has it. Said out loud when it
+   arrives, because the sheet is put on the page before the daemon answers. */
+export const WORKSHOP_CHANGED = "WORKSHOP_CHANGED";
+let keptWorkshopCss = "";
+
+export function keptCss(): string {
+  return keptWorkshopCss;
+}
+
 export function kept(): { here: string; front: string; treeOpen: string[] } {
   return { here: keptHere, front: keptFront, treeOpen: keptTreeOpen };
 }
@@ -175,6 +184,10 @@ export function adoptPrefs(prefs: Record<string, unknown>): void {
   if (typeof prefs.here === "string") keptHere = prefs.here;
   if (typeof prefs.front === "string") keptFront = prefs.front;
   if (Array.isArray(prefs.treeOpen)) keptTreeOpen = prefs.treeOpen.filter((p): p is string => typeof p === "string");
+  if (typeof prefs.workshopCss === "string" && prefs.workshopCss !== keptWorkshopCss) {
+    keptWorkshopCss = prefs.workshopCss;
+    window.dispatchEvent(new Event(WORKSHOP_CHANGED));
+  }
   const nextTerminal = fitTerminal(prefs.terminal);
   const nextEditor = fitEditor(prefs.editor);
   const moved = JSON.stringify(nextTerminal) !== JSON.stringify(terminal) || JSON.stringify(nextEditor) !== JSON.stringify(editor);

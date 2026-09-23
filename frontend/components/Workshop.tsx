@@ -3,12 +3,21 @@
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Editor from "@/components/ui/Editor";
+import { api } from "@/lib/api";
 import { tr } from "@/lib/i18n";
+import { keptCss, WORKSHOP_CHANGED } from "@/lib/prefs";
 
-// Write CSS against the running window and watch it change. Docked beside the
-// interface rather than over it: an overlay would cover the very thing it is
-// meant to show. What is written here rides on top of the skin, so the four
-// that ship stay intact.
+/* Write CSS against the running window and watch it change. Docked beside the
+ * interface rather than over it: an overlay would cover the very thing it is
+ * meant to show. What is written here rides on top of the skin, so the four
+ * that ship stay intact.
+ *
+ * Kept with the daemon, not only in the window's own storage. The window is
+ * served from a port the daemon picks afresh at every start, and to a browser
+ * a different port is a different origin with a storage of its own — so what
+ * was saved here was gone at the next start, which reads as the settings
+ * having been thrown away. localStorage stays as the copy that is already
+ * there on the first paint. */
 const KEY = "plxr.workshop";
 
 function sheet(): HTMLStyleElement {
@@ -28,17 +37,35 @@ export function applyStored(): void {
   } catch {
     /* storage unavailable — the window simply starts on the plain skin */
   }
+  // And the daemon's copy the moment it has answered, which is the one that
+  // outlives the window's storage.
+  const take = () => {
+    const css = keptCss();
+    if (css) {
+      sheet().textContent = css;
+      try {
+        localStorage.setItem(KEY, css);
+      } catch {
+        /* nothing to cache it in */
+      }
+    }
+  };
+  take();
+  window.addEventListener(WORKSHOP_CHANGED, take);
 }
 
 export default function Workshop({ onClose }: { onClose: () => void }) {
   const [css, setCss] = useState("");
 
   useEffect(() => {
-    try {
-      setCss(localStorage.getItem(KEY) ?? "");
-    } catch {
-      setCss("");
-    }
+    const stored = (() => {
+      try {
+        return localStorage.getItem(KEY) ?? "";
+      } catch {
+        return "";
+      }
+    })();
+    setCss(keptCss() || stored);
   }, []);
 
   function write(next: string) {
@@ -60,6 +87,7 @@ export default function Workshop({ onClose }: { onClose: () => void }) {
             } catch {
               /* nothing to keep it in — the live change still stands */
             }
+            void api.setPrefs({ workshopCss: css }).catch(() => undefined);
           }}
         >
           {tr("common.save", "SAVE")}
@@ -73,6 +101,7 @@ export default function Workshop({ onClose }: { onClose: () => void }) {
             } catch {
               /* nothing stored */
             }
+            void api.setPrefs({ workshopCss: null }).catch(() => undefined);
           }}
         >
           {tr("settings.reset", "RESET")}
