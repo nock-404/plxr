@@ -70,6 +70,10 @@ export interface ThemeState {
   hue: number;
   brightness: number;
   saturation: number;
+  /* The text alone, as a share of the picked brightness: 100 is the colour
+     that was picked, above it the letters are brighter than the screen they
+     stand on and lose their colour towards white. Nothing else moves with it. */
+  textLift: number;
   /* Which icon pack draws the marks: the stripes, the tabs, the tree, the
      toolbar. "skin" — the default — draws with the pack the skin brings
      (lib/iconChoice.ts); a pack named here was picked over it and stays. */
@@ -92,7 +96,7 @@ export const DEFAULTS: ThemeState = {
   uiFont: "", termFont: "",
   // Brightness is the value of the picked colour now, not a contrast target,
   // so 50 would be a genuinely dim screen. 74 is the tube as it looked before.
-  hue: 140, brightness: 74, saturation: 100,
+  hue: 140, brightness: 74, saturation: 100, textLift: 100,
   icons: FOLLOW_SKIN,
   iconsVersion: ICONS_VERSION,
 };
@@ -262,7 +266,7 @@ export function apply(state: ThemeState): void {
   for (const key of TOKENS) root.style.removeProperty(`--${key}`);
 
   if (state.palette === "custom") {
-    const p = crtPalette(state.hue, state.brightness, state.saturation);
+    const p = crtPalette(state.hue, state.brightness, state.saturation, state.textLift);
     for (const key of TOKENS) root.style.setProperty(`--${key}`, p[key]);
     for (const [key, value] of Object.entries(state.colours ?? {})) {
       if (value) root.style.setProperty(`--${key}`, value);

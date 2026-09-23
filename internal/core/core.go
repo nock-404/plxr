@@ -1774,6 +1774,16 @@ func (c *Core) ReadFile(sessionID, path string) (*files.Content, error) {
 	return files.Read(root, path)
 }
 
+// FileBytes hands over a file as it lies on disk — a picture, a font, anything
+// the editor has nothing to say about. The root check is files' own.
+func (c *Core) FileBytes(sessionID, path string) (string, []byte, error) {
+	root, err := c.root(sessionID)
+	if err != nil {
+		return "", nil, err
+	}
+	return files.Bytes(root, path)
+}
+
 // Suggestions helps while a path is being typed. Deliberately unrelated to any
 // session: what is being looked for is a directory with no session in it yet.
 func (c *Core) Suggestions(input string) []string {

@@ -936,6 +936,7 @@ func (s *Server) Routes() *http.ServeMux {
 	})
 	mux.HandleFunc("GET /api/file/{id}", s.readFile)
 	mux.HandleFunc("GET /api/base/{id}", s.baseFile)
+	mux.HandleFunc("GET /api/bytes/{id}", s.fileBytes)
 	mux.HandleFunc("PUT /api/file/{id}", s.writeFile)
 	mux.HandleFunc("POST /api/file/{id}", s.createFile)
 	mux.HandleFunc("PATCH /api/file/{id}", s.renameFile)
@@ -1216,6 +1217,30 @@ func (s *Server) readFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, out)
+}
+
+/* fileBytes answers with the file itself, not a reading of it.
+ *
+ * What it is for is pictures: a path printed by a program is clicked, and a
+ * screenshot has to be looked at rather than declared "not text". The window
+ * fetches it with the token in the header like everything else and shows it
+ * from a blob, so no path and no token ever stands in an address. */
+func (s *Server) fileBytes(w http.ResponseWriter, r *http.Request) {
+	kind, body, err := s.c.FileBytes(r.PathValue("id"), r.URL.Query().Get("path"))
+	if err != nil {
+		code := http.StatusBadRequest
+		if forbidden(err) {
+			code = http.StatusForbidden
+		}
+		http.Error(w, err.Error(), code)
+		return
+	}
+	w.Header().Set("Content-Type", kind)
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	// Nothing here is ever a page: a file of somebody's making is not run.
+	w.Header().Set("Content-Security-Policy", "sandbox")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Write(body)
 }
 
 // baseFile answers with the file as HEAD has it, for the editor's gutter.

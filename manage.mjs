@@ -382,7 +382,7 @@ const searched = await run(`${HELPERS}
   const marks = [...panel.querySelectorAll('.findmark')].map(m => m.textContent);
   return { following, beside, terminalWide, files, marks, count: panel.querySelector('.hitSmall')?.textContent.trim() ?? '' };
 `);
-claim("SEARCH opens from its stripe icon and follows the session", /searching project/.test(searched.following ?? ""),
+claim("SEARCH opens from its stripe icon and follows the session", /searching in project/.test(searched.following ?? ""),
   searched.err ? `${searched.err} · tabs ${(searched.tabs ?? []).join(", ")} · icons ${(searched.icons ?? []).join(", ")}` : searched.following);
 claim("it opens beside the terminal, not over it", searched.beside && searched.terminalWide, JSON.stringify({ beside: searched.beside, wide: searched.terminalWide }));
 const byPath = Object.fromEntries((searched.files ?? []).map((f) => [f.path, f.lines]));

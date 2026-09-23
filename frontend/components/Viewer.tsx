@@ -15,6 +15,7 @@ import { tr, errText } from "@/lib/i18n";
 import { bindingOf, caption } from "@/lib/keymap";
 import { FILES_CHANGED } from "@/lib/useChanges";
 import { lineEndings, type Caret } from "@/lib/caret";
+import { isPicture } from "@/lib/picture";
 import type { Baseline, FileBody } from "@/lib/types";
 
 /* Read and edit one file from the machine the session or folder is on.
@@ -72,6 +73,36 @@ export default function Viewer({
   /* CLOSE was pressed on a buffer with edits: the bar now asks, and nothing
      closes until DISCARD is chosen. Cleared the moment the edits are saved. */
   const [confirmClose, setConfirmClose] = useState(false);
+  /* A picture is looked at, not read.
+   *
+   * Anything that is not text used to be answered with "this file is binary,
+   * so there is nothing sensible to show" — including every screenshot whose
+   * path an agent had just printed. The bytes are fetched as they lie on disk
+   * and shown from a blob address, which lives as long as this panel does and
+   * is given back when it closes. */
+  const picture = isPicture(path);
+  const [shot, setShot] = useState("");
+  useEffect(() => {
+    if (!picture) {
+      setShot("");
+      return;
+    }
+    let url = "";
+    let gone = false;
+    api
+      .fileBytes(rootId, path)
+      .then((bytes) => {
+        if (gone) return;
+        url = URL.createObjectURL(bytes);
+        setShot(url);
+      })
+      .catch((e) => setError(errText(e)));
+    return () => {
+      gone = true;
+      setShot("");
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [picture, rootId, path]);
   useEffect(() => {
     onDirty?.(dirty);
     if (!dirty) setConfirmClose(false);
@@ -303,7 +334,11 @@ export default function Viewer({
         )}
       </div>
       <div className="viewerwrap">
-        {body?.binary ? (
+        {picture ? (
+          <div className="picview">
+            {shot ? <img className="picshot" src={shot} alt={name} /> : <span className="meta">{tr("viewer.picture", "reading the picture…")}</span>}
+          </div>
+        ) : body?.binary ? (
           <div className="emptyNote">
             <b>{tr("viewer.binaryHead", "not text")}</b>
             {tr("viewer.binary", "This file is binary, so there is nothing sensible to show or edit here.")}

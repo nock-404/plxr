@@ -9,6 +9,8 @@ package files
 import (
 	"bytes"
 	"io"
+	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	"plxr/internal/uierr"
@@ -543,4 +545,40 @@ func describe(full string) (*Entry, error) {
 		Size: st.Size(),
 		Mod:  st.ModTime().UnixMilli(),
 	}, nil
+}
+
+/* A file as its bytes, for the things that are not text.
+ *
+ * The viewer had one answer for anything that is not text — "this file is
+ * binary, so there is nothing sensible to show" — and that answer was given to
+ * every screenshot whose path a program had printed. A picture is a file one
+ * looks at, so it is handed over as it lies on disk, under the same root check
+ * as every other read, and up to a size a window can hold.
+ */
+const MaxBytes = 32 << 20
+
+func Bytes(root, path string) (string, []byte, error) {
+	real, err := resolve(root, path)
+	if err != nil {
+		return "", nil, err
+	}
+	info, err := os.Stat(real)
+	if err != nil {
+		return "", nil, err
+	}
+	if info.IsDir() {
+		return "", nil, uierr.New("err.file.isDirectory")
+	}
+	if info.Size() > MaxBytes {
+		return "", nil, uierr.New("err.file.tooBig")
+	}
+	b, err := os.ReadFile(real)
+	if err != nil {
+		return "", nil, err
+	}
+	kind := mime.TypeByExtension(strings.ToLower(filepath.Ext(real)))
+	if kind == "" {
+		kind = http.DetectContentType(b)
+	}
+	return kind, b, nil
 }

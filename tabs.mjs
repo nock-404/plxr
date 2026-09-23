@@ -623,10 +623,8 @@ const fromSession = await run(`${HELPERS}${groupFacts}
   await activate(tab);
   const name = nameOf(tab);
   const session = () => [...document.querySelectorAll('.plxrDock .session')].find(s => s.offsetParent !== null);
-  // The bar keeps an unseen copy of its buttons to measure them; the one clicked is the one on screen.
-  const filesButton = session() && [...session().querySelectorAll('.sessbar button')].find(b => b.textContent.trim() === 'FILES' && !b.closest('.obarMeasureBox'));
-  if (!filesButton) return { why: 'no FILES button in the session bar' };
-  filesButton.click(); await wait(1500);
+  if (!await sessionView('files')) return { why: 'no FILES row in the session\u2019s VIEWS menu' };
+  await wait(1500);
   const row = n => session() && [...session().querySelectorAll('.frow')].find(r => (r.querySelector('.fname') || { textContent: '' }).textContent.trim() === n);
   if (!row('alpha.txt')) return { why: 'alpha.txt is not in the session\\u2019s tree' };
   const work = groupFacts(name);

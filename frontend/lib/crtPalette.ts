@@ -64,14 +64,34 @@ const LADDER = {
 // saturation is a coloured wall, not a background.
 const GROUND_SAT = 0.46;
 
-export function crtPalette(hue: number, brightness = 74, saturation = 100): Palette {
+/* The text, brighter or darker than the colour that was picked.
+ *
+ * The picked point is the text, and that is what one wants most of the time —
+ * but not always: "when I pick my own colour in the CRT theme the text changes
+ * with it, which is fine, but I want to set it separately, brighter". So the
+ * text has an axis of its own, a share of the picked brightness, and it goes
+ * past the top of the square: once the value is at full, brightening can only
+ * mean less colour, so what is left over is turned into whiteness. That is
+ * what a phosphor does when it is driven hard — the middle of the stroke goes
+ * white while its edge keeps the hue.
+ *
+ * At 100 nothing happens at all, and every other role is left where it was:
+ * this moves the text, not the screen. */
+function textAt(h: number, s: number, v: number, lift: number): string {
+  const want = (v * clamp(lift, 0, 300)) / 100;
+  if (want <= 100) return hsv(h, s, clamp(want));
+  const over = Math.min(want / 100, 3);
+  return hsv(h, clamp(s / over), 100);
+}
+
+export function crtPalette(hue: number, brightness = 74, saturation = 100, textLift = 100): Palette {
   const h = ((Math.round(hue) % 360) + 360) % 360;
   const s = clamp(saturation);
   const v = clamp(brightness);
   const at = (share: number, sat = s) => hsv(h, sat, clamp(v * share));
 
   const bg = at(LADDER.bg, s * GROUND_SAT);
-  const fg = at(LADDER.fg);
+  const fg = textAt(h, s, v * LADDER.fg, textLift);
   const dim = at(LADDER.dim);
   const accent = at(LADDER.accent);
   return {

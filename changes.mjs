@@ -242,7 +242,7 @@ const HELPERS = `${GATEKIT}
 const followA = await tab1.run(`${HELPERS}
   await openSession('alpha');
   await wait(1500);
-  byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
+  await sessionView('changes');
   const got = await until(() => branch() === 'main' ? branch() : null, 6000);
   return { branch: got.v, ms: got.ms, following: document.querySelector('.changesPanel .notice')?.textContent.trim() ?? '', rows: rows() };
 `);
@@ -413,7 +413,7 @@ for (let i = 0; i < 40; i++) {
 const tab2Follow = await tab2.run(`${HELPERS}
   await openSession('alpha');
   await wait(800);
-  if (!document.querySelector('.changesPanel')) byText('.sessbar button, .obarMenuItem button', /^CHANGES$/)?.click();
+  if (!document.querySelector('.changesPanel')) await sessionView('changes');
   const got = await until(() => branch() === 'main' ? branch() : null, 8000);
   return { branch: got.v, ms: got.ms };
 `);

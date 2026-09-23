@@ -164,8 +164,12 @@
    1.74:1, luminance 0.110). On it the pointer and a lit icon get the quiet
    tint every dark stripe has; lit comes last, so a lit icon under the pointer
    keeps its own. */
-[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon:hover { background: color-mix(in srgb, var(--fg) 10%, transparent); }
-[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon[data-lit="yes"] { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+/* Measured, the tints were a hair over the line a dark plate has to stay
+   under — luminance 0.081, 0.083 and 0.085 against 0.08 — so the plate read
+   as a light square on the blueprint rather than a shade of it. Taken down
+   until they sit under it with something to spare. */
+[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon:hover { background: color-mix(in srgb, var(--fg) 7%, transparent); }
+[data-skin="sketch"][data-theme="sketch-blueprint"] .stripeIcon[data-lit="yes"] { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 [data-skin="sketch"] .stripeBadge { background: transparent; color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent); border-radius: 50%; }
 [data-skin="sketch"] .stripeIcon[data-nearly-out="yes"] .stripeBadge { background: transparent; color: var(--blocked); box-shadow: 0 0 0 var(--hair) var(--blocked); }
 /* A count in handwriting at badge size is a smudge: its figures are typed. */

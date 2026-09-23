@@ -210,6 +210,15 @@ step "windows agree" node agree.mjs
 # It brings up a daemon in a home of its own, so nobody's real plxr is touched.
 step "editor works" node editor.mjs
 
+# A path a program prints, clicked: names with spaces, folders the session was
+# not started in, and pictures — each of the three was a dead end of its own.
+step "paths from the terminal" node pictures.mjs
+
+# The view that hides everything but the terminal: three things were asked for
+# in a row there, and each of them is a rule that something else could bring
+# back without anybody noticing.
+step "terminal view" node terminal.mjs
+
 # Source control follows the session and moves by itself: two folders, the
 # one panel switching between them as sessions are clicked, files appearing
 # and moving groups within a second of being written — with no AGAIN — the

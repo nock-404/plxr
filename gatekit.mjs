@@ -110,6 +110,22 @@ export const GATEKIT = `
     return true;
   }
 
+  /* Opens one of the things that stand beside a terminal — the tree, the
+     changes, the queue, the recording — the way a person does now: the VIEWS
+     button in the session bar, then the row in its menu. The bar keeps an
+     unseen copy of its buttons to measure them, so the one clicked is the one
+     on the screen. False when the button or the row is not there. */
+  async function sessionView(what) {
+    const bar = [...document.querySelectorAll('.sessbar .btn')]
+      .find((b) => b.dataset.do === 'views' && !b.closest('.obarMeasureBox') && b.getClientRects().length);
+    if (!bar) return false;
+    bar.click();
+    const row = await kitUntil(() => document.querySelector('body > .menu .menuItem[data-do="' + what + '"]'), 3000);
+    if (!row) return false;
+    row.click();
+    return true;
+  }
+
   /* Picks the project the window works in, by its folder, the way a person
      does: the project switch at the top opened, the folder typed into the
      field in its list and taken with Enter. False when there is no field to

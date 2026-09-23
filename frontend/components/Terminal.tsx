@@ -102,7 +102,7 @@ function withModifier(e: MouseEvent): boolean {
    path; it needs a slash or a file extension to be looked at at all, and it
    only becomes a link once the file API says it exists under this session. */
 const PATH_RE = /(?:^|[\s"'`(\[<{=])((?:\.{1,2}\/|\/)?[\w.@+~-]+(?:\/[\w.@+~-]+)*)(?::(\d+))?(?::(\d+))?/g;
-type PathHit = { path: string; line?: number; col?: number; start: number; end: number };
+type PathHit = { path: string; raw: string; weak?: boolean; line?: number; col?: number; start: number; end: number };
 
 function pathsIn(text: string): PathHit[] {
   const out: PathHit[] = [];
@@ -118,11 +118,19 @@ function pathsIn(text: string): PathHit[] {
     // may have lost a full stop above.
     const suffix = m[0].length - m[0].indexOf(m[1]) - m[1].length;
     const end = start + raw.length + suffix;
+    /* A bare word is not a path — but it can be the beginning of one. Every
+       screenshot this machine takes is called "Bildschirmfoto 2026-09-23 um
+       10.12.png", and a pattern reading a line of text sees the first word of
+       it and stops. Such a word is kept as a weak hit: it only ever becomes a
+       link if the directory really holds a file whose name goes on exactly as
+       the line does. */
     const looksLikeFile = raw.includes("/") || /\.[a-z][a-z0-9]{0,7}$/i.test(raw);
-    if (!looksLikeFile || /^https?:/i.test(raw) || raw.startsWith("~")) continue;
+    if (/^https?:/i.test(raw) || raw.startsWith("~")) continue;
     if (/^\d+(\.\d+)*$/.test(raw)) continue;
+    const weak = !looksLikeFile;
+    if (weak && raw.length < 2) continue;
     const path = raw.replace(/^\.\//, "");
-    out.push({ path, line: m[2] ? parseInt(m[2], 10) : undefined, col: m[3] ? parseInt(m[3], 10) : undefined, start, end });
+    out.push({ path, raw, weak, line: m[2] ? parseInt(m[2], 10) : undefined, col: m[3] ? parseInt(m[3], 10) : undefined, start, end });
   }
   return out;
 }
@@ -144,12 +152,48 @@ function namesIn(id: string, dir: string): Promise<Set<string>> {
   return p;
 }
 
-async function exists(id: string, path: string): Promise<boolean> {
+/* Which root a path is asked about, and looked up under.
+ *
+ * A path a program prints is not always inside the folder the session was
+ * started in — a screenshot lies in Downloads, a log in /var. The file service
+ * refuses to leave the root it is given, so such a path was never even a link:
+ * ⌘-click did nothing at all on the one kind of path one most wants to click.
+ * An absolute path is therefore asked about under its own directory, which is
+ * a root of its own ("dir:/…"), the same one the tree walks upwards with. */
+function rootFor(id: string, path: string): { rootId: string; dir: string; name: string } {
   const cut = path.lastIndexOf("/");
   const dir = cut < 0 ? "" : cut === 0 ? "/" : path.slice(0, cut);
   const name = path.slice(cut + 1);
-  if (!name) return false;
-  return (await namesIn(id, dir)).has(name);
+  return { rootId: path.startsWith("/") ? `dir:${dir || "/"}` : id, dir, name };
+}
+
+/* The file a hit really names, or null.
+ *
+ * A name is allowed to have spaces in it, and the ones people click most do:
+ * every screenshot this machine takes is "Bildschirmfoto 2026-09-23 um 10.12
+ * .png". No pattern can tell a name with spaces from a name followed by a
+ * sentence, so the directory is asked: of everything actually lying there, the
+ * longest entry the line carries from this point on is the file meant. Nothing
+ * lying there, nothing to click. */
+async function fileAt(id: string, hit: PathHit, text: string): Promise<{ path: string; end: number } | null> {
+  const { rootId, dir, name } = rootFor(id, hit.path);
+  if (!name) return null;
+  const names = await namesIn(rootId, dir);
+  if (!hit.weak && names.has(name)) return { path: hit.path, end: hit.end };
+  const at = hit.start + (hit.raw.length - name.length);
+  const rest = text.slice(at);
+  let best = "";
+  for (const n of names) {
+    if (n.length <= best.length || !n.startsWith(name) || !rest.startsWith(n)) continue;
+    /* A word that was not a path on its own only counts as one when the name
+       it grew into really is one: it has a space in it and it ends in an
+       extension. Without that every word in a sentence that happens to be a
+       folder's name would be a link. */
+    if (hit.weak && !(n.includes(" ") && /\.[a-z][a-z0-9]{0,7}$/i.test(n))) continue;
+    best = n;
+  }
+  if (!best) return null;
+  return { path: hit.path.slice(0, hit.path.length - name.length) + best, end: at + best.length };
 }
 
 export default function Terminal({
@@ -169,6 +213,7 @@ export default function Terminal({
   cwd,
   onSplit,
   splitOn = false,
+  sessionItems,
 }: {
   id: string;
   label: string;
@@ -190,7 +235,7 @@ export default function Terminal({
   onRestart?: () => Promise<unknown>;
   /* A path clicked in the output, with the line it named: opens the editor
      beside this terminal. Without it, paths are plain text. */
-  onOpenPath?: (path: string, line?: number) => void;
+  onOpenPath?: (path: string, line?: number, rootId?: string) => void;
   /* The session's folder, for the menu's copy — the terminal itself does not
      know where it is. */
   cwd?: string;
@@ -198,8 +243,14 @@ export default function Terminal({
      which way it stands. */
   onSplit?: () => void;
   splitOn?: boolean;
+  /* What the session around this terminal offers — its views, pausing,
+     terminating. Read when the menu opens, so every row says the state it has
+     at that moment. In the terminal view the session's own bar is not drawn,
+     and this is where those actions are. */
+  sessionItems?: () => MenuItem[];
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const pane = useRef<HTMLDivElement>(null);
   // Held so a theme change can reach the canvas, which CSS never touches.
   const canvas = useRef<{ term: Xterm; fit: FitAddon; webgl?: WebglAddon } | null>(null);
   const report = useRef(onSearch);
@@ -279,15 +330,20 @@ export default function Terminal({
           cb(undefined);
           return;
         }
-        void Promise.all(hits.map((h) => exists(id, h.path))).then((found) => {
+        const text = line.translateToString(true);
+        void Promise.all(hits.map((h) => fileAt(id, h, text))).then((found) => {
           const links: ILink[] = hits
-            .filter((_, i) => found[i])
-            .map((h) => ({
-              text: line.translateToString(true).slice(h.start, h.end),
-              range: { start: { x: h.start + 1, y }, end: { x: h.end, y } },
+            .map((h, i) => ({ h, at: found[i] }))
+            .filter((row): row is { h: PathHit; at: { path: string; end: number } } => row.at !== null)
+            .map(({ h, at }) => ({
+              text: text.slice(h.start, at.end),
+              range: { start: { x: h.start + 1, y }, end: { x: at.end, y } },
               activate: (e: MouseEvent) => {
                 if (!withModifier(e)) return;
-                openPath.current?.(h.path, h.line);
+                /* An absolute path is opened under its own directory, a
+                   relative one under this session's folder. */
+                const where = rootFor(id, at.path);
+                openPath.current?.(where.rootId === id ? at.path : where.name, h.line, where.rootId === id ? undefined : where.rootId);
               },
             }));
           cb(links.length ? links : undefined);
@@ -608,6 +664,10 @@ export default function Terminal({
      tail of the live menu, and with Restart in front the whole menu of a
      panel whose session has ended. */
   const paneItems = (): MenuItem[] => [
+    ...(() => {
+      const rows = sessionItems?.() ?? [];
+      return rows.length ? [{ separator: true as const }, ...rows] : [];
+    })(),
     ...(onSplit || cwd || onClose ? [{ separator: true as const }] : []),
     ...(onSplit ? [{ label: tr("term.menuSplit", "Split"), checked: Boolean(splitOn), onClick: onSplit }] : []),
     ...(cwd ? [{ label: tr("files.copy", "COPY PATH"), onClick: () => copyText(cwd) }] : []),
@@ -618,9 +678,57 @@ export default function Terminal({
     ...paneItems(),
   ];
 
+  /* The keyboard belongs in the terminal.
+   *
+   * Coming back to the window from another one, or bringing this session's tab
+   * to the front, left the keyboard wherever it had been — so the first
+   * keystroke went nowhere and one had to click into the terminal first. Now
+   * the terminal takes it as soon as it is what one is looking at: when this
+   * pane becomes the one in front (read from the box itself, not from any
+   * window manager — it is hidden tabs that have no rectangle) and when the
+   * window is given the focus back.
+   *
+   * Never out of something that is being typed into: a find box, the queue, a
+   * field in a panel beside the terminal keep what they have. */
+  useEffect(() => {
+    const el = pane.current;
+    if (!el) return;
+    /* Whose keyboard it is at this moment.
+     *
+     * Taken only out of nobody's hands: nothing focused, this pane's own, or
+     * the tab that was just clicked to bring the pane here. Everything else —
+     * a list that has just opened, a field being typed in, a button somebody
+     * is on — keeps it. The first way round this was the other one, refusing
+     * only fields, and it took the keyboard off the session list a moment
+     * after ⌘E had opened it. */
+    const free = () => {
+      const on = document.activeElement;
+      if (!on || on === document.body || el.contains(on)) return true;
+      if (!(on instanceof HTMLElement)) return true;
+      if (on.getClientRects().length === 0) return true;
+      return Boolean(on.closest(".dv-tab"));
+    };
+    const take = () => {
+      if (!active || !el.isConnected || el.getClientRects().length === 0) return;
+      if (!free()) return;
+      canvas.current?.term.focus();
+    };
+    take();
+    const seen = new IntersectionObserver((rows) => {
+      if (rows.some((r) => r.isIntersecting)) take();
+    });
+    seen.observe(el);
+    window.addEventListener("focus", take);
+    return () => {
+      seen.disconnect();
+      window.removeEventListener("focus", take);
+    };
+  }, [active]);
+
   return (
     <div
       className="pane"
+      ref={pane}
       data-active={active ? "yes" : "no"}
       data-bell={bell ? "yes" : "no"}
       /* One click, not two. The pane took the focus for the window's own

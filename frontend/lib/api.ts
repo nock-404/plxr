@@ -201,6 +201,16 @@ export const api = {
     req<FileEntry[]>(`/api/files/${encodeURIComponent(id)}?dir=${encodeURIComponent(dir)}`),
   readFile: (id: string, path: string) =>
     req<FileBody>(`/api/file/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`),
+  /* The file itself, not a reading of it: a picture is looked at, not edited.
+     Fetched with the token in the header like everything else and handed on as
+     a blob, so no path of anybody's ever stands in an address. */
+  fileBytes: async (id: string, path: string) => {
+    const r = await fetch(`${base()}/api/bytes/${encodeURIComponent(id)}?path=${encodeURIComponent(path)}`, {
+      headers: { "X-Plxr-Token": token() },
+    });
+    if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
+    return r.blob();
+  },
   /* The same file as HEAD has it — what the editor's gutter measures the
      buffer against. Empty and not `known` for a file HEAD never saw. */
   baseFile: (id: string, path: string) =>

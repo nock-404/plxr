@@ -326,13 +326,13 @@ func (h *Host) pump() {
 	close(h.Done)
 }
 
-/* noteTitle reads the window title out of the stream, the way a terminal does.
-   Called with the lock held, from pump.
-
-   OSC 0 and OSC 2 both set the window title (1 sets the icon's, which the same
-   programs set to the same text); the sequence ends at BEL or at ESC \. What is
-   kept is the last complete one in the chunk — a program that repaints its
-   title several times in one burst is saying the newest one. */
+// noteTitle reads the window title out of the stream, the way a terminal does.
+// Called with the lock held, from pump.
+//
+// OSC 0 and OSC 2 both set the window title (1 sets the icon's, which the same
+// programs set to the same text); the sequence ends at BEL or at ESC \. What is
+// kept is the last complete one in the chunk — a program that repaints its
+// title several times in one burst is saying the newest one.
 func (h *Host) noteTitle(chunk []byte) {
 	const carryMax = 1024
 	data := chunk

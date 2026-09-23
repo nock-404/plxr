@@ -253,6 +253,40 @@ await sleep(3500);
 const held = await active();
 claim("the tab chosen by hand stays in front past two more looks at the settings", names(beta, "beta").test(held), held);
 
+/* ---- and the keyboard is in the terminal, without a second click ----------
+ *
+ * "when I switch tabs or click in from another window I want the terminal
+ * straight away to type in, not click into the terminal again": a tab brought
+ * to the front takes the keyboard, and so does the window being given the
+ * focus back. What it must never do is take it off something that has just
+ * been opened to be typed in or walked with the arrows — the session list is
+ * exactly that, and the first version of this took the keyboard off it a
+ * moment after it opened. */
+const keyboardOn = () => run(`return String(document.activeElement?.className ?? document.activeElement?.tagName ?? '')`).catch(() => "");
+const onTabClick = await keyboardOn();
+claim("after the tab was clicked the keyboard is in that session's terminal", /xterm-helper-textarea/.test(onTabClick), onTabClick || "(nothing focused)");
+
+await run(`document.querySelector('.bar input, .barSearch input')?.blur(); document.body.focus(); window.dispatchEvent(new Event('focus'));`);
+await sleep(400);
+const onWindowFocus = await keyboardOn();
+claim("the window given the focus back puts it in the terminal too", /xterm-helper-textarea/.test(onWindowFocus), onWindowFocus || "(nothing focused)");
+
+const listHeld = await run(`${GATEKIT}
+  const toggle = document.querySelector('.switch[data-switch="session"]');
+  if (!toggle) return { why: 'no session switch' };
+  if (toggle.dataset.open !== 'yes') toggle.click();
+  const row = await kitUntil(() => document.querySelector('body > .menu .menuItem'), 3000);
+  if (!row) return { why: 'the list did not open' };
+  row.focus();
+  window.dispatchEvent(new Event('focus'));
+  await new Promise(r => setTimeout(r, 500));
+  const on = document.activeElement;
+  const stayed = Boolean(on && on.closest('body > .menu'));
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  return { stayed, on: String(on?.className ?? '') };
+`);
+claim("a list that is open keeps the keyboard when the window is focused", listHeld.stayed, `${listHeld.on || listHeld.why || ""}`);
+
 // ---- a reload does not open the last click again --------------------------
 await open();
 await sleep(2000);

@@ -64,5 +64,25 @@ for (const hue of [0, 30, 120, 210, 300]) {
   }
 }
 
+/* The text's own axis moves the text and nothing else. */
+for (const hue of [0, 120, 210]) {
+  const plain = crtPalette(hue, 74, 100);
+  claim(crtPalette(hue, 74, 100, 100).fg === plain.fg, `hue ${hue}: at 100% the text is not the picked colour any more`);
+  let below = null;
+  for (let lift = 50; lift <= 200; lift += 10) {
+    const p = crtPalette(hue, 74, 100, lift);
+    if (below) claim(luminanceOf(p.fg) >= luminanceOf(below.fg) - 1e-9, `hue ${hue}: the text darkened going up from ${lift - 10}% to ${lift}%`);
+    for (const role of Object.keys(p)) {
+      if (role === "fg" || role === "term-fg") continue;
+      claim(p[role] === plain[role], `hue ${hue}: ${role} moved with the text at ${lift}%`);
+    }
+    claim(p["term-fg"] === p.fg, `hue ${hue}: the terminal's text is not the window's at ${lift}%`);
+    below = p;
+  }
+  claim(luminanceOf(crtPalette(hue, 74, 100, 200).fg) > luminanceOf(plain.fg), `hue ${hue}: driven to 200% the text is no brighter`);
+  claim(luminanceOf(crtPalette(hue, 74, 100, 50).fg) < luminanceOf(plain.fg), `hue ${hue}: halved the text is no darker`);
+  claim(/^#[0-9a-f]{6}$/.test(crtPalette(hue, 74, 100, 1000).fg), `hue ${hue}: an absurd lift made a broken colour`);
+}
+
 console.log(failed ? `  ${failed} claims failed` : "  brightness reaches black, saturation reaches grey, the ladder holds");
 process.exit(failed ? 1 : 0);

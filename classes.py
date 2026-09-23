@@ -47,6 +47,11 @@ LAYOUT_ONLY = {
     "statusCrumbs", "statusCrumbName", "statusFacts",
     # A card with a width, and a readout that is nothing but a row of numbers.
     "folderpick", "meter",
+    # The box a picture is shown in and the picture itself: both are nothing
+    # but a fit — centred, never wider than the panel, scrolled when even that
+    # is not enough. The ground under them is the viewer's, which every skin
+    # dresses.
+    "picview", "picshot",
     # A mark's file list and one row in it: arrangement, and the two things in
     # the row carry their own colour.
     "markfiles", "markfile",

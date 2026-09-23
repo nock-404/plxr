@@ -7,7 +7,7 @@ import type { SearchAddon } from "@xterm/addon-search";
 import Ask from "@/components/ui/Ask";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
+import { useContextMenu, useMenu, type MenuItem } from "@/components/ui/Menu";
 import Files from "@/components/Files";
 import Find from "@/components/Find";
 import Marks from "@/components/Marks";
@@ -183,72 +183,48 @@ export default function Session({
         )
     : null;
 
+  const menu = useMenu();
+  const viewsOwner = `views:${tile.id}`;
+  /* What can stand beside the terminal, as a list instead of a row.
+   *
+   * Seven buttons across the top — FILES CHANGES QUEUE RULES PLAYBACK MARKS
+   * SPLIT — were the widest thing in the window and the first to be folded
+   * away at any narrow width. They are all the same kind of thing: something
+   * that is either shown beside the session or not. One button opens them,
+   * each row says which way it stands, and the same list is what the title
+   * offers under the right button. */
+  const viewItems = (): MenuItem[] => [
+    { label: tr("session.files", "FILES"), do: "files", checked: files, onClick: () => setFiles((f) => !f) },
+    ...(onChanges ? [{ label: tr("git.open", "CHANGES"), do: "changes", onClick: onChanges }] : []),
+    { label: tr("queue.open", "QUEUE"), do: "queue", checked: queueOpen, onClick: () => setQueueOpen((q) => !q) },
+    { label: tr("session.rules", "RULES"), do: "rules", checked: pane === "rules", onClick: () => setPane((p) => (p === "rules" ? "none" : "rules")) },
+    { label: tr("player.open", "PLAYBACK"), do: "player", checked: pane === "player", onClick: () => setPane((p) => (p === "player" ? "none" : "player")) },
+    { label: tr("marks.open", "MARKS"), do: "marks", checked: pane === "marks", onClick: () => setPane((p) => (p === "marks" ? "none" : "marks")) },
+    {
+      label: tr("session.split", "SPLIT"),
+      do: "split",
+      checked: Boolean(split),
+      disabled: !split && others.length === 0,
+      onClick: () => setSplit((v) => (v ? null : (others[0]?.id ?? null))),
+    },
+  ];
+  const anyView = files || queueOpen || pane !== "none" || Boolean(split);
+
   const barItems = [
-    { key: "files", node: <Button on={files} onClick={() => setFiles((f) => !f)}>{tr("session.files", "FILES")}</Button> },
-    ...(onChanges
-      ? [
-          {
-            key: "changes",
-            node: (
-              <Tooltip text={tr("session.changesTip", "What changed in this folder, beside the terminal")}>
-                <Button onClick={onChanges}>{tr("git.open", "CHANGES")}</Button>
-              </Tooltip>
-            ),
-          },
-        ]
-      : []),
     {
-      key: "queue",
+      key: "views",
       node: (
-        <Tooltip text={tr("queue.tip", "Line instructions up instead of sending them at once")}>
-          <Button on={queueOpen} onClick={() => setQueueOpen((q) => !q)}>
-            {tr("queue.open", "QUEUE")}
-          </Button>
-        </Tooltip>
-      ),
-    },
-    {
-      key: "rules",
-      node: (
-        <Button on={pane === "rules"} onClick={() => setPane((p) => (p === "rules" ? "none" : "rules"))}>
-          {tr("session.rules", "RULES")}
-        </Button>
-      ),
-    },
-    {
-      key: "player",
-      node: (
-        <Tooltip text={tr("player.tip", "Watch this session back")}>
-          <Button on={pane === "player"} onClick={() => setPane((p) => (p === "player" ? "none" : "player"))}>
-            {tr("player.open", "PLAYBACK")}
-          </Button>
-        </Tooltip>
-      ),
-    },
-    {
-      key: "marks",
-      node: (
-        <Button on={pane === "marks"} onClick={() => setPane((p) => (p === "marks" ? "none" : "marks"))}>
-          {tr("marks.open", "MARKS")}
-        </Button>
-      ),
-    },
-    {
-      key: "split",
-      node: (
-        <Tooltip
-          text={
-            others.length === 0
-              ? tr("session.splitNone", "There is no second session to place alongside.")
-              : tr("session.splitTip", "Put a second session next to this one")
-          }
-        >
+        <Tooltip text={tr("session.viewsTip", "What stands beside the terminal: the tree, the changes, the queue, the recording")}>
           <Button
-            on={Boolean(split)}
-            onClick={() => setSplit((v) => (v ? null : (others[0]?.id ?? null)))}
-            disabled={!split && others.length === 0}
+            on={anyView}
+            data-do="views"
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              menu.open(Math.round(r.left), Math.round(r.bottom + 4), viewItems(), { owner: viewsOwner, anchor: e.currentTarget });
+            }}
           >
-            {tr("session.split", "SPLIT")}
+            {tr("session.views", "VIEWS")}
           </Button>
         </Tooltip>
       ),
@@ -303,18 +279,7 @@ export default function Session({
      controls are one click away even when the bar has folded them under "⋯". */
   const ctx = useContextMenu();
   const titleMenu: MenuItem[] = [
-    { label: tr("session.files", "FILES"), checked: files, onClick: () => setFiles((f) => !f) },
-    ...(onChanges ? [{ label: tr("git.open", "CHANGES"), onClick: onChanges }] : []),
-    { label: tr("queue.open", "QUEUE"), checked: queueOpen, onClick: () => setQueueOpen((q) => !q) },
-    { label: tr("session.rules", "RULES"), checked: pane === "rules", onClick: () => setPane((p) => (p === "rules" ? "none" : "rules")) },
-    { label: tr("player.open", "PLAYBACK"), checked: pane === "player", onClick: () => setPane((p) => (p === "player" ? "none" : "player")) },
-    { label: tr("marks.open", "MARKS"), checked: pane === "marks", onClick: () => setPane((p) => (p === "marks" ? "none" : "marks")) },
-    {
-      label: tr("session.split", "SPLIT"),
-      checked: Boolean(split),
-      disabled: !split && others.length === 0,
-      onClick: () => setSplit((v) => (v ? null : (others[0]?.id ?? null))),
-    },
+    ...viewItems(),
     { separator: true },
     ...(tile.alive
       ? [
@@ -388,6 +353,10 @@ export default function Session({
             onSplit={others.length || split ? () => setSplit((v) => (v ? null : (others[0]?.id ?? null))) : undefined}
             splitOn={Boolean(split)}
             onOpenPath={onOpenFile}
+            /* The session's own actions, under the right button on the
+               terminal: in the terminal view its bar is not drawn, and this is
+               the only place they are. */
+            sessionItems={() => titleMenu}
           />
           {split ? (
             <Terminal

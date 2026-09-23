@@ -2,9 +2,9 @@ package ptyhost
 
 import "testing"
 
-/* The title a terminal shows is the one the program sets, and plxr reads it the
-   same way — otherwise a shell that has Claude running in it goes on being
-   called after its folder. */
+// The title a terminal shows is the one the program sets, and plxr reads it the
+// same way — otherwise a shell that has Claude running in it goes on being
+// called after its folder.
 func TestTheTitleIsReadOutOfTheStream(t *testing.T) {
 	for _, c := range []struct {
 		what  string

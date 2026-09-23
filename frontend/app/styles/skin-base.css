@@ -378,6 +378,17 @@
 }
 .paneclose:hover { color: var(--blocked); }
 .pane[data-active="yes"] .pterm { border-color: var(--accent); }
+/* The terminal view has no frame around the terminal.
+ *
+ * Every skin draws the pane's edge its own way — a line, a bevel, four
+ * shadows — and with the whole window given over to one terminal that edge is
+ * the loudest thing on the screen and tells nobody anything: there is nothing
+ * beside it to be told apart from. So in this view it is not drawn, whatever
+ * drew it. Two cases keep their line, because there it carries a message: a
+ * session that rang, and the pane one types in while a second one stands
+ * beside it. */
+.dockShell[data-bare="yes"] .pane:not([data-bell="yes"]) .pterm { border-color: transparent; box-shadow: none; }
+.dockShell[data-bare="yes"] .sesssplit:has(.pane + .pane) .pane[data-active="yes"] .pterm { border-color: var(--accent); }
 .pane[data-active="yes"] .panelabel { color: var(--accent); }
 .overlay { background: var(--bg); }
 .overlayBar { border-bottom: var(--hair) solid var(--dim); }

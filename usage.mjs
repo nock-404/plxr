@@ -362,10 +362,17 @@ if (open.cards) {
   claim("the first account leads with the session window, its percentage and when it comes back",
     one.windows[0]?.head.length > 0 && /28/.test(one.windows[0]?.pct) && one.windows[0]?.when.length > 0,
     `${one.windows[0]?.head}: ${one.windows[0]?.pct} · ${one.windows[0]?.when} · bar ${one.windows[0]?.width}`);
+  /* Read the day's name the way the window writes it, not the way node does.
+     The two run on the same machine but not in the same locale: node was
+     started in English and Chrome follows the system, which is German here, so
+     a correct line ("back Mi., 09:17") was held against "Wed" and failed. What
+     is being checked is the clock, so the clock is what is compared — the hour
+     of the local time, and the day's name as the page itself spells it. */
+  const dayName = await tab.run(`return new Date(${RESET_SESSION}).toLocaleString(undefined, { weekday: "short" });`);
   claim("the reset time is shown in this machine's own timezone",
-    one.windows[0]?.when.includes(new Date(RESET_SESSION).toLocaleString(undefined, { weekday: "short" })) &&
+    one.windows[0]?.when.includes(dayName) &&
       one.windows[0]?.when.includes(String(new Date(RESET_SESSION).getHours()).padStart(2, "0")),
-    `"${one.windows[0]?.when}" against ${new Date(RESET_SESSION).toString()}`);
+    `"${one.windows[0]?.when}" against ${new Date(RESET_SESSION).toString()} (the page writes the day as "${dayName}")`);
   claim("the tokens spent since that window opened are on the same line",
     /\d/.test(one.windows[0]?.spend ?? ""), one.windows[0]?.spend ?? "(none)");
   claim("the weekly window is there too, with its own percentage",

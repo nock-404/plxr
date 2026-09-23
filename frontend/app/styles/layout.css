@@ -389,6 +389,12 @@ body {
 .workstrip { flex: 0 0 auto; }
 /* The same strip, but inside a dock panel rather than lifted to the frame. */
 .viewstrip { flex: 0 0 auto; }
+/* A picture in a panel: centred, whole, and never bigger than the box it is
+   in — a screenshot is two thousand pixels wide and the panel is not. Scrolled
+   when even the fitted picture does not fit, which is what a very tall one
+   does. */
+.picview { flex: 1; min-height: 0; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 0.5rem; }
+.picshot { max-width: 100%; max-height: 100%; object-fit: contain; }
 .workrow { flex: 1 1 auto; min-height: 0; display: flex; }
 
 .content { flex: 1 1 auto; min-width: 16rem; display: flex; flex-direction: column; }
@@ -1251,8 +1257,16 @@ button.diffline { cursor: pointer; }
 .dockShell[data-bare="yes"] .dockHost { grid-column: 1; grid-row: 1; }
 /* And the room the panes keep for their labels: in this view every pixel is
    the terminal's ("check the padding there too, one does not need that much"). */
-.dockShell[data-bare="yes"] .panes { padding: calc(var(--label-h) / 2 + 0.125rem) 0.25rem 0.25rem; }
+/* No name over the box either: the tab above it carries the same name, and
+   the room the label straddled is the terminal's. */
+.dockShell[data-bare="yes"] .panes { padding: 0.25rem; }
+.dockShell[data-bare="yes"] .panelabel { display: none; }
 .dockShell[data-bare="yes"] .sesssplit { gap: 0.25rem; }
+/* And the session's own bar is not drawn there either.
+   Everything on it stood twice: the name and the state are on the tab above
+   it, the folder in the terminal's own prompt. What only it had — the views,
+   pausing, terminating — is under the right button on the terminal. */
+.dockShell[data-bare="yes"] .session > .viewstrip { display: none; }
 .stripe[data-empty="yes"] { padding-block: 0; }
 body[data-dragging-tool="yes"] .floor[data-empty="yes"],
 .floor[data-empty="yes"]:has(.stripe[data-flash="yes"]) { position: absolute; grid-row: 1 / 3; left: 0; right: 0; bottom: 0; height: var(--stripe-w); z-index: 45; }

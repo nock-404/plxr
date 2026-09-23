@@ -13,6 +13,7 @@ import TerminalSettings from "@/components/TerminalSettings";
 import Button from "@/components/ui/Button";
 import FilePick from "@/components/ui/FilePick";
 import Select from "@/components/ui/Select";
+import Slider from "@/components/ui/Slider";
 import ColourPicker from "@/components/ui/ColourPicker";
 import Window from "@/components/ui/Window";
 import StyleEditor from "@/components/StyleEditor";
@@ -301,6 +302,22 @@ export default function Settings({
                   />
                   <span className="notice">
                     {tr("settings.phosphorHint", "The picked colour is the text; every other role sits at a fixed share of its brightness. Down goes to black, left goes to grey.")}
+                  </span>
+                  {/* And the text on its own: the same colour is not always
+                      the right one to read off the screen it made. */}
+                  <span className="rowInline">
+                    <span className="fieldName">{tr("settings.textLift", "text")}</span>
+                    <Slider
+                      value={state.textLift}
+                      min={50}
+                      max={200}
+                      step={1}
+                      onChange={(textLift) => change({ textLift })}
+                    />
+                    <span className="styleNumber">{state.textLift}%</span>
+                  </span>
+                  <span className="notice">
+                    {tr("settings.textLiftHint", "How bright the letters are against that colour. 100% is the colour itself; further up they brighten past it and lose their colour towards white.")}
                   </span>
                 </div>
               ) : null}

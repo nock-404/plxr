@@ -482,18 +482,28 @@ if (live.length > 0) {
     if (!tile) return { noLiveTile: true };
     tile.click();
     await wait(2200);
-    const files = [...document.querySelectorAll('.btn')].find(b => b.textContent.trim() === 'FILES');
-    if (files) { files.click(); await wait(1200); }
+    const views = [...document.querySelectorAll('.sessbar .btn')].find(b => b.dataset.do === 'views' && !b.closest('.obarMeasureBox'));
+    let rows = [];
+    if (views) {
+      views.click();
+      await wait(300);
+      rows = [...document.querySelectorAll('body > .menu .menuItem')].map(r => r.dataset.do || '');
+    }
+    if (await sessionView('files')) await wait(1200);
     return {
       inSession: !!document.querySelector('.session'),
       canvases: document.querySelectorAll('.pterm canvas').length,
       toolbar: [...document.querySelectorAll('.sessbar .btn')].length,
+      views: rows,
       fileRows: document.querySelectorAll('.frow').length,
     };
   `);
   claim("a session opens", session.inSession && !session.noLiveTile);
   claim("its terminal paints", session.canvases > 0, `${session.canvases} canvases`);
-  claim("its toolbar is there", session.toolbar >= 6, `${session.toolbar} buttons`);
+  claim("its toolbar is there", session.toolbar >= 3, `${session.toolbar} buttons`);
+  claim("one button holds what stands beside the terminal",
+    ["files", "queue", "rules", "player", "marks", "split"].every((r) => (session.views ?? []).includes(r)),
+    (session.views ?? []).join(" · "));
 
   /* The session bar is one line at any width, and hides nothing.
    *
@@ -951,7 +961,7 @@ claim("and the daemon has it as a workspace", (known ?? []).some((w) => w.path =
       thick: [l, r].map(x => x && Math.round(x.width)).concat(bt ? [Math.round(bt.height)] : []) };
   `);
   claim("the stripes stand at the frame around the dock with every tool's icon on them, none inside the dock and no rail",
-    frame.placed && frame.icons === 9 && frame.inDock === 0 && !frame.inGrid && frame.rail === 0,
+    frame.placed && frame.icons === 11 && frame.inDock === 0 && !frame.inGrid && frame.rail === 0,
     `left/right/bottom ${frame.thick.join("/")} px · ${frame.icons} icons, ${frame.inDock} inside the dock · an old menu tab ${frame.inGrid} · rail elements ${frame.rail}`);
   claim("the arrangement is saved", saved, saved ? "prefs carry a dock layout" : "no dock in prefs");
   /* A reset rebuilds the arrangement for the activity that was chosen last —
