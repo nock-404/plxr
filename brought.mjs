@@ -415,8 +415,11 @@ const wearing = await run(`${HELPERS}
     font: getComputedStyle(document.body).fontFamily,
   };
 `);
-claim("worn, it is the frame and not a recolouring: a coloured arm, blocks down the column, capitals",
-  wearing.skin === "lcars" && wearing.bar === "rgb(255, 153, 0)" && wearing.block === "rgb(255, 204, 102)" &&
+/* The frame, not a recolouring: the ground is black and carries the blocks,
+   the column is a stack of them in the warm family, everything in capitals in
+   an ultra-compressed face. */
+claim("worn, it is the frame and not a recolouring: black ground, blocks down the column, capitals",
+  wearing.skin === "lcars" && wearing.bar === "rgb(0, 0, 0)" && wearing.block === "rgb(255, 204, 102)" &&
     wearing.caps === "uppercase" && /Antonio/.test(wearing.font ?? ""),
   wearing.why ? `${wearing.why} · rows ${(wearing.rows ?? []).join(", ")} · service says ${JSON.stringify(wearing.served ?? [])}` : `bar ${wearing.bar} · block ${wearing.block} · ${wearing.caps} · ${wearing.font}`);
 

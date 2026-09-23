@@ -25,12 +25,15 @@
  */
 
 [data-skin="lcars"] {
-  /* The two gauges, and the one seam. The column against the foot arm is
-     4.5 : 1.375, which is the five-to-one the frame is built on. */
-  --stripe-w: 4.5rem;
+  /* The two gauges. This is the rule the whole frame stands on: after a turn
+     the frame is never the same thickness, and the canon runs about five to
+     one. The column is 6rem, the arm the tabs sit in 1.75rem — 3.4 : 1, as far
+     as a window that also has to be worked in will go. */
+  --stripe-w: 9.5rem;
+  --dv-tabs-and-actions-container-height: 1.75rem;
   /* A block on a column fills the column, less the seam on either side: a mark
      floating in the middle of a wide stripe is a toolbar, not a frame. */
-  --stripe-icon-box: 4rem;
+  --stripe-icon-box: 4.5rem;
   --statusbar-h: 1.375rem;
   --seam: 0.25rem;
   --stripe-gap: var(--seam);
@@ -39,8 +42,8 @@
 
   /* The elbow: the outer curve is half the width of the vertical arm, the
      inner curve half of that again. */
-  --elbow-out: 3.5rem;
-  --elbow-in: 1.75rem;
+  --elbow-out: 4.75rem;
+  --elbow-in: 2.375rem;
 
   /* The block colours, by role. Warm is structure, cool is data. */
   --lcars-gold: #ffcc66;
@@ -84,24 +87,22 @@
 }
 
 /* ---- the top bar: the horizontal arm ------------------------------------ */
-/* The horizontal arm. It is the thin gauge of the frame, and it is one block
-   with the ground between its segments — the controls are the segments. Its
-   free end, at the right, is capped; the left joins the column and stays
-   flat. */
+/* The top row is ground, and what stands on it are blocks.
+   A coloured slab the width of the window is not an arm — it is a stripe, and
+   a stripe is what every LCARS reproduction that misses gets wrong. The arm of
+   this frame is the tab strip below, which runs into the column. */
 [data-skin="lcars"] .bar {
-  background: var(--lcars-tangerine);
-  color: #000;
+  background: #000;
+  color: var(--lcars-gold);
   border: 0;
   gap: var(--seam);
-  border-radius: 0 0 var(--elbow-in) 0;
 }
 [data-skin="lcars"] .bar .meta,
-[data-skin="lcars"] .bar .notice,
-[data-skin="lcars"] .bar .switchName { color: #000; }
+[data-skin="lcars"] .bar .notice { color: var(--lcars-lilac); }
 [data-skin="lcars"] .barLeft,
 [data-skin="lcars"] .barRight { gap: var(--seam); }
 [data-skin="lcars"] .logo,
-[data-skin="lcars"] .logoMark { color: #000; }
+[data-skin="lcars"] .logoMark { color: var(--lcars-tangerine); }
 
 /* Every control in the bar is a block: solid colour, black label, flat where
    it joins and capped where it ends. */
@@ -130,13 +131,13 @@
 [data-skin="lcars"] .btn.bare { background: transparent; color: var(--lcars-gold); border-radius: 0; }
 [data-skin="lcars"] .btn.bare:hover { background: transparent; color: var(--lcars-peach); }
 
-/* On the arm the segments are its own tints, so the arm reads as one run of
-   blocks rather than as buttons lying on a stripe. */
+/* The blocks on that ground: two tints of the warm family and one of the cool,
+   so a row of them reads as a run and not as a rainbow. */
 [data-skin="lcars"] .bar .btn { background: var(--lcars-gold); }
-[data-skin="lcars"] .bar .btn.primary { background: var(--lcars-violet); }
+[data-skin="lcars"] .bar .btn.primary { background: var(--lcars-tangerine); }
 [data-skin="lcars"] .bar .switch,
-[data-skin="lcars"] .bar .selectButton { background: var(--lcars-peach); }
-[data-skin="lcars"] .bar .input { background: #000; color: var(--lcars-gold); border-color: #000; }
+[data-skin="lcars"] .bar .selectButton { background: var(--lcars-bluebell); }
+[data-skin="lcars"] .bar .input { background: #000; color: var(--lcars-gold); border-color: var(--lcars-bluebell); }
 
 /* ---- the side columns: the vertical arms, with the elbow ----------------- */
 [data-skin="lcars"] .stripe {
@@ -154,12 +155,25 @@
 [data-skin="lcars"] .stripe[data-edge="bottom"],
 [data-skin="lcars"] .stripe[data-edge="bottomRight"] { background: #000; }
 
+/* Blocks, in the heights the unit gives: one, two and three buttons tall with
+   the seam counted in. A column of identical squares is a toolbar someone
+   painted; the rhythm is what makes it a frame. */
 [data-skin="lcars"] .stripeIcon {
   background: var(--lcars-gold);
   color: #000;
   border: 0;
   border-radius: 0;
+  height: var(--stripe-icon-box);
+  flex: 0 0 auto;
+  /* A block is as wide as the column it is in — the filler below them is, and
+     a stack of narrower blocks over a wider one reads as a mistake. */
+  align-self: stretch;
+  width: auto;
 }
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:nth-child(3n + 1) { height: calc(var(--stripe-icon-box) * 1.6); }
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:nth-child(4n + 3) { height: calc(var(--stripe-icon-box) * 0.7); }
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon:nth-child(3n + 2) { height: calc(var(--stripe-icon-box) * 1.6); }
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon:nth-child(4n) { height: calc(var(--stripe-icon-box) * 0.7); }
 [data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:first-child { border-radius: var(--elbow-out) 0 0 0; }
 [data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:last-child { border-radius: 0 0 0 var(--elbow-out); }
 [data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon { background: var(--lcars-bluebell); }
@@ -203,11 +217,40 @@
 [data-skin="lcars"] .card,
 [data-skin="lcars"] .list,
 [data-skin="lcars"] .listbody { background: #000; border: 0; }
+/* The L.
+ *
+ * A frame made of two decorated rails at the edges is not LCARS; what the eye
+ * reads in one glance is the elbow — a wide vertical arm that turns into a
+ * thin horizontal one and runs across the work. Here the vertical arm is the
+ * left column and the horizontal arm is the strip the tabs sit in: the same
+ * colour, joined flat, with the outer curve on the column's top corner and the
+ * inner curve where the strip leaves it. */
 [data-skin="lcars"] .plxrDock .dv-tabs-and-actions-container {
-  background: #000;
+  background: var(--lcars-gold);
   border: 0;
   gap: var(--seam);
+  border-radius: 0 var(--elbow-in) 0 0;
+  padding-left: var(--seam);
 }
+/* The corner under the strip's left end: the concave one. Drawn as a quarter
+   of the ground, laid over the arm — the curve that is cut out of the elbow
+   rather than added to it. */
+[data-skin="lcars"] .plxrDock .dv-tabs-and-actions-container::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: calc(var(--elbow-in) * 1.25);
+  height: 100%;
+  background: #000;
+  border-radius: 0 0 0 calc(var(--elbow-in) * 1.25);
+  pointer-events: none;
+  z-index: 1;
+}
+[data-skin="lcars"] .plxrDock .dv-groupview > .dv-tabs-and-actions-container { position: relative; }
+/* The column's top block is the corner the arm grows out of, so it keeps the
+   outer curve and gives up the seam between them. */
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon:first-child { border-radius: var(--elbow-out) 0 0 0; }
 /* dockview paints its tabs from its own variables, in rules six selectors deep
    — a rule on .dv-tab cannot reach them, and the shared layer sets the
    variables on .dockHost, so they have to be set at least as close. */
@@ -229,13 +272,17 @@
 /* A tab is a block. Said as background-color and for each of the states
    dockview draws — the shared layer sets them one by one, and a shorthand
    against it leaves the ones it does not name standing. */
+/* A label belongs in the lower right corner of its block, uppercase and black.
+   Centred text is the commonest tell of a reproduction that was eyeballed. */
+[data-skin="lcars"] .plxrDock .dv-tab .panelTab { justify-content: flex-end; align-items: flex-end; }
+[data-skin="lcars"] .panelTabName { align-self: flex-end; }
 [data-skin="lcars"] .plxrDock .dv-tab,
 [data-skin="lcars"] .plxrDock .dv-tab.dv-inactive-tab,
 [data-skin="lcars"] .plxrDock .dv-groupview .dv-tab {
   background-color: var(--lcars-bluebell);
   color: #000;
   border: 0;
-  border-radius: var(--elbow-in) var(--elbow-in) 0 0;
+  border-radius: 0;
   text-transform: uppercase;
   font-weight: 700;
 }
@@ -314,24 +361,32 @@
 [data-skin="lcars"] .menuItem.danger { color: var(--lcars-mars); }
 [data-skin="lcars"] .menuSep { background: var(--lcars-violet); }
 [data-skin="lcars"] .menuHeader { color: var(--lcars-violet); }
+/* A field is a block with the ground in it, not a box with a line around it:
+   LCARS has no strokes anywhere. What says it is being typed in is the block
+   behind it changing colour. */
 [data-skin="lcars"] .input,
 [data-skin="lcars"] input,
 [data-skin="lcars"] textarea {
-  background: #000;
+  background: #0c0c0c;
   color: var(--lcars-gold);
-  border: var(--seam) solid var(--lcars-bluebell);
+  border: 0;
   border-radius: 0 var(--elbow-in) var(--elbow-in) 0;
   font-family: var(--font);
   text-transform: none;
 }
 [data-skin="lcars"] .input:focus,
 [data-skin="lcars"] input:focus,
-[data-skin="lcars"] textarea:focus { border-color: var(--lcars-tangerine); outline: 0; }
+[data-skin="lcars"] textarea:focus { background: #1a1208; color: var(--lcars-tangerine); outline: 0; }
+[data-skin="lcars"] .menu,
+[data-skin="lcars"] .selectList,
+[data-skin="lcars"] .tooltip,
+[data-skin="lcars"] .overlay,
+[data-skin="lcars"] .modal { border: 0; }
 
 /* ---- the status line: the thin arm at the foot, capped at its free end ---- */
 [data-skin="lcars"] .statusbar {
-  background: var(--lcars-lilac);
-  color: #000;
+  background: #000;
+  color: var(--lcars-lilac);
   border: 0;
   border-radius: var(--elbow-in) 0 0 var(--elbow-in);
   text-transform: uppercase;
@@ -341,8 +396,8 @@
 [data-skin="lcars"] .statusCrumbName,
 [data-skin="lcars"] .meta,
 [data-skin="lcars"] .notice { color: inherit; }
-[data-skin="lcars"] .statusDivider { background: #000; }
-[data-skin="lcars"] .limit { background: transparent; color: #000; }
+[data-skin="lcars"] .statusDivider { background: var(--lcars-bluebell); }
+[data-skin="lcars"] .limit { background: transparent; color: var(--lcars-gold); }
 [data-skin="lcars"] .limitPct[data-level="hot"] { color: var(--lcars-mars); }
 [data-skin="lcars"] .limitPct[data-level="full"] { color: var(--lcars-mars); }
 
@@ -360,3 +415,23 @@
   border: 0;
 }
 [data-skin="lcars"] ::-webkit-scrollbar-thumb:hover { background: var(--lcars-violet); }
+
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon,
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon {
+  position: relative;
+  justify-content: flex-start;
+  padding-left: 0.5rem;
+}
+[data-skin="lcars"] .stripe[data-edge="left"] .stripeIcon::after,
+[data-skin="lcars"] .stripe[data-edge="right"] .stripeIcon::after {
+  content: attr(data-tool);
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.2rem;
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #000;
+}
