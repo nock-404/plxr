@@ -50,6 +50,20 @@ type Host struct {
 	// rows and cols are the size the terminal is set to, see wantedSizeLocked.
 	rows, cols uint16
 
+	/* What the program in this terminal calls itself.
+	 *
+	 * A terminal names its tab after the title the program sets — ESC ] 0 ; …
+	 * BEL — and every CLI worth the name sets one. plxr took its name from the
+	 * hook instead, which only knows the sessions it started itself: open a
+	 * shell, start Claude in it, and the tab went on saying the folder's name
+	 * (his words, 23.09.2026). So the stream is read for the title the way a
+	 * terminal reads it.
+	 *
+	 * titleCarry holds the start of a sequence that was cut in half by the end
+	 * of a chunk; without it a title that straddles two reads is never seen. */
+	title      string
+	titleCarry []byte
+
 	/* Cache for the rendered preview, see tailLines.
 	 *
 	 * Keyed on how much has ever been written, not on how long the ring is:
@@ -248,6 +262,7 @@ func (h *Host) pump() {
 				h.capped = true
 				log.Printf("session %s: recording stopped at its cap of %d bytes; playback ends here while the session goes on", h.ID, MaxRecording)
 			}
+			h.noteTitle(chunk)
 			h.produced += int64(len(chunk))
 			h.buf = append(h.buf, chunk...)
 			if len(h.buf) > MaxBuf {
@@ -310,6 +325,66 @@ func (h *Host) pump() {
 	h.pty.Close()
 	close(h.Done)
 }
+
+/* noteTitle reads the window title out of the stream, the way a terminal does.
+   Called with the lock held, from pump.
+
+   OSC 0 and OSC 2 both set the window title (1 sets the icon's, which the same
+   programs set to the same text); the sequence ends at BEL or at ESC \. What is
+   kept is the last complete one in the chunk — a program that repaints its
+   title several times in one burst is saying the newest one. */
+func (h *Host) noteTitle(chunk []byte) {
+	const carryMax = 1024
+	data := chunk
+	if len(h.titleCarry) > 0 {
+		data = append(h.titleCarry, chunk...)
+		h.titleCarry = nil
+	}
+	for {
+		start := indexOSC(data)
+		if start < 0 {
+			break
+		}
+		rest := data[start:]
+		semi := bytes.IndexByte(rest, ';')
+		if semi < 0 || semi > 4 {
+			data = rest[1:]
+			continue
+		}
+		/* 0, 1 and 2 are the window's and the icon's title. Everything else
+		   that starts the same way — 4 sets a colour, 8 makes a link, 133 marks
+		   a prompt — is not a name for this session. */
+		switch string(rest[2:semi]) {
+		case "0", "1", "2":
+		default:
+			data = rest[1:]
+			continue
+		}
+		body := rest[semi+1:]
+		end := bytes.IndexByte(body, 0x07)
+		width := 1
+		if st := bytes.Index(body, []byte{0x1b, '\\'}); st >= 0 && (end < 0 || st < end) {
+			end, width = st, 2
+		}
+		if end < 0 {
+			// Cut off here: keep what there is for the next chunk, within reason.
+			if len(rest) <= carryMax {
+				h.titleCarry = append([]byte(nil), rest...)
+			}
+			return
+		}
+		if title := strings.TrimSpace(string(body[:end])); title != "" {
+			h.title = title
+		}
+		data = body[end+width:]
+	}
+}
+
+// indexOSC finds the next "ESC ]" in the data, or -1.
+func indexOSC(data []byte) int { return bytes.Index(data, []byte{0x1b, ']'}) }
+
+// Title is what the program running in this terminal last called itself, or "".
+func (h *Host) Title() string { h.mu.Lock(); defer h.mu.Unlock(); return h.title }
 
 func (h *Host) Alive() bool { h.mu.Lock(); defer h.mu.Unlock(); return h.alive }
 func (h *Host) Exit() int   { h.mu.Lock(); defer h.mu.Unlock(); return h.exit }

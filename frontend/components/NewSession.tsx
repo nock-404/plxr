@@ -264,7 +264,13 @@ export default function NewSession({
             <Button
               primary
               disabled={busy}
-              onClick={() => (clash && !confirmed ? setConfirmed(true) : start())}
+              /* START ANYWAY starts. It used to only take the warning away, so
+                 the same button had to be pressed twice for one decision — the
+                 second press being the one that did anything (23.09.2026). */
+              onClick={() => {
+                if (clash && !confirmed) setConfirmed(true);
+                void start();
+              }}
             >
               {busy
                 ? tr("common.starting", "STARTING…")

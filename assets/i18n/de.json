@@ -573,6 +573,7 @@
   "git.untracked": "neu",
   "git.willCommit.one": "{n} Datei geht rein",
   "git.willCommit.other": "{n} Dateien gehen rein",
+  "header.bare": "Nur das Terminal: Leisten und Werkzeugfenster aus dem Weg",
   "header.brake": "ALLE PAUSIEREN",
   "header.brakeRelease": "ALLE FORTSETZEN",
   "header.brakeTip": "Alle Sessions auf einmal anhalten — nichts geht verloren, sie laufen weiter, wo sie standen",

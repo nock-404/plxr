@@ -20,7 +20,7 @@ import { errText, tr } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { matches } from "@/lib/keymap";
 import { accountName, shortPath } from "@/lib/format";
-import { barLine, titleOf } from "@/lib/state";
+import { agentOf, barLine, titleOf } from "@/lib/state";
 import { useAccounts } from "@/lib/useAccounts";
 import { isHot, useAccountLimits, worst } from "@/lib/useLimits";
 import type { Tile } from "@/lib/types";
@@ -362,8 +362,16 @@ export default function Session({
         <div className="panes">
           <Terminal
             id={tile.id}
-            label={tile.agent_label || tr("session.terminal", "Terminal")}
-            onClose={onBack}
+            /* The label is the CLI when one was recognised, and the session's
+               own name otherwise — which for a shell is what the program in it
+               calls itself. It used to print the catch-all profile's label, so
+               a plain shell was headed "UNKNOWN CLI" (23.09.2026).
+
+               No close on this one: the panel's tab already has one, and two
+               ways to close the same thing beside each other is one too many.
+               The split pane below keeps its own — there the ✕ closes that
+               half, which nothing else does. */
+            label={(agentOf(tile) && tile.agent_label) || titleOf(tile)}
             onSearch={takeAddon(0)}
             onFind={() => {
               setActivePane(0);

@@ -77,7 +77,11 @@ export const ACTIONS: { id: Action; chord: string; key: string; fallback: string
   { id: "view7", chord: "Mod+7", key: "keys.view7", fallback: "Archive" },
   { id: "view8", chord: "Mod+8", key: "keys.view8", fallback: "Search" },
   { id: "view9", chord: "Mod+9", key: "keys.view9", fallback: "Notes" },
-  { id: "newShell", chord: "Mod+Shift+N", key: "keys.newShell", fallback: "New shell in the folder of the session you are working in" },
+  /* ⌘T, because that is what every terminal binds a new tab to and this is the
+     same thing: a shell in the folder being worked in, straight away and with
+     no dialog. It was ⇧⌘N, which nobody reaches for. ⌘N still opens the session
+     dialog, where a CLI and an account are chosen. */
+  { id: "newShell", chord: "Mod+T", key: "keys.newShell", fallback: "New shell in the folder of the session you are working in" },
   /* The session switch at the top, from the keyboard: every session in one
      list, the keyboard on its first row. Not while a field or a text area is
      being written in, where ⌘E belongs to the text; the terminal's keyboard is

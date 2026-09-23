@@ -245,6 +245,7 @@ export default function App() {
       .then((p) => {
         setMeter(Boolean(p.meter));
         setDnd(Boolean(p.dnd));
+        setBare(Boolean(p.bare));
         setPresets(readPresets(p));
         // The terminal's, the editor's and the keyboard's own settings.
         adoptPrefs(p);
@@ -469,6 +470,8 @@ export default function App() {
   }, [tiles]);
 
   const [focus, setFocus] = useState<Focus>(null);
+  // Whether the window is showing the work alone; the dock owns it and says so.
+  const [bare, setBare] = useState(false);
   // Which tool shows at each edge, as the dock reports it, for the MENU's ticks.
   const [openTools, setOpenTools] = useState<ShownTools>(NONE_SHOWN);
   /* What the dock is asked to do with its arrangement. One channel, one
@@ -793,7 +796,7 @@ export default function App() {
               <Button
                 icon
                 on={herd.halted}
-                data-do="pause-all"
+                data-do="pause-all" data-keep="always"
                 aria-pressed={herd.halted}
                 aria-label={brakeName}
                 onClick={() => (herd.halted ? api.releaseBrake() : api.emergencyBrake())}
@@ -803,11 +806,29 @@ export default function App() {
             </Tooltip>
           ) : null}
           {/* The three edges of the dock, shown and hidden the way ⌘B ⌥⌘B ⌘J do. */}
-          <EdgeToggles shown={openTools} onToggle={(edge) => direct({ type: "toggleEdge", arg: edge })} />
+          <EdgeToggles keep="wide" shown={openTools} onToggle={(edge) => direct({ type: "toggleEdge", arg: edge })} />
+          {/* The window as a terminal: every stripe and every tool window out
+              of the way, the work and its tabs left. On a laptop that is most
+              of the screen back. */}
+          <Tooltip text={tr("header.bare", "The terminal alone: stripes and tool windows out of the way")}>
+            <Button
+              icon
+              on={bare}
+              data-do="bare" data-keep="always"
+              aria-pressed={bare}
+              aria-label={tr("header.bare", "The terminal alone: stripes and tool windows out of the way")}
+              onClick={() => {
+                setBare(!bare);
+                direct({ type: "bare", on: !bare });
+              }}
+            >
+              <Icon name="terminal" />
+            </Button>
+          </Tooltip>
           <Tooltip text={tr("header.resetLayout", "Reset the panel layout to the default")}>
             <Button
               icon
-              data-do="reset-layout"
+              data-do="reset-layout" data-keep="wide"
               aria-label={tr("header.resetLayout", "Reset the panel layout to the default")}
               onClick={() => direct({ type: "reset" })}
             >
@@ -819,7 +840,7 @@ export default function App() {
           <Tooltip text={`${tr("header.layoutsName", "Layouts")} — ${tr("header.layoutsTip", "Arrange the panels: for an activity, or as you saved them")}`}>
             <Button
               icon
-              data-do="layouts"
+              data-do="layouts" data-keep="wide"
               aria-haspopup="menu"
               aria-label={tr("header.layoutsName", "Layouts")}
               onClick={(e) => {
@@ -831,7 +852,7 @@ export default function App() {
             </Button>
           </Tooltip>
           <Tooltip text={tr("keys.tip", "Keyboard shortcuts")}>
-            <Button icon data-do="keys" aria-label={tr("keys.tip", "Keyboard shortcuts")} onClick={() => setKeys(true)}>
+            <Button icon data-do="keys" data-keep="wide" aria-label={tr("keys.tip", "Keyboard shortcuts")} onClick={() => setKeys(true)}>
               <Icon name="help" />
             </Button>
           </Tooltip>
@@ -839,7 +860,7 @@ export default function App() {
               way back out was the DONE button at the bottom of a panel long
               enough to have scrolled it off the screen. */}
           <Tooltip text={bindingOf("settings") ? `${tr("header.settingsTip", "Settings")} ${caption(bindingOf("settings"))}` : tr("header.settingsTip", "Settings")}>
-            <Button icon data-do="settings" aria-label={tr("header.settingsTip", "Settings")} onClick={openSettings}>
+            <Button icon data-do="settings" data-keep="wide" aria-label={tr("header.settingsTip", "Settings")} onClick={openSettings}>
               <Icon name="settings" />
             </Button>
           </Tooltip>
@@ -848,7 +869,7 @@ export default function App() {
           <Tooltip text={`${tr("header.menuName", "Menu")} — ${tr("header.menuTip", "Every action and setting, grouped")}`}>
             <Button
               icon
-              data-do="menu"
+              data-do="menu" data-keep="always"
               aria-haspopup="menu"
               aria-label={tr("header.menuName", "Menu")}
               onClick={(e) => {
@@ -860,12 +881,12 @@ export default function App() {
             </Button>
           </Tooltip>
           <Tooltip text={`${tr("palette.templates", "Templates")} — ${tr("header.templatesTip", "Saved working sets")}`}>
-            <Button icon data-do="templates" aria-label={tr("palette.templates", "Templates")} onClick={() => setTemplates(true)}>
+            <Button icon data-do="templates" data-keep="wide" aria-label={tr("palette.templates", "Templates")} onClick={() => setTemplates(true)}>
               <Icon name="templates" />
             </Button>
           </Tooltip>
           <Tooltip text={bindingOf("newSession") ? `${tr("palette.newSession", "New session")} ${caption(bindingOf("newSession"))}` : tr("palette.newSession", "New session")}>
-            <Button primary data-do="new-session" onClick={() => setCreating(true)}>
+            <Button primary data-do="new-session" data-keep="always" onClick={() => setCreating(true)}>
               <Icon name="plus" />
               {tr("header.new", "NEW")}
             </Button>

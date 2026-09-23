@@ -19,6 +19,7 @@ import { bindingOf, caption, isMac } from "@/lib/keymap";
 import { terminalPrefs, type TerminalPrefs } from "@/lib/prefs";
 import { wsUrl } from "@/lib/token";
 import { THEME_CHANGED } from "@/lib/theme";
+import { droppedPaths, quotePath } from "@/lib/dropped";
 
 /* The sixteen ANSI colours, by the names xterm's theme uses. A skin sets
    them as --term-<name>; what a skin leaves out falls back to the VGA set,
@@ -549,6 +550,14 @@ export default function Terminal({
      and Paste goes in through the same path the keyboard uses — term.paste
      fires onData, which sends it to the session over the socket. Never the
      browser's menu, which knows nothing about a terminal. */
+  /* Whatever is sent to the session, from wherever in this panel: the same
+     socket the keyboard uses, so nothing can arrive in a different order than
+     it was given. */
+  const send = (data: string) => {
+    const ws = socket.current;
+    if (data && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "in", data }));
+  };
+
   const termMenu = (): MenuItem[] => {
     const held = canvas.current;
     if (!held) return [];
@@ -610,7 +619,34 @@ export default function Terminal({
   ];
 
   return (
-    <div className="pane" data-active={active ? "yes" : "no"} data-bell={bell ? "yes" : "no"} onPointerDown={onFocus}>
+    <div
+      className="pane"
+      data-active={active ? "yes" : "no"}
+      data-bell={bell ? "yes" : "no"}
+      /* One click, not two. The pane took the focus for the window's own
+         bookkeeping and left the keyboard wherever it was, so the first click
+         only ever pointed at the terminal and the second one entered it. */
+      onPointerDown={() => {
+        onFocus?.();
+        canvas.current?.term.focus();
+      }}
+      /* A file dragged in from a folder arrives as its path — nothing else can
+         be sent down a terminal, and a terminal is where paths are typed. The
+         browser hands over the address, one line each; what is typed is the
+         path, quoted where it has to be. */
+      onDragOver={(e) => {
+        if (![...e.dataTransfer.types].some((t) => t === "Files" || t === "text/uri-list")) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }}
+      onDrop={(e) => {
+        const paths = droppedPaths(e.dataTransfer);
+        if (!paths.length) return;
+        e.preventDefault();
+        canvas.current?.term.focus();
+        send(paths.map(quotePath).join(" "));
+      }}
+    >
       <span className="panelabel">{label}</span>
       {onClose ? (
         <Button bare className="paneclose" onClick={onClose} aria-label="Close pane">

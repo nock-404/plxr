@@ -15,7 +15,7 @@ import { edgeChordOf, type Edge, type ToolId } from "@/lib/tools";
  * the edges lie on screen: left, bottom, right. */
 const ORDER: Edge[] = ["left", "bottom", "right"];
 
-export default function EdgeToggles({ shown, onToggle }: { shown: Record<Edge, ToolId | null>; onToggle: (edge: Edge) => void }) {
+export default function EdgeToggles({ shown, onToggle, keep }: { shown: Record<Edge, ToolId | null>; onToggle: (edge: Edge) => void; keep?: string }) {
   /* Three buttons for three edges: the bottom one is the whole section, both
      halves of it, so it needs no fourth. The maps hold every edge all the same,
      because ORDER is what decides what is drawn. */
@@ -32,7 +32,7 @@ export default function EdgeToggles({ shown, onToggle }: { shown: Record<Edge, T
     bottomRight: "panel-bottom",
   };
   return (
-    <span className="edgeToggles">
+    <span className="edgeToggles" data-keep={keep}>
       {ORDER.map((edge) => {
         const on = shown[edge] !== null;
         const key = edgeChordOf(edge);

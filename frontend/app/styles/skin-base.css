@@ -1269,6 +1269,16 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 /* What is left of an account: the figure itself is the thing to read, the word
    before it and the time it comes back are quiet, and a window that is nearly
    spent says so in the colour everything else says it in. */
+/* A session's tab carries its state in its own mark: working, waiting, needing
+   somebody, ended. The colours are the board's, so one glance reads the same
+   wherever a session shows up. */
+.panelTab[data-state="working"] .panelTabIcon { color: var(--working); }
+.panelTab[data-state="waiting"] .panelTabIcon,
+.panelTab[data-state="permission"] .panelTabIcon { color: var(--blocked); }
+.panelTab[data-state="dead"] .panelTabIcon,
+.panelTab[data-state="orphaned"] .panelTabIcon { color: var(--dead); }
+.panelTab[data-state="unknown"] .panelTabIcon { color: var(--dim); }
+
 .accWhat { color: var(--dim); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.72em; }
 .accBack { color: var(--dim); font-size: 0.78em; }
 .accLeft { color: var(--fg); }

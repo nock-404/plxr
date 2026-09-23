@@ -1005,7 +1005,7 @@ for (const skin of KEYS_SKINS) {
 }
 await tab.cdp.send("Emulation.clearDeviceMetricsOverride");
 // Spelled out, not computed: the chords that were printed wrong, or could be.
-const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", workshop: "⇧F12", workbench: "F12", newShell: "⇧⌘N", reopenPanel: "⇧⌘T", panelPrev: "⌥⌘←", groupNext: "⌥⌘↓", toggleRight: "⌥⌘B", filesUp: "⌘↑", settings: "⌘,", hideTool: "⇧⎋", toolReview: "—" };
+const SPOT = { historyForward: "⌃⇧-", historyBack: "⌃-", help: "⇧/", workshop: "⇧F12", workbench: "F12", newShell: "⌘T", reopenPanel: "⇧⌘T", panelPrev: "⌥⌘←", groupNext: "⌥⌘↓", toggleRight: "⌥⌘B", filesUp: "⌘↑", settings: "⌘,", hideTool: "⇧⎋", toolReview: "—" };
 const spotted = keysSpot ? Object.entries(SPOT).map(([id, want]) => ({ id, want, got: keysSpot.rows.find((r) => r.id === id)?.cap })) : [];
 claim("the captions read the way a Mac writes them: ⌃⇧- for Ctrl+_, ⇧/ for ?, ⌥⌘← with ⌥ before ⌘",
   spotted.length && spotted.every((s) => s.got === s.want), spotted.map((s) => `${s.id} ${s.got}${s.got === s.want ? "" : ` (want ${s.want})`}`).join(" · "));

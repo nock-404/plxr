@@ -74,7 +74,7 @@ import { bindingOf, caption, hasModifier, matches, type Action } from "@/lib/key
 import { PREFS_CHANGED, setDense } from "@/lib/prefsEvents";
 import { BELL_CHANGED, clearBell, hasBell } from "@/lib/bell";
 import type { Tile } from "@/lib/types";
-import { byNeed, tabTitle } from "@/lib/state";
+import { byNeed, sessionLine, stateOf, tabTitle } from "@/lib/state";
 import { projectLabel, type Project } from "@/lib/project";
 import { errText } from "@/lib/i18n";
 
@@ -625,10 +625,18 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
   };
 
   const mark = tabMark(id);
+  /* What the session behind this tab is doing, on the tab itself and at all
+     times ("tabs should always show the state", 23.09.2026). The bell beside it
+     is the older, louder mark: it fires once when a session starts wanting
+     something. This is the quiet one that is simply always true. */
+  const tile = id.startsWith("session:") ? d.tiles.find((t) => `session:${t.id}` === id) : undefined;
+  const state = tile ? stateOf(tile) : "";
   return (
     <div
       className="panelTab"
       data-bell={bell ? "yes" : "no"}
+      data-state={state || undefined}
+      aria-description={tile ? sessionLine(tile) : undefined}
       data-kind={mark.kind}
       data-dirty={d.isDirty(id) ? "yes" : "no"}
       onContextMenu={(e) => ctx(items())(e)}
@@ -844,6 +852,8 @@ export type LayoutRequest =
   | { type: "grid" }
   // An edge shown or hidden from the top bar, the way its key does it.
   | { type: "toggleEdge"; arg: Edge }
+  /* Everything but the work out of the way, and back again. */
+  | { type: "bare"; on: boolean }
   // Every tool back where it started, from the palette.
   | { type: "resetTools" };
 export type LayoutAction = LayoutRequest & { seq: number };
@@ -937,6 +947,43 @@ export default function Dock({
   const restored = useRef(false);
   const activity = useRef<Activity>("focus");
   const [activeId, setActiveId] = useState("overview");
+  /* The window as a terminal and nothing else.
+   *
+   * On a laptop there is not much room, and plxr came across as one stuffed
+   * block (his words, 23.09.2026). So: one button, and every stripe and every
+   * tool window is out of the way — what is left is the work with its tabs,
+   * each saying what its session is doing. Off again, the tools that were
+   * showing come back to their edges, so it is a look, not a rearrangement.
+   * Kept with the daemon, because a window that came up stuffed again after
+   * every restart would be no use. */
+  const [bare, setBareHere] = useState(false);
+  const wasShown = useRef<ToolId[]>([]);
+  const setBare = useCallback(
+    (on: boolean) => {
+      const host = hostRef.current;
+      if (host) {
+        if (on) {
+          wasShown.current = EDGES.map((edge) => host.shown(edge)).filter((id): id is ToolId => Boolean(id));
+          for (const edge of EDGES) host.hide(edge);
+        } else {
+          for (const id of wasShown.current) host.show(id, false);
+          wasShown.current = [];
+        }
+      }
+      setBareHere(on);
+      void api.setPrefs({ bare: on || null }).catch(() => undefined);
+    },
+    [],
+  );
+  // What the daemon kept, once the dock is up.
+  useEffect(() => {
+    void api
+      .prefs()
+      .then((p) => {
+        if (p.bare) setBare(true);
+      })
+      .catch(() => undefined);
+  }, [setBare]);
   // Called from onReady, which dockview calls once: the newest callback, through a ref.
   const sessionFrontRef = useRef(onSessionFront);
   sessionFrontRef.current = onSessionFront;
@@ -1413,6 +1460,9 @@ export default function Dock({
         setDense(true);
         openDoc("overview");
         break;
+      case "bare":
+        setBare(layoutAction.on);
+        break;
       case "toggleEdge":
         ops.toggleEdge(layoutAction.arg);
         break;
@@ -1706,7 +1756,11 @@ export default function Dock({
             the dock between them holds the tool windows at its edges and main
             in the middle. dockview puts the dock's own class on main alone, so
             the box that holds all of it is a wrapper of its own. */}
-        <div className="dockShell" data-bottom={FLOOR.some((edge) => toolLayout.order[edge].length) ? undefined : "empty"}>
+        <div
+          className="dockShell"
+          data-bare={bare ? "yes" : undefined}
+          data-bottom={FLOOR.some((edge) => toolLayout.order[edge].length) ? undefined : "empty"}
+        >
           <Stripes
             layout={toolLayout}
             shown={shownTools}

@@ -574,6 +574,7 @@
   "git.untracked": "new",
   "git.willCommit.one": "{n} file goes in",
   "git.willCommit.other": "{n} files go in",
+  "header.bare": "The terminal alone: stripes and tool windows out of the way",
   "header.brake": "PAUSE ALL",
   "header.brakeRelease": "RESUME ALL",
   "header.brakeTip": "Pause every session at once — nothing is lost, they carry on where they stopped",

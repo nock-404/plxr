@@ -1834,6 +1834,18 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		prof := agents.Match(sess.Cmd)
 		sess.Agent, sess.AgentLabel = prof.Name, prof.Label
 
+		/* What the program in the terminal calls itself, which is what a
+		   terminal names its tab after. The hook only knows the sessions it
+		   started; a shell with Claude running inside it has no hook state, and
+		   its tab went on saying the folder's name (23.09.2026). The title from
+		   the stream fills exactly that gap — it never overrides a title the
+		   hook knows, which is the more precise of the two. */
+		if h != nil && sess.Title == "" {
+			if term := h.Title(); term != "" {
+				sess.Title = term
+			}
+		}
+
 		st, matched := fleetStateFor(sess, byTTY, byPID)
 		useFleet := matched && sess.Alive && prof.Source == "fleet"
 

@@ -226,7 +226,20 @@ body {
 .sessbar button, .sessbar .btn, .sessbar .select { --wails-draggable: no-drag; }
 .btn, .select, .slider, .tile, input, textarea { --wails-draggable: no-drag; }
 
-.bar { display: flex; align-items: center; gap: 1.125rem; flex: 0 0 auto; height: var(--bar-h); padding: 0 1rem; }
+/* The top bar gives way in order, so a narrow window is still a window and not
+   a row of squeezed stumps (his picture, 23.09.2026: the switches crushed to
+   nothing while the icons kept their room). It measures itself, so the same
+   rules hold in a small window, a wide one, and a screen of any size:
+
+     1. the wordmark goes and the mark alone stands for plxr;
+     2. the search gives up its field and is its own icon, which opens the same
+        palette the field does;
+     3. the switches are allowed to shrink further, to a mark and a word;
+
+   What never goes: the two switches, the menu and + NEW. Everything else in the
+   right-hand cluster spills into its ⋯ as room runs out (OverflowBar), so it is
+   one click away instead of gone. */
+.bar { display: flex; align-items: center; gap: 1.125rem; flex: 0 0 auto; height: var(--bar-h); padding: 0 1rem; container-type: inline-size; container-name: bar; }
 .brand { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
 .mark { display: inline-block; width: 1.625rem; height: 1.625rem; flex: 0 0 auto; line-height: 1; }
 .mark svg { width: 100%; height: 100%; display: block; }
@@ -246,6 +259,10 @@ body {
 .switch { display: inline-flex; align-items: center; gap: 0.375rem; flex: 0 1 auto; min-width: 0; height: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); padding: 0 0.5rem; font: inherit; text-align: left; cursor: pointer; }
 /* A project's name is short and a session's title is long: when the header is
    short of room, the session switch gives up most of it. */
+/* However narrow it gets, a switch keeps enough of itself to be read and hit:
+   its mark and the start of its name. Squeezed to a sliver it was neither
+   (his picture, 23.09.2026). */
+.switch { min-width: 5rem; }
 .switch[data-switch="project"] { width: var(--switch-project-w); flex-shrink: 0.25; }
 .switch[data-switch="session"] { width: var(--switch-session-w); }
 .switchIcon, .switchChevron { flex: 0 0 auto; width: max(1.15em, var(--icon-box), var(--icon-slot)); display: flex; align-items: center; justify-content: center; line-height: 1; }
@@ -270,6 +287,33 @@ body {
 .barSearch .barSearchInput { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; }
 .barSearchKey { flex: 0 0 auto; padding: 0.125rem 0.3125rem; line-height: 1; white-space: nowrap; }
 .tools { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+
+/* Below, the bar gives way in order — measured on itself, so the same rules
+   hold at every window size. Placed after the rules they override, because two
+   rules of the same weight are settled by which comes last. */
+@container bar (max-width: 70rem) {
+  .bar .wordmark { display: none; }
+  .bar { gap: 0.75rem; }
+}
+@container bar (max-width: 62rem) {
+  /* The controls that are in the MENU as well give their room up first:
+     nothing is lost, it is one click further. Each says for itself how long it
+     keeps its place, so a button added later only needs to say so. */
+  .bar [data-keep="wide"] { display: none; }
+}
+@container bar (max-width: 56rem) {
+  /* The search as a mark: the field is what costs the room, and what it does —
+     open the palette — a mark does just as well. */
+  .bar .barSearch { flex: 0 0 auto; width: max(1.875rem, calc(var(--icon-slot) + 0.75rem)); min-width: 0; padding: 0; justify-content: center; }
+  .bar .barSearch .barSearchInput, .bar .barSearch .barSearchKey { display: none; }
+  .bar .draghandle { flex: 0 1 0.5rem; }
+}
+@container bar (max-width: 44rem) {
+  .bar { gap: 0.5rem; padding: 0 0.5rem; }
+  .bar .switch[data-switch="project"] { width: auto; }
+  .bar .switch[data-switch="session"] { width: auto; }
+}
+
 /* A control's size is arrangement, not dressing: when each skin set its own
    padding the header grew with the typeface and the buttons collided. The skin
    colours them; the frame decides how big they are. */
@@ -1199,6 +1243,16 @@ button.diffline { cursor: pointer; }
    the foot of the dock as a whole stripe — over it, so nothing in the dock
    moves under the pointer. */
 .dockShell[data-bottom="empty"] { grid-template-rows: minmax(0, 1fr) var(--stripe-rest); }
+/* The terminal alone: no stripes, no row under the dock, the work across the
+   whole frame. Nothing is closed — the tool windows are hidden the way the
+   keys hide them — so the button is a look, not a rearrangement. */
+.dockShell[data-bare="yes"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.dockShell[data-bare="yes"] .stripe, .dockShell[data-bare="yes"] .floor { display: none; }
+.dockShell[data-bare="yes"] .dockHost { grid-column: 1; grid-row: 1; }
+/* And the room the panes keep for their labels: in this view every pixel is
+   the terminal's ("check the padding there too, one does not need that much"). */
+.dockShell[data-bare="yes"] .panes { padding: calc(var(--label-h) / 2 + 0.125rem) 0.25rem 0.25rem; }
+.dockShell[data-bare="yes"] .sesssplit { gap: 0.25rem; }
 .stripe[data-empty="yes"] { padding-block: 0; }
 body[data-dragging-tool="yes"] .floor[data-empty="yes"],
 .floor[data-empty="yes"]:has(.stripe[data-flash="yes"]) { position: absolute; grid-row: 1 / 3; left: 0; right: 0; bottom: 0; height: var(--stripe-w); z-index: 45; }
