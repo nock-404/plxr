@@ -13,3 +13,6 @@ func followScreen(unsafe.Pointer) {}
 
 // Elsewhere a click into a window is a click.
 func takeFirstClick() {}
+
+// Nothing to ask elsewhere.
+func firstMouseAnswer() int { return 1 }

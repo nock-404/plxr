@@ -212,18 +212,41 @@ static BOOL plxrAlwaysFirstMouse(id self, SEL cmd, NSEvent *event) {
   return YES;
 }
 
+/* Answered for every view, not only for the web view.
+ *
+ * AppKit does not ask the WKWebView: it asks the view the click actually lands
+ * on, and inside a web view that is one of WebKit's own, several levels down
+ * and not a class anything outside can name. Patching the outer one changed
+ * nothing at all — the second click was still needed. So the answer is given
+ * by NSView itself, for this process: here the window is one web view from
+ * edge to edge, and there is nothing in it that wants a click swallowed. */
 void plxrTakeFirstClick(void) {
-  dispatch_async(dispatch_get_main_queue(), ^{
-    Class web = NSClassFromString(@"WKWebView");
-    if (web == nil) {
-      return;
+  SEL sel = @selector(acceptsFirstMouse:);
+  for (NSString *name in @[ @"NSView", @"WKWebView" ]) {
+    Class cls = NSClassFromString(name);
+    if (cls == nil) {
+      continue;
     }
-    SEL sel = @selector(acceptsFirstMouse:);
-    Method existing = class_getInstanceMethod(web, sel);
+    Method existing = class_getInstanceMethod(cls, sel);
     if (existing != NULL) {
       method_setImplementation(existing, (IMP)plxrAlwaysFirstMouse);
     } else {
-      class_addMethod(web, sel, (IMP)plxrAlwaysFirstMouse, "c@:@");
+      class_addMethod(cls, sel, (IMP)plxrAlwaysFirstMouse, "c@:@");
     }
-  });
+  }
+}
+
+/* plxrFirstMouseAnswer says whether the answer has been changed, so the change
+ * can be measured rather than assumed.
+ *
+ * The runtime is asked, not a view: building one belongs on the main thread,
+ * and waiting for a main thread nobody is running is a deadlock — measured, at
+ * ten minutes. What matters is which implementation answers the question, and
+ * that is a lookup. */
+int plxrFirstMouseAnswer(void) {
+  Class cls = NSClassFromString(@"NSView");
+  if (cls == nil) {
+    return -1;
+  }
+  return class_getMethodImplementation(cls, @selector(acceptsFirstMouse:)) == (IMP)plxrAlwaysFirstMouse ? 1 : 0;
 }

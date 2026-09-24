@@ -8,6 +8,7 @@ package main
 void plxrSetBackdrop(void *nsWindow, int kind);
 void plxrFollowScreen(void *nsWindow);
 void plxrTakeFirstClick(void);
+int plxrFirstMouseAnswer(void);
 */
 import "C"
 
@@ -38,3 +39,7 @@ func followScreen(nsWindow unsafe.Pointer) {
 // takeFirstClick makes the first click into an inactive window count, instead
 // of only waking it — see the note in backdrop_darwin.m.
 func takeFirstClick() { C.plxrTakeFirstClick() }
+
+// firstMouseAnswer is what a fresh view answers when asked whether it takes
+// the first click: 1 yes, 0 no. For the check, not for the window.
+func firstMouseAnswer() int { return int(C.plxrFirstMouseAnswer()) }
