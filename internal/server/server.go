@@ -310,6 +310,16 @@ func (s *Server) Routes() *http.ServeMux {
 		writeJSON(w, map[string]int{"resumed": s.c.UnfreezeAll()})
 	})
 	mux.HandleFunc("POST /api/sessions/{id}/account", s.switchAccount)
+	// Reload the program in a session's terminal — SIGHUP to whatever is in
+	// the foreground, and nothing at all when that is the shell itself.
+	mux.HandleFunc("POST /api/sessions/{id}/reload", func(w http.ResponseWriter, r *http.Request) {
+		ok, why := s.c.Reload(r.PathValue("id"))
+		if !ok {
+			http.Error(w, why, http.StatusConflict)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /api/sessions/{id}/resume", func(w http.ResponseWriter, r *http.Request) {
 		sess, err := s.c.ResumeOrphaned(r.PathValue("id"))
 		if err != nil {

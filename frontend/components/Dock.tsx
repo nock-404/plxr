@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import {
   DockviewReact,
   type AddPanelPositionOptions,
@@ -64,6 +64,7 @@ import CommandPalette, { type Command } from "@/components/CommandPalette";
 import { setCaret } from "@/lib/caret";
 import Button from "@/components/ui/Button";
 import Icon from "@/components/ui/Icon";
+import Tooltip from "@/components/ui/Tooltip";
 import Ask from "@/components/ui/Ask";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { tr } from "@/lib/i18n";
@@ -587,6 +588,85 @@ function tabMark(id: string): { icon: IconName; kind: string } {
   return { icon: named ? viewDef(id as ToolId | DocId).icon : "file", kind: "view" };
 }
 
+/* Whether this panel is floating, and kept up to date.
+
+   api.location is read at the moment it is asked for, which is right for a
+   menu built on opening and wrong for something drawn into the tab: a panel
+   dragged out of the grid would keep the header it had. dockview says when it
+   moves, so the tab listens. */
+function useFloating(api: IDockviewPanelHeaderProps["api"]): boolean {
+  const [floating, setFloating] = useState(api.location.type === "floating");
+  useEffect(() => {
+    setFloating(api.location.type === "floating");
+    const sub = api.onDidLocationChange((e) => setFloating(e.location.type === "floating"));
+    return () => sub.dispose();
+  }, [api]);
+  return floating;
+}
+
+/* The session's own controls, on the window that has nothing else to offer
+   them.
+ *
+ * Torn off into a window of its own, a session is a running process and a
+ * title bar. The bar with PAUSE and TERMINATE belongs to the session view and
+ * is not drawn in the terminal view at all — that was the point of taking it
+ * away — so a development server floating beside the editor could be watched
+ * and not touched. These are the same three actions, as marks, where the ✕
+ * already is.
+ *
+ * Three at a time, never four. Running, it can be held, reloaded or ended;
+ * ended, the only thing it can be is started again, and START stands where
+ * PAUSE was. RELOAD is the one that is new: it signals the program to read its
+ * configuration again and keeps everything it holds, which is what a server
+ * that has been up for an hour wants. Restarting it is STOP and then START.
+ */
+function PanelTabActions({ tile }: { tile: Tile }) {
+  const [why, setWhy] = useState("");
+  const act = (run: () => Promise<unknown>) => (e: ReactMouseEvent) => {
+    e.stopPropagation();
+    setWhy("");
+    void run().catch((err: unknown) => setWhy(err instanceof Error ? err.message : String(err)));
+  };
+  const hold = tile.frozen
+    ? { icon: "play" as const, label: tr("session.resume", "RESUME"), run: () => api.unfreeze(tile.id) }
+    : { icon: "pause" as const, label: tr("session.pause", "PAUSE"), run: () => api.freeze(tile.id) };
+  return (
+    <span className="panelTabActions" onPointerDown={(e) => e.stopPropagation()}>
+      {tile.alive ? (
+        <>
+          <Tooltip text={hold.label}>
+            <Button bare className="panelTabAction" aria-label={hold.label} onClick={act(hold.run)}>
+              <Icon name={hold.icon} />
+            </Button>
+          </Tooltip>
+          <Tooltip text={why || tr("session.reloadTip", "Reload — ask the program to read its configuration again")}>
+            <Button
+              bare
+              className="panelTabAction"
+              data-failed={why ? "yes" : undefined}
+              aria-label={tr("session.reload", "RELOAD")}
+              onClick={act(() => api.reload(tile.id))}
+            >
+              <Icon name="reset" />
+            </Button>
+          </Tooltip>
+          <Tooltip text={tr("session.killTip", "End this session — the recording stays")}>
+            <Button bare className="panelTabAction" aria-label={tr("session.kill", "TERMINATE")} onClick={act(() => api.kill(tile.id))}>
+              <Icon name="stop" />
+            </Button>
+          </Tooltip>
+        </>
+      ) : (
+        <Tooltip text={tr("session.restartTip", "Start this session again, right here, under the same id")}>
+          <Button bare className="panelTabAction" aria-label={tr("session.restart", "RESTART")} onClick={act(() => api.resume(tile.id))}>
+            <Icon name="play" />
+          </Button>
+        </Tooltip>
+      )}
+    </span>
+  );
+}
+
 function PanelTab(props: IDockviewPanelHeaderProps) {
   const d = useDock();
   const ctx = useContextMenu();
@@ -637,6 +717,7 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
      something. This is the quiet one that is simply always true. */
   const tile = id.startsWith("session:") ? d.tiles.find((t) => `session:${t.id}` === id) : undefined;
   const state = tile ? stateOf(tile) : "";
+  const floating = useFloating(props.api);
   return (
     <div
       className="panelTab"
@@ -664,6 +745,10 @@ function PanelTab(props: IDockviewPanelHeaderProps) {
       {/* The mark itself stays out of the title text: nothing that reads tab
           titles finds a dot appended to it. */}
       <span className="sessionTabBell" aria-hidden="true" />
+      {/* Only where nothing else offers them: docked, the session's own bar is
+          a click away and four marks on every tab in a group is a row of
+          buttons nobody asked for. */}
+      {floating && tile ? <PanelTabActions tile={tile} /> : null}
       {/* The close is the pack's own close icon, which carries no text: a tab's
           text is its title, and everything that reads tab titles — the gates,
           the layout's own bookkeeping — must not find a ✕ appended to it. When

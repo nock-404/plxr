@@ -1146,6 +1146,16 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    and under the pointer a small square of the text's own colour behind it with
    the cross in full strength; firmer while pressed, the accent ring for the
    keyboard. Every skin dresses it further. */
+/* The controls read as the close does — quiet until wanted — and the one that
+   could not do what was asked says so by taking the warning colour, with the
+   reason in its tooltip. A hairline marks them off from the title, so three
+   marks beside a name do not read as part of it. */
+.panelTabActions { border-left: var(--hair) solid var(--line); }
+.panelTabAction { color: var(--dim); border-radius: .25rem; box-shadow: none; outline: none; }
+.panelTabAction:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 14%, transparent); }
+.panelTabAction:active { color: var(--fg); background: color-mix(in srgb, var(--fg) 26%, transparent); }
+.panelTabAction:focus-visible { outline: var(--hair) solid var(--accent); outline-offset: 0; }
+.panelTabAction[data-failed="yes"] { color: var(--blocked); }
 .panelTabClose { color: var(--dim); border-radius: .25rem; box-shadow: none; outline: none; }
 .panelTabClose:hover { color: var(--fg); background: color-mix(in srgb, var(--fg) 14%, transparent); }
 .panelTabClose:active { color: var(--fg); background: color-mix(in srgb, var(--fg) 26%, transparent); }

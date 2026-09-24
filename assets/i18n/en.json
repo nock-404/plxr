@@ -1018,6 +1018,8 @@
   "session.pause": "PAUSE",
   "session.pauseFailed": "Could not pause",
   "session.pauseTip": "Halt this one session — it carries on where it stopped",
+  "session.reload": "RELOAD",
+  "session.reloadTip": "Reload — ask the program to read its configuration again",
   "session.restart": "RESTART",
   "session.restartFailed": "Restart failed: {detail}",
   "session.restartTip": "Start this session again, right here, under the same id",

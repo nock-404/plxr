@@ -1253,6 +1253,16 @@ func (c *Core) Freeze(id string) bool {
 	return false
 }
 
+// Reload asks the program running in a session's terminal to read its
+// configuration again. The reason travels with the answer: the window says why
+// it did not happen rather than showing a button that quietly does nothing.
+func (c *Core) Reload(id string) (bool, string) {
+	if h := c.Host(id); h != nil {
+		return h.Reload()
+	}
+	return false, "no such session"
+}
+
 func (c *Core) Unfreeze(id string) bool {
 	if h := c.Host(id); h != nil {
 		return h.Resume()

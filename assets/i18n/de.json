@@ -1017,6 +1017,8 @@
   "session.pause": "PAUSIEREN",
   "session.pauseFailed": "Anhalten fehlgeschlagen",
   "session.pauseTip": "Nur diese Session anhalten — sie läuft weiter, wo sie stand",
+  "session.reload": "NEU LADEN",
+  "session.reloadTip": "Neu laden — das Programm bitten, seine Konfiguration noch einmal zu lesen",
   "session.restart": "NEU STARTEN",
   "session.restartFailed": "Neustart fehlgeschlagen: {detail}",
   "session.restartTip": "Diese Session hier, unter derselben ID, noch einmal starten",

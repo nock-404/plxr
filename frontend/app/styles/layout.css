@@ -1463,6 +1463,13 @@ body[data-dragging-tool="yes"] .floor[data-empty="yes"] > .stripe,
    <button> is the system's grey pill, and that is what sat on every tab. The
    icon keeps its pack's size: the pixel pack's 24px mark on a plain screen
    overhangs the square, its ink does not. */
+/* The session's own controls on a floating window's title row. They sit
+   between the name and the close, at the close's own size so the row keeps its
+   height, and they are always drawn: a window torn off to be watched is
+   exactly where a hidden control is no use. */
+.panelTabActions { flex: 0 0 auto; display: flex; align-items: center; gap: 0.0625rem; margin-left: 0.25rem; padding-left: 0.25rem; }
+.panelTabAction { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: var(--tabclose); height: var(--tabclose); margin: 0; padding: 0; background: none; border: 0; font: inherit; line-height: 1; -webkit-appearance: none; appearance: none; cursor: pointer; }
+.panelTabAction .uiIcon { margin: 0; }
 .panelTabClose { position: relative; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; width: var(--tabclose); height: var(--tabclose); margin: 0; padding: 0; background: none; border: 0; font: inherit; line-height: 1; -webkit-appearance: none; appearance: none; cursor: pointer; }
 .panelTabClose .uiIcon { margin: 0; }
 /* Drawn on the tab in front and on the tab under the pointer, the way editors

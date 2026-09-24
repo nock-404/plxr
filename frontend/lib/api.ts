@@ -37,6 +37,11 @@ export const api = {
   freeze: (id: string) => req<void>(`/api/sessions/${encodeURIComponent(id)}/freeze`, { method: "POST" }),
   unfreeze: (id: string) => req<void>(`/api/sessions/${encodeURIComponent(id)}/unfreeze`, { method: "POST" }),
   resume: (id: string) => req<Session>(`/api/sessions/${encodeURIComponent(id)}/resume`, { method: "POST" }),
+  /* Ask the program in a session's terminal to read its configuration again.
+     The service answers 409 with a reason when there is nothing to reload —
+     a shell at its prompt, or a system without the signal — and the reason is
+     what the window shows. */
+  reload: (id: string) => req<void>(`/api/sessions/${encodeURIComponent(id)}/reload`, { method: "POST" }),
 
   emergencyBrake: () => req<void>("/api/freeze", { method: "POST" }),
   releaseBrake: () => req<void>("/api/unfreeze", { method: "POST" }),

@@ -507,6 +507,59 @@ if (floated.why) {
   );
 }
 
+/* ---- a floating session carries its own controls ---------------------------
+ *
+ * Torn off into a window of its own, a session is a running process and a
+ * title bar: the bar with PAUSE and TERMINATE belongs to the session view and
+ * is not drawn in the terminal view at all. So a development server floating
+ * beside the editor could be watched and not touched. The controls live where
+ * the ✕ already is, and only there — four marks on every tab of a docked group
+ * is a row of buttons nobody asked for. */
+const controls = await run(`${HELPERS}
+  if (!await openSession(/plxr-tabs-check/)) return { why: 'the check’s session is not offered' };
+  await wait(800);
+  const docked = document.querySelectorAll('.panelTabActions').length;
+  const mine = tabLike(/plxr-tabs-check/);
+  if (!mine) return { why: 'the session has no tab' };
+  await rightClick(mine);
+  await pick('Float', 1200);
+  await wait(800);
+  const acts = document.querySelector('.panelTabActions');
+  const marks = acts ? [...acts.querySelectorAll('button')].map(b => b.getAttribute('aria-label')) : [];
+  /* Reload with the shell at its prompt: there is nothing running to reload,
+     and the one thing that must not happen is the session closing — SIGHUP is
+     also what a shell reads as "the terminal has gone away". */
+  const reload = acts ? [...acts.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'RELOAD') : null;
+  if (reload) reload.click();
+  await wait(1200);
+  const after = { failed: reload ? reload.dataset.failed === 'yes' : false, stillThere: Boolean(document.querySelector('.panelTabActions')) };
+  await rightClick(tabLike(/plxr-tabs-check/));
+  await pick('Dock', 1200);
+  await wait(600);
+  return { docked, marks, after, dockedAgain: document.querySelectorAll('.panelTabActions').length };
+`);
+if (controls.why) {
+  unmeasured("a floating session's title row carries pause, reload and stop", controls.why);
+} else {
+  claim(
+    "a floating session's title row carries pause, reload and stop",
+    JSON.stringify(controls.marks) === JSON.stringify(["PAUSE", "RELOAD", "TERMINATE"]),
+    (controls.marks ?? []).join(" | "),
+  );
+  claim(
+    "docked it carries none — the session's own bar is a click away there",
+    controls.docked === 0 && controls.dockedAgain === 0,
+    `before ${controls.docked} · after docking back ${controls.dockedAgain}`,
+  );
+  claim(
+    "reload with nothing running says so and does not close the session",
+    controls.after.failed && controls.after.stillThere,
+    `the mark reported a failure: ${controls.after.failed} · the window is still there: ${controls.after.stillThere}`,
+  );
+}
+const survived = (await api("/api/sessions")).find((s) => s.id === made.id)?.alive === true;
+claim("and the session itself is still running after it", survived, `alive ${survived}`);
+
 // ---- a document never covers the work it was opened from ----------------------
 /* "Why does the tree close when I open a file?" The folders are a tab of main,
    and a file clicked in their tree became a tab of that same group, in front

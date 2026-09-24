@@ -824,6 +824,26 @@ func (h *Host) Freeze() bool {
 	return ok
 }
 
+/*
+Reload asks the program in the terminal to read its configuration again,
+without losing it.
+
+	A development server that has been running for an hour holds a port, a
+	connection pool and a warmed cache. Restarting it to pick up a changed file
+	throws all of that away; SIGHUP does not, and most things that run that
+	long know the signal.
+
+	Returns whether it was sent, and when it was not, why — which is worth
+	saying, because "nothing is running here" and "this system cannot do it"
+	are different answers and the window shows the reason.
+*/
+func (h *Host) Reload() (bool, string) {
+	if h.cmd.Process == nil {
+		return false, "the session has no process"
+	}
+	return reloadProcess(h.pty.Fd(), h.cmd.Process.Pid)
+}
+
 func (h *Host) Resume() bool {
 	if h.cmd.Process == nil {
 		return false
