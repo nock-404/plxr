@@ -520,6 +520,56 @@ claim("its number wears the accent, like the chip's",
   distance.shown && distance.numColour !== distance.wordColour,
   `number ${distance.numColour}, word ${distance.wordColour}`);
 
+/* ---- the sessions of this folder -------------------------------------------
+ *
+ * The block read the service once, when it was built, and never again: a
+ * session started afterwards was missing — including the one the person was
+ * sitting in — while sessions long over were still listed. And nothing there
+ * says "orphaned" any more, which is a word for the code and not for anybody
+ * reading it ("orphaned? am I supposed to guess?").
+ */
+const before = await run(`
+  return [...document.querySelectorAll('.sessrow .sessname')].map(e => e.textContent.trim());
+`);
+/* In the folder the page is showing, which is the clone — the overview follows
+   whatever was opened last, and a session in another folder is rightly not on
+   this list. */
+await api("/api/sessions", { method: "POST", body: JSON.stringify({ cwd: join(home, "clone"), cmd: [], name: "started later", account: "" }) });
+const paths = await run(`
+  const token = new URLSearchParams(location.search).get('token') || sessionStorage.getItem('plxr.token') || '';
+  const get = (p) => fetch(p, { headers: { 'X-Plxr-Token': token } }).then(r => r.json()).catch(e => String(e));
+  const list = await get('/api/sessions');
+  const spaces = await get('/api/workspaces');
+  const folder = Array.isArray(spaces) && spaces.length ? await get('/api/folder/' + encodeURIComponent(spaces[0].id)) : null;
+  return {
+    sessions: Array.isArray(list) ? list.map(t => t.cwd) : list,
+    workspaces: Array.isArray(spaces) ? spaces.map(w => w.path) : spaces,
+    reportPath: folder && folder.path,
+  };
+`);
+console.log("  cwds the service reports:", JSON.stringify(paths));
+const after = await run(`
+  const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { const v = fn(); if (v) return v; await new Promise(r => setTimeout(r, 200)); } return null; };
+  const named = await until(() => [...document.querySelectorAll('.sessrow .sessname')].some(e => e.textContent.trim() === 'started later'), 8000);
+  return {
+    named: Boolean(named),
+    rows: [...document.querySelectorAll('.sessrow .sessname')].map(e => e.textContent.trim()),
+    states: [...document.querySelectorAll('.sessrow .sessstate')].map(e => e.textContent.trim()),
+    heads: [...document.querySelectorAll('.infohead')].map(e => e.textContent.trim()),
+    folder: document.querySelector('.folderinfo .infopath, .folderinfo .infoname')?.textContent.trim() ?? '',
+    info: Boolean(document.querySelector('.folderinfo')),
+  };
+`);
+claim("a session started while the page is open turns up in this folder's list",
+  !((before ?? []).includes("started later")) && after.named,
+  `before: ${(before ?? []).join(" · ") || "(none)"} → after: ${(after.rows ?? []).join(" · ") || "(none)"} · folder "${after.folder}" · blocks ${(after.heads ?? []).join(", ")} · overview on screen ${after.info}`);
+claim("no row uses the word orphaned",
+  !(after.states ?? []).some((line) => /orphan/i.test(line)),
+  (after.states ?? []).join(" · ") || "(no rows)");
+claim("no conversation is listed twice",
+  new Set(after.rows ?? []).size === (after.rows ?? []).length,
+  (after.rows ?? []).join(" · ") || "(no rows)");
+
 // ---- the answer -------------------------------------------------------------
 console.log();
 console.log("  the folder overview, measured in a real browser");

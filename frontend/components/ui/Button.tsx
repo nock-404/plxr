@@ -40,7 +40,12 @@ export default function Button({
   ref?: Ref<HTMLButtonElement>;
   children: ReactNode;
 }) {
-  const cls = [!bare && "btn", primary && "primary", tiny && "tiny", icon && "icon", on && "on", danger && "danger", className]
+  /* A bare button is still a button to the browser, and a button carries a
+     grey face, a border and a typeface of its own unless something takes them
+     off. Nothing did: rows built this way stood on a light slab with their
+     own text barely readable on it. So bare is a class too, and the shared
+     layer strips what the browser brings. */
+  const cls = [bare ? "bare" : "btn", primary && "primary", tiny && "tiny", icon && "icon", on && "on", danger && "danger", className]
     .filter(Boolean)
     .join(" ");
   return (

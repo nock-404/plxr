@@ -36,7 +36,13 @@ const WORD: Record<string, [key: string, english: string]> = {
   unknown: ["state.running", "running"],
   frozen: ["state.frozen", "halted"],
   dead: ["state.ended", "ended"],
-  orphaned: ["state.orphaned", "orphaned"],
+  /* Not "orphaned". That is what the code calls a session whose process went
+     with a restart of plxr; to the person in front of it the session is over,
+     and the word for over is over — "orphaned? am I supposed to guess?"
+     (24.09.2026). What is special about it — that the conversation can be
+     picked up again — is told where there is room for it, not in a word
+     nobody can place. */
+  orphaned: ["state.ended", "ended"],
 };
 
 export function stateWord(state: string): string {
@@ -119,8 +125,9 @@ export function barLine(t: Tile): string {
 export function tileLine(t: Tile): string {
   const detail = detailOf(t);
   const word = stateWord(stateOf(t));
-  // A crash explains itself in the tooltip; in the line it stays one word.
-  if (t.orphaned) return word;
+  // A session plxr lost with a restart reads like any other that is over: the
+  // word and when it was.
+  if (t.orphaned) return [word, endedAt(t)].filter(Boolean).join(" · ");
   // Over: when, rather than what it was last doing.
   if (!t.alive) return [word, endedAt(t)].filter(Boolean).join(" · ");
   return [word, detail].filter(Boolean).join(" · ");

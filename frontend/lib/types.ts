@@ -621,6 +621,11 @@ export interface FolderReport {
   log: GitEntry[];
   remotes: GitRemote[];
   facts: FolderFacts;
+  /* Who has been working here: the sessions running in this folder and the
+     conversations that ended in it, matched by the service — the window cannot
+     compare two spellings of a path. */
+  sessions: Tile[];
+  archive: ArchiveEntry[];
 }
 
 /* Which branch this is and how it stands against its upstream. */

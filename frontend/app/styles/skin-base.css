@@ -72,6 +72,23 @@
 .input::placeholder,
 .listbar input::placeholder,
 .composer input::placeholder { color: var(--dead); }
+/* What the browser puts on a button, taken off again.
+ *
+ * A button that is meant to look like a row of text — a session in a folder,
+ * a file in a list — used to be rendered with no class at all, so it kept the
+ * grey face, the border and the small system typeface of a plain <button>:
+ * "this looks like arse" (24.09.2026), and the state written on it was
+ * unreadable on that slab. Everything it is meant to look like it says for
+ * itself in its own class. */
+.bare {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
 .btn {
   color: var(--fg);
   border: var(--hair) solid var(--dim);
@@ -1317,6 +1334,9 @@ body[data-dragging-tool="yes"] { cursor: grabbing; }
 .sessrow[data-state="permission"] .sessstate, .sessrow[data-state="waiting"] .sessstate { color: var(--blocked); }
 .sessrow[data-state="working"] .sessstate { color: var(--working); }
 .sessrow[data-state="dead"] .sessname { color: var(--dim); }
+/* The row answers the pointer, since it opens something. */
+.sessrow:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.sessrow:hover .sessname { color: var(--accent); }
 .frow[data-project] .fgit[data-need="asks"] { color: var(--blocked); }
 .frow[data-project] .fgit[data-need="all"] { color: var(--dim); }
 

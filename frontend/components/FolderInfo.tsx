@@ -6,6 +6,7 @@ import Changes, { word } from "@/components/Changes";
 import Tooltip from "@/components/ui/Tooltip";
 import { useContextMenu, type MenuItem } from "@/components/ui/Menu";
 import { api } from "@/lib/api";
+import { sessionsHere } from "@/lib/sessionsHere";
 import { copyText } from "@/lib/browser";
 import { ago, bytes, stamp } from "@/lib/format";
 import { errText, tr, trN } from "@/lib/i18n";
@@ -31,6 +32,10 @@ import type { ArchiveEntry, FolderReport, GitCommitDetail, GitCommitFile, Tile }
  * A folder that is not a repository is an ordinary thing to have open, not a
  * failure — it gets the facts that apply to it and none of the git sections.
  */
+/* How many finished conversations a folder shows before the rest is left to
+   the archive. */
+const ENDED_SHOWN = 6;
+
 export default function FolderInfo({
   rootId,
   shown,
@@ -60,29 +65,15 @@ export default function FolderInfo({
      changes — this view is opened deliberately, not watched — and the ended
      ones come from the archive, which keeps the conversation. Both are matched
      on the folder itself and everything under it. */
-  // Null until the answer is in: a heading that says "no sessions" while it is
-  // still asking is a lie the gates look for by name.
-  const [live, setLive] = useState<Tile[] | null>(null);
-  const [ended, setEnded] = useState<ArchiveEntry[] | null>(null);
-  const mine = useCallback(
-    (path: string) => {
-      const root = (report?.path ?? "").replace(/\/+$/, "");
-      const at = (path ?? "").replace(/\/+$/, "");
-      return Boolean(root) && (at === root || at.startsWith(`${root}/`));
-    },
-    [report?.path],
-  );
-  useEffect(() => {
-    if (!report?.path) return;
-    let living = true;
-    void api.sessions().then((all) => { if (living) setLive((all ?? []).filter((t) => mine(t.cwd)) as unknown as Tile[]); }).catch(() => undefined);
-    void api.archive().then((all) => { if (living) setEnded((all ?? []).filter((a) => mine(a.cwd))); }).catch(() => undefined);
-    return () => {
-      living = false;
-    };
-  }, [report?.path, mine]);
-  const here = live ?? [];
-  const gone = ended ?? [];
+  /* Who has been working here, as the service says it.
+   *
+   * The window used to ask for every session and every archived conversation
+   * and keep the ones whose folder began with this one's — which cannot work:
+   * a session's folder is the path as it was given and this one's is the same
+   * path with its links resolved, and no two spellings of a path can be
+   * compared here. The service resolves both and answers; what is left to do
+   * is one row per conversation (lib/sessionsHere.ts). */
+  const { running: here, over: gone, more: older } = sessionsHere(report?.sessions ?? [], report?.archive ?? [], ENDED_SHOWN);
   const resume = useCallback(
     async (id: string) => {
       const back = await api.archiveResume(id).catch(() => null);
@@ -126,8 +117,14 @@ export default function FolderInfo({
       drop = load();
     };
     window.addEventListener(FILES_CHANGED, again);
+    /* And on a beat besides, because sessions come and go without touching a
+       file: opened once and never asked again, this page showed whatever had
+       been true the moment it was built — a session started since was missing,
+       including the one the person was sitting in. */
+    const beat = window.setInterval(again, 4000);
     return () => {
       drop();
+      window.clearInterval(beat);
       window.removeEventListener(FILES_CHANGED, again);
     };
   }, [load]);
@@ -327,6 +324,12 @@ export default function FolderInfo({
               <span className="sessstate">{tr("folders.sessionEnded", "ended {when}", { when: ago(a.mod) })}</span>
             </Button>
           ))}
+          {/* What is older than the last few stays in the archive, which is the
+              place for it: a folder worked in for a week would otherwise bury
+              everything else on this page. */}
+          {older ? (
+            <span className="meta">{tr("folders.sessionsMore", "{n} older ones are in the archive", { n: older })}</span>
+          ) : null}
         </div>
       ) : null}
 

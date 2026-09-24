@@ -2,7 +2,9 @@ package core
 
 import (
 	"path/filepath"
+	"strings"
 
+	"plxr/internal/archive"
 	"plxr/internal/folder"
 	"plxr/internal/git"
 )
@@ -40,6 +42,38 @@ type FolderReport struct {
 	Log     []git.Entry       `json:"log"`
 	Remotes []git.Remote      `json:"remotes"`
 	Facts   folder.Facts      `json:"facts"`
+
+	/* Who has been working here: the sessions running in this folder, and the
+	 * conversations that ended in it.
+	 *
+	 * Answered here rather than in the window, because the window cannot. It
+	 * was matching the sessions' folders against this one as text, and the
+	 * service hands the same folder out in two spellings — a session's is the
+	 * path as it was given, this report's is the same path with its symbolic
+	 * links resolved. On a machine where anything on the way is a link the two
+	 * never meet, so the list was empty, or stale, or somebody's own session
+	 * was missing from the folder it was started in (24.09.2026, measured:
+	 * /var/folders/… against /private/var/folders/…). Resolving both sides is
+	 * something only this side can do.
+	 */
+	Sessions []Tile          `json:"sessions"`
+	Archive  []archive.Entry `json:"archive"`
+}
+
+// under says whether a path lies in the folder, with both spellings resolved
+// as far as the disk allows.
+func under(root, path string) bool {
+	clean := func(p string) string {
+		if p == "" {
+			return ""
+		}
+		if real, err := filepath.EvalSymlinks(p); err == nil {
+			p = real
+		}
+		return strings.TrimRight(filepath.Clean(p), string(filepath.Separator))
+	}
+	r, at := clean(root), clean(path)
+	return r != "" && (at == r || strings.HasPrefix(at, r+string(filepath.Separator)))
 }
 
 // FolderReport reads everything the overview shows about one folder.
@@ -55,6 +89,21 @@ func (c *Core) FolderReport(id string) (FolderReport, error) {
 		Remotes: []git.Remote{},
 		Facts:   folder.Survey(root),
 	}
+	/* The sessions of this folder, live and ended. Read before the git part,
+	   which is allowed to fail on its own — a plain folder has sessions too. */
+	out.Sessions = []Tile{}
+	for _, t := range c.Snapshot("") {
+		if under(root, t.Cwd) {
+			out.Sessions = append(out.Sessions, t)
+		}
+	}
+	out.Archive = []archive.Entry{}
+	for _, a := range c.Archive("") {
+		if under(root, a.Cwd) {
+			out.Archive = append(out.Archive, a)
+		}
+	}
+
 	if !git.IsRepo(root) {
 		return out, nil
 	}
