@@ -6,6 +6,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"io/fs"
@@ -970,6 +971,7 @@ func (s *Server) Routes() *http.ServeMux {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /ws/tiles", s.wsTiles)
+	mux.HandleFunc("GET /ws/limits", s.wsLimits)
 	mux.HandleFunc("GET /ws/session/{id}", s.wsSession)
 	mux.HandleFunc("GET /ws/changes/{id}", s.wsChanges)
 	// The window process, not the page: it subscribes here and shows what
@@ -1327,6 +1329,74 @@ func (s *Server) removeFile(w http.ResponseWriter, r *http.Request) {
 }
 
 // wsTiles pushes the whole state out once per second.
+/* What is left, pushed rather than asked for.
+
+   The figures come off a file Claude Code rewrites when it runs, so they move
+   at no pace of their own: nothing for an hour, then a whole window resets
+   between two blinks. Polling a thing like that is the wrong shape — asked
+   every twenty seconds it was up to a minute behind, and a session window that
+   had just come back still read 99% over the terminal.
+
+   So the service watches instead. It looks at the state files every second,
+   which is four calls to stat, and writes only when what it would say has
+   actually changed. A quiet hour is a quiet socket; a reset is on screen
+   within the second.
+*/
+func (s *Server) wsLimits(w http.ResponseWriter, r *http.Request) {
+	c, err := s.up.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer c.Close()
+
+	keepAlive(c)
+	go func() {
+		for {
+			if _, _, err := c.ReadMessage(); err != nil {
+				c.Close()
+				return
+			}
+		}
+	}()
+
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	ping := time.NewTicker(pingEvery)
+	defer ping.Stop()
+	// What was last said, so an unchanged answer costs nothing. The moment it
+	// was worked out and how long that took move on every recount and would
+	// make every answer look new, so the comparison is made without them —
+	// they say when we looked, not what we saw. What is sent still carries
+	// them, because the usage view prints both.
+	var sent []byte
+	for {
+		report := s.c.UsageAccounts()
+		body, err := json.Marshal(report)
+		if err != nil {
+			return
+		}
+		bare := report
+		bare.ReadAt, bare.Duration = 0, ""
+		mark, err := json.Marshal(bare)
+		if err != nil {
+			return
+		}
+		if !bytes.Equal(mark, sent) {
+			if err := c.WriteMessage(websocket.TextMessage, body); err != nil {
+				return
+			}
+			sent = mark
+		}
+		select {
+		case <-tick.C:
+		case <-ping.C:
+			if err := c.WriteControl(websocket.PingMessage, nil, time.Now().Add(writeWait)); err != nil {
+				return
+			}
+		}
+	}
+}
+
 func (s *Server) wsTiles(w http.ResponseWriter, r *http.Request) {
 	c, err := s.up.Upgrade(w, r, nil)
 	if err != nil {

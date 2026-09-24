@@ -151,8 +151,9 @@ type Core struct {
 	limitSaid map[string]bool
 	// the last account readout and when it was taken, so the window polling
 	// it and the service watching it share one walk of the transcripts.
-	limitsAt   time.Time
-	limitsSeen usage.AccountReport
+	limitsAt    time.Time
+	limitsSeen  usage.AccountReport
+	limitsStamp string
 
 	// The folders being followed for changes, one loop each, keyed by the
 	// resolved path — see gitwatch.go.
@@ -887,26 +888,32 @@ func (c *Core) SwitchAccount(sessionID, toAccount string) (*session.Session, err
 func (c *Core) Usage(days int) usage.Report { return usage.Compute(c.Accounts(), days) }
 
 // usageFresh is how long an account readout stands before it is worked out
-// again. The window polls it and the service watches it against the warning
-// threshold; without this the two would walk the transcripts separately, and
-// the window polls far more often than anything up there can change.
+// again, when nothing on disk has moved. The window polls it and the service
+// watches it against the warning threshold; without this the two would walk
+// the transcripts separately, which is the expensive half of the answer.
+//
+// It is a ceiling, not a pace. The moment Claude Code rewrites an account's
+// state file the stamp below changes and the answer is worked out again on the
+// spot, so a window that has just reset is never shown as full.
 const usageFresh = 15 * time.Second
 
 // UsageAccounts is the readout the usage view leads with: what is left per
 // account, when it comes back, and what has been spent since it opened.
 func (c *Core) UsageAccounts() usage.AccountReport {
+	accs := c.Accounts()
+	stamp := usage.ConfigStamp(accs)
 	c.mu.RLock()
-	at, seen := c.limitsAt, c.limitsSeen
+	at, seen, was := c.limitsAt, c.limitsSeen, c.limitsStamp
 	c.mu.RUnlock()
-	if time.Since(at) < usageFresh && len(seen.Accounts) > 0 {
+	if stamp == was && time.Since(at) < usageFresh && len(seen.Accounts) > 0 {
 		return seen
 	}
-	out := usage.Accounts(c.Accounts())
+	out := usage.Accounts(accs)
 	// The window marks an account at the same percentage the service speaks
 	// at, so the colour and the notification never disagree.
 	out.Threshold = notify.Read().Threshold()
 	c.mu.Lock()
-	c.limitsAt, c.limitsSeen = time.Now(), out
+	c.limitsAt, c.limitsSeen, c.limitsStamp = time.Now(), out, stamp
 	c.mu.Unlock()
 	return out
 }

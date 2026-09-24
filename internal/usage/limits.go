@@ -42,6 +42,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"strings"
 	"time"
@@ -210,19 +211,62 @@ type rawLimit struct {
 	} `json:"scope"`
 }
 
-// configFile is where Claude Code keeps its own state for this account.
-//
-// Under CLAUDE_CONFIG_DIR it sits inside the directory. The default account is
-// the exception: ~/.claude keeps its state in ~/.claude.json, beside the
-// directory rather than in it. Both are tried, in that order, and nothing is
-// invented when neither is there.
-func configFile(dir string) string {
+/* configFiles are where Claude Code might keep its own state for this account.
+ *
+ * Under CLAUDE_CONFIG_DIR it sits inside the directory. The default account is
+ * the exception: ~/.claude keeps its state in ~/.claude.json, beside the
+ * directory rather than in it.
+ *
+ * All of them are handed back, in that order, and every one is tried — one of
+ * them existing says nothing about it being the one with the state in it.
+ * Measured on a real machine (24.09.2026): ~/.claude/.claude.json was there
+ * and empty while ~/.claude.json held the day's readings, and the empty one
+ * won by being looked at first. The account somebody had worked on all day was
+ * the one plxr said it knew nothing about.
+ */
+func configFiles(dir string) []string {
+	out := []string{}
 	for _, p := range []string{filepath.Join(dir, ".claude.json"), dir + ".json"} {
-		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p
+		if st, err := os.Stat(p); err == nil && !st.IsDir() && st.Size() > 0 {
+			out = append(out, p)
 		}
 	}
-	return ""
+	return out
+}
+
+/*
+ConfigStamp is what the accounts' state files look like right now — each
+
+	one's path, size and modification time, run together.
+
+	The readout underneath is a cache Claude Code rewrites when it runs, and
+	until now the only thing that made plxr look again was a clock: the service
+	held its answer for fifteen seconds and the window asked every twenty, so a
+	window that had just reset could sit on screen as 99% for the better part of
+	a minute — he wanted it live (24.09.2026).
+
+	Four calls to stat are cheap enough to make every second, and they say
+	exactly what a clock cannot: whether there is anything new to read. When the
+	stamp is unchanged the cached answer is still the true one, however old it
+	is; when it changes, the answer is worked out again on the spot.
+*/
+func ConfigStamp(accs []accounts.Account) string {
+	var b strings.Builder
+	for _, a := range accs {
+		for _, p := range configFiles(a.Dir) {
+			st, err := os.Stat(p)
+			if err != nil {
+				continue
+			}
+			b.WriteString(p)
+			b.WriteByte(0)
+			b.WriteString(strconv.FormatInt(st.Size(), 10))
+			b.WriteByte(0)
+			b.WriteString(strconv.FormatInt(st.ModTime().UnixNano(), 10))
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }
 
 // Limits reads one account's three windows off the disk. The zero value is a
@@ -232,16 +276,27 @@ func Limits(dir string) (session, week, weekModel Window, fetchedAt int64, sourc
 	week = Window{Kind: KindWeek}
 	weekModel = Window{Kind: KindWeekModel}
 
-	path := configFile(dir)
-	if path == "" {
-		return
-	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return
-	}
+	// The first file that parses and says something. A file that is there but
+	// empty is not an answer, and it must not stand in the way of one.
 	var raw rawConfig
-	if json.Unmarshal(b, &raw) != nil {
+	path := ""
+	for _, candidate := range configFiles(dir) {
+		b, err := os.ReadFile(candidate)
+		if err != nil {
+			continue
+		}
+		var got rawConfig
+		if json.Unmarshal(b, &got) != nil {
+			continue
+		}
+		path = candidate
+		raw = got
+		if got.Cached.FetchedAtMs != 0 || got.Cached.Utilization.FiveH != nil ||
+			got.Cached.Utilization.SevenD != nil || len(got.Cached.Utilization.Limits) > 0 {
+			break
+		}
+	}
+	if path == "" {
 		return
 	}
 	source = path

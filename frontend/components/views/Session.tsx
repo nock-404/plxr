@@ -335,16 +335,16 @@ export default function Session({
         <div className="panes">
           <Terminal
             id={tile.id}
-            /* The label is the CLI when one was recognised, and the session's
-               own name otherwise — which for a shell is what the program in it
-               calls itself. It used to print the catch-all profile's label, so
-               a plain shell was headed "UNKNOWN CLI" (23.09.2026).
+            /* No name on this one. The tab carries it and the bar above
+               carries it, so a third copy in capitals was the same words three
+               times over one terminal. What stands there instead is the one
+               thing neither of them says: what the account has left.
 
-               No close on this one: the panel's tab already has one, and two
-               ways to close the same thing beside each other is one too many.
-               The split pane below keeps its own — there the ✕ closes that
-               half, which nothing else does. */
-            label={(agentOf(tile) && tile.agent_label) || titleOf(tile)}
+               No close either: the panel's tab already has one, and two ways
+               to close the same thing beside each other is one too many. The
+               split pane below keeps both — there the name tells the halves
+               apart and the ✕ closes that half, which nothing else does. */
+            label=""
             onSearch={takeAddon(0)}
             onFind={() => {
               setActivePane(0);

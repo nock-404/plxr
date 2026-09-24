@@ -818,7 +818,12 @@ export default function Terminal({
         send(paths.map(quotePath).join(" "));
       }}
     >
-      <span className="panelabel">{label}</span>
+      {/* The pane's own name, and only where nothing else says it. Over a
+          session's main terminal the tab says it and the bar above says it
+          again, so a third one in capitals was the same words three times on
+          one screen, which he called doubled rubbish (24.09.2026). The split
+          half below has neither, and keeps its name. */}
+      {label ? <span className="panelabel">{label}</span> : null}
       <PaneUsage account={account} />
       {onClose ? (
         <Button bare className="paneclose" onClick={onClose} aria-label="Close pane">

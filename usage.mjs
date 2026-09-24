@@ -725,6 +725,61 @@ claim("the bars are drawn to those percentages, not to a total",
   JSON.stringify(overTerminal.bars) === JSON.stringify(["28%", "41%"]),
   (overTerminal.bars ?? []).join(" · "));
 
+/* ---- and it is the only thing standing there ------------------------------
+ *
+ * The tab names the session and the bar above it names the session, so a third
+ * copy in capitals over the terminal was the same words three times on one
+ * screen, which he called doubled rubbish (24.09.2026). What stands there is
+ * the one thing neither of the other two says. */
+const naming = await tab.run(`${HELPERS}
+  const pane = document.querySelector('.plxrDock .session');
+  if (!pane) return { why: 'no session pane' };
+  const name = document.querySelector('.plxrDock .session .panelabel');
+  return {
+    repeated: name ? name.textContent.trim() : '',
+    onTab: [...document.querySelectorAll('.dv-tab')].map(e => e.textContent).join(' ').includes('spender'),
+    usage: Boolean(pane.querySelector('.paneacct')),
+  };
+`);
+claim("the session's name is not repeated over its own terminal",
+  naming.repeated === "" && naming.onTab === true && naming.usage === true,
+  naming.why ?? `over the terminal "${naming.repeated}" · on the tab ${naming.onTab} · usage there ${naming.usage}`);
+
+/* ---- and it follows the file, not a timer ---------------------------------
+ *
+ * He asked how often this is refreshed, and wanted it live. The figures
+ * come off a file Claude Code rewrites when it runs, so they move at no pace
+ * of their own: nothing for an hour, then a whole window resets between two
+ * blinks. Polled every twenty seconds a window that had just come back stayed
+ * on screen as full. So the service watches the file and pushes, and the proof
+ * is that a rewrite lands well inside one poll. */
+state(join(fake, ".claude.json"), utilization(7, 9, RESET_SESSION, RESET_WEEK_1, "Fable", 12));
+const wroteAt = Date.now();
+const live = await tab.run(`${HELPERS}
+  const figures = () => [...document.querySelectorAll('.plxrDock .session .paneacct .limitPct')].map(e => e.textContent.trim());
+  // Well under the twenty-second poll: anything this fast can only be a push.
+  const got = await until(() => figures()[0]?.startsWith('7%') ? figures() : null, 8000);
+  return { figures: got.v ?? figures() };
+`);
+claim("a window that resets is on screen within seconds, not at the next poll",
+  (live.figures ?? [])[0]?.startsWith("7%") && (live.figures ?? [])[1]?.startsWith("9%"),
+  `${(live.figures ?? []).join(" · ")} · ${Math.round((Date.now() - wroteAt) / 100) / 10}s after the file changed`);
+
+/* ---- and an empty file beside a full one hides nothing --------------------
+ *
+ * The default account has a state file beside its directory and may have a
+ * second one inside it. His had both: 167 KB of figures beside, and a stub
+ * inside with no reading in it at all. The stub was found first and the
+ * account was shown as having no reading while it was being worked on all day
+ * (24.09.2026). */
+mkdirSync(join(fake, ".claude"), { recursive: true });
+writeFileSync(join(fake, ".claude", ".claude.json"), JSON.stringify({ numStartups: 1, projects: {} }));
+const shadowed = await (await api("/api/usage/accounts")).json();
+const behind = shadowed.accounts[0];
+claim("a state file with no reading in it does not hide the one that has it",
+  behind.known === true && behind.session.known === true && behind.session.percent === 7,
+  `known ${behind.known} · session ${behind.session.known ? behind.session.percent + "%" : "none"} · from ${behind.source}`);
+
 // ---- the report ------------------------------------------------------------
 let failed = 0;
 for (const c of claims) {

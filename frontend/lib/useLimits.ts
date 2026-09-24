@@ -2,19 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { wsUrl } from "./token";
 import type { AccountUsage, AccountUsageReport, UsageWindow } from "./types";
 
-/* What is left, per account, polled once for the whole window.
+/* What is left, per account, for the whole window at once.
  *
  * The usage icon marks an account that is close to its window's end, the account
- * picker on a session does the same, and the usage view shows the figures in
- * full. Three readers, one poll — the way the pace is shared in usePace.ts.
+ * picker on a session does the same, the strip over each terminal shows that
+ * session's account, and the usage view shows the figures in full. Four
+ * readers, one subscription — the way the pace is shared in usePace.ts.
+ *
+ * It is pushed, not polled. The figures come off a file Claude Code rewrites
+ * when it runs, so they move at no pace of their own, and asking on a timer
+ * meant a window that had just reset stayed on screen as full for the better
+ * part of a minute. The service watches the file and writes when the answer
+ * changes; here that lands within the second.
+ *
+ * The poll stays underneath as the fallback for a socket that will not open —
+ * an old service that has no /ws/limits, or a link that keeps dropping. It
+ * runs only while nothing is connected, so the two never ask together.
  *
  * `report` is null until the first answer, so a readout can tell "not asked
- * yet" from a real zero. The service works it out at most once every fifteen
- * seconds and hands the same answer to everyone in between; the reading
- * underneath is a cache Claude Code refreshes when it runs, so nothing here
- * gains anything by asking faster.
+ * yet" from a real zero.
  */
 const EVERY = 20000;
 
@@ -35,6 +44,9 @@ let latest: AccountUsageReport | null = null;
 const readers = new Set<(r: AccountUsageReport | null) => void>();
 let timer: number | null = null;
 let asking = false;
+let socket: WebSocket | null = null;
+let retry: number | null = null;
+let live = false;
 
 async function ask(): Promise<void> {
   if (asking) return;
@@ -46,21 +58,76 @@ async function ask(): Promise<void> {
   } finally {
     asking = false;
   }
+  tell();
+}
+
+function tell(): void {
   for (const r of readers) r(latest);
+}
+
+/* The timer is the fallback and nothing more: it runs while the socket is
+   down and stops the moment one is up, so the service is never asked by two
+   routes at once. */
+function poll(on: boolean): void {
+  if (on && timer === null) timer = window.setInterval(() => void ask(), EVERY);
+  if (!on && timer !== null) {
+    window.clearInterval(timer);
+    timer = null;
+  }
+}
+
+function connect(): void {
+  if (socket || readers.size === 0) return;
+  let ws: WebSocket;
+  try {
+    ws = new WebSocket(wsUrl("/ws/limits"));
+  } catch {
+    poll(true);
+    return;
+  }
+  socket = ws;
+  ws.onopen = () => {
+    live = true;
+    poll(false);
+  };
+  ws.onmessage = (e) => {
+    try {
+      latest = JSON.parse(e.data as string) as AccountUsageReport;
+    } catch {
+      return; /* a malformed frame; the next one corrects it */
+    }
+    tell();
+  };
+  ws.onerror = () => ws.close();
+  ws.onclose = () => {
+    socket = null;
+    live = false;
+    if (readers.size === 0) return;
+    /* Asking again keeps the figures moving while the socket is away, and the
+       last reading stands in the meantime rather than blanking the screen. */
+    poll(true);
+    retry = window.setTimeout(connect, 1000);
+  };
 }
 
 function subscribe(r: (v: AccountUsageReport | null) => void): () => void {
   readers.add(r);
-  if (timer === null) {
+  if (readers.size === 1) {
     void ask();
-    timer = window.setInterval(() => void ask(), EVERY);
+    connect();
+    if (!live) poll(true);
   }
   return () => {
     readers.delete(r);
-    if (readers.size === 0 && timer !== null) {
-      window.clearInterval(timer);
-      timer = null;
+    if (readers.size > 0) return;
+    poll(false);
+    if (retry !== null) {
+      window.clearTimeout(retry);
+      retry = null;
     }
+    socket?.close();
+    socket = null;
+    live = false;
   };
 }
 
