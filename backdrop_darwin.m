@@ -2,6 +2,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
 
 // The frost around a translucent window is an NSVisualEffectView sitting behind
 // the content, put there when the window is built. Wails only ever places it at
@@ -118,6 +119,22 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
    * without their edges. What was stale was never WebKit's — it was the layers
    * the window itself puts around it. */
   if ([view isKindOfClass:NSClassFromString(@"WKWebView")]) {
+    /* Not scaled by hand — nudged, so it works the scale out for itself.
+     *
+     * Writing the number into its layers fixed the softness and took the
+     * smoothing off the letters: the scale a web view draws text at is a
+     * decision it makes, and one made for it from outside is the wrong one.
+     * Leaving it alone brought the softness back on the next screen ("this is
+     * blurred again, now on another monitor"). A view resized by a point and
+     * back lays itself out afresh and rasterises at the scale it is on now,
+     * which is the thing that was stale — and every decision stays WebKit's.
+     * The size ends where it began, so nothing in the page moves. */
+    NSSize was = [view frame].size;
+    if (was.width > 2 && was.height > 2) {
+      [view setFrameSize:NSMakeSize(was.width - 1, was.height)];
+      [view layoutSubtreeIfNeeded];
+      [view setFrameSize:was];
+    }
     [view setNeedsDisplay:YES];
     return;
   }
@@ -136,6 +153,14 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
   dispatch_async(dispatch_get_main_queue(), ^{
     [self scaleView:[window contentView] to:[window backingScaleFactor]];
   });
+  /* And again once it has settled. A window dragged to another screen is
+     reported as it crosses, while the scale it will have is the old one for a
+     moment longer; a second pass a quarter of a second later catches what the
+     first one was too early to see. */
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   [self scaleView:[window contentView] to:[window backingScaleFactor]];
+                 });
 }
 
 @end
@@ -164,5 +189,41 @@ void plxrFollowScreen(void *nsWindow) {
                                                  object:window];
     }
     [plxrWatch screenChanged:nil];
+  });
+}
+
+/* The first click into the window is a click, not just a knock.
+ *
+ * A window that is not in front gets the click that activates it and nothing
+ * else: AppKit asks the view under the pointer whether it accepts the first
+ * mouse, and everything answers no unless it says otherwise. So coming back
+ * from another application meant clicking once to wake the window and again
+ * to reach the terminal — "I still have to click twice to get into the
+ * terminal". The page cannot fix this; the event never arrives there.
+ *
+ * The answer is given for the web view, once, for this process only: the class
+ * is asked to answer yes to that one question. Everything else about it stays
+ * as it was.
+ */
+static BOOL plxrAlwaysFirstMouse(id self, SEL cmd, NSEvent *event) {
+  (void)self;
+  (void)cmd;
+  (void)event;
+  return YES;
+}
+
+void plxrTakeFirstClick(void) {
+  dispatch_async(dispatch_get_main_queue(), ^{
+    Class web = NSClassFromString(@"WKWebView");
+    if (web == nil) {
+      return;
+    }
+    SEL sel = @selector(acceptsFirstMouse:);
+    Method existing = class_getInstanceMethod(web, sel);
+    if (existing != NULL) {
+      method_setImplementation(existing, (IMP)plxrAlwaysFirstMouse);
+    } else {
+      class_addMethod(web, sel, (IMP)plxrAlwaysFirstMouse, "c@:@");
+    }
   });
 }

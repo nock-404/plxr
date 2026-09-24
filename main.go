@@ -378,6 +378,8 @@ func keepDaemon(win *application.WebviewWindow) {
 func followBackdrop(win *application.WebviewWindow) {
 	current := ""
 	followScreen(win.NativeWindow())
+	// And the first click into the window reaches what it landed on.
+	takeFirstClick()
 	for {
 		theme, _ := daemon.ReadPrefs()["theme"].(map[string]any)
 		want, _ := theme["backdrop"].(string)

@@ -7,6 +7,7 @@ package main
 #cgo LDFLAGS: -framework Cocoa -framework QuartzCore
 void plxrSetBackdrop(void *nsWindow, int kind);
 void plxrFollowScreen(void *nsWindow);
+void plxrTakeFirstClick(void);
 */
 import "C"
 
@@ -33,3 +34,7 @@ func applyBackdrop(nsWindow unsafe.Pointer, kind string) {
 func followScreen(nsWindow unsafe.Pointer) {
 	C.plxrFollowScreen(nsWindow)
 }
+
+// takeFirstClick makes the first click into an inactive window count, instead
+// of only waking it — see the note in backdrop_darwin.m.
+func takeFirstClick() { C.plxrTakeFirstClick() }

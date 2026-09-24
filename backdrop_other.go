@@ -10,3 +10,6 @@ func applyBackdrop(unsafe.Pointer, string) {}
 
 // And nowhere else does a window carry a scale of its own that can go stale.
 func followScreen(unsafe.Pointer) {}
+
+// Elsewhere a click into a window is a click.
+func takeFirstClick() {}
