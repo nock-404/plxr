@@ -317,18 +317,52 @@ export default function Terminal({
        this file's word for it. */
     (el as HTMLDivElement & { xterm?: Xterm }).xterm = term;
 
-    // The DOM renderer measured here fills its buffer but does not paint the
-    // first screen; the GPU renderer does, and it is the faster path anyway.
-    // If the context cannot be created, the DOM renderer stays in place.
+    /* The GPU renderer, and back to it when the machine takes it away.
+     *
+     * The DOM renderer measured here fills its buffer but does not paint the
+     * first screen; the GPU renderer does, and it is the faster path anyway.
+     * If the context cannot be created at all, the DOM renderer stays.
+     *
+     * A context is not forever. Moving the window to another screen, waking
+     * the machine, a graphics driver restarting — any of these take it away,
+     * and this used to dispose the addon and leave it at that. xterm then
+     * falls back to drawing a span per cell, which is a different program:
+     * measured side by side on the same output, two minutes each, the DOM
+     * renderer laid out 10238 times against 4681 and its node count climbed
+     * by 3331 while the GPU renderer's stood still. Sampling his running
+     * window showed exactly that shape — flattening rope strings at the top,
+     * block layout under it, 18% of a core with nobody touching it — and it
+     * only ever ended by restarting the program — he described it as getting
+     * disgustingly slow over time, and often blurry with it (26.09.2026).
+     *
+     * So the loss is answered: the dead addon goes and a new one takes its
+     * place. A few attempts, spaced further apart each time, because a
+     * machine that cannot give a context back should not be asked for ever —
+     * and after those, the DOM renderer is what there is, which is slow but
+     * still a terminal. */
     let webgl: WebglAddon | null = null;
-    try {
-      webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl?.dispose());
-      term.loadAddon(webgl);
-      canvas.current = { term, fit, webgl };
-    } catch {
-      webgl = null;
-    }
+    let attempt = 0;
+    let recover: number | null = null;
+    const takeGpu = () => {
+      try {
+        const addon = new WebglAddon();
+        addon.onContextLoss(() => {
+          addon.dispose();
+          if (webgl === addon) webgl = null;
+          canvas.current = { term, fit };
+          if (attempt >= 5) return;
+          const wait = 500 * 2 ** attempt;
+          attempt += 1;
+          recover = window.setTimeout(takeGpu, wait);
+        });
+        term.loadAddon(addon);
+        webgl = addon;
+        canvas.current = { term, fit, webgl };
+      } catch {
+        webgl = null;
+      }
+    };
+    takeGpu();
 
     /* Links. A URL opens in the browser; a path that exists under this
        session's folder opens in the editor, at the line it named. Both on
@@ -461,6 +495,7 @@ export default function Terminal({
       rang.dispose();
       paths.dispose();
       web.dispose();
+      if (recover !== null) window.clearTimeout(recover);
       webgl?.dispose();
       term.dispose();
       delete (el as HTMLDivElement & { xterm?: Xterm }).xterm;

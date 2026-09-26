@@ -320,6 +320,63 @@ const back = await run(`${HELPERS}
 claim("pressing the button again brings everything back",
   back.bare === "no" && back.stripes >= 2 && back.strip && back.frame?.alpha === 1, JSON.stringify(back));
 
+/* ---- the GPU renderer comes back when the machine takes it away ----------
+ *
+ * A graphics context is not forever: moving the window to another screen,
+ * waking the machine, a driver restarting — any of these end it. The terminal
+ * used to dispose its GPU renderer and leave it at that, and xterm then draws
+ * a span per cell, which is a different program. Measured side by side on the
+ * same output, two minutes each: the DOM renderer laid out 10238 times
+ * against 4681, and its node count climbed by 3331 while the GPU renderer's
+ * stood still. Sampling the running window in that state showed flattening
+ * rope strings at the top of the profile and block layout under it, 18% of a
+ * core with nobody touching it. It only ever ended by restarting the program.
+ *
+ * So the context is taken away here on purpose, and what has to come back is
+ * a live one — not a page full of spans. */
+const gpu = `
+  const all = [...document.querySelectorAll('.plxrDock .session canvas')];
+  let found = null;
+  for (const c of all) {
+    for (const kind of ['webgl2', 'webgl']) {
+      let gl = null;
+      try { gl = c.getContext(kind); } catch { gl = null; }
+      if (gl) { found = { c, gl }; break; }
+    }
+    if (found) break;
+  }
+`;
+const lost = await run(`${HELPERS}
+  ${gpu}
+  if (!found) return { none: true };
+  const ext = found.gl.getExtension('WEBGL_lose_context');
+  if (!ext) return { cannot: true };
+  ext.loseContext();
+  await wait(600);
+  return { lost: found.gl.isContextLost(), spans: document.querySelectorAll('.xterm-rows span').length };
+`);
+if (lost.none || lost.cannot) {
+  // A browser without a GPU context cannot be asked to lose one; say so
+  // rather than passing a check that measured nothing.
+  console.log(`      (the GPU renderer is not available here — recovery not measured)`);
+} else {
+  /* The recovery is spaced out on purpose, so a machine that cannot give a
+     context back is not asked for ever. This waits out those attempts. */
+  const backOn = await run(`${HELPERS}
+    for (let i = 0; i < 30; i++) {
+      ${gpu}
+      if (found && !found.gl.isContextLost()) {
+        return { gl: true, canvases: document.querySelectorAll('.plxrDock .session canvas').length, spans: document.querySelectorAll('.xterm-rows span').length, after: i };
+      }
+      await wait(500);
+    }
+    return { gl: false, canvases: document.querySelectorAll('.plxrDock .session canvas').length, spans: document.querySelectorAll('.xterm-rows span').length };
+  `);
+  claim("a terminal whose graphics context is taken away goes back to the GPU, not to a span per cell",
+    backOn.gl === true && backOn.canvases > 0 && backOn.spans === 0,
+    `context lost: ${lost.lost} · back on the GPU: ${backOn.gl} after ${(backOn.after ?? 0) * 0.5}s · canvases ${backOn.canvases} · cell spans ${backOn.spans}`);
+}
+
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);
 for (const c of failed) console.log(`      ${c.what}${c.detail ? " — " + c.detail : ""}`);
