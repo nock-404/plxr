@@ -61,15 +61,34 @@ func Watch(dir string, every time.Duration, fn func([]State)) {
 	}
 }
 
-// Read reads every known directory. If the same session lies in more than
-// twice, the more recent entry wins.
+/*
+Read reads every known directory, one entry per session: the more recent
+
+	writing wins, except where it knows less than the older one.
+
+	The exception is the whole point. Both directories may hold a file for the
+	same session — plxr's hook writes one, the older standalone tool writes
+	another — and only plxr's carries the config directory, because only a hook
+	running inside the CLI can see it. The two are written milliseconds apart in
+	whichever order, and taking the newer one wholesale meant a session whose
+	account was known one moment was anonymous the next. That is what put the
+	wrong account over a terminal: the reading was right, then a blind entry
+	landed 67 milliseconds later and erased it.
+
+	So an empty config directory is read as "this writer does not know", never
+	as "there is no account", and the answer carries over. Nothing else is
+	carried: a title, a last message or a branch that has become empty has
+	genuinely become empty, and holding on to those would show work that is no
+	longer there.
+*/
 func Read(_ string) []State {
 	var paths []string
 	for _, d := range Dirs() {
 		p, _ := filepath.Glob(filepath.Join(d, "*.json"))
 		paths = append(paths, p...)
 	}
-	out := make([]State, 0, len(paths))
+	seen := map[string]State{}
+	order := []string{}
 	for _, p := range paths {
 		b, err := os.ReadFile(p)
 		if err != nil {
@@ -79,7 +98,24 @@ func Read(_ string) []State {
 		if json.Unmarshal(b, &s) != nil || s.SessionID == "" {
 			continue
 		}
-		out = append(out, s)
+		old, had := seen[s.SessionID]
+		if !had {
+			seen[s.SessionID] = s
+			order = append(order, s.SessionID)
+			continue
+		}
+		newer, older := s, old
+		if older.UpdatedAt > newer.UpdatedAt {
+			newer, older = older, newer
+		}
+		if newer.ConfigDir == "" {
+			newer.ConfigDir = older.ConfigDir
+		}
+		seen[s.SessionID] = newer
+	}
+	out := make([]State, 0, len(order))
+	for _, id := range order {
+		out = append(out, seen[id])
 	}
 	return out
 }

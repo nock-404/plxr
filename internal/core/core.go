@@ -1893,12 +1893,37 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 		st, matched := fleetStateFor(sess, byTTY, byPID)
 		useFleet := matched && sess.Alive && prof.Source == "fleet"
 
-		/* The account the program is really signed in as, straight from the
-		   hook inside it — the one thing that knows. What plxr put into the
-		   shell stands until then. */
+		/* Two things the hook knows that are simply true of this terminal,
+		  whatever plxr thinks is running in it.
+		*
+		* The account the program is really signed in as — the one thing that
+		* knows; what plxr put into the shell stands until then.
+		*
+		* And which conversation is open in it. That one used to be recorded
+		* only where plxr had recognised the session as an agent, and his are
+		* login shells with Claude started inside them by hand. So the id was
+		* never kept, and the two things that need it could not work: the
+		* window offered to switch account and the service found no id, and
+		* resuming an orphaned session started a bare shell instead of picking
+		* the conversation up again — he asked why a window cannot simply
+		* remember its last command when that command was Claude (26.09.2026).
+		* It is written through to the registry when it changes, because sess
+		* is a copy out of
+		* reg.List() and assigning to it reaches nothing.
+		*
+		* What stays under the profile below is everything that describes an
+		* agent reporting on itself — its status, its title, what it is doing.
+		* Those belong to a session plxr recognises as one. These two do not:
+		* they are facts about the terminal. */
 		if matched {
 			if name := accountOfState(accountDirs, st.ConfigDir); name != "" {
 				sess.Account = name
+			}
+			if st.SessionID != "" && st.SessionID != sess.ClaudeSessionID {
+				c.reg.Update(sess.ID, func(s *session.Session) { s.ClaudeSessionID = st.SessionID })
+			}
+			if st.SessionID != "" {
+				sess.ClaudeSessionID = st.SessionID
 			}
 		}
 
@@ -1924,10 +1949,6 @@ func (c *Core) Snapshot(pathFilter string) []Tile {
 			 * transcript back, and could not either.
 			 *
 			 * Written through once, when it changes: this runs on every poll. */
-			if st.SessionID != "" && st.SessionID != sess.ClaudeSessionID {
-				c.reg.Update(sess.ID, func(s *session.Session) { s.ClaudeSessionID = st.SessionID })
-			}
-			sess.ClaudeSessionID = st.SessionID
 			sess.Status = session.Status(st.Status)
 			sess.Title = st.Title
 			sess.Activity = englishActivity(st.Activity)
