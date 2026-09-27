@@ -136,6 +136,15 @@ function WindowRow({ w, hotAt }: { w: UsageWindow; hotAt: number }) {
           </span>
           <span className="uwinWhen">{backWhen(w)}</span>
         </>
+      ) : w.over ? (
+        /* The window ended and a new one opened; what is left of that one is
+           not on this machine until the account runs here again. Showing the
+           old percentage was showing a window that no longer exists. */
+        <span className="uwinNote">
+          {w.resetsAt
+            ? tr("usage.windowOver", "This window came back {when} — what is left of the new one is not known here until this account runs again.", { when: moment(w.resetsAt) })
+            : tr("usage.windowOverPlain", "This window has come back — what is left of the new one is not known here until this account runs again.")}
+        </span>
       ) : (
         <span className="uwinNote">{tr("usage.noReading", "No reading for this window on this machine — the limit itself is not knowable here.")}</span>
       )}

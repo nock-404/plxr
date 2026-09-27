@@ -26,13 +26,22 @@ function Row({ what, w, at }: { what: string; w: UsageWindow; at: number }) {
   return (
     <span className="paneUsageRow">
       <span className="paneUsageWhat">{what}</span>
-      <span className="ubar">
-        <i className="ufill" style={{ width: `${pct}%` }} />
-      </span>
+      {w.over ? null : (
+        <span className="ubar">
+          <i className="ufill" style={{ width: `${pct}%` }} />
+        </span>
+      )}
       <span className="limitPct" data-level={level(w, at)}>
-        {w.known ? tr("paneUsage.used", "{pct} used", { pct: share(w) }) : tr("paneUsage.noReading", "no reading")}
+        {w.known
+          ? tr("paneUsage.used", "{pct} used", { pct: share(w) })
+          : w.over
+            ? /* The window ended; the figure on disk belonged to it. Saying
+                 "window over" is shorter than the view's whole sentence and
+                 means the same thing in the space there is here. */
+              tr("paneUsage.windowOver", "window over")
+            : tr("paneUsage.noReading", "no reading")}
       </span>
-      {w.resetsAt ? (
+      {w.resetsAt && !w.over ? (
         <span className="meta">
           {back
             ? tr("paneUsage.backIn", "back {when} · in {left}", { when: moment(w.resetsAt), left: back })

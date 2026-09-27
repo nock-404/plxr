@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 /* An empty file must not answer for a full one.
@@ -25,9 +26,14 @@ func TestTheFileWithSomethingInItWins(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".claude.json"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
+	/* Both windows are still open. Written from the clock rather than from
+	   fixed dates: a reading past its reset is no longer a reading, which is
+	   its own rule and its own test — this one is about which file is read. */
+	soon := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
+	later := time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339)
 	full := `{"cachedUsageUtilization":{"fetchedAtMs":1790000000000,"utilization":{` +
-		`"five_hour":{"utilization":34,"resets_at":"2026-09-24T11:50:00Z"},` +
-		`"seven_day":{"utilization":68,"resets_at":"2026-09-26T11:00:00Z"}}}}`
+		`"five_hour":{"utilization":34,"resets_at":"` + soon + `"},` +
+		`"seven_day":{"utilization":68,"resets_at":"` + later + `"}}}}`
 	if err := os.WriteFile(dir+".json", []byte(full), 0o644); err != nil {
 		t.Fatal(err)
 	}

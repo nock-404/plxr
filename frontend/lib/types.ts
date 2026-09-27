@@ -116,6 +116,11 @@ export interface Usage {
 export interface UsageWindow {
   kind: "session" | "week" | "weekModel";
   known: boolean;
+  /* The window this reading belongs to has already come back, so the
+     percentage is the old one's and `known` is false. Said out loud rather
+     than shown as a full bar: an account that has not run here for a day
+     still has yesterday's figures on disk. */
+  over?: boolean;
   percent: number;
   severity?: string;
   model?: string;

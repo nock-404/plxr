@@ -81,6 +81,17 @@ type Window struct {
 	// shown in the reader's own timezone, which only the window knows.
 	ResetsAt int64 `json:"resetsAt"`
 	StartsAt int64 `json:"startsAt"`
+	/* Over says the window this reading belongs to has already come back.
+	   Then the percentage is the old window's and not what is left of the
+	   current one, so Known is false and this is why.
+
+	   The reading is a cache Claude Code writes when it runs, and an account
+	   that has not run here for a day and a half still has yesterday's
+	   figures on disk. Measured on his machine (27.09.2026): one account's
+	   five-hour window had ended thirty-two hours earlier and its week
+	   twenty-four hours before that, and both were on screen as the current
+	   state — the week at 100% used. Nothing about that was true any more. */
+	Over bool `json:"over,omitempty"`
 	// Measured says the spend below was summed from the window's real start.
 	// Without a reset time there is no real start, and the spend is over the
 	// window's nominal length ending now — still true, but a different
@@ -343,6 +354,22 @@ func Limits(dir string) (session, week, weekModel Window, fetchedAt int64, sourc
 	}
 	fill(&session, raw.Cached.Utilization.FiveH)
 	fill(&week, raw.Cached.Utilization.SevenD)
+
+	/* And a reading only counts for the window it was taken in. Past its
+	   reset the window has come back and the percentage belongs to a window
+	   that no longer exists; what is left of the new one is not known here
+	   until that account runs again. Saying so is the whole difference
+	   between a readout and a decoration. */
+	now := time.Now().UnixMilli()
+	for _, w := range []*Window{&session, &week, &weekModel} {
+		if !w.Known || w.ResetsAt == 0 || w.ResetsAt > now {
+			continue
+		}
+		w.Over = true
+		w.Known = false
+		w.Percent = 0
+		w.Severity = ""
+	}
 	return
 }
 
@@ -467,7 +494,10 @@ func Accounts(accs []accounts.Account) AccountReport {
 // length ending now and Measured is false — which is what the interface says
 // out loud rather than dressing a guess up as a window.
 func startOf(w Window, now time.Time, length time.Duration) (int64, bool) {
-	if w.ResetsAt == 0 {
+	// A window that has come back has no start we know either: the one on
+	// disk opened the window before last. Counting from it would put a day
+	// and a half of work under the heading "since it opened".
+	if w.ResetsAt == 0 || w.Over {
 		return now.Add(-length).UnixMilli(), false
 	}
 	return time.UnixMilli(w.ResetsAt).Add(-length).UnixMilli(), true
