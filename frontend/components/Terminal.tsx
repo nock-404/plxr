@@ -364,6 +364,39 @@ export default function Terminal({
     };
     takeGpu();
 
+    /* The screen changed under it, so the letters are drawn for it again.
+     *
+     * A terminal on the GPU keeps a texture of its glyphs, rasterised once for
+     * the pixel ratio it was built at. Plug a screen in or pull it out and
+     * that ratio changes — and nothing here was looking. The texture stayed at
+     * the old ratio and every letter came out soft, on every terminal, until
+     * the program was restarted and the terminals were built again. That is
+     * exactly what he described: blurred after plugging a monitor in and out,
+     * and only a restart helps.
+     *
+     * A media query on the current ratio fires once when it stops being true.
+     * So it is asked again after each change, the glyphs are thrown away and
+     * drawn afresh, and the size is worked out again because the cell size has
+     * moved with the ratio. */
+    let ratioWatch: MediaQueryList | null = null;
+    const onRatio = () => {
+      canvas.current?.webgl?.clearTextureAtlas();
+      term.clearTextureAtlas();
+      try {
+        fit.fit();
+      } catch {
+        /* not laid out yet; the next resize does it */
+      }
+      term.refresh(0, term.rows - 1);
+      watchRatio();
+    };
+    function watchRatio() {
+      ratioWatch?.removeEventListener("change", onRatio);
+      ratioWatch = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      ratioWatch.addEventListener("change", onRatio, { once: true });
+    }
+    watchRatio();
+
     /* Links. A URL opens in the browser; a path that exists under this
        session's folder opens in the editor, at the line it named. Both on
        ⌘-click (Ctrl-click elsewhere): a plain click in a terminal is a
@@ -496,6 +529,7 @@ export default function Terminal({
       paths.dispose();
       web.dispose();
       if (recover !== null) window.clearTimeout(recover);
+      ratioWatch?.removeEventListener("change", onRatio);
       webgl?.dispose();
       term.dispose();
       delete (el as HTMLDivElement & { xterm?: Xterm }).xterm;

@@ -150,6 +150,17 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
   if (window == nil) {
     return;
   }
+  /* Said out loud, because the one thing that reliably brings the softness
+     back is plugging a screen in and pulling it out again, and that is a
+     thing only the person at the machine can do. Without a line in the log
+     there is nothing to read afterwards but a guess. */
+  NSString *why = note == nil ? @"start" : [note name];
+  CGFloat before = [window backingScaleFactor];
+  NSScreen *on = [window screen];
+  NSLog(@"plxr screen: %@ — scale %.2f, screen %.0fx%.0f, displays %lu",
+        why, before,
+        on ? [on frame].size.width : 0.0, on ? [on frame].size.height : 0.0,
+        (unsigned long)[[NSScreen screens] count]);
   dispatch_async(dispatch_get_main_queue(), ^{
     [self scaleView:[window contentView] to:[window backingScaleFactor]];
   });
@@ -160,6 +171,7 @@ void plxrSetBackdrop(void *nsWindow, int kind) {
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
                  dispatch_get_main_queue(), ^{
                    [self scaleView:[window contentView] to:[window backingScaleFactor]];
+                   NSLog(@"plxr screen: settled at scale %.2f", [window backingScaleFactor]);
                  });
 }
 
@@ -188,6 +200,20 @@ void plxrFollowScreen(void *nsWindow) {
                                                    name:name
                                                  object:window];
     }
+    /* And the one that is not about this window at all.
+     *
+     * Plugging a screen in or pulling it out changes the arrangement of every
+     * display, and macOS says so with an application notification rather than
+     * a window one. The window notifications above fire when a window crosses
+     * to another screen — which a window already on the built-in display does
+     * not do when a second screen is unplugged. So that case was never heard,
+     * and the view kept rasterising for a screen that was no longer there.
+     * Object is nil: this notification belongs to the application. */
+    [[NSNotificationCenter defaultCenter]
+        addObserver:plxrWatch
+           selector:@selector(screenChanged:)
+               name:NSApplicationDidChangeScreenParametersNotification
+             object:nil];
     [plxrWatch screenChanged:nil];
   });
 }

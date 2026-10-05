@@ -377,6 +377,47 @@ if (lost.none || lost.cannot) {
     `context lost: ${lost.lost} · back on the GPU: ${backOn.gl} after ${(backOn.after ?? 0) * 0.5}s · canvases ${backOn.canvases} · cell spans ${backOn.spans}`);
 }
 
+/* ---- the letters are drawn again when the screen changes ------------------
+ *
+ * A terminal on the GPU keeps a texture of its glyphs, rasterised once for the
+ * pixel ratio it was built at. Plugging a screen in or pulling it out changes
+ * that ratio, and nothing was looking: the texture stayed at the old ratio and
+ * every letter came out soft until the program was restarted. He could trigger
+ * it at will by plugging a monitor in and out (05.10.2026).
+ *
+ * The browser can be told to report another ratio, which is the same event the
+ * page sees on a real screen change. What has to happen then is that the
+ * glyphs are thrown away — the addon's texture and the terminal's. */
+const ratio = await run(`${HELPERS}
+  // The element xterm was opened into carries it; which class that is has
+  // moved before, so it is looked for rather than assumed.
+  const host = [...document.querySelectorAll('.plxrDock .session *')].find(e => e.xterm);
+  const term = host && host.xterm;
+  if (!term) return { why: 'no terminal to measure' };
+  let cleared = 0;
+  const was = term.clearTextureAtlas.bind(term);
+  term.clearTextureAtlas = () => { cleared++; return was(); };
+  window.__plxrCleared = () => cleared;
+  return { ready: true, ratio: window.devicePixelRatio };
+`);
+if (ratio.why) {
+  // Nothing to measure is not the same as a claim that holds.
+  console.log(`      (${ratio.why} — the glyph redraw was not measured)`);
+} else {
+  // The same event a real screen change raises.
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 1600, height: 1000, deviceScaleFactor: 3, mobile: false,
+  }).catch(() => undefined);
+  await sleep(1200);
+  const after = await run(`${HELPERS}
+    return { cleared: window.__plxrCleared ? window.__plxrCleared() : -1, ratio: window.devicePixelRatio };
+  `);
+  await cdp.send("Emulation.clearDeviceMetricsOverride").catch(() => undefined);
+  claim("a terminal redraws its glyphs when the pixel ratio changes",
+    after.cleared > 0,
+    `ratio ${ratio.ratio} → ${after.ratio} · glyphs thrown away ${after.cleared} time(s)`);
+}
+
 // ---- report ---------------------------------------------------------------
 const failed = claims.filter((c) => !c.ok);
 for (const c of failed) console.log(`      ${c.what}${c.detail ? " — " + c.detail : ""}`);
