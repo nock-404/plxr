@@ -1004,7 +1004,11 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
    see in Windows 95, whose grey they are. On .plxrDock, before the wrapper,
    they sat inside the shell and won. */
 .dockHost,
-.dockHost .dv-shell > * {
+/* Every child of the shell but the popover: that one is not a pane of the
+   dock, it is a list laid over the work, and it has to be read. Without the
+   exception this blanket rule outranked the popover's own and the list was
+   read with the terminal showing through it. */
+.dockHost .dv-shell > *:not(.dv-popover-anchor) {
   --dv-group-view-background-color: transparent;
   /* dockview's theme sets the tab strip to 13px and every tab inherits it, so
      the interface type size moved every word in the window except the tabs.
@@ -1100,6 +1104,25 @@ button.branchword:focus-visible { outline: var(--hair) solid var(--accent); outl
 .panelTab[data-dirty="yes"] .panelTabClose::after { background: var(--waiting); border-radius: 50%; }
 
 /* The context menu on the panel surface, the picked item in the accent. */
+/* The list dockview opens for tabs that do not fit.
+ *
+ * It takes its background from --dv-group-view-background-color, which is
+ * transparent here on purpose: the dock lets the window's own material
+ * through. A list laid over a terminal cannot, and this one was read with the
+ * terminal showing through it.
+ *
+ * It is given the surface by setting that variable for the popover's subtree
+ * rather than by a rule on the list itself. Two reasons, both measured: the
+ * list is not inside .plxrDock at all but in a popover anchor of dockview's
+ * own, and everything here lives in a layer while dockview's stylesheet does
+ * not, so a rule of ours loses to theirs however specific it is. A variable
+ * nobody else sets on that element is not in that fight. */
+.dv-popover-anchor {
+  --dv-group-view-background-color: var(--surface);
+  --dv-tab-divider-color: var(--line);
+}
+.dv-popover-anchor .dv-tabs-overflow-container { box-shadow: 0 0.5rem 1.5rem var(--shadow); }
+
 .menu { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; border: var(--hair) solid var(--line); box-shadow: 0 0.5rem 1.5rem var(--shadow); }
 .menuItem { color: var(--fg); }
 .menuItem:hover:not(:disabled) { background: var(--line); color: var(--accent); }
