@@ -567,12 +567,36 @@ export default function Terminal({
     let painted = false;
     const pending: (Uint8Array | string)[] = [];
 
+    /* Nothing is written while the screen is being cleared.
+     *
+     * term.write is asynchronous: xterm keeps its own queue and empties it
+     * over the frames that follow. term.reset is not. So a reconnect cleared
+     * the screen while the remains of the old connection were still in that
+     * queue, and they came out on top of the replay the service sends after
+     * the new one opens. The result is a terminal full of pieces of two
+     * different moments, which no amount of waiting repairs and only a reload
+     * clears; he described it as every tab being chopped up after a while
+     * until he reloaded (12.10.2026).
+     *
+     * So the queue is drained first, then the screen is cleared, and anything
+     * that arrived in between waits its turn instead of jumping it. */
+    let clearing = false;
     const show = (data: Uint8Array | string) => {
-      if (!painted) {
+      if (!painted || clearing) {
         pending.push(data);
         return;
       }
       term.write(data as Uint8Array);
+    };
+    const clearThen = (done: () => void) => {
+      clearing = true;
+      // An empty write whose callback fires once everything before it is out.
+      term.write("", () => {
+        term.reset();
+        clearing = false;
+        for (const chunk of pending.splice(0)) term.write(chunk as Uint8Array);
+        done();
+      });
     };
 
     const settle = async () => {
@@ -606,10 +630,16 @@ export default function Terminal({
       socket.current = sock;
       sock.binaryType = "arraybuffer";
       sock.onopen = () => {
-        if (fed.current) term.reset();
-        lost = false;
-        attempt = 0;
-        size?.(true);
+        const ready = () => {
+          lost = false;
+          attempt = 0;
+          size?.(true);
+        };
+        if (fed.current) {
+          clearThen(ready);
+          return;
+        }
+        ready();
       };
       sock.onmessage = (e) => {
         fed.current = true;
